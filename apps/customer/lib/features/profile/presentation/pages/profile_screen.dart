@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:data/providers.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart' hide AppColors;
 
 import '../../../../core/theme/app_colors.dart';
@@ -41,25 +42,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _handleLogout(AppStrings s) async {
     if (_isLoggingOut) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s.logout),
-        content: Text(s.logoutConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(s.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              s.logout,
-              style: const TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: s.logout,
+      message: s.logoutConfirm,
+      confirmLabel: s.logout,
+      cancelLabel: s.cancel,
+      icon: LucideIcons.logOut,
+      confirmIcon: LucideIcons.logOut,
+      isDestructive: true,
     );
     if (confirmed != true || !mounted) return;
 

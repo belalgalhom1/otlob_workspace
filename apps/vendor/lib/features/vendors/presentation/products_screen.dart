@@ -682,120 +682,52 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     }).toList();
   }
 
-  void _confirmDelete(dynamic product) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                LucideIcons.alertTriangle,
-                color: AppColors.error,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                AppLocalizations.of(context)!.deleteProduct,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                AppLocalizations.of(context)!.deleteProductConfirm(
-                  product['name'] ??
-                      AppLocalizations.of(context)!.unnamedProduct,
-                ),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: Text(
-                        AppLocalizations.of(context)!.cancel,
-                        style: const TextStyle(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final messenger = ScaffoldMessenger.of(context);
-                        try {
-                          final success = await ref
-                              .read(adminVendorsRepositoryProvider)
-                              .deleteProduct(widget.vendorId, product['id'], isAdmin: widget.isAdmin);
-                          if (!dialogContext.mounted) return;
-                          Navigator.pop(dialogContext);
-                          if (success != null && success != false) {
-                            _fetchProducts();
-                            if (mounted) {
-                              messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  AppLocalizations.of(context)!.common_success_resource_deleted,
-                                ),
-                                backgroundColor: AppColors.success,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                            }
-                          }
-                        } catch (e) {
-                          if (!dialogContext.mounted) return;
-                          Navigator.pop(dialogContext);
-                          if (mounted) {
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  ErrorUtils.translate(context, e),
-                                ),
-                                backgroundColor: AppColors.error,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.error,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(AppLocalizations.of(context)!.delete),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+  Future<void> _confirmDelete(dynamic product) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteProduct,
+      message: l10n.deleteProductConfirm(
+        product['name'] ?? l10n.unnamedProduct,
       ),
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final success = await ref
+          .read(adminVendorsRepositoryProvider)
+          .deleteProduct(
+            widget.vendorId,
+            product['id'],
+            isAdmin: widget.isAdmin,
+          );
+      if (success != null && success != false && mounted) {
+        _fetchProducts();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.common_success_resource_deleted),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(ErrorUtils.translate(context, e)),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }
 

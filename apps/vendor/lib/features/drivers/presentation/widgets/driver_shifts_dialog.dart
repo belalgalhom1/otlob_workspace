@@ -77,138 +77,42 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isMobile = size.width < 600;
+    final l10n = AppLocalizations.of(context)!;
+    final isAr = l10n.localeName == 'ar';
 
-    return DialogScaffold(
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 16 : 40,
-          vertical: 24,
-        ),
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: 600,
-            maxHeight: size.height * 0.8,
-          ),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.08),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: Theme.of(context).brightness == Brightness.dark
-                      ? 0.4
-                      : 0.1,
-                ),
-                blurRadius: 30,
-                offset: const Offset(0, 15),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              _buildHeader(context),
-              Expanded(child: _buildContent(context)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0.05),
-            Colors.transparent,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.05),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              LucideIcons.calendarClock,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppLocalizations.of(context)!.driverShiftsEnabled,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  widget.driver.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ],
-            ),
-          ),
+    return AppDialog(
+      maxWidth: 640,
+      maxHeight: 780,
+      scrollableBody: false,
+      expandBody: true,
+      bodyPadding: EdgeInsets.zero,
+      header: AppDialogHeader(
+        icon: LucideIcons.calendarClock,
+        title: l10n.driverShiftsEnabled,
+        subtitle: widget.driver.name,
+        actions: [
           IconButton(
             onPressed: _shifts.isEmpty ? null : () => _exportAllShiftsPdf(),
-            icon: const Icon(LucideIcons.fileSpreadsheet, size: 20),
-            tooltip: Localizations.localeOf(context).languageCode == 'ar'
+            icon: const Icon(LucideIcons.fileSpreadsheet, size: 19),
+            tooltip: isAr
                 ? 'تصدير تقرير الورديات الشامل (PDF)'
                 : 'Export Shifts Report (PDF)',
-            style: IconButton.styleFrom(
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.1),
-              foregroundColor: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(LucideIcons.x, size: 20),
-            style: IconButton.styleFrom(
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.05),
-            ),
           ),
         ],
+        onClose: () => Navigator.pop(context),
+      ),
+      body: _buildContent(context),
+      footer: AppDialogFooter(
+        cancelLabel: isAr ? 'إغلاق' : 'Close',
+        onCancel: () => Navigator.pop(context),
       ),
     );
   }
 
   Widget _buildContent(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isMobile = AppDialogStyles.isMobile(context);
+    final hPad = isMobile ? 16.0 : 24.0;
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -227,7 +131,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               ),
               const SizedBox(height: 16),
               Text(
-                '${AppLocalizations.of(context)!.failedToLoadShifts}:\n${ErrorUtils.translate(context, _error)}',
+                '${l10n.failedToLoadShifts}:\n${ErrorUtils.translate(context, _error)}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.error),
               ),
@@ -241,7 +145,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   _fetchShifts();
                 },
                 icon: const Icon(LucideIcons.refreshCw, size: 16),
-                label: Text(AppLocalizations.of(context)!.retry),
+                label: Text(l10n.retry),
               ),
             ],
           ),
@@ -265,18 +169,16 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
               ),
               const SizedBox(height: 16),
               Text(
-                AppLocalizations.of(context)!.noShiftsFound,
+                l10n.noShiftsFound,
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
-                AppLocalizations.of(context)!.driverNoScheduledShifts,
+                l10n.driverNoScheduledShifts,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.7),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 24),
@@ -328,12 +230,12 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+          padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 8),
           child: _buildBookWeekButton(context, l10n),
         ),
         Expanded(
           child: ListView.separated(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 16),
             itemCount: items.length,
             separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
@@ -377,6 +279,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     BuildContext context,
     AppLocalizations l10n,
   ) async {
+    final isAr = l10n.localeName == 'ar';
     // Fetch available shift pools
     final dio = ref.read(dioProvider);
     try {
@@ -387,12 +290,10 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
           : (raw is Map && raw['items'] is List ? raw['items'] as List : null);
       if (list == null || list.isEmpty) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
             SnackBar(
               content: Text(
-                l10n.localeName == 'ar'
-                    ? 'لا توجد ورديات متاحة'
-                    : 'No available shifts',
+                isAr ? 'لا توجد ورديات متاحة' : 'No available shifts',
               ),
             ),
           );
@@ -416,12 +317,10 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
 
       if (groups.isEmpty || !context.mounted) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
             SnackBar(
               content: Text(
-                l10n.localeName == 'ar'
-                    ? 'لا توجد ورديات متاحة'
-                    : 'No available shifts',
+                isAr ? 'لا توجد ورديات متاحة' : 'No available shifts',
               ),
             ),
           );
@@ -431,131 +330,143 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
 
       await showDialog<void>(
         context: context,
-        builder: (ctx) => DialogScaffold(
-          child: AlertDialog(
-            title: Text(
-              l10n.localeName == 'ar'
-                  ? 'حجز وردية أسبوعية'
-                  : 'Book Weekly Shift',
+        builder: (ctx) {
+          final theme = Theme.of(ctx);
+          final isMobile = AppDialogStyles.isMobile(ctx);
+          return AppDialog(
+            maxWidth: 480,
+            maxHeight: 560,
+            scrollableBody: false,
+            expandBody: true,
+            bodyPadding: EdgeInsets.all(isMobile ? 16 : 20),
+            header: AppDialogHeader(
+              icon: LucideIcons.calendarPlus,
+              title: isAr ? 'حجز وردية أسبوعية' : 'Book Weekly Shift',
+              subtitle: widget.driver.name,
+              onClose: () => Navigator.pop(ctx),
             ),
-            content: SizedBox(
-              width: 400,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: groupOrder.length,
-                itemBuilder: (ctx, idx) {
-                  final batchId = groupOrder[idx];
-                  final pools = groups[batchId]!;
-                  final title =
-                      pools.first['title']?.toString() ??
-                      pools.first['titleAr']?.toString() ??
-                      '';
-                  final zoneName =
-                      pools.first['zone']?['name']?.toString() ?? '';
-                  final spanLabel = pools.length > 1
-                      ? '${pools.length} days'
-                      : '';
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title.isNotEmpty ? title : zoneName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          if (spanLabel.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              spanLabel,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              onPressed: () async {
-                                Navigator.pop(ctx);
-                                try {
-                                  final poolIds = pools
-                                      .map((p) => p['id']?.toString() ?? '')
-                                      .where((id) => id.isNotEmpty)
-                                      .toList();
-                                  final dio = ref.read(dioProvider);
-                                  await dio.post(
-                                    '/driver-shifts/admin/book-week',
-                                    data: {
-                                      'driverId': widget.driver.id,
-                                      'shiftPoolIds': poolIds,
-                                    },
-                                  );
-                                  await _fetchShifts();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          l10n.common_success_operation,
-                                        ),
-                                        backgroundColor: AppColors.success,
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        ErrorUtils.translate(context, e),
-                                      ),
-                                      backgroundColor: AppColors.error,
-                                    ),
-                                  );
-                                }
-                              },
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: AppColors.onPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                              ),
-                              child: Text(
-                                l10n.localeName == 'ar' ? 'حجز' : 'Book',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+            body: ListView.separated(
+              itemCount: groupOrder.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (ctx, idx) {
+                final batchId = groupOrder[idx];
+                final pools = groups[batchId]!;
+                final title =
+                    pools.first['title']?.toString() ??
+                    pools.first['titleAr']?.toString() ??
+                    '';
+                final zoneName =
+                    pools.first['zone']?['name']?.toString() ?? '';
+                final spanLabel = pools.length > 1
+                    ? (isAr ? '${pools.length} أيام' : '${pools.length} days')
+                    : '';
+                return AppDialogSectionCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title.isNotEmpty ? title : zoneName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                      if (spanLabel.isNotEmpty || (title.isNotEmpty && zoneName.isNotEmpty)) ...[
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            if (title.isNotEmpty && zoneName.isNotEmpty)
+                              AppBadgePill(text: zoneName),
+                            if (spanLabel.isNotEmpty)
+                              Text(
+                                spanLabel,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            try {
+                              final poolIds = pools
+                                  .map((p) => p['id']?.toString() ?? '')
+                                  .where((id) => id.isNotEmpty)
+                                  .toList();
+                              final dio = ref.read(dioProvider);
+                              await dio.post(
+                                '/driver-shifts/admin/book-week',
+                                data: {
+                                  'driverId': widget.driver.id,
+                                  'shiftPoolIds': poolIds,
+                                },
+                              );
+                              await _fetchShifts();
+                              if (context.mounted) {
+                                ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      l10n.common_success_operation,
+                                    ),
+                                    backgroundColor: AppColors.success,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    ErrorUtils.translate(context, e),
+                                  ),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.onPrimary,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(LucideIcons.check, size: 15),
+                          label: Text(
+                            isAr ? 'حجز' : 'Book',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(l10n.cancel),
-              ),
-            ],
-          ),
-        ),
+            footer: AppDialogFooter(
+              cancelLabel: l10n.cancel,
+              onCancel: () => Navigator.pop(ctx),
+            ),
+          );
+        },
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           content: Text(ErrorUtils.translate(context, e)),
           backgroundColor: AppColors.error,
@@ -1261,76 +1172,93 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
   }
 
   void _showPhoto(BuildContext context, String url) {
-    showDialog(
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    showDialog<void>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: InteractiveViewer(
-          child: CachedNetworkImage(
-            imageUrl: ImageUtils.formatImageUrl(url),
-            fit: BoxFit.contain,
-            placeholder: (_, _) =>
-                const Center(child: CircularProgressIndicator()),
-            errorWidget: (_, _, _) => const Icon(
-              LucideIcons.imageOff,
-              color: AppColors.textMuted,
-              size: 40,
+      builder: (ctx) => AppDialog(
+        maxWidth: 680,
+        maxHeight: 680,
+        scrollableBody: false,
+        expandBody: true,
+        bodyPadding: const EdgeInsets.all(16),
+        header: AppDialogHeader(
+          icon: LucideIcons.image,
+          title: l10n.pickupPhoto,
+          onClose: () => Navigator.pop(ctx),
+        ),
+        body: Container(
+          decoration: BoxDecoration(
+            color: AppDialogStyles.subtleSurfaceColor(ctx),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppDialogStyles.borderColor(ctx)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InteractiveViewer(
+            minScale: 0.8,
+            maxScale: 4.0,
+            child: Center(
+              child: CachedNetworkImage(
+                imageUrl: ImageUtils.formatImageUrl(url),
+                fit: BoxFit.contain,
+                placeholder: (_, _) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+                errorWidget: (_, _, _) => Center(
+                  child: Icon(
+                    LucideIcons.imageOff,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    size: 40,
+                  ),
+                ),
+              ),
             ),
           ),
+        ),
+        footer: AppDialogFooter(
+          cancelLabel: l10n.closeAction,
+          onCancel: () => Navigator.pop(ctx),
         ),
       ),
     );
   }
 
-  void _confirmDelete(BuildContext context, DriverShift shift) {
+  Future<void> _confirmDelete(BuildContext context, DriverShift shift) async {
     final l10n = AppLocalizations.of(context)!;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(l10n.deleteShiftConfirmTitle),
-        content: Text(l10n.deleteShiftConfirmMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await ref
-                    .read(dioProvider)
-                    .delete('/driver-shifts/admin/shifts/${shift.id}');
-                await _fetchShifts();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(l10n.shiftRemovedSuccessfully),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(ErrorUtils.translate(context, e)),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              }
-            },
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteShiftConfirmTitle,
+      message: l10n.deleteShiftConfirmMessage,
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref
+          .read(dioProvider)
+          .delete('/driver-shifts/admin/shifts/${shift.id}');
+      await _fetchShifts();
+      if (context.mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(l10n.shiftRemovedSuccessfully),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(ErrorUtils.translate(context, e)),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   Future<void> _confirmRemoveGroup(List<String> poolIds) async {
@@ -1338,27 +1266,15 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     if (_isBulkRemoving || uniquePoolIds.isEmpty) return;
 
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(l10n.removeDriverFromGroupTitle),
-        content: Text(l10n.removeDriverGroupConfirm(uniquePoolIds.length)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.removeDriverFromGroupTitle,
+      message: l10n.removeDriverGroupConfirm(uniquePoolIds.length),
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
     if (confirmed != true || !mounted) return;
 

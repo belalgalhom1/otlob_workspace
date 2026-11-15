@@ -16,7 +16,9 @@ import '../../../../core/widgets/floating_cart_overlay.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 import '../../../../core/services/socket_service.dart';
-import 'package:ui_kit/ui_kit.dart' show MediaPermissionHelper;
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:ui_kit/ui_kit.dart'
+    show MediaPermissionHelper, AppConfirmDialog;
 import '../providers/orders_provider.dart';
 
 double _parseDouble(dynamic value) {
@@ -595,28 +597,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               return;
             }
             // Show confirmation dialog before marking as paid
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title:
-                    Text(s.isArabic ? 'تأكيد الدفع' : 'Confirm Payment'),
-                content: Text(s.isArabic
-                    ? 'هل أنت متأكد من تحويل المبلغ المطلوب إلى المندوب؟'
-                    : 'Are you sure you transferred the required amount to the driver?'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: Text(s.cancel),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary),
-                    child: Text(s.isArabic ? 'نعم، حولت' : 'Yes, I paid',
-                        style: const TextStyle(color: Colors.white)),
-                  ),
-                ],
-              ),
+            final confirm = await AppConfirmDialog.show(
+              context,
+              title: s.isArabic ? 'تأكيد الدفع' : 'Confirm Payment',
+              message: s.isArabic
+                  ? 'هل أنت متأكد من تحويل المبلغ المطلوب إلى المندوب؟'
+                  : 'Are you sure you transferred the required amount to the driver?',
+              confirmLabel: s.isArabic ? 'نعم، حولت' : 'Yes, I paid',
+              cancelLabel: s.cancel,
+              icon: LucideIcons.checkCircle2,
+              confirmIcon: LucideIcons.check,
             );
 
                     if (confirm == true) {

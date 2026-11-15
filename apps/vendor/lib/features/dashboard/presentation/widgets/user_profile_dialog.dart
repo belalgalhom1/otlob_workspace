@@ -249,230 +249,217 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
     final l10n = AppLocalizations.of(context)!;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final theme = Theme.of(context);
+    final busy = _isSaving || _isUploadingAvatar;
 
-    return DialogScaffold(
-      child: Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          // Shrink on small screens: a fixed 500px width overflowed phones
-          // and clipped the Security buttons.
-          constraints: const BoxConstraints(maxWidth: 500),
-          padding: const EdgeInsets.all(24),
-          child: _isLoading
-              ? const SizedBox(
-                  height: 200,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : SingleChildScrollView(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AppDialog(
+      maxWidth: 520,
+      canPop: !busy,
+      header: AppDialogHeader(
+        icon: LucideIcons.user,
+        title: l10n.editUserProfile,
+        subtitleWidget: _role != null
+            ? Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  AppBadgePill(
+                    text: _role!.replaceAll('_', ' '),
+                    accentColor: AppColors.primary,
+                  ),
+                ],
+              )
+            : null,
+        isCloseDisabled: busy,
+        onClose: () => Navigator.of(context).pop(),
+      ),
+      body: _isLoading
+          ? const SizedBox(
+              height: 220,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_errorMessage != null &&
+                      _errorMessage!.trim().isNotEmpty) ...[
+                    AppDialogErrorBanner(
+                      message: ErrorUtils.translate(context, _errorMessage),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Avatar Section
+                  Center(
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        // Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(LucideIcons.user, color: theme.colorScheme.primary, size: 24),
-                                const SizedBox(width: 12),
-                                Text(
-                                  l10n.editUserProfile,
-                                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                            IconButton(
-                              icon: const Icon(LucideIcons.x, size: 20),
-                              onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          ],
+                        CircleAvatar(
+                          radius: 48,
+                          backgroundColor:
+                              AppColors.primary.withValues(alpha: 0.12),
+                          // Backend returns a relative path — resolve it
+                          // or the image silently fails to load even
+                          // though the upload reported success.
+                          backgroundImage:
+                              _avatarUrl != null && _avatarUrl!.isNotEmpty
+                                  ? CachedNetworkImageProvider(
+                                      ImageUtils.formatImageUrl(_avatarUrl),
+                                    )
+                                  : null,
+                          child: _avatarUrl == null || _avatarUrl!.isEmpty
+                              ? const Icon(
+                                  LucideIcons.user,
+                                  size: 46,
+                                  color: AppColors.primary,
+                                )
+                              : null,
                         ),
-                        const SizedBox(height: 24),
-
-                        if (_errorMessage != null) ...[
+                        if (_isUploadingAvatar)
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            width: 96,
+                            height: 96,
                             decoration: BoxDecoration(
-                              color: AppColors.error.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                              color: Colors.black.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
                             ),
-                            child: Text(
-                              ErrorUtils.translate(context, _errorMessage),
-                              style: const TextStyle(color: AppColors.error, fontSize: 13),
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Avatar Section
-                        Center(
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              CircleAvatar(
-                                radius: 48,
-                                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                // Backend returns a relative path — resolve it
-                                // or the image silently fails to load even
-                                // though the upload reported success.
-                                backgroundImage: _avatarUrl != null && _avatarUrl!.isNotEmpty
-                                    ? CachedNetworkImageProvider(
-                                        ImageUtils.formatImageUrl(_avatarUrl))
-                                    : null,
-                                child: _avatarUrl == null || _avatarUrl!.isEmpty
-                                    ? Icon(LucideIcons.user, size: 48, color: theme.colorScheme.primary)
-                                    : null,
-                              ),
-                              if (_isUploadingAvatar)
-                                Container(
-                                  width: 96,
-                                  height: 96,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.5),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Center(
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                  ),
-                                ),
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: InkWell(
-                                  onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primary,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.2),
-                                          blurRadius: 4,
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(LucideIcons.camera, size: 16, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (_role != null) ...[
-                          const SizedBox(height: 12),
-                          Center(
+                        PositionedDirectional(
+                          bottom: 0,
+                          end: 0,
+                          child: InkWell(
+                            onTap: busy ? null : _pickAndUploadAvatar,
+                            borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                _role!.replaceAll('_', ' '),
-                                style: TextStyle(
-                                  color: theme.colorScheme.primary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppDialogStyles.backgroundColor(context),
+                                  width: 2,
                                 ),
                               ),
+                              child: const Icon(
+                                LucideIcons.camera,
+                                size: 15,
+                                color: AppColors.onPrimary,
+                              ),
                             ),
                           ),
-                        ],
-                        const SizedBox(height: 24),
-
-                        // Form Fields
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: InputDecoration(
-                            labelText: l10n.name,
-                            prefixIcon: const Icon(LucideIcons.user, size: 18),
-                            border: const OutlineInputBorder(),
-                          ),
-                          validator: (val) =>
-                              (val == null || val.trim().isEmpty) ? l10n.requiredField : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _emailController,
-                          decoration: InputDecoration(
-                            labelText: l10n.emailAddress,
-                            prefixIcon: const Icon(LucideIcons.mail, size: 18),
-                            border: const OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _phoneController,
-                          decoration: InputDecoration(
-                            labelText: l10n.phone,
-                            prefixIcon: const Icon(LucideIcons.phone, size: 18),
-                            border: const OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Security Section
-                        const Divider(),
-                        const SizedBox(height: 12),
-                        Text(
-                          isAr ? 'الأمان والحساب' : 'Security & Account',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // NOTE: no self-delete here — users cannot delete their
-                        // own account. Admins remove other users from the
-                        // Users page (which already blocks self-deletion).
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _showChangePassword,
-                            icon: const Icon(LucideIcons.keyRound, size: 16),
-                            label: Text(isAr ? 'تغيير كلمة المرور' : 'Change Password'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-                        const Divider(),
-                        const SizedBox(height: 16),
-
-                        // Dialog Footer
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-                              child: Text(l10n.cancel),
-                            ),
-                            const SizedBox(width: 12),
-                            PrimaryButton(
-                              text: l10n.save,
-                              isLoading: _isSaving,
-                              onPressed: _isSaving ? null : _saveProfile,
-                            ),
-                          ],
                         ),
                       ],
                     ),
                   ),
-                ),
-        ),
-      ),
+                  const SizedBox(height: 20),
+
+                  // Form Fields
+                  AppFieldLabel(label: l10n.name, isRequired: true),
+                  TextFormField(
+                    controller: _nameController,
+                    enabled: !_isSaving,
+                    textInputAction: TextInputAction.next,
+                    decoration: AppDialogStyles.inputDecoration(
+                      context,
+                      hintText: l10n.name,
+                      icon: LucideIcons.user,
+                    ),
+                    validator: (val) => (val == null || val.trim().isEmpty)
+                        ? l10n.requiredField
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  AppFieldLabel(label: l10n.emailAddress),
+                  TextFormField(
+                    controller: _emailController,
+                    enabled: !_isSaving,
+                    textDirection: TextDirection.ltr,
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: AppDialogStyles.inputDecoration(
+                      context,
+                      hintText: l10n.emailAddress,
+                      icon: LucideIcons.mail,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  AppFieldLabel(label: l10n.phone),
+                  TextFormField(
+                    controller: _phoneController,
+                    enabled: !_isSaving,
+                    textDirection: TextDirection.ltr,
+                    textInputAction: TextInputAction.done,
+                    keyboardType: TextInputType.phone,
+                    decoration: AppDialogStyles.inputDecoration(
+                      context,
+                      hintText: l10n.phone,
+                      icon: LucideIcons.phone,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Security Section
+                  // NOTE: no self-delete here — users cannot delete their
+                  // own account. Admins remove other users from the
+                  // Users page (which already blocks self-deletion).
+                  AppDialogSectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          isAr ? 'الأمان والحساب' : 'Security & Account',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: _isSaving ? null : _showChangePassword,
+                          icon: const Icon(LucideIcons.keyRound, size: 16),
+                          label: Text(
+                            isAr ? 'تغيير كلمة المرور' : 'Change Password',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(44),
+                            foregroundColor: theme.colorScheme.onSurface,
+                            side: BorderSide(
+                              color: AppDialogStyles.borderColor(context),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      footer: _isLoading
+          ? null
+          : AppDialogFooter(
+              cancelLabel: l10n.cancel,
+              onCancel: () => Navigator.of(context).pop(),
+              confirmLabel: l10n.save,
+              confirmIcon: LucideIcons.save,
+              isLoading: _isSaving,
+              onConfirm: _isSaving ? null : _saveProfile,
+            ),
     );
   }
 }

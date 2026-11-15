@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:ui_kit/ui_kit.dart' show AppDialog;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/network/network_providers.dart';
 import '../providers/support_ticket_provider.dart';
@@ -234,7 +235,35 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      builder: (ctx) => AppDialog(
+        maxWidth: 320,
+        canPop: false,
+        showDividers: false,
+        body: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.6,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  isAr ? 'جاري فتح المحادثة...' : 'Opening support chat...',
+                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
 
     try {

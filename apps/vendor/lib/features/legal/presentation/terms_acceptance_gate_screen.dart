@@ -111,30 +111,17 @@ class _TermsAcceptanceGateScreenState
 
   Future<void> _decline() async {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isAr ? 'رفض شروط الاستخدام؟' : 'Decline Terms of Use?'),
-        content: Text(
-          isAr
-              ? 'لا يمكنك متابعة استخدام لوحة تحكم المنصة بدون الموافقة على شروط الاستخدام المحدثة. سيتم تسجيل خروجك من حسابك.'
-              : 'You cannot use the platform admin without accepting the updated Terms of Use. You will be logged out.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(isAr ? 'إلغاء' : 'Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(isAr ? 'تسجيل الخروج' : 'Log out'),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: isAr ? 'رفض شروط الاستخدام؟' : 'Decline Terms of Use?',
+      message: isAr
+          ? 'لا يمكنك متابعة استخدام لوحة تحكم المنصة بدون الموافقة على شروط الاستخدام المحدثة. سيتم تسجيل خروجك من حسابك.'
+          : 'You cannot use the platform admin without accepting the updated Terms of Use. You will be logged out.',
+      confirmLabel: isAr ? 'تسجيل الخروج' : 'Log out',
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      icon: LucideIcons.logOut,
+      confirmIcon: LucideIcons.logOut,
+      isDestructive: true,
     );
 
     if (confirmed == true && mounted) {

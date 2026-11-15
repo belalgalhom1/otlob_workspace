@@ -851,85 +851,60 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
         var removeFromAll =
             (defaultRemoveFromAll ?? _removeFromAll) && hasGroup;
         return StatefulBuilder(
-          builder: (ctx, setDialogState) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text(
-              removeFromAll && hasGroup
-                  ? l10n.removeDriverFromGroupTitle
-                  : l10n.removeDriver,
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (driverName.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+          builder: (ctx, setDialogState) {
+            final theme = Theme.of(ctx);
+            return AppDialog(
+              maxWidth: 460,
+              header: AppDialogHeader(
+                icon: LucideIcons.userMinus,
+                accentColor: AppColors.error,
+                titleColor: AppColors.error,
+                title: removeFromAll && hasGroup
+                    ? l10n.removeDriverFromGroupTitle
+                    : l10n.removeDriver,
+                onClose: () => Navigator.pop(ctx, null),
+              ),
+              body: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (driverName.isNotEmpty) ...[
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: AppBadgePill(
+                        text: driverName,
+                        icon: LucideIcons.user,
+                        accentColor: AppColors.primary,
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(ctx)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          LucideIcons.user,
-                          size: 13,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            driverName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 12),
+                  ],
+                  Text(
+                    removeFromAll && hasGroup
+                        ? l10n.removeDriverGroupConfirm(widget.allPoolIds.length)
+                        : l10n.removeDriverConfirm,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                ],
-                Text(
-                  removeFromAll && hasGroup
-                      ? l10n.removeDriverGroupConfirm(widget.allPoolIds.length)
-                      : l10n.removeDriverConfirm,
-                ),
-                if (hasGroup) ...[
-                  const SizedBox(height: 12),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
+                  if (hasGroup) ...[
+                    const SizedBox(height: 14),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
                       onTap: () =>
                           setDialogState(() => removeFromAll = !removeFromAll),
-                      child: Container(
+                      child: AppDialogSectionCard(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 10,
+                          vertical: 11,
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(
-                            alpha: removeFromAll ? 0.10 : 0.04,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.error.withValues(
-                              alpha: removeFromAll ? 0.45 : 0.22,
-                            ),
-                          ),
+                        backgroundColor: AppColors.error.withValues(
+                          alpha: removeFromAll ? 0.10 : 0.04,
+                        ),
+                        borderColor: AppColors.error.withValues(
+                          alpha: removeFromAll ? 0.45 : 0.22,
                         ),
                         child: Row(
                           children: [
@@ -946,8 +921,8 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                                 l10n.removeFromAllShifts(
                                   widget.allPoolIds.length,
                                 ),
-                                style: const TextStyle(
-                                  fontSize: 12,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -956,25 +931,19 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, null),
-                child: Text(l10n.cancel),
               ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () => Navigator.pop(ctx, removeFromAll),
-                child: Text(l10n.delete),
+              footer: AppDialogFooter(
+                cancelLabel: l10n.cancel,
+                onCancel: () => Navigator.pop(ctx, null),
+                confirmLabel: l10n.delete,
+                confirmIcon: LucideIcons.trash2,
+                isDestructive: true,
+                onConfirm: () => Navigator.pop(ctx, removeFromAll),
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1043,27 +1012,15 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
   }
 
   Future<void> _removeAllDrivers(AppLocalizations l10n, ShiftPool pool) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(l10n.removeAllDrivers),
-        content: Text(l10n.removeAllDriversConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.removeAllDrivers,
+      message: l10n.removeAllDriversConfirm,
+      cancelLabel: l10n.cancel,
+      confirmLabel: l10n.delete,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
     if (confirmed != true) return;
     try {

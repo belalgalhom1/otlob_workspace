@@ -142,140 +142,251 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
     final dropoffName = widget.dispatchData['dropoffLocationName']?.toString() ?? AppLocalizations.of(context)!.customerFallback;
     final isStacked = widget.dispatchData['isStacked'] == true || widget.dispatchData['isStacked'] == 'true';
 
-    return DialogScaffold(child: Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(LucideIcons.zap, size: 48, color: AppColors.primary),
-            const SizedBox(height: 12),
-            if (isStacked) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.35),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isMobile = AppDialogStyles.isMobile(context);
+    final l10n = AppLocalizations.of(context)!;
+    final accentTextColor =
+        isDark ? AppColors.primary : const Color(0xFFB45309);
+    final earningsColor =
+        isDark ? AppColors.success : const Color(0xFF047857);
+    final isUrgent = _secondsLeft < 10;
+
+    return AppDialog(
+      maxWidth: 460,
+      canPop: false,
+      header: AppDialogHeader(
+        icon: LucideIcons.zap,
+        title: l10n.newDeliveryRequest,
+        showCloseButton: false,
+        subtitleWidget: isStacked
+            ? Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: AppBadgePill(
+                    text: isAr
+                        ? 'طلب مجمع إضافي في خط سيرك'
+                        : 'Batch Corridor Order',
+                    icon: LucideIcons.route,
+                    accentColor: accentTextColor,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(LucideIcons.route, size: 16, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        isAr ? 'طلب مجمع إضافي في خط سيرك' : 'Batch Corridor Order',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            Text(
-              AppLocalizations.of(context)!.newDeliveryRequest,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              )
+            : null,
+        actions: [
+          AppBadgePill(
+            text: '${_secondsLeft}s',
+            icon: LucideIcons.timer,
+            accentColor: isUrgent ? AppColors.error : accentTextColor,
+          ),
+        ],
+      ),
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppDialogSectionCard(
+            child: Row(
               children: [
                 Expanded(
                   child: _buildInfoItem(
                     LucideIcons.banknote,
                     earnings,
-                    AppLocalizations.of(context)!.earningsLabel,
-                    AppColors.success,
+                    l10n.earningsLabel,
+                    earningsColor,
                     subLabel: feeSubLabel,
                   ),
                 ),
-                const SizedBox(width: 8),
+                Container(
+                  width: 1,
+                  height: 52,
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  color: AppDialogStyles.borderColor(context),
+                ),
                 Expanded(
                   child: _buildInfoItem(
                     LucideIcons.navigation,
                     distance,
-                    AppLocalizations.of(context)!.distanceLabel,
-                    AppColors.primary,
+                    l10n.distanceLabel,
+                    accentTextColor,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            _buildLocationRow(LucideIcons.store, pickupName, AppLocalizations.of(context)!.pickupLabel, context),
-            const SizedBox(height: 12),
-            _buildLocationRow(LucideIcons.mapPin, dropoffName, AppLocalizations.of(context)!.dropoffLabel, context),
-            const SizedBox(height: 32),
-            Text(
-              AppLocalizations.of(context)!.expiresInSeconds(_secondsLeft),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _secondsLeft < 10 ? AppColors.error : AppColors.primary,
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          const SizedBox(height: 12),
+          AppDialogSectionCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildLocationRow(
+                  LucideIcons.store,
+                  pickupName,
+                  l10n.pickupLabel,
+                  context,
+                ),
+                Divider(
+                  height: 22,
+                  thickness: 1,
+                  color: AppDialogStyles.borderColor(context),
+                ),
+                _buildLocationRow(
+                  LucideIcons.mapPin,
+                  dropoffName,
+                  l10n.dropoffLabel,
+                  context,
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            l10n.expiresInSeconds(_secondsLeft),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: isUrgent ? AppColors.error : accentTextColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+      footer: Padding(
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 16 : 24,
+          14,
+          isMobile ? 16 : 24,
+          16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             PrimaryButton(
-              text: AppLocalizations.of(context)!.acceptDelivery,
+              text: l10n.acceptDelivery,
               isLoading: _isLoading,
               onPressed: _isLoading ? null : _onAccept,
             ),
-            const SizedBox(height: 12),
-            TextButton(
+            const SizedBox(height: 10),
+            OutlinedButton(
               onPressed: _isLoading ? null : _onDecline,
-              child: Text(AppLocalizations.of(context)!.decline),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 46),
+                foregroundColor: theme.colorScheme.onSurface,
+                side: BorderSide(
+                  color: AppDialogStyles.borderColor(context),
+                  width: 1.2,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                l10n.decline,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),
       ),
-    ));
+    );
   }
 
-  Widget _buildInfoItem(IconData icon, String value, String label, Color color, {String? subLabel}) {
+  Widget _buildInfoItem(
+    IconData icon,
+    String value,
+    String label,
+    Color color, {
+    String? subLabel,
+  }) {
+    final theme = Theme.of(context);
     return Column(
       children: [
-        Icon(icon, color: color, size: 28),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 22),
+        ),
         const SizedBox(height: 8),
-        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         if (subLabel != null) ...[
-          const SizedBox(height: 2),
-          Text(subLabel, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+          const SizedBox(height: 3),
+          Text(
+            subLabel,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+            ),
+          ),
         ],
       ],
     );
   }
 
-  Widget _buildLocationRow(IconData icon, String name, String type, BuildContext context) {
+  Widget _buildLocationRow(
+    IconData icon,
+    String name,
+    String type,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final iconColor = isDark ? AppColors.primary : const Color(0xFFB45309);
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
+            color: AppColors.primary.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: AppColors.primary, size: 20),
+          child: Icon(icon, color: iconColor, size: 19),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(type, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface)),
-              Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+              Text(
+                type,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
             ],
           ),
         ),

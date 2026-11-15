@@ -431,9 +431,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final selectedColor = AppColors.primary;
-          final unselectedColor =
-              Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.7);
+          final theme = Theme.of(ctx);
+          final isDark = theme.brightness == Brightness.dark;
+          final selectedAccent =
+              isDark ? AppColors.primary : const Color(0xFFB45309);
+          final unselectedColor = theme.colorScheme.onSurfaceVariant;
 
           Widget chip(
             String label,
@@ -449,7 +451,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                     Icon(
                       icon,
                       size: 14,
-                      color: selected ? selectedColor : unselectedColor,
+                      color: selected ? selectedAccent : unselectedColor,
                     ),
                     const SizedBox(width: 6),
                   ],
@@ -457,202 +459,217 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                 ],
               ),
               selected: selected,
+              showCheckmark: false,
               onSelected: (_) => onTap(),
-              selectedColor: selectedColor.withValues(alpha: 0.15),
+              selectedColor: AppColors.primary.withValues(
+                alpha: isDark ? 0.16 : 0.14,
+              ),
+              backgroundColor: AppDialogStyles.backgroundColor(ctx),
               labelStyle: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: selected ? selectedColor : unselectedColor,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: selected ? selectedAccent : theme.colorScheme.onSurface,
               ),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(10),
+              ),
               side: BorderSide(
                 color: selected
-                    ? selectedColor
-                    : Theme.of(ctx)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.15),
+                    ? AppColors.primary
+                    : AppDialogStyles.borderColor(ctx),
+                width: selected ? 1.4 : 1.0,
               ),
             );
           }
 
           String loc(String en, String ar) => arabic ? ar : en;
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20)),
-            title: Text(isUiArabic ? 'تصدير التحليلات' : 'Export Analytics'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isUiArabic ? 'النطاق' : 'Scope',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
+          return AppDialog(
+            maxWidth: 520,
+            header: AppDialogHeader(
+              icon: LucideIcons.download,
+              title: isUiArabic ? 'تصدير التحليلات' : 'Export Analytics',
+              subtitle: isUiArabic
+                  ? 'اختر النطاق والمدة الزمنية وصيغة الملف للتصدير.'
+                  : 'Choose scope, report language, date range, and format.',
+              onClose: () => Navigator.pop(ctx),
+            ),
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppDialogSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      chip(
-                        isUiArabic ? 'هذا التبويب' : 'This tab',
-                        !allTabs,
-                        () => setDialogState(() => allTabs = false),
+                      AppFieldLabel(
+                        label: isUiArabic ? 'النطاق' : 'Scope',
                       ),
-                      chip(
-                        isUiArabic ? 'كل التبويبات' : 'All tabs',
-                        allTabs,
-                        () => setDialogState(() => allTabs = true),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          chip(
+                            isUiArabic ? 'هذا التبويب' : 'This tab',
+                            !allTabs,
+                            () => setDialogState(() => allTabs = false),
+                          ),
+                          chip(
+                            isUiArabic ? 'كل التبويبات' : 'All tabs',
+                            allTabs,
+                            () => setDialogState(() => allTabs = true),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    isUiArabic ? 'اللغة' : 'Language',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
+                ),
+                const SizedBox(height: 12),
+                AppDialogSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      chip(
-                        'العربية',
-                        arabic,
-                        () => setDialogState(() => arabic = true),
+                      AppFieldLabel(
+                        label: isUiArabic ? 'اللغة' : 'Language',
                       ),
-                      chip(
-                        'English',
-                        !arabic,
-                        () => setDialogState(() => arabic = false),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          chip(
+                            'العربية',
+                            arabic,
+                            () => setDialogState(() => arabic = true),
+                          ),
+                          chip(
+                            'English',
+                            !arabic,
+                            () => setDialogState(() => arabic = false),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        loc(
+                          'Excel and PDF will use the selected language.',
+                          'سيتم استخدام اللغة المحددة في Excel و PDF.',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11.5,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    loc('Excel and PDF will use the selected language.',
-                        'سيتم استخدام اللغة المحددة في Excel و PDF.'),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(ctx)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    isUiArabic ? 'المدة' : 'Date range',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                ),
+                const SizedBox(height: 12),
+                AppDialogSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      chip(
-                        isUiArabic ? 'كل الوقت' : 'All time',
-                        rangeMode == 'all',
-                        () => setDialogState(() => rangeMode = 'all'),
+                      AppFieldLabel(
+                        label: isUiArabic ? 'المدة' : 'Date range',
                       ),
-                      chip(
-                        isUiArabic ? 'اليوم' : 'Today',
-                        rangeMode == 'today',
-                        () => setDialogState(() => rangeMode = 'today'),
-                      ),
-                      chip(
-                        isUiArabic ? 'آخر ٧ أيام' : 'Last 7 days',
-                        rangeMode == '7',
-                        () => setDialogState(() => rangeMode = '7'),
-                      ),
-                      chip(
-                        isUiArabic ? 'آخر ٣٠ يوم' : 'Last 30 days',
-                        rangeMode == '30',
-                        () => setDialogState(() => rangeMode = '30'),
-                      ),
-                      chip(
-                        isUiArabic ? 'هذا الشهر' : 'This month',
-                        rangeMode == 'month',
-                        () => setDialogState(() => rangeMode = 'month'),
-                      ),
-                      chip(
-                        rangeMode == 'custom' && customRange != null
-                            ? '${_fmtDate(customRange!.start)} – ${_fmtDate(customRange!.end)}'
-                            : (isUiArabic ? 'مخصص' : 'Custom'),
-                        rangeMode == 'custom',
-                        () async {
-                          final picked = await showDateRangePicker(
-                            context: ctx,
-                            firstDate: DateTime(DateTime.now().year - 2),
-                            lastDate: DateTime.now(),
-                            initialDateRange: customRange,
-                          );
-                          if (picked != null) {
-                            setDialogState(() {
-                              rangeMode = 'custom';
-                              customRange = picked;
-                            });
-                          }
-                        },
-                        icon: LucideIcons.calendarRange,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          chip(
+                            isUiArabic ? 'كل الوقت' : 'All time',
+                            rangeMode == 'all',
+                            () => setDialogState(() => rangeMode = 'all'),
+                          ),
+                          chip(
+                            isUiArabic ? 'اليوم' : 'Today',
+                            rangeMode == 'today',
+                            () => setDialogState(() => rangeMode = 'today'),
+                          ),
+                          chip(
+                            isUiArabic ? 'آخر ٧ أيام' : 'Last 7 days',
+                            rangeMode == '7',
+                            () => setDialogState(() => rangeMode = '7'),
+                          ),
+                          chip(
+                            isUiArabic ? 'آخر ٣٠ يوم' : 'Last 30 days',
+                            rangeMode == '30',
+                            () => setDialogState(() => rangeMode = '30'),
+                          ),
+                          chip(
+                            isUiArabic ? 'هذا الشهر' : 'This month',
+                            rangeMode == 'month',
+                            () => setDialogState(() => rangeMode = 'month'),
+                          ),
+                          chip(
+                            rangeMode == 'custom' && customRange != null
+                                ? '${_fmtDate(customRange!.start)} – ${_fmtDate(customRange!.end)}'
+                                : (isUiArabic ? 'مخصص' : 'Custom'),
+                            rangeMode == 'custom',
+                            () async {
+                              final picked = await showDateRangePicker(
+                                context: ctx,
+                                firstDate: DateTime(DateTime.now().year - 2),
+                                lastDate: DateTime.now(),
+                                initialDateRange: customRange,
+                                builder: AppDialogStyles.adaptivePickerTheme,
+                              );
+                              if (picked != null) {
+                                setDialogState(() {
+                                  rangeMode = 'custom';
+                                  customRange = picked;
+                                });
+                              }
+                            },
+                            icon: LucideIcons.calendarRange,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    isUiArabic ? 'الصيغة' : 'Format',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
+                ),
+                const SizedBox(height: 12),
+                AppDialogSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      chip(
-                        'Excel',
-                        format == 'excel',
-                        () => setDialogState(() => format = 'excel'),
-                        icon: LucideIcons.fileSpreadsheet,
+                      AppFieldLabel(
+                        label: isUiArabic ? 'الصيغة' : 'Format',
                       ),
-                      chip(
-                        'PDF',
-                        format == 'pdf',
-                        () => setDialogState(() => format = 'pdf'),
-                        icon: LucideIcons.fileText,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          chip(
+                            'Excel',
+                            format == 'excel',
+                            () => setDialogState(() => format = 'excel'),
+                            icon: LucideIcons.fileSpreadsheet,
+                          ),
+                          chip(
+                            'PDF',
+                            format == 'pdf',
+                            () => setDialogState(() => format = 'pdf'),
+                            icon: LucideIcons.fileText,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
+              ],
+            ),
+            footer: AppDialogFooter(
+              cancelLabel: isUiArabic ? 'إلغاء' : 'Cancel',
+              onCancel: () => Navigator.pop(ctx),
+              confirmLabel: isUiArabic ? 'تصدير' : 'Export',
+              confirmIcon: format == 'excel'
+                  ? LucideIcons.fileSpreadsheet
+                  : LucideIcons.fileText,
+              onConfirm: () => Navigator.pop(
+                ctx,
+                '$format:$allTabs:$arabic:$rangeMode:'
+                '${customRange?.start.millisecondsSinceEpoch ?? ''}:'
+                '${customRange?.end.millisecondsSinceEpoch ?? ''}',
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(isUiArabic ? 'إلغاء' : 'Cancel'),
-              ),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                ),
-                icon: Icon(
-                  format == 'excel'
-                      ? LucideIcons.fileSpreadsheet
-                      : LucideIcons.fileText,
-                  size: 16,
-                ),
-                label: Text(isUiArabic ? 'تصدير' : 'Export'),
-                onPressed: () => Navigator.pop(
-                      ctx,
-                      '$format:$allTabs:$arabic:$rangeMode:'
-                      '${customRange?.start.millisecondsSinceEpoch ?? ''}:'
-                      '${customRange?.end.millisecondsSinceEpoch ?? ''}',
-                    ),
-              ),
-            ],
           );
         },
       ),

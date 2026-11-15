@@ -2599,7 +2599,10 @@ class _PageSearchDialogState extends State<_PageSearchDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = AppLocalizations.of(context)!;
     final query = _controller.text.trim().toLowerCase();
     final filtered = widget.pages.where((index) {
       if (query.isEmpty) return true;
@@ -2610,73 +2613,130 @@ class _PageSearchDialogState extends State<_PageSearchDialog> {
           codeEn.contains(query) ||
           (query.isNotEmpty && codeAr.contains(_controller.text.trim()));
     }).toList();
+    final codeColor = isDark ? AppColors.primary : const Color(0xFFB45309);
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.searchHint,
-                prefixIcon: const Icon(LucideIcons.search, size: 18),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Flexible(
-              child: filtered.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Text(AppLocalizations.of(context)!.noPagesFound),
+    return AppDialog(
+      maxWidth: 500,
+      maxHeight: 580,
+      scrollableBody: false,
+      bodyPadding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      header: AppDialogHeader(
+        icon: LucideIcons.search,
+        title: isAr ? 'الانتقال السريع' : 'Quick Navigation',
+        subtitle: isAr
+            ? 'ابحث باسم الصفحة أو الرمز المختصر'
+            : 'Search by page name or shortcut code',
+        onClose: () => Navigator.of(context).pop(),
+      ),
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            onChanged: (_) => setState(() {}),
+            decoration: AppDialogStyles.inputDecoration(
+              context,
+              hintText: l10n.searchHint,
+              icon: LucideIcons.search,
+              suffixIcon: _controller.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(LucideIcons.x, size: 16),
+                      onPressed: () => setState(() => _controller.clear()),
                     )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: filtered.length,
-                      itemBuilder: (context, i) {
-                        final index = filtered[i];
-                        return ListTile(
-                          leading: Icon(
-                            widget.icons[index] ?? LucideIcons.circleDot,
-                            color: AppColors.primary,
-                          ),
-                          title: Text(widget.titleFor(index)),
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              isAr
-                                  ? (widget.codesAr[index] ?? '')
-                                  : (widget.codesEn[index] ?? ''),
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.of(context).pop();
-                            widget.onSelect(index);
-                          },
-                        );
-                      },
-                    ),
+                  : null,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          Flexible(
+            child: filtered.isEmpty
+                ? Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            LucideIcons.search,
+                            size: 28,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.6),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            l10n.noPagesFound,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (context, i) {
+                      final index = filtered[i];
+                      return InkWell(
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          widget.onSelect(index);
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppDialogStyles.subtleSurfaceColor(context),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppDialogStyles.borderColor(context),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(9),
+                                ),
+                                child: Icon(
+                                  widget.icons[index] ?? LucideIcons.circleDot,
+                                  color: codeColor,
+                                  size: 17,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  widget.titleFor(index),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              AppBadgePill(
+                                text: isAr
+                                    ? (widget.codesAr[index] ?? '')
+                                    : (widget.codesEn[index] ?? ''),
+                                accentColor: codeColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }

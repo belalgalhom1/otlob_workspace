@@ -139,23 +139,18 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
   }
 
   Future<void> _rejectRequest(String requestId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reject Assist Request'),
-        content: const Text('Are you sure you want to reject this driver assist request?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: isAr ? 'رفض طلب المساعدة' : 'Reject Assist Request',
+      message: isAr
+          ? 'هل أنت متأكد من رفض طلب مساعدة الكابتن هذا؟'
+          : 'Are you sure you want to reject this driver assist request?',
+      confirmLabel: isAr ? 'رفض' : 'Reject',
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      icon: LucideIcons.xCircle,
+      confirmIcon: LucideIcons.x,
+      isDestructive: true,
     );
 
     if (confirmed != true) return;
@@ -168,9 +163,9 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
         status: 'REJECTED',
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Request rejected.'),
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(isAr ? 'تم رفض الطلب.' : 'Request rejected.'),
             backgroundColor: AppColors.info,
           ),
         );
@@ -178,7 +173,7 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
@@ -191,13 +186,18 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
   }
 
   Future<void> _pickAndAssignDriver(String requestId) async {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final driversState = ref.read(driversProvider);
     final drivers = driversState.value?.drivers ?? [];
 
     if (drivers.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No drivers loaded. Please ensure drivers are available.'),
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            isAr
+                ? 'لا يوجد سائقون محملون. يرجى التأكد من توفر السائقين.'
+                : 'No drivers loaded. Please ensure drivers are available.',
+          ),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -206,23 +206,64 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
 
     final chosenDriver = await showDialog<DriverProfile>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Select Assistant Driver'),
-        content: SizedBox(
-          width: 400,
-          height: 350,
-          child: ListView.separated(
-            itemCount: drivers.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (ctx, i) {
-              final d = drivers[i];
-              return ListTile(
-                title: Text(d.name),
-                subtitle: Text('${d.status} • ${d.vehicleType ?? ""} ${d.vehiclePlate ?? ""}'.trim()),
-                onTap: () => Navigator.pop(ctx, d),
-              );
-            },
+      builder: (ctx) => AppDialog(
+        maxWidth: 460,
+        maxHeight: 520,
+        scrollableBody: false,
+        expandBody: true,
+        bodyPadding: EdgeInsets.zero,
+        header: AppDialogHeader(
+          icon: LucideIcons.userCheck,
+          title: isAr ? 'اختيار كابتن مساعد' : 'Select Assistant Driver',
+          subtitle: isAr
+              ? 'اختر كابتناً لتعيينه على هذا الطلب'
+              : 'Choose an available driver to assign',
+          onClose: () => Navigator.pop(ctx),
+        ),
+        body: ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: drivers.length,
+          separatorBuilder: (_, _) => Divider(
+            height: 1,
+            color: AppDialogStyles.borderColor(ctx),
           ),
+          itemBuilder: (ctx, i) {
+            final d = drivers[i];
+            final theme = Theme.of(ctx);
+            final subtitle =
+                '${d.status} • ${d.vehicleType ?? ''} ${d.vehiclePlate ?? ''}'
+                    .trim();
+            return ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              leading: CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.14),
+                child: const Icon(
+                  LucideIcons.user,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+              ),
+              title: Text(
+                d.name,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              subtitle: Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              trailing: const Icon(LucideIcons.chevronRight, size: 16),
+              onTap: () => Navigator.pop(ctx, d),
+            );
+          },
+        ),
+        footer: AppDialogFooter(
+          cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+          onCancel: () => Navigator.pop(ctx),
         ),
       ),
     );
@@ -237,9 +278,13 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
         driverId: chosenDriver.id,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
-            content: Text('Assigned ${chosenDriver.name} as assistant driver.'),
+            content: Text(
+              isAr
+                  ? 'تم تعيين ${chosenDriver.name} ككابتن مساعد.'
+                  : 'Assigned ${chosenDriver.name} as assistant driver.',
+            ),
             backgroundColor: AppColors.success,
           ),
         );
@@ -247,7 +292,7 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
@@ -282,245 +327,294 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isAr = l10n.localeName == 'ar';
+    final theme = Theme.of(context);
+    final isMobile = AppDialogStyles.isMobile(context);
 
-    return DialogScaffold(
-      child: Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680, maxHeight: 650),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+    return AppDialog(
+      maxWidth: 700,
+      maxHeight: 700,
+      scrollableBody: false,
+      expandBody: true,
+      bodyPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 24,
+        vertical: 16,
+      ),
+      header: AppDialogHeader(
+        icon: LucideIcons.users,
+        title: isAr
+            ? 'طلبات مساعدة الكباتن المعلقة'
+            : 'Pending Driver Assist Requests',
+        subtitle: _requests.isNotEmpty
+            ? (isAr
+                ? '${_requests.length} طلبات بانتظار الإجراء'
+                : '${_requests.length} requests awaiting action')
+            : null,
+        actions: [
+          IconButton(
+            tooltip: l10n.retry,
+            icon: const Icon(LucideIcons.refreshCw, size: 18),
+            onPressed: _isLoading ? null : _loadRequests,
+          ),
+        ],
+        onClose: () => Navigator.pop(context),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _requests.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.checkCircle,
+                        size: 48,
+                        color: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.45),
                       ),
-                      child: const Icon(LucideIcons.users, color: AppColors.primary, size: 22),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        isAr ? 'طلبات مساعدة الكباتن المعلقة' : 'Pending Driver Assist Requests',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      const SizedBox(height: 12),
+                      Text(
+                        isAr
+                            ? 'لا توجد طلبات مساعدة معلقة حالياً'
+                            : 'No pending driver assist requests',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: 15,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.refreshCw, size: 18),
-                      onPressed: _loadRequests,
-                    ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.x, size: 20),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _requests.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(LucideIcons.checkCircle, size: 48, color: Colors.grey[400]),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    isAr ? 'لا توجد طلبات مساعدة معلقة حالياً' : 'No pending driver assist requests',
-                                    style: TextStyle(fontSize: 15, color: Colors.grey[600]),
-                                  ),
-                                ],
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: _requests.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) {
+                    final item = _requests[i] as Map<String, dynamic>;
+                    final id = item['id']?.toString() ?? '';
+                    final order =
+                        item['order'] is Map ? item['order'] as Map : {};
+                    final primaryDriver = item['primaryDriver'] is Map
+                        ? item['primaryDriver'] as Map
+                        : (item['driver'] is Map ? item['driver'] as Map : {});
+                    final primaryUser = primaryDriver['user'] is Map
+                        ? primaryDriver['user'] as Map
+                        : {};
+                    final orderNumber = order['orderNumber']?.toString() ?? '';
+                    final deliveryGroup = item['deliveryGroup'] is Map
+                        ? item['deliveryGroup'] as Map
+                        : null;
+                    final groupSeq = deliveryGroup?['sequence'];
+                    final driverName = primaryUser['name']?.toString() ??
+                        primaryDriver['name']?.toString() ??
+                        'Driver';
+                    final driverPhone = primaryUser['phone']?.toString() ??
+                        primaryDriver['phone']?.toString() ??
+                        '';
+                    final reason = item['reason']?.toString() ?? '';
+                    final note = item['note']?.toString() ?? '';
+                    final fee = item['proposedAssistFee']?.toString() ??
+                        item['assistFee']?.toString() ??
+                        '0';
+                    final reqStatus = item['status']?.toString() ?? 'PENDING';
+                    final isBusy = _processingId == id;
+
+                    final statusColor = reqStatus == 'APPROVED'
+                        ? AppColors.success
+                        : reqStatus == 'REJECTED'
+                            ? AppColors.error
+                            : AppColors.warning;
+                    final statusLabel = reqStatus == 'APPROVED'
+                        ? (isAr
+                            ? 'تمت الموافقة (جاهز للتعيين)'
+                            : 'Approved (Ready to Assign)')
+                        : reqStatus == 'REJECTED'
+                            ? (isAr ? 'مرفوض' : 'Rejected')
+                            : (isAr ? 'بانتظار الموافقة' : 'Pending Review');
+
+                    return AppDialogSectionCard(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.package,
+                                      size: 16,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        groupSeq != null
+                                            ? '${orderNumber.isNotEmpty ? '#$orderNumber' : 'Order'} • ${isAr ? 'الرحلة #$groupSeq' : 'Trip #$groupSeq'}'
+                                            : (orderNumber.isNotEmpty
+                                                ? '#$orderNumber'
+                                                : 'Order'),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15.5,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              AppBadgePill(
+                                text: statusLabel,
+                                accentColor: statusColor,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '${isAr ? "الكابتن الطالب" : "Primary Driver"}: $driverName ${driverPhone.isNotEmpty ? "($driverPhone)" : ""}',
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${isAr ? "السبب" : "Reason"}: ${_formatReason(reason, isAr)}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          if (note.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '${isAr ? "ملاحظة" : "Note"}: $note',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 6),
+                          Text(
+                            '${isAr ? "رسوم المساعدة المقترحة" : "Assist Fee"}: $fee ${isAr ? "ج.م" : "EGP"}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (isBusy)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: CircularProgressIndicator(),
                               ),
                             )
-                          : ListView.separated(
-                              itemCount: _requests.length,
-                              separatorBuilder: (_, _) => const SizedBox(height: 12),
-                              itemBuilder: (context, i) {
-                                final item = _requests[i] as Map<String, dynamic>;
-                                final id = item['id']?.toString() ?? '';
-                                final order = item['order'] is Map ? item['order'] as Map : {};
-                                final primaryDriver = item['primaryDriver'] is Map
-                                    ? item['primaryDriver'] as Map
-                                    : (item['driver'] is Map ? item['driver'] as Map : {});
-                                final primaryUser = primaryDriver['user'] is Map ? primaryDriver['user'] as Map : {};
-                                final orderNumber = order['orderNumber']?.toString() ?? '';
-                                final deliveryGroup = item['deliveryGroup'] is Map ? item['deliveryGroup'] as Map : null;
-                                final groupSeq = deliveryGroup?['sequence'];
-                                final driverName = primaryUser['name']?.toString() ?? primaryDriver['name']?.toString() ?? 'Driver';
-                                final driverPhone = primaryUser['phone']?.toString() ?? primaryDriver['phone']?.toString() ?? '';
-                                final reason = item['reason']?.toString() ?? '';
-                                final note = item['note']?.toString() ?? '';
-                                final fee = item['proposedAssistFee']?.toString() ?? item['assistFee']?.toString() ?? '0';
-                                final reqStatus = item['status']?.toString() ?? 'PENDING';
-                                final isBusy = _processingId == id;
-
-                                return Card(
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                          else
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (reqStatus == 'PENDING')
+                                  FilledButton.icon(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF059669),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    onPressed: () => _approveRequest(id),
+                                    icon: const Icon(LucideIcons.check, size: 14),
+                                    label: Text(isAr ? 'موافقة' : 'Approve'),
                                   ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Row(
-                                                children: [
-                                                  const Icon(LucideIcons.package, size: 16, color: AppColors.primary),
-                                                  const SizedBox(width: 6),
-                                                  Expanded(
-                                                    child: Text(
-                                                      groupSeq != null
-                                                          ? '${orderNumber.isNotEmpty ? '#$orderNumber' : 'Order'} • ${isAr ? 'الرحلة #$groupSeq' : 'Trip #$groupSeq'}'
-                                                          : (orderNumber.isNotEmpty ? '#$orderNumber' : 'Order'),
-                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: reqStatus == 'APPROVED'
-                                                    ? AppColors.success.withValues(alpha: 0.15)
-                                                    : reqStatus == 'REJECTED'
-                                                        ? AppColors.error.withValues(alpha: 0.15)
-                                                        : AppColors.warning.withValues(alpha: 0.15),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                reqStatus == 'APPROVED'
-                                                    ? (isAr ? 'تمت الموافقة (جاهز للتعيين)' : 'Approved (Ready to Assign)')
-                                                    : reqStatus == 'REJECTED'
-                                                        ? (isAr ? 'مرفوض' : 'Rejected')
-                                                        : (isAr ? 'بانتظار الموافقة' : 'Pending Review'),
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: reqStatus == 'APPROVED'
-                                                      ? AppColors.success
-                                                      : reqStatus == 'REJECTED'
-                                                          ? AppColors.error
-                                                          : AppColors.warning,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          '${isAr ? "الكابتن الطالب" : "Primary Driver"}: $driverName ${driverPhone.isNotEmpty ? "($driverPhone)" : ""}',
-                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${isAr ? "السبب" : "Reason"}: ${_formatReason(reason, isAr)}',
-                                          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-                                        ),
-                                        if (note.isNotEmpty) ...[
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            '${isAr ? "ملاحظة" : "Note"}: $note',
-                                            style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
-                                          ),
-                                        ],
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${isAr ? "رسوم المساعدة المقترحة" : "Assist Fee"}: $fee EGP',
-                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        if (isBusy)
-                                          const Center(
-                                            child: Padding(
-                                              padding: EdgeInsets.all(8.0),
-                                              child: CircularProgressIndicator(),
-                                            ),
-                                          )
-                                        else
-                                          Wrap(
-                                            spacing: 8,
-                                            runSpacing: 8,
-                                            children: [
-                                                if (reqStatus == 'PENDING')
-                                                  FilledButton.icon(
-                                                    style: FilledButton.styleFrom(
-                                                      backgroundColor: AppColors.success,
-                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                      textStyle: const TextStyle(fontSize: 12),
-                                                    ),
-                                                    onPressed: () => _approveRequest(id),
-                                                    icon: const Icon(LucideIcons.check, size: 14),
-                                                    label: Text(isAr ? 'موافقة' : 'Approve'),
-                                                  ),
-                                              FilledButton.icon(
-                                                style: FilledButton.styleFrom(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  textStyle: const TextStyle(fontSize: 12),
-                                                ),
-                                                onPressed: () => _offerToNearest(id),
-                                                icon: const Icon(LucideIcons.radio, size: 14),
-                                                label: Text(isAr ? 'بث للأقرب' : 'Offer Nearest'),
-                                              ),
-                                              OutlinedButton.icon(
-                                                style: OutlinedButton.styleFrom(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  textStyle: const TextStyle(fontSize: 12),
-                                                ),
-                                                onPressed: () => _autoAssign(id),
-                                                icon: const Icon(LucideIcons.wand2, size: 14),
-                                                label: Text(isAr ? 'تعيين تلقائي' : 'Auto Assign'),
-                                              ),
-                                              OutlinedButton.icon(
-                                                style: OutlinedButton.styleFrom(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  textStyle: const TextStyle(fontSize: 12),
-                                                ),
-                                                onPressed: () => _pickAndAssignDriver(id),
-                                                icon: const Icon(LucideIcons.userCheck, size: 14),
-                                                label: Text(isAr ? 'اختيار كابتن' : 'Pick Driver'),
-                                              ),
-                                              OutlinedButton.icon(
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: AppColors.error,
-                                                  side: const BorderSide(color: AppColors.error),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  textStyle: const TextStyle(fontSize: 12),
-                                                ),
-                                                onPressed: () => _rejectRequest(id),
-                                                icon: const Icon(LucideIcons.x, size: 14),
-                                                label: Text(isAr ? 'رفض' : 'Reject'),
-                                              ),
-                                            ],
-                                          ),
-                                      ],
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: AppColors.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                );
-                              },
+                                  onPressed: () => _offerToNearest(id),
+                                  icon: const Icon(LucideIcons.radio, size: 14),
+                                  label: Text(
+                                    isAr ? 'بث للأقرب' : 'Offer Nearest',
+                                  ),
+                                ),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    textStyle: const TextStyle(fontSize: 12),
+                                  ),
+                                  onPressed: () => _autoAssign(id),
+                                  icon: const Icon(LucideIcons.wand2, size: 14),
+                                  label: Text(
+                                    isAr ? 'تعيين تلقائي' : 'Auto Assign',
+                                  ),
+                                ),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    textStyle: const TextStyle(fontSize: 12),
+                                  ),
+                                  onPressed: () => _pickAndAssignDriver(id),
+                                  icon: const Icon(
+                                    LucideIcons.userCheck,
+                                    size: 14,
+                                  ),
+                                  label: Text(
+                                    isAr ? 'اختيار كابتن' : 'Pick Driver',
+                                  ),
+                                ),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.error,
+                                    side: BorderSide(
+                                      color:
+                                          AppColors.error.withValues(alpha: 0.5),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    textStyle: const TextStyle(fontSize: 12),
+                                  ),
+                                  onPressed: () => _rejectRequest(id),
+                                  icon: const Icon(LucideIcons.x, size: 14),
+                                  label: Text(isAr ? 'رفض' : 'Reject'),
+                                ),
+                              ],
                             ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
-              ],
-            ),
-          ),
-        ),
+      footer: AppDialogFooter(
+        cancelLabel: isAr ? 'إغلاق' : 'Close',
+        onCancel: () => Navigator.pop(context),
       ),
     );
   }

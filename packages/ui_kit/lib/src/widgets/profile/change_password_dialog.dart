@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
-import '../dialog_scaffold.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../dialogs/app_dialog.dart';
 
 class ChangePasswordDialog extends StatefulWidget {
   final Future<void> Function(String currentPassword, String newPassword) onSubmit;
@@ -62,7 +62,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
     if (currentPass == newPass) {
       setState(() {
         _errorMessage = widget.passwordSameAsOldError ??
-            (isAr ? 'كلمة المرور الجديدة يجب أن تكون مختلفة عن الحالية' : 'New password must be different from current password');
+            (isAr
+                ? 'كلمة المرور الجديدة يجب أن تكون مختلفة عن الحالية'
+                : 'New password must be different from current password');
       });
       return;
     }
@@ -90,144 +92,138 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   @override
   Widget build(BuildContext context) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final theme = Theme.of(context);
+    final currentLabel =
+        widget.currentPasswordLabel ?? (isAr ? 'كلمة المرور الحالية' : 'Current Password');
+    final newLabel =
+        widget.newPasswordLabel ?? (isAr ? 'كلمة المرور الجديدة' : 'New Password');
+    final confirmLabel = widget.confirmPasswordLabel ??
+        (isAr ? 'تأكيد كلمة المرور الجديدة' : 'Confirm New Password');
 
-    return DialogScaffold(
-      child: AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
+    return AppDialog(
+      maxWidth: 480,
+      canPop: !_isLoading,
+      header: AppDialogHeader(
+        icon: LucideIcons.keyRound,
+        title: widget.title ?? (isAr ? 'تغيير كلمة المرور' : 'Change Password'),
+        subtitle: isAr
+            ? 'أدخل كلمة المرور الحالية واختر كلمة مرور جديدة قوية'
+            : 'Enter your current password and choose a strong new password',
+        isCloseDisabled: _isLoading,
+        onClose: () => Navigator.of(context).pop(false),
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+            if (_errorMessage != null && _errorMessage!.trim().isNotEmpty) ...[
+              AppDialogErrorBanner(message: _errorMessage!),
+              const SizedBox(height: 16),
+            ],
+            AppFieldLabel(label: currentLabel, isRequired: true),
+            TextFormField(
+              controller: _currentPasswordController,
+              enabled: !_isLoading,
+              obscureText: _obscureCurrent,
+              textInputAction: TextInputAction.next,
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                hintText: currentLabel,
+                icon: LucideIcons.lock,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureCurrent ? LucideIcons.eyeOff : LucideIcons.eye,
+                    size: 18,
+                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : () => setState(() => _obscureCurrent = !_obscureCurrent),
+                ),
               ),
-              child: const Icon(Icons.lock_reset_rounded, color: AppColors.primary, size: 22),
+              validator: (v) {
+                if (v == null || v.isEmpty) {
+                  return isAr
+                      ? 'يرجى إدخال كلمة المرور الحالية'
+                      : 'Please enter current password';
+                }
+                return null;
+              },
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                widget.title ?? (isAr ? 'تغيير كلمة المرور' : 'Change Password'),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            const SizedBox(height: 16),
+            AppFieldLabel(label: newLabel, isRequired: true),
+            TextFormField(
+              controller: _newPasswordController,
+              enabled: !_isLoading,
+              obscureText: _obscureNew,
+              textInputAction: TextInputAction.next,
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                hintText: newLabel,
+                icon: LucideIcons.lock,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureNew ? LucideIcons.eyeOff : LucideIcons.eye,
+                    size: 18,
+                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : () => setState(() => _obscureNew = !_obscureNew),
+                ),
               ),
+              validator: (v) {
+                if (v == null || v.length < 6) {
+                  return widget.passwordTooShortError ??
+                      (isAr
+                          ? 'يجب أن لا تقل كلمة المرور عن 6 أحرف'
+                          : 'Password must be at least 6 characters');
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            AppFieldLabel(label: confirmLabel, isRequired: true),
+            TextFormField(
+              controller: _confirmPasswordController,
+              enabled: !_isLoading,
+              obscureText: _obscureConfirm,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _handleSubmit(),
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                hintText: confirmLabel,
+                icon: LucideIcons.shieldCheck,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirm ? LucideIcons.eyeOff : LucideIcons.eye,
+                    size: 18,
+                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : () => setState(() => _obscureConfirm = !_obscureConfirm),
+                ),
+              ),
+              validator: (v) {
+                if (v != _newPasswordController.text) {
+                  return widget.passwordMismatchError ??
+                      (isAr
+                          ? 'كلمتا المرور غير متطابقتين'
+                          : 'Passwords do not match');
+                }
+                return null;
+              },
             ),
           ],
         ),
-        content: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_errorMessage != null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(color: AppColors.error, fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                TextFormField(
-                  controller: _currentPasswordController,
-                  obscureText: _obscureCurrent,
-                  decoration: InputDecoration(
-                    labelText: widget.currentPasswordLabel ?? (isAr ? 'كلمة المرور الحالية' : 'Current Password'),
-                    prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscureCurrent ? Icons.visibility_off : Icons.visibility, size: 20),
-                      onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
-                    ),
-                  ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) {
-                      return isAr ? 'يرجى إدخال كلمة المرور الحالية' : 'Please enter current password';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _newPasswordController,
-                  obscureText: _obscureNew,
-                  decoration: InputDecoration(
-                    labelText: widget.newPasswordLabel ?? (isAr ? 'كلمة المرور الجديدة' : 'New Password'),
-                    prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility, size: 20),
-                      onPressed: () => setState(() => _obscureNew = !_obscureNew),
-                    ),
-                  ),
-                  validator: (v) {
-                    if (v == null || v.length < 6) {
-                      return widget.passwordTooShortError ??
-                          (isAr ? 'يجب أن لا تقل كلمة المرور عن 6 أحرف' : 'Password must be at least 6 characters');
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirm,
-                  decoration: InputDecoration(
-                    labelText: widget.confirmPasswordLabel ?? (isAr ? 'تأكيد كلمة المرور الجديدة' : 'Confirm New Password'),
-                    prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility, size: 20),
-                      onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                    ),
-                  ),
-                  validator: (v) {
-                    if (v != _newPasswordController.text) {
-                      return widget.passwordMismatchError ??
-                          (isAr ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match');
-                    }
-                    return null;
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _isLoading ? null : () => Navigator.of(context).pop(false),
-            child: Text(
-              widget.cancelText ?? (isAr ? 'إلغاء' : 'Cancel'),
-              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: _isLoading ? null : _handleSubmit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : Text(widget.confirmText ?? (isAr ? 'تغيير' : 'Update')),
-          ),
-        ],
+      ),
+      footer: AppDialogFooter(
+        cancelLabel: widget.cancelText ?? (isAr ? 'إلغاء' : 'Cancel'),
+        onCancel: () => Navigator.of(context).pop(false),
+        confirmLabel: widget.confirmText ?? (isAr ? 'تحديث كلمة المرور' : 'Update'),
+        confirmIcon: LucideIcons.save,
+        isLoading: _isLoading,
+        loadingLabel: isAr ? 'جارٍ التحديث...' : 'Updating...',
+        onConfirm: _handleSubmit,
       ),
     );
   }

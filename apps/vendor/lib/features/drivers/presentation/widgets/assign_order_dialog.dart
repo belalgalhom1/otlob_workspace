@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import '../../data/driver_models.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
@@ -19,12 +20,16 @@ class AssignOrderDialog extends ConsumerStatefulWidget {
 class _AssignOrderDialogState extends ConsumerState<AssignOrderDialog> {
   String _selectedOrderId = '';
   bool _isLoading = false;
+  String? _errorMessage;
 
-  Future<void> _assign(BuildContext ctx) async {
+  Future<void> _assign() async {
     final orderId = _selectedOrderId.trim();
     if (orderId.isEmpty) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       final repo = ref.read(adminOrdersRepositoryProvider);
       await repo.assignDriver(
@@ -32,71 +37,78 @@ class _AssignOrderDialogState extends ConsumerState<AssignOrderDialog> {
         driverId: widget.driver.id,
       );
 
-      if (ctx.mounted) {
-        Navigator.pop(ctx, true);
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(ctx)!.driverAssignedSuccess)),
-        );
+      if (mounted) {
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        final msg = AppLocalizations.of(context)!.driverAssignedSuccess;
+        Navigator.pop(context, true);
+        messenger?.showSnackBar(SnackBar(content: Text(msg)));
       }
     } catch (e) {
-      if (ctx.mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(ErrorUtils.translate(ctx, e)),
-            backgroundColor: AppColors.error,
-          ),
-        );
+      if (mounted) {
+        setState(() {
+          _errorMessage = ErrorUtils.translate(context, e);
+          _isLoading = false;
+        });
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return DialogScaffold(child: AlertDialog(
-      title: Text(AppLocalizations.of(context)!.assignOrderToDriver(widget.driver.name)),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(AppLocalizations.of(context)!.enterOrderIdToAssign),
-            const SizedBox(height: 16),
-            TextFormField(
-              decoration: InputDecoration(
-                labelText: AppLocalizations.of(context)!.orderIdLabel,
-                border: const OutlineInputBorder(),
-                hintText: 'UUID',
-              ),
-              onChanged: (val) {
-                setState(() {
-                  _selectedOrderId = val;
-                });
-              },
-            ),
-          ],
-        ),
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return AppDialog(
+      maxWidth: 480,
+      canPop: !_isLoading,
+      header: AppDialogHeader(
+        icon: LucideIcons.packageCheck,
+        title: l10n.assignOrderToDriver(widget.driver.name),
+        subtitle: widget.driver.phone,
+        isCloseDisabled: _isLoading,
+        onClose: () => Navigator.pop(context),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(AppLocalizations.of(context)!.cancelAction),
-        ),
-        Builder(
-          builder: (btnCtx) => ElevatedButton(
-          onPressed: (_isLoading || _selectedOrderId.trim().isEmpty) ? null : () => _assign(btnCtx),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(AppLocalizations.of(context)!.assignAction),
-        ),
-        ),
-      ],
-    ));
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_errorMessage != null && _errorMessage!.trim().isNotEmpty) ...[
+            AppDialogErrorBanner(message: _errorMessage!),
+            const SizedBox(height: 16),
+          ],
+          Text(
+            l10n.enterOrderIdToAssign,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 14),
+          AppFieldLabel(label: l10n.orderIdLabel, isRequired: true),
+          TextFormField(
+            enabled: !_isLoading,
+            textDirection: TextDirection.ltr,
+            decoration: AppDialogStyles.inputDecoration(
+              context,
+              hintText: 'UUID',
+              icon: LucideIcons.hash,
+            ),
+            onChanged: (val) {
+              setState(() {
+                _selectedOrderId = val;
+              });
+            },
+          ),
+        ],
+      ),
+      footer: AppDialogFooter(
+        cancelLabel: l10n.cancelAction,
+        onCancel: () => Navigator.pop(context),
+        confirmLabel: l10n.assignAction,
+        confirmIcon: LucideIcons.checkCircle2,
+        isLoading: _isLoading,
+        onConfirm:
+            (_isLoading || _selectedOrderId.trim().isEmpty) ? null : _assign,
+      ),
+    );
   }
 }

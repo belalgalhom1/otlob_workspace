@@ -49,6 +49,13 @@ class _ManualTransactionDialogState
     }
   }
 
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
   Future<void> _process() async {
     final l10n = AppLocalizations.of(context)!;
     final amount = double.tryParse(_amountController.text.trim());
@@ -99,7 +106,8 @@ class _ManualTransactionDialogState
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    
+    final theme = Theme.of(context);
+
     String getTranslatedType(String type) {
       switch (type) {
         case 'PAYOUT': return l10n.payout;
@@ -125,78 +133,106 @@ class _ManualTransactionDialogState
         ? (isAr ? 'تطبيق جزاء / عقوبة على السائق' : 'Apply Driver Penalty')
         : (widget.isVendor ? l10n.adjustWalletVendor : l10n.adjustWalletDriver);
 
-    return DialogScaffold(child: AlertDialog(
-      title: Text(title),
-      content: Column(
+    return AppDialog(
+      maxWidth: 500,
+      canPop: !_submitting,
+      header: AppDialogHeader(
+        icon: LucideIcons.wallet,
+        accentColor: _type == 'PENALTY' ? AppColors.error : AppColors.primary,
+        title: title,
+        subtitle: _isDriverManager
+            ? (isAr
+                ? 'مسؤول السائقين مصرح له بخصم الجزاءات فقط'
+                : 'Driver managers may only apply penalties')
+            : null,
+        isCloseDisabled: _submitting,
+        onClose: () => Navigator.pop(context, false),
+      ),
+      body: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_error != null && _error!.trim().isNotEmpty) ...[
+            AppDialogErrorBanner(message: _error!),
+            const SizedBox(height: 16),
+          ],
+          AppFieldLabel(label: l10n.transactionType, isRequired: true),
           DropdownButtonFormField<String>(
             initialValue: _type,
             isExpanded: true,
-            items: availableTypes.map((t) => DropdownMenuItem(
-              value: t, 
-              child: Text(
-                getTranslatedType(t),
-                overflow: TextOverflow.ellipsis,
-              )
-            )).toList(),
-            onChanged: _isDriverManager ? null : (v) => setState(() => _type = v!),
-            decoration: InputDecoration(
-              labelText: l10n.transactionType,
+            dropdownColor: AppDialogStyles.dropdownColor(context),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 14,
+              color: theme.colorScheme.onSurface,
+            ),
+            items: availableTypes
+                .map(
+                  (t) => DropdownMenuItem(
+                    value: t,
+                    child: Text(
+                      getTranslatedType(t),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (_isDriverManager || _submitting)
+                ? null
+                : (v) => setState(() => _type = v!),
+            decoration: AppDialogStyles.inputDecoration(
+              context,
+              hintText: l10n.transactionType,
+              icon: LucideIcons.arrowRightLeft,
               helperText: _isDriverManager
-                  ? (isAr ? 'مسؤول السائقين مصرح له بخصم الجزاءات فقط' : 'Driver managers may only apply penalties')
+                  ? (isAr
+                      ? 'مسؤول السائقين مصرح له بخصم الجزاءات فقط'
+                      : 'Driver managers may only apply penalties')
                   : null,
             ),
           ),
           const SizedBox(height: 16),
+          AppFieldLabel(label: l10n.amount, isRequired: true),
           TextField(
             controller: _amountController,
-            decoration: InputDecoration(
-              labelText: l10n.amount,
+            enabled: !_submitting,
+            textDirection: TextDirection.ltr,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: AppDialogStyles.inputDecoration(
+              context,
+              hintText: '0',
+              icon: LucideIcons.banknote,
+              suffixText: isAr ? 'ج.م' : 'EGP',
               helperText: _type == 'PENALTY'
-                  ? (isAr ? 'سيتم خصم هذا المبلغ من محفظة السائق' : 'This amount will be deducted from driver wallet')
+                  ? (isAr
+                      ? 'سيتم خصم هذا المبلغ من محفظة السائق'
+                      : 'This amount will be deducted from driver wallet')
                   : null,
             ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
+          AppFieldLabel(label: l10n.descriptionOptional),
           TextField(
             controller: _descController,
-            decoration: InputDecoration(
-              labelText: l10n.descriptionOptional,
+            enabled: !_submitting,
+            minLines: 2,
+            maxLines: 3,
+            decoration: AppDialogStyles.inputDecoration(
+              context,
+              hintText: l10n.descriptionOptional,
+              isMultiline: true,
             ),
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(LucideIcons.alertCircle, color: AppColors.error, size: 16),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _submitting ? null : () => Navigator.pop(context),
-          child: Text(l10n.cancelAction),
-        ),
-        ElevatedButton(
-          onPressed: _submitting ? null : _process,
-          child: _submitting
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : Text(l10n.processAction),
-        ),
-      ],
-    ));
+      footer: AppDialogFooter(
+        cancelLabel: l10n.cancelAction,
+        onCancel: () => Navigator.pop(context, false),
+        confirmLabel: l10n.processAction,
+        confirmIcon: LucideIcons.checkCircle2,
+        isDestructive: _type == 'PENALTY',
+        isLoading: _submitting,
+        onConfirm: _process,
+      ),
+    );
   }
 }

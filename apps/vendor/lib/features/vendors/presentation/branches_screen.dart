@@ -530,787 +530,553 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     bool? isContracted = branch?['isContracted'] as bool?;
     bool isOpen = branch?['isOpen'] as bool? ?? true;
 
+    bool isSubmitting = false;
+
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 450),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final l10n = AppLocalizations.of(ctx)!;
+          final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
+          final theme = Theme.of(ctx);
+
+          return AppDialog(
+            maxWidth: 520,
+            canPop: !isSubmitting,
+            header: AppDialogHeader(
+              icon: isEdit ? LucideIcons.edit3 : LucideIcons.mapPin,
+              title: isEdit ? l10n.editBranch : l10n.newBranch,
+              subtitle: widget.vendorName,
+              isCloseDisabled: isSubmitting,
+              onClose: () => Navigator.pop(dialogCtx),
+            ),
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppFieldLabel(
+                  label: l10n.branchName,
+                  isRequired: true,
+                  languageTag: 'EN',
+                  languageTagColor: AppColors.info,
+                ),
+                TextField(
+                  controller: nameController,
+                  enabled: !isSubmitting,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: 'e.g. Downtown Branch',
+                    icon: LucideIcons.type,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppFieldLabel(
+                  label: l10n.branchNameAr,
+                  languageTag: 'عربي',
+                  languageTagColor: AppColors.success,
+                ),
+                TextField(
+                  controller: nameArController,
+                  enabled: !isSubmitting,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: 'اسم الفرع',
+                    icon: LucideIcons.languages,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppFieldLabel(label: l10n.address),
+                TextField(
+                  controller: addressController,
+                  enabled: !isSubmitting,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: 'Full address',
+                    icon: LucideIcons.mapPin,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppFieldLabel(
+                  label: l10n.pickLocation,
+                  isRequired: !isEdit,
+                ),
+                AppDialogSectionCard(
+                  padding: EdgeInsets.zero,
+                  borderColor: selectedLat != null
+                      ? AppColors.success.withValues(alpha: 0.35)
+                      : null,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.05),
-                          ),
-                        ),
+                        color: (selectedLat != null
+                                ? AppColors.success
+                                : AppColors.primary)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isEdit ? LucideIcons.edit3 : LucideIcons.mapPin,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            isEdit
-                                ? AppLocalizations.of(context)!.editBranch
-                                : AppLocalizations.of(context)!.newBranch,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
+                      child: Icon(
+                        LucideIcons.map,
+                        size: 18,
+                        color: selectedLat != null
+                            ? AppColors.success
+                            : AppColors.primary,
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          _buildDialogTextField(
-                            controller: nameController,
-                            label: AppLocalizations.of(context)!.branchName,
-                            hint: 'e.g. Downtown Branch',
-                            icon: LucideIcons.type,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildDialogTextField(
-                            controller: nameArController,
-                            label: AppLocalizations.of(context)!.branchNameAr,
-                            hint: 'اسم الفرع',
-                            icon: LucideIcons.languages,
-                            textAlign: TextAlign.right,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildDialogTextField(
-                            controller: addressController,
-                            label: AppLocalizations.of(context)!.address,
-                            hint: 'Full address',
-                            icon: LucideIcons.mapPin,
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.15),
-                              ),
+                    title: Text(
+                      selectedLat != null
+                          ? l10n.locationSelected
+                          : l10n.pickLocation,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    subtitle: selectedLat != null
+                        ? Text(
+                            '${selectedLat!.toStringAsFixed(4)}, ${selectedLng!.toStringAsFixed(4)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontFeatures: const [FontFeature.tabularFigures()],
                             ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              leading: Icon(
-                                LucideIcons.map,
-                                color: selectedLat != null
-                                    ? AppColors.success
-                                    : Theme.of(context).colorScheme.onSurface
-                                          .withValues(alpha: 0.5),
-                              ),
-                              title: Text(
-                                selectedLat != null
-                                    ? AppLocalizations.of(
-                                        context,
-                                      )!.locationSelected
-                                    : AppLocalizations.of(
-                                        context,
-                                      )!.pickLocation,
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
-                              ),
-                              subtitle: selectedLat != null
-                                  ? Text(
-                                      '${selectedLat!.toStringAsFixed(4)}, ${selectedLng!.toStringAsFixed(4)}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withValues(alpha: 0.6),
-                                        fontSize: 12,
-                                      ),
-                                    )
-                                  : null,
-                              trailing: const Icon(LucideIcons.chevronRight),
-                              onTap: () async {
-                                final zones =
-                                    ref
-                                        .read(zoneProvider)
-                                        .asData
-                                        ?.value
-                                        .zones ??
+                          )
+                        : null,
+                    trailing: Icon(
+                      LucideIcons.chevronRight,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    onTap: isSubmitting
+                        ? null
+                        : () async {
+                            final zones =
+                                ref.read(zoneProvider).asData?.value.zones ??
                                     [];
-                                final result = await Navigator.push<LatLng>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => LocationPickerMap(
-                                      initialLocation:
-                                          selectedLat != null &&
-                                              selectedLng != null
+                            final picked = await Navigator.push<LatLng>(
+                              ctx,
+                              MaterialPageRoute(
+                                builder: (context) => LocationPickerMap(
+                                  initialLocation:
+                                      selectedLat != null && selectedLng != null
                                           ? LatLng(selectedLat!, selectedLng!)
                                           : null,
-                                      zones: zones,
-                                    ),
-                                  ),
-                                );
-                                if (result != null) {
-                                  setState(() {
-                                    selectedLat = result.latitude;
-                                    selectedLng = result.longitude;
-                                    final matchedZone = _findMatchingZoneId(
-                                      result,
-                                      zones,
-                                    );
-                                    if (matchedZone != null) {
-                                      selectedZoneId = matchedZone;
-                                    }
-                                  });
+                                  zones: zones,
+                                ),
+                              ),
+                            );
+                            if (picked != null && dialogCtx.mounted) {
+                              setDialogState(() {
+                                selectedLat = picked.latitude;
+                                selectedLng = picked.longitude;
+                                final matchedZone =
+                                    _findMatchingZoneId(picked, zones);
+                                if (matchedZone != null) {
+                                  selectedZoneId = matchedZone;
                                 }
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Consumer(
-                            builder: (context, ref, child) {
-                              final zoneState = ref.watch(zoneProvider);
-                              return zoneState.when(
-                                data: (data) {
-                                  final l10n = AppLocalizations.of(context)!;
-                                  final isValidZone =
-                                      selectedZoneId == null ||
-                                      data.zones.any(
-                                        (z) =>
-                                            z['id']?.toString() ==
-                                            selectedZoneId,
-                                      );
-                                  final currentZoneValue = isValidZone
-                                      ? selectedZoneId
-                                      : null;
+                              });
+                            }
+                          },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppFieldLabel(label: l10n.zones),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final zoneState = ref.watch(zoneProvider);
+                    return zoneState.when(
+                      data: (data) {
+                        final isValidZone = selectedZoneId == null ||
+                            data.zones.any(
+                              (z) => z['id']?.toString() == selectedZoneId,
+                            );
+                        final currentZoneValue =
+                            isValidZone ? selectedZoneId : null;
 
-                                  return DropdownButtonFormField<String?>(
-                                    key: ValueKey(currentZoneValue),
-                                    initialValue: currentZoneValue,
-                                    decoration: InputDecoration(
-                                      labelText: l10n.zones,
-                                      prefixIcon: const Icon(LucideIcons.map),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    items: [
-                                      DropdownMenuItem<String?>(
-                                        value: null,
-                                        child: Text(l10n.autoDetectZone),
-                                      ),
-                                      ...data.zones.map((z) {
-                                        return DropdownMenuItem<String?>(
-                                          value: z['id']?.toString(),
-                                          child: Text(
-                                            z['name']?.toString() ?? '',
-                                          ),
-                                        );
-                                      }),
-                                    ],
-                                    onChanged: (val) {
-                                      setState(() {
-                                        selectedZoneId = val;
-                                      });
-                                    },
-                                  );
-                                },
-                                loading: () => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                                error: (err, stack) =>
-                                    Text(ErrorUtils.translate(context, err)),
+                        return DropdownButtonFormField<String?>(
+                          key: ValueKey(currentZoneValue),
+                          initialValue: currentZoneValue,
+                          dropdownColor: AppDialogStyles.dropdownColor(ctx),
+                          isExpanded: true,
+                          decoration: AppDialogStyles.inputDecoration(
+                            ctx,
+                            icon: LucideIcons.map,
+                          ),
+                          items: [
+                            DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text(l10n.autoDetectZone),
+                            ),
+                            ...data.zones.map((z) {
+                              return DropdownMenuItem<String?>(
+                                value: z['id']?.toString(),
+                                child: Text(z['name']?.toString() ?? ''),
                               );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          _buildDialogTextField(
-                            controller: phoneController,
-                            label: AppLocalizations.of(context)!.phone,
-                            hint: '+123...',
-                            icon: LucideIcons.phone,
-                            keyboardType: TextInputType.phone,
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.15),
-                              ),
-                            ),
-                            child: SwitchListTile(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              title: Text(
-                                Localizations.localeOf(context).languageCode ==
-                                        'ar'
-                                    ? 'حالة الفرع (مفتوح للطلبات)'
-                                    : 'Branch Open for Orders',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              subtitle: Text(
-                                isOpen
-                                    ? (Localizations.localeOf(
-                                              context,
-                                            ).languageCode ==
-                                            'ar'
-                                        ? 'مفتوح حالياً'
-                                        : 'Currently Open')
-                                    : (Localizations.localeOf(
-                                              context,
-                                            ).languageCode ==
-                                            'ar'
-                                        ? 'مغلق حالياً'
-                                        : 'Currently Closed'),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isOpen
-                                      ? AppColors.success
-                                      : AppColors.error,
-                                ),
-                              ),
-                              value: isOpen,
-                              activeThumbColor: AppColors.success,
-                              onChanged: (val) {
-                                setState(() {
-                                  isOpen = val;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest
-                                  .withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .outlineVariant
-                                    .withValues(alpha: 0.5),
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      LucideIcons.handshake,
-                                      size: 18,
-                                      color: AppColors.primary,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        Localizations.localeOf(
-                                                  context,
-                                                ).languageCode ==
-                                                'ar'
-                                            ? 'حالة التعاقد للفرع'
-                                            : 'Branch Contract Status',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  Localizations.localeOf(
-                                            context,
-                                          ).languageCode ==
-                                          'ar'
-                                      ? 'إذا لم يتم التحديد، سيتبع الفرع حالة المتجر الرئيسية تلقائياً'
-                                      : 'If unset, branch inherits the vendor contract status',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: DropdownButtonFormField<bool?>(
-                                    initialValue: isContracted,
-                                    decoration: InputDecoration(
-                                      hintText:
-                                          Localizations.localeOf(
-                                                context,
-                                              ).languageCode ==
-                                              'ar'
-                                          ? 'اختر حالة التعاقد'
-                                          : 'Select contract status',
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 14,
-                                          ),
-                                    ),
-                                    items: [
-                                      DropdownMenuItem<bool?>(
-                                        value: null,
-                                        child: Text(
-                                          Localizations.localeOf(
-                                                    context,
-                                                  ).languageCode ==
-                                                  'ar'
-                                              ? 'افتراضي المتجر (توريث)'
-                                              : 'Inherit vendor status',
-                                        ),
-                                      ),
-                                      DropdownMenuItem<bool?>(
-                                        value: true,
-                                        child: Text(
-                                          Localizations.localeOf(
-                                                    context,
-                                                  ).languageCode ==
-                                                  'ar'
-                                              ? 'شريك معتمد'
-                                              : 'Contracted',
-                                        ),
-                                      ),
-                                      DropdownMenuItem<bool?>(
-                                        value: false,
-                                        child: Text(
-                                          Localizations.localeOf(
-                                                    context,
-                                                  ).languageCode ==
-                                                  'ar'
-                                              ? 'غير متعاقد'
-                                              : 'Uncontracted',
-                                        ),
-                                      ),
-                                    ],
-                                    onChanged: (val) {
-                                      setState(() {
-                                        isContracted = val;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildDialogTextField(
-                            controller: commissionController,
-                            label:
-                                Localizations.localeOf(context).languageCode ==
-                                    'ar'
-                                ? 'نسبة العمولة الخاصة بالفرع (٪) (اختياري)'
-                                : 'Branch Commission Rate (%) (Optional)',
-                            hint:
-                                Localizations.localeOf(context).languageCode ==
-                                    'ar'
-                                ? 'اتركه فارغاً ليتبع نسبة المتجر'
-                                : 'Leave empty to inherit vendor rate',
-                            keyboardType: TextInputType.number,
-                            icon: LucideIcons.percent,
-                            enabled: canEditCommission,
-                          ),
-                          if (errorMessage != null) ...[
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.error.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    LucideIcons.alertCircle,
-                                    color: AppColors.error,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      errorMessage!,
-                                      style: const TextStyle(
-                                        color: AppColors.error,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            }),
                           ],
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.01),
-                        border: Border(
-                          top: BorderSide(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.05),
+                          onChanged: isSubmitting
+                              ? null
+                              : (val) {
+                                  setDialogState(() {
+                                    selectedZoneId = val;
+                                  });
+                                },
+                        );
+                      },
+                      loading: () => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      error: (err, stack) => Text(
+                        ErrorUtils.translate(ctx, err),
+                        style: const TextStyle(
+                          color: AppColors.error,
+                          fontSize: 13,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                AppFieldLabel(label: l10n.phone),
+                TextField(
+                  controller: phoneController,
+                  enabled: !isSubmitting,
+                  keyboardType: TextInputType.phone,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: '+123...',
+                    icon: LucideIcons.phone,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppDialogSectionCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  child: SwitchListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    title: Text(
+                      isAr
+                          ? 'حالة الفرع (مفتوح للطلبات)'
+                          : 'Branch Open for Orders',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      isOpen
+                          ? (isAr ? 'مفتوح حالياً' : 'Currently Open')
+                          : (isAr ? 'مغلق حالياً' : 'Currently Closed'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isOpen ? AppColors.success : AppColors.error,
+                      ),
+                    ),
+                    value: isOpen,
+                    activeThumbColor: AppColors.success,
+                    onChanged: isSubmitting
+                        ? null
+                        : (val) {
+                            setDialogState(() {
+                              isOpen = val;
+                            });
+                          },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppDialogSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text(
-                              AppLocalizations.of(context)!.cancel,
-                              style: const TextStyle(),
-                            ),
+                          const Icon(
+                            LucideIcons.handshake,
+                            size: 17,
+                            color: AppColors.primary,
                           ),
-                          const SizedBox(width: 16),
-                          ElevatedButton(
-                            onPressed: () async {
-                              if (nameController.text.trim().isEmpty) {
-                                setState(() {
-                                  errorMessage = AppLocalizations.of(
-                                    context,
-                                  )!.requiredField;
-                                });
-                                return;
-                              }
-                              if (!isEdit &&
-                                  (selectedLat == null ||
-                                      selectedLng == null)) {
-                                setState(() {
-                                  errorMessage = AppLocalizations.of(
-                                    context,
-                                  )!.pickLocation;
-                                });
-                                return;
-                              }
-
-                              setState(() {
-                                errorMessage = null;
-                              });
-
-                              try {
-                                bool success;
-                                if (isEdit) {
-                                  success =
-                                      await ref
-                                          .read(adminVendorsRepositoryProvider)
-                                          .updateBranchRaw(
-                                            widget.vendorId,
-                                            branch['id'],
-                                            name: nameController.text,
-                                            nameAr:
-                                                nameArController.text.isNotEmpty
-                                                ? nameArController.text
-                                                : null,
-                                            address: addressController.text,
-                                            phone:
-                                                phoneController.text.isNotEmpty
-                                                ? PhoneUtils.normalize(
-                                                    phoneController.text,
-                                                  )
-                                                : null,
-                                            lat: selectedLat,
-                                            lng: selectedLng,
-                                            zoneId: selectedZoneId,
-                                            isOpen: isOpen,
-                                            isContracted: isContracted,
-                                            commissionRate:
-                                                canEditCommission &&
-                                                    commissionController.text
-                                                        .trim()
-                                                        .isNotEmpty
-                                                ? int.tryParse(
-                                                    commissionController.text
-                                                        .trim(),
-                                                  )
-                                                : null,
-                                          isAdmin: widget.userRole != 'VENDOR_MEMBER',
-                                          ) !=
-                                      null;
-                                } else {
-                                  success =
-                                      await ref
-                                          .read(adminVendorsRepositoryProvider)
-                                          .createBranchRaw(
-                                            widget.vendorId,
-                                            name: nameController.text,
-                                            nameAr:
-                                                nameArController.text.isNotEmpty
-                                                ? nameArController.text
-                                                : null,
-                                            address: addressController.text,
-                                            phone:
-                                                phoneController.text.isNotEmpty
-                                                ? PhoneUtils.normalize(
-                                                    phoneController.text,
-                                                  )
-                                                : null,
-                                            lat: selectedLat!,
-                                            lng: selectedLng!,
-                                            zoneId: selectedZoneId,
-                                            isOpen: isOpen,
-                                            isContracted: isContracted,
-                                            commissionRate:
-                                                canEditCommission &&
-                                                    commissionController.text
-                                                        .trim()
-                                                        .isNotEmpty
-                                                ? int.tryParse(
-                                                    commissionController.text
-                                                        .trim(),
-                                                  )
-                                                : null,
-                                          isAdmin: widget.userRole != 'VENDOR_MEMBER',
-                                          ) !=
-                                      null;
-                                }
-                                if (!context.mounted) return;
-                                Navigator.pop(context, success);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      isEdit
-                                          ? AppLocalizations.of(
-                                              context,
-                                            )!.common_success_resource_updated
-                                          : AppLocalizations.of(
-                                              context,
-                                            )!.common_success_resource_created,
-                                    ),
-                                    backgroundColor: AppColors.success,
-                                  ),
-                                );
-                              } catch (e) {
-                                if (!context.mounted) return;
-                                setState(() {
-                                  errorMessage = ErrorUtils.translate(
-                                    context,
-                                    e,
-                                  );
-                                });
-                              }
-                            },
+                          const SizedBox(width: 8),
+                          Expanded(
                             child: Text(
-                              isEdit
-                                  ? AppLocalizations.of(context)!.update
-                                  : AppLocalizations.of(context)!.create,
+                              isAr
+                                  ? 'حالة التعاقد للفرع'
+                                  : 'Branch Contract Status',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        isAr
+                            ? 'إذا لم يتم التحديد، سيتبع الفرع حالة المتجر الرئيسية تلقائياً'
+                            : 'If unset, branch inherits the vendor contract status',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<bool?>(
+                        initialValue: isContracted,
+                        dropdownColor: AppDialogStyles.dropdownColor(ctx),
+                        isExpanded: true,
+                        decoration: AppDialogStyles.inputDecoration(
+                          ctx,
+                          hintText: isAr
+                              ? 'اختر حالة التعاقد'
+                              : 'Select contract status',
+                        ),
+                        items: [
+                          DropdownMenuItem<bool?>(
+                            value: null,
+                            child: Text(
+                              isAr
+                                  ? 'افتراضي المتجر (توريث)'
+                                  : 'Inherit vendor status',
+                            ),
+                          ),
+                          DropdownMenuItem<bool?>(
+                            value: true,
+                            child: Text(isAr ? 'شريك معتمد' : 'Contracted'),
+                          ),
+                          DropdownMenuItem<bool?>(
+                            value: false,
+                            child: Text(isAr ? 'غير متعاقد' : 'Uncontracted'),
+                          ),
+                        ],
+                        onChanged: isSubmitting
+                            ? null
+                            : (val) {
+                                setDialogState(() {
+                                  isContracted = val;
+                                });
+                              },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                AppFieldLabel(
+                  label: isAr
+                      ? 'نسبة العمولة الخاصة بالفرع (٪) (اختياري)'
+                      : 'Branch Commission Rate (%) (Optional)',
+                ),
+                TextField(
+                  controller: commissionController,
+                  keyboardType: TextInputType.number,
+                  enabled: canEditCommission && !isSubmitting,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: isAr
+                        ? 'اتركه فارغاً ليتبع نسبة المتجر'
+                        : 'Leave empty to inherit vendor rate',
+                    icon: LucideIcons.percent,
+                  ),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  AppDialogErrorBanner(message: errorMessage!),
+                ],
+              ],
             ),
-          ),
-        ),
+            footer: AppDialogFooter(
+              cancelLabel: l10n.cancel,
+              onCancel: () => Navigator.pop(dialogCtx),
+              confirmLabel: isEdit ? l10n.update : l10n.create,
+              confirmIcon: isEdit ? LucideIcons.save : LucideIcons.plus,
+              isLoading: isSubmitting,
+              onConfirm: () async {
+                if (nameController.text.trim().isEmpty) {
+                  setDialogState(() {
+                    errorMessage = l10n.requiredField;
+                  });
+                  return;
+                }
+                if (!isEdit &&
+                    (selectedLat == null || selectedLng == null)) {
+                  setDialogState(() {
+                    errorMessage = l10n.pickLocation;
+                  });
+                  return;
+                }
+
+                setDialogState(() {
+                  isSubmitting = true;
+                  errorMessage = null;
+                });
+
+                try {
+                  bool success;
+                  if (isEdit) {
+                    success = await ref
+                            .read(adminVendorsRepositoryProvider)
+                            .updateBranchRaw(
+                              widget.vendorId,
+                              branch['id'],
+                              name: nameController.text,
+                              nameAr: nameArController.text.isNotEmpty
+                                  ? nameArController.text
+                                  : null,
+                              address: addressController.text,
+                              phone: phoneController.text.isNotEmpty
+                                  ? PhoneUtils.normalize(phoneController.text)
+                                  : null,
+                              lat: selectedLat,
+                              lng: selectedLng,
+                              zoneId: selectedZoneId,
+                              isOpen: isOpen,
+                              isContracted: isContracted,
+                              commissionRate: canEditCommission &&
+                                      commissionController.text
+                                          .trim()
+                                          .isNotEmpty
+                                  ? int.tryParse(
+                                      commissionController.text.trim(),
+                                    )
+                                  : null,
+                              isAdmin: widget.userRole != 'VENDOR_MEMBER',
+                            ) !=
+                        null;
+                  } else {
+                    success = await ref
+                            .read(adminVendorsRepositoryProvider)
+                            .createBranchRaw(
+                              widget.vendorId,
+                              name: nameController.text,
+                              nameAr: nameArController.text.isNotEmpty
+                                  ? nameArController.text
+                                  : null,
+                              address: addressController.text,
+                              phone: phoneController.text.isNotEmpty
+                                  ? PhoneUtils.normalize(phoneController.text)
+                                  : null,
+                              lat: selectedLat!,
+                              lng: selectedLng!,
+                              zoneId: selectedZoneId,
+                              isOpen: isOpen,
+                              isContracted: isContracted,
+                              commissionRate: canEditCommission &&
+                                      commissionController.text
+                                          .trim()
+                                          .isNotEmpty
+                                  ? int.tryParse(
+                                      commissionController.text.trim(),
+                                    )
+                                  : null,
+                              isAdmin: widget.userRole != 'VENDOR_MEMBER',
+                            ) !=
+                        null;
+                  }
+                  if (!dialogCtx.mounted) return;
+                  Navigator.pop(dialogCtx, success);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          isEdit
+                              ? l10n.common_success_resource_updated
+                              : l10n.common_success_resource_created,
+                        ),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (!dialogCtx.mounted) return;
+                  setDialogState(() {
+                    isSubmitting = false;
+                    errorMessage = ErrorUtils.translate(ctx, e);
+                  });
+                }
+              },
+            ),
+          );
+        },
       ),
-    );
+    ).whenComplete(() {
+      Future<void>.delayed(const Duration(milliseconds: 350), () {
+        nameController.dispose();
+        nameArController.dispose();
+        addressController.dispose();
+        phoneController.dispose();
+        commissionController.dispose();
+      });
+    });
 
     if (result == true) _fetchBranches();
   }
 
-  Widget _buildDialogTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    TextAlign textAlign = TextAlign.start,
-    TextInputType? keyboardType,
-    bool enabled = true,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          textAlign: textAlign,
-          keyboardType: keyboardType,
-          enabled: enabled,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(
-              icon,
-              size: 18,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-            contentPadding: const EdgeInsets.all(16),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.15),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppColors.primary,
-                width: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _confirmDelete(dynamic branch) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                LucideIcons.alertTriangle,
-                color: AppColors.error,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                AppLocalizations.of(context)!.deleteBranch,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                AppLocalizations.of(context)!.deleteBranchConfirm(
-                  branch['name'] ?? AppLocalizations.of(context)!.unnamedBranch,
-                ),
-                textAlign: TextAlign.center,
-                style: const TextStyle(),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        AppLocalizations.of(context)!.cancel,
-                        style: const TextStyle(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        try {
-                          final result = await ref
-                              .read(adminVendorsRepositoryProvider)
-                              .deleteBranch(widget.vendorId, branch['id'], isAdmin: widget.userRole != 'VENDOR_MEMBER');
-                          if (!context.mounted) return;
-                          Navigator.pop(context);
-                          if (result != null) {
-                            _fetchBranches();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.common_success_resource_deleted,
-                                ),
-                                backgroundColor: AppColors.success,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(ErrorUtils.translate(context, e)),
-                              backgroundColor: AppColors.error,
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.error,
-                      ),
-                      child: Text(AppLocalizations.of(context)!.delete),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+  Future<void> _confirmDelete(dynamic branch) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteBranch,
+      message: l10n.deleteBranchConfirm(
+        branch['name'] ?? l10n.unnamedBranch,
       ),
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+
+    if (confirmed != true || !mounted) return;
+    try {
+      final result = await ref
+          .read(adminVendorsRepositoryProvider)
+          .deleteBranch(
+            widget.vendorId,
+            branch['id'],
+            isAdmin: widget.userRole != 'VENDOR_MEMBER',
+          );
+      if (!mounted) return;
+      if (result != null) {
+        _fetchBranches();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.common_success_resource_deleted),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ErrorUtils.translate(context, e)),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 }

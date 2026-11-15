@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:ui_kit/ui_kit.dart' show AppConfirmDialog;
 import '../../../../core/utils/image_utils.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -1363,40 +1365,39 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     WidgetRef ref,
     AppStrings s,
   ) {
-    showDialog(
+    bool isClearing = false;
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          s.clearAll,
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        content: Text(
-          s.isArabic
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AppConfirmDialog(
+          title: s.clearAll,
+          message: s.isArabic
               ? 'هل أنت متأكد من حذف جميع المنتجات من السلة؟'
               : 'Are you sure you want to remove all items from your cart?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(s.cancel),
-          ),
-          TextButton(
-            onPressed: () async {
-              // Show a simple loading indicator or just await the remote operation
+          confirmLabel: s.yes,
+          cancelLabel: s.cancel,
+          icon: LucideIcons.trash2,
+          confirmIcon: LucideIcons.trash2,
+          isDestructive: true,
+          isLoading: isClearing,
+          loadingLabel: s.processing,
+          onCancel: () => Navigator.pop(dialogContext),
+          onConfirm: () async {
+            if (isClearing) return;
+            setDialogState(() => isClearing = true);
+            try {
               await ref.read(cartProvider.notifier).clearCart();
-              if (context.mounted) {
-                Navigator.pop(context);
+              if (dialogContext.mounted) {
+                Navigator.pop(dialogContext);
               }
-            },
-            child: Text(
-              s.yes,
-              style: const TextStyle(
-                color: Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
+            } finally {
+              if (dialogContext.mounted) {
+                setDialogState(() => isClearing = false);
+              }
+            }
+          },
+        ),
       ),
     );
   }

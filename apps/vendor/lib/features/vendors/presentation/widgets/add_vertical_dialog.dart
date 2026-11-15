@@ -23,6 +23,7 @@ class _AddVerticalDialogState extends State<AddVerticalDialog> {
   bool _isActive = true;
   final bool _isSaving = false;
   XFile? _selectedIcon;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -47,9 +48,8 @@ class _AddVerticalDialogState extends State<AddVerticalDialog> {
     super.dispose();
   }
 
-  Future<void> _pickIcon(BuildContext ctx) async {
+  Future<void> _pickIcon() async {
     try {
-      // Small delay to ensure dialog animations don't interfere with picker
       await Future.delayed(const Duration(milliseconds: 200));
 
       final result = await FilePicker.pickFiles(
@@ -57,351 +57,189 @@ class _AddVerticalDialogState extends State<AddVerticalDialog> {
         allowMultiple: false,
       );
 
-      if (result != null && result.files.single.path != null) {
-        setState(() => _selectedIcon = XFile(result.files.single.path!));
+      if (result != null && result.files.single.path != null && mounted) {
+        setState(() {
+          _selectedIcon = XFile(result.files.single.path!);
+          _errorMessage = null;
+        });
       }
     } catch (e) {
       debugPrint('AddVerticalDialog _pickIcon Error: $e');
-      if (ctx.mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(ctx)!.failedToPickImage),
-          ),
-        );
+      if (mounted) {
+        setState(() {
+          _errorMessage = AppLocalizations.of(context)!.failedToPickImage;
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isMobile = size.width < 600;
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final isEdit = widget.vertical != null;
 
-    return DialogScaffold(child: Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 40,
-        vertical: 24,
+    return AppDialog(
+      maxWidth: 480,
+      canPop: !_isSaving,
+      header: AppDialogHeader(
+        icon: isEdit ? LucideIcons.edit3 : LucideIcons.layers,
+        title: isEdit ? l10n.editBusinessType : l10n.addBusinessType,
+        isCloseDisabled: _isSaving,
+        onClose: () => Navigator.pop(context),
       ),
-      child: Container(
-        constraints: BoxConstraints(maxWidth: isMobile ? size.width : 420),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.08),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(
-                alpha: Theme.of(context).brightness == Brightness.dark
-                    ? 0.4
-                    : 0.1,
+      body: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_errorMessage != null && _errorMessage!.trim().isNotEmpty) ...[
+              AppDialogErrorBanner(message: _errorMessage!),
+              const SizedBox(height: 16),
+            ],
+            AppFieldLabel(label: l10n.businessTypeIcon, isRequired: true),
+            const SizedBox(height: 4),
+            Center(
+              child: Stack(
+                children: [
+                  InkWell(
+                    onTap: _pickIcon,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: AppDialogStyles.subtleSurfaceColor(context),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppDialogStyles.borderColor(context),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: _selectedIcon != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: kIsWeb
+                                  ? Image.network(
+                                      _selectedIcon!.path,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.file(
+                                      File(_selectedIcon!.path),
+                                      fit: BoxFit.cover,
+                                    ),
+                            )
+                          : widget.vertical?['iconUrl'] != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(15),
+                                  child: _buildImage(
+                                    widget.vertical!['iconUrl'],
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      LucideIcons.image,
+                                      size: 28,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      l10n.uploadIcon,
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        fontSize: 11,
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                    ),
+                  ),
+                  if (_selectedIcon != null ||
+                      widget.vertical?['iconUrl'] != null)
+                    PositionedDirectional(
+                      end: -4,
+                      top: -4,
+                      child: IconButton(
+                        onPressed: () => setState(() => _selectedIcon = null),
+                        icon: const Icon(
+                          LucideIcons.minusCircle,
+                          color: AppColors.error,
+                          size: 20,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                ],
               ),
-              blurRadius: 30,
-              offset: const Offset(0, 15),
+            ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              controller: _nameController,
+              label: l10n.nameEn,
+              languageTag: 'EN',
+              isRequired: true,
+              hint: 'e.g. Restaurants',
+              icon: LucideIcons.type,
+              textDirection: TextDirection.ltr,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? l10n.fieldRequired : null,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _nameArController,
+              label: l10n.nameAr,
+              languageTag: 'عربي',
+              hint: 'مثال: مطاعم',
+              icon: LucideIcons.languages,
+              textDirection: TextDirection.rtl,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _sortOrderController,
+              label: l10n.sortOrder,
+              hint: '0',
+              icon: LucideIcons.listOrdered,
+              keyboardType: TextInputType.number,
+              textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: 16),
+            AppDialogSectionCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  l10n.activeStatus,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  l10n.visibilityForVendors,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                value: _isActive,
+                onChanged: (v) => setState(() => _isActive = v),
+                activeThumbColor: AppColors.primary,
+              ),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.05),
-                      Colors.transparent,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        isEdit ? LucideIcons.edit3 : LucideIcons.layers,
-                        color: AppColors.primary,
-                        size: isMobile ? 18 : 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isEdit
-                                ? AppLocalizations.of(context)!.editBusinessType
-                                : AppLocalizations.of(context)!.addBusinessType,
-                            style: TextStyle(
-                              fontSize: isMobile ? 18 : 20,
-                              fontWeight: FontWeight.w800,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
-                        LucideIcons.x,
-                        
-                        size: 16,
-                      ),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Body
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Icon Picker
-                        Row(
-                          children: [
-                            Text(
-                              AppLocalizations.of(context)!.businessTypeIcon,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const Text(
-                              ' *',
-                              style: TextStyle(
-                                color: AppColors.error,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Center(
-                          child: Stack(
-                            children: [
-                              Builder(
-                                builder: (imgCtx) => GestureDetector(
-                                  onTap: () => _pickIcon(imgCtx),
-                                child: Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.03),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withValues(alpha: 0.08),
-                                    ),
-                                  ),
-                                  child: _selectedIcon != null
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                          child: kIsWeb
-                                              ? Image.network(
-                                                  _selectedIcon!.path,
-                                                  fit: BoxFit.cover,
-                                                )
-                                              : Image.file(
-                                                  File(_selectedIcon!.path),
-                                                  fit: BoxFit.cover,
-                                                ),
-                                        )
-                                      : widget.vertical?['iconUrl'] != null
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                          child: _buildImage(
-                                            widget.vertical!['iconUrl'],
-                                          ),
-                                        )
-                                      : Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              LucideIcons.image,
-                                              size: 32,
-                                              color: AppColors.textMuted
-                                                  .withValues(alpha: 0.5),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              AppLocalizations.of(
-                                                context,
-                                              )!.uploadIcon,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: AppColors.textMuted
-                                                    .withValues(alpha: 0.7),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                ),
-                              ),
-                            ),
-                              if (_selectedIcon != null ||
-                                  widget.vertical?['iconUrl'] != null)
-                                PositionedDirectional(
-                                  end: -4,
-                                  top: -4,
-                                  child: IconButton(
-                                    onPressed: () =>
-                                        setState(() => _selectedIcon = null),
-                                    icon: const Icon(
-                                      LucideIcons.minusCircle,
-                                      color: AppColors.error,
-                                      size: 20,
-                                    ),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        _buildTextField(
-                          controller: _nameController,
-                          label: AppLocalizations.of(context)!.nameEn,
-                          hint: 'e.g. Restaurants',
-                          icon: LucideIcons.type,
-                          validator: (v) => v?.isEmpty ?? true
-                              ? AppLocalizations.of(context)!.fieldRequired
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildTextField(
-                          controller: _nameArController,
-                          label: AppLocalizations.of(context)!.nameAr,
-                          hint: 'مثال: مطاعم',
-                          icon: LucideIcons.languages,
-                          textAlign: TextAlign.right,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildTextField(
-                          controller: _sortOrderController,
-                          label: AppLocalizations.of(context)!.sortOrder,
-                          hint: '0',
-                          icon: LucideIcons.listOrdered,
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildSwitchTile(
-                          label: AppLocalizations.of(context)!.activeStatus,
-                          subtitle: AppLocalizations.of(
-                            context,
-                          )!.visibilityForVendors,
-                          value: _isActive,
-                          onChanged: (v) => setState(() => _isActive = v),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // Footer
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.01),
-                  border: Border(
-                    top: BorderSide(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                      ),
-                      child: Text(AppLocalizations.of(context)!.cancel),
-                    ),
-                    const SizedBox(width: 8),
-                    Builder(
-                      builder: (btnCtx) => ElevatedButton(
-                        onPressed: _isSaving ? null : () => _submit(btnCtx),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        minimumSize: const Size(80, 44),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        isEdit
-                            ? AppLocalizations.of(context)!.update
-                            : AppLocalizations.of(context)!.save,
-                      ),
-                    ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
-    ));
+      footer: AppDialogFooter(
+        cancelLabel: l10n.cancel,
+        onCancel: () => Navigator.pop(context),
+        confirmLabel: isEdit ? l10n.update : l10n.save,
+        confirmIcon: LucideIcons.save,
+        isLoading: _isSaving,
+        onConfirm: _submit,
+      ),
+    );
   }
 
   Widget _buildTextField({
@@ -411,80 +249,34 @@ class _AddVerticalDialogState extends State<AddVerticalDialog> {
     required IconData icon,
     String? Function(String?)? validator,
     TextInputType? keyboardType,
-    TextAlign textAlign = TextAlign.start,
+    TextDirection? textDirection,
+    bool isRequired = false,
+    String? languageTag,
   }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            
-            fontWeight: FontWeight.w500,
-          ),
+        AppFieldLabel(
+          label: label,
+          isRequired: isRequired,
+          languageTag: languageTag,
         ),
-        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           validator: validator,
           keyboardType: keyboardType,
-          textAlign: textAlign,
-          style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface),
-          decoration: InputDecoration(
+          textDirection: textDirection,
+          style: TextStyle(
+            fontSize: 14,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+          decoration: AppDialogStyles.inputDecoration(
+            context,
             hintText: hint,
-            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
-            contentPadding: const EdgeInsets.all(16),
+            icon: icon,
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildSwitchTile({
-    required String label,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.primary,
-          ),
-        ],
-      ),
     );
   }
 
@@ -505,7 +297,6 @@ class _AddVerticalDialogState extends State<AddVerticalDialog> {
       );
     }
 
-    // Prepend base URL for relative media paths from the server
     final fullUrl = url.startsWith('/media/')
         ? 'https://api.otlob-egy.online$url'
         : url;
@@ -518,17 +309,13 @@ class _AddVerticalDialogState extends State<AddVerticalDialog> {
     );
   }
 
-  void _submit(BuildContext ctx) {
+  void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
-      // Check if icon is provided (required)
       final bool hasExistingIcon = widget.vertical?['iconUrl'] != null;
       if (_selectedIcon == null && !hasExistingIcon) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(ctx)!.fieldRequired),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        setState(() {
+          _errorMessage = AppLocalizations.of(context)!.fieldRequired;
+        });
         return;
       }
 

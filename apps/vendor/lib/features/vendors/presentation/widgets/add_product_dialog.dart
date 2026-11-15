@@ -324,290 +324,189 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isMobile = size.width < 600;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
     final isEdit = widget.product != null;
+    final accentTextColor =
+        isDark ? Colors.amber.shade300 : const Color(0xFFB45309);
 
-    return DialogScaffold(child: Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 40,
-        vertical: 24,
+    return AppDialog(
+      maxWidth: 640,
+      maxHeight: 780,
+      scrollableBody: false,
+      expandBody: true,
+      bodyPadding: EdgeInsets.zero,
+      header: AppDialogHeader(
+        icon: isEdit ? LucideIcons.edit3 : LucideIcons.package,
+        title: isEdit ? l10n.editProduct : l10n.addProduct,
+        subtitle: l10n.vendor(widget.vendorName),
+        onClose: () => Navigator.pop(context),
       ),
-      child: Container(
-        constraints: BoxConstraints(maxWidth: isMobile ? size.width : 550),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.08),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(
-                alpha: Theme.of(context).brightness == Brightness.dark
-                    ? 0.4
-                    : 0.1,
-              ),
-              blurRadius: 30,
-              offset: const Offset(0, 15),
-            ),
-          ],
-        ),
-        child: DefaultTabController(
-          length: 3,
-          child: Stack(
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-              // Header
-              Container(
-                padding: EdgeInsets.all(isMobile ? 20 : 24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.05),
-                      Colors.transparent,
+      body: DefaultTabController(
+        length: 3,
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  color: AppDialogStyles.subtleSurfaceColor(context),
+                  child: TabBar(
+                    tabs: [
+                      Tab(text: l10n.general),
+                      Tab(text: l10n.variants),
+                      Tab(text: l10n.options),
                     ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.05),
+                    labelColor: isDark ? AppColors.primary : accentTextColor,
+                    unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                    labelStyle: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
                     ),
+                    unselectedLabelStyle: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13.5,
+                    ),
+                    indicatorColor: AppColors.primary,
+                    indicatorWeight: 2.5,
+                    dividerColor: Colors.transparent,
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: AppDialogStyles.borderColor(context),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _buildGeneralTab(),
+                      _buildVariantsTab(),
+                      _buildOptionsTab(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (_noticeMessage != null)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 12,
+                child: IgnorePointer(
+                  child: Material(
+                    color: _noticeIsError ? AppColors.error : AppColors.success,
+                    elevation: 6,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 11,
                       ),
-                      child: Icon(
-                        isEdit ? LucideIcons.edit3 : LucideIcons.package,
-                        color: AppColors.primary,
-                        size: isMobile ? 20 : 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(
-                            isEdit
-                                ? AppLocalizations.of(context)!.editProduct
-                                : AppLocalizations.of(context)!.addProduct,
-                            style: TextStyle(
-                              fontSize: isMobile ? 20 : 22,
-                              fontWeight: FontWeight.w800,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
+                          Icon(
+                            _noticeIsError
+                                ? LucideIcons.alertCircle
+                                : LucideIcons.checkCircle2,
+                            color: Colors.white,
+                            size: 18,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            AppLocalizations.of(
-                              context,
-                            )!.vendor(widget.vendorName),
-                            style: TextStyle(
-                              fontSize: isMobile ? 12 : 13,
-                              
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _noticeMessage!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(LucideIcons.x, size: 20),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              TabBar(
-                tabs: [
-                  Tab(text: AppLocalizations.of(context)!.general),
-                  Tab(text: AppLocalizations.of(context)!.variants),
-                  Tab(text: AppLocalizations.of(context)!.options),
-                ],
-                labelColor: AppColors.primary,
-                indicatorColor: AppColors.primary,
-              ),
-
-              Flexible(
-                child: TabBarView(
-                  children: [
-                    _buildGeneralTab(isMobile),
-                    _buildVariantsTab(isMobile),
-                    _buildOptionsTab(isMobile),
-                  ],
-                ),
-              ),
-
-              // Footer
-              Container(
-                padding: EdgeInsets.all(isMobile ? 20 : 24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
-                  border: Border(
-                    top: BorderSide(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                    ),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                      ),
-                      child: Text(AppLocalizations.of(context)!.cancel),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : () => _submit(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(120, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: _isLoading
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            )
-                          : Text(
-                              isEdit
-                                  ? AppLocalizations.of(context)!.updateProduct
-                                  : AppLocalizations.of(context)!.addProduct,
-                            ),
-                    ),
-                  ],
-                ),
               ),
-            ],
-              ),
-              if (_noticeMessage != null)
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 12,
-                  child: IgnorePointer(
-                    child: Material(
-                      color: _noticeIsError
-                          ? AppColors.error
-                          : AppColors.success,
-                      elevation: 6,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          _noticeMessage!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          ],
         ),
       ),
-    ));
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title.toUpperCase(),
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        color: AppColors.primary.withValues(alpha: 0.8),
-        letterSpacing: 1.2,
+      footer: AppDialogFooter(
+        cancelLabel: l10n.cancel,
+        onCancel: () => Navigator.pop(context),
+        confirmLabel: isEdit ? l10n.updateProduct : l10n.addProduct,
+        confirmIcon: LucideIcons.check,
+        isLoading: _isLoading,
+        onConfirm: _isLoading ? null : _submit,
       ),
     );
   }
 
-  Widget _buildCategoryDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSectionHeader(IconData icon, String title) {
+    final theme = Theme.of(context);
+    return Row(
       children: [
-        Text(
-          AppLocalizations.of(context)!.menuCategory,
-          style: const TextStyle(fontSize: 13),
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildCategoryDropdown() {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppFieldLabel(label: l10n.menuCategory),
         DropdownButtonFormField<String>(
           initialValue: _selectedCategoryId,
           hint: Text(
             _isLoadingCategories
-                ? AppLocalizations.of(context)!.loadingCategories
-                : AppLocalizations.of(context)!.selectMenuCategory,
-            style: const TextStyle( fontSize: 14),
+                ? l10n.loadingCategories
+                : l10n.selectMenuCategory,
+            style: TextStyle(
+              fontSize: 13.5,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           isExpanded: true,
-          dropdownColor: Theme.of(context).colorScheme.surface,
-          icon: const Icon(
+          dropdownColor: AppDialogStyles.dropdownColor(context),
+          icon: Icon(
             LucideIcons.chevronDown,
             size: 16,
-            
+            color: theme.colorScheme.onSurfaceVariant,
           ),
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 15,
+            color: theme.colorScheme.onSurface,
+            fontSize: 14,
           ),
           items: _categories.map((cat) {
             return DropdownMenuItem<String>(
               value: cat['id'].toString(),
-              child: Text(cat['name'] ?? 'Unnamed'),
+              child: Text(
+                cat['name'] ?? 'Unnamed',
+                overflow: TextOverflow.ellipsis,
+              ),
             );
           }).toList(),
           onChanged: (v) => setState(() => _selectedCategoryId = v),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(
-              LucideIcons.list,
-              size: 18,
-              
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-              ),
-            ),
+          decoration: AppDialogStyles.inputDecoration(
+            context,
+            icon: LucideIcons.list,
           ),
         ),
       ],
@@ -622,191 +521,195 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     int maxLines = 1,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
-    TextAlign textAlign = TextAlign.start,
+    TextDirection? textDirection,
     bool readOnly = false,
+    bool isRequired = false,
+    String? languageTag,
+    Color? languageTagColor,
   }) {
+    final theme = Theme.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 13),
+        AppFieldLabel(
+          label: label,
+          isRequired: isRequired,
+          languageTag: languageTag,
+          languageTagColor: languageTagColor,
         ),
-        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           maxLines: maxLines,
           keyboardType: keyboardType,
           validator: validator,
-          textAlign: textAlign,
+          textDirection: textDirection,
           readOnly: readOnly,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: InputDecoration(
+          style: TextStyle(
+            color: readOnly
+                ? theme.colorScheme.onSurfaceVariant
+                : theme.colorScheme.onSurface,
+            fontSize: 14,
+          ),
+          decoration: AppDialogStyles.inputDecoration(
+            context,
             hintText: hint,
-            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
-            contentPadding: const EdgeInsets.all(16),
-            filled: true,
-            fillColor: readOnly 
-                ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02) 
-                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: AppColors.primary,
-              ),
-            ),
+            icon: icon,
+            isMultiline: maxLines > 1,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildGeneralTab(bool isMobile) {
+  Widget _buildGeneralTab() {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final horizontalPad = AppDialogStyles.isMobile(context) ? 16.0 : 24.0;
+
     return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 20 : 24),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: 18),
       child: Form(
         key: _formKey,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Category Selection
             _buildCategoryDropdown(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
-            _buildSectionHeader(AppLocalizations.of(context)!.productImage),
+            _buildSectionHeader(LucideIcons.image, l10n.productImage),
             const SizedBox(height: 12),
             _buildImagePicker(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
-            _buildSectionHeader(AppLocalizations.of(context)!.basicInfo),
+            _buildSectionHeader(LucideIcons.info, l10n.basicInfo),
             const SizedBox(height: 12),
             _buildTextField(
               controller: _nameController,
-              label: AppLocalizations.of(context)!.productNameEn,
+              label: l10n.productNameEn,
+              languageTag: 'EN',
+              isRequired: true,
               hint: 'e.g. Classic Cheeseburger',
               icon: LucideIcons.type,
-              validator: (v) => v?.isEmpty ?? true
-                  ? AppLocalizations.of(context)!.fieldRequired
-                  : null,
+              textDirection: TextDirection.ltr,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
             ),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _nameArController,
-              label: AppLocalizations.of(context)!.productNameAr,
+              label: l10n.productNameAr,
+              languageTag: 'عربي',
+              languageTagColor: AppColors.info,
               hint: 'مثال: تشيز برجر كلاسيك',
               icon: LucideIcons.languages,
-              textAlign: TextAlign.right,
+              textDirection: TextDirection.rtl,
             ),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _descriptionController,
-              label: AppLocalizations.of(context)!.descriptionEn,
-              hint: 'Detailed product description...',
+              label: l10n.descriptionEn,
+              languageTag: 'EN',
+              hint: l10n.detailedProductDescription,
               icon: LucideIcons.alignLeft,
               maxLines: 3,
+              textDirection: TextDirection.ltr,
             ),
             const SizedBox(height: 16),
             _buildTextField(
               controller: _descriptionArController,
-              label: AppLocalizations.of(context)!.descriptionAr,
+              label: l10n.descriptionAr,
+              languageTag: 'عربي',
+              languageTagColor: AppColors.info,
               hint: 'وصف المنتج بالتفصيل...',
               icon: LucideIcons.alignRight,
               maxLines: 3,
-              textAlign: TextAlign.right,
+              textDirection: TextDirection.rtl,
             ),
 
-            const SizedBox(height: 24),
-            _buildSectionHeader(AppLocalizations.of(context)!.pricingInventory),
+            const SizedBox(height: 22),
+            _buildSectionHeader(LucideIcons.dollarSign, l10n.pricingInventory),
             const SizedBox(height: 12),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: _buildTextField(
                     controller: _priceController,
-                    label: AppLocalizations.of(context)!.basePrice,
+                    label: l10n.basePrice,
+                    isRequired: true,
                     hint: '0.00',
                     icon: LucideIcons.dollarSign,
                     keyboardType: TextInputType.number,
-                    validator: (v) => v?.isEmpty ?? true
-                        ? AppLocalizations.of(context)!.fieldRequired
+                    textDirection: TextDirection.ltr,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? l10n.fieldRequired
                         : null,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: _buildTextField(
                     controller: _comparePriceController,
-                    label: AppLocalizations.of(context)!.comparePrice,
+                    label: l10n.comparePrice,
                     hint: '0.00',
                     icon: LucideIcons.tag,
                     keyboardType: TextInputType.number,
+                    textDirection: TextDirection.ltr,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: _buildTextField(
                     controller: _skuController,
-                    label: AppLocalizations.of(context)!.sku,
-                    hint: 'Stock unit',
+                    label: l10n.sku,
+                    hint: l10n.stockUnit,
                     icon: LucideIcons.shoppingBag,
+                    textDirection: TextDirection.ltr,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: _buildTextField(
                     controller: _stockController,
-                    label: AppLocalizations.of(context)!.initialStock,
+                    label: l10n.initialStock,
                     hint: '0',
                     icon: LucideIcons.box,
                     keyboardType: TextInputType.number,
+                    textDirection: TextDirection.ltr,
                   ),
                 ),
               ],
             ),
 
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                ),
-              ),
+            AppDialogSectionCard(
+              backgroundColor: AppColors.primary.withValues(alpha: 0.06),
+              borderColor: AppColors.primary.withValues(alpha: 0.22),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
                     children: [
-                      Icon(
+                      const Icon(
                         LucideIcons.layers,
-                        size: 20,
+                        size: 19,
                         color: AppColors.primary,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          AppLocalizations.of(context)!.sellByStrip,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
+                          l10n.sellByStrip,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
                             fontSize: 14,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       ),
@@ -818,28 +721,29 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                     ],
                   ),
                   if (_sellByStrip) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: _buildTextField(
                             controller: _stripsCountController,
-                            label: AppLocalizations.of(
-                              context,
-                            )!.stripsPerPackage,
+                            label: l10n.stripsPerPackage,
                             hint: '0',
                             icon: LucideIcons.hash,
                             keyboardType: TextInputType.number,
+                            textDirection: TextDirection.ltr,
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 14),
                         Expanded(
                           child: _buildTextField(
                             controller: _stripPriceController,
-                            label: AppLocalizations.of(context)!.stripPrice,
+                            label: l10n.stripPrice,
                             hint: '0.00',
                             icon: LucideIcons.tag,
                             readOnly: true,
+                            textDirection: TextDirection.ltr,
                           ),
                         ),
                       ],
@@ -849,47 +753,40 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
               ),
             ),
 
-            const SizedBox(height: 24),
-            _buildSectionHeader(AppLocalizations.of(context)!.settings),
+            const SizedBox(height: 22),
+            _buildSectionHeader(LucideIcons.settings2, l10n.settings),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05)),
-              ),
+            AppDialogSectionCard(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Column(
                 children: [
                   _buildSwitchTile(
-                    title: AppLocalizations.of(context)!.productActiveStatus,
-                    subtitle: AppLocalizations.of(
-                      context,
-                    )!.productVisibleToCustomers,
+                    title: l10n.productActiveStatus,
+                    subtitle: l10n.productVisibleToCustomers,
                     value: _isActive,
                     onChanged: (v) => setState(() => _isActive = v),
                     icon: LucideIcons.eye,
                   ),
                   Divider(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+                    color: AppDialogStyles.borderColor(context),
                     height: 1,
                     indent: 48,
                   ),
                   _buildSwitchTile(
-                    title: AppLocalizations.of(context)!.featuredProduct,
-                    subtitle: AppLocalizations.of(context)!.showAtTopOfMenu,
+                    title: l10n.featuredProduct,
+                    subtitle: l10n.showAtTopOfMenu,
                     value: _isFeatured,
                     onChanged: (v) => setState(() => _isFeatured = v),
                     icon: LucideIcons.star,
                   ),
                   Divider(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
+                    color: AppDialogStyles.borderColor(context),
                     height: 1,
                     indent: 48,
                   ),
                   _buildSwitchTile(
-                    title: AppLocalizations.of(context)!.trackStock,
-                    subtitle: AppLocalizations.of(context)!.trackStockSubtitle,
+                    title: l10n.trackStock,
+                    subtitle: l10n.trackStockSubtitle,
                     value: _tracksStock,
                     onChanged: (v) => setState(() => _tracksStock = v),
                     icon: LucideIcons.boxes,
@@ -898,9 +795,10 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             _buildSectionHeader(
-              AppLocalizations.of(context)!.branchAvailability,
+              LucideIcons.gitBranch,
+              l10n.branchAvailability,
             ),
             const SizedBox(height: 12),
             _buildBranchAvailabilitySection(),
@@ -911,22 +809,13 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   }
 
   Widget _buildBranchAvailabilitySection() {
+    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final isSpecific = _branchAvailabilityMode == 'SPECIFIC';
     final allSelected =
         _branches.isNotEmpty && _selectedBranchIds.length == _branches.length;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).colorScheme.onSurface.withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-        ),
-      ),
+    return AppDialogSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -956,26 +845,25 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
           else if (!isSpecific)
             Text(
               l10n.allBranchesHint,
-              style: TextStyle(
+              style: theme.textTheme.bodySmall?.copyWith(
                 fontSize: 12,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             )
           else if (_branches.isEmpty)
             Text(
               l10n.noBranchesAvailable,
-              style: const TextStyle(fontSize: 12, color: AppColors.error),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 12,
+                color: AppColors.error,
+              ),
             )
           else ...[
             Text(
               l10n.specificBranchesHint,
-              style: TextStyle(
+              style: theme.textTheme.bodySmall?.copyWith(
                 fontSize: 12,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
@@ -988,9 +876,10 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                         : _selectedBranchIds.length == 1
                         ? l10n.oneBranchSelected
                         : l10n.branchesSelected(_selectedBranchIds.length),
-                    style: const TextStyle(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -1040,14 +929,20 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
                 dense: true,
-                title: Text(name, style: const TextStyle(fontSize: 13)),
+                title: Text(
+                  name,
+                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
+                ),
                 subtitle: address == null || address.isEmpty
                     ? null
                     : Text(
                         address,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11.5,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
               );
             }),
@@ -1057,7 +952,9 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     );
   }
 
-  Widget _buildVariantsTab(bool isMobile) {
+  Widget _buildVariantsTab() {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     if (_isLoadingDetails) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -1066,53 +963,279 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: ElevatedButton.icon(
-            onPressed: () => _showAddVariantDialog(),
-            icon: const Icon(LucideIcons.plus, size: 18),
-            label: Text(AppLocalizations.of(context)!.addVariant),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 45),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showAddVariantDialog(),
+              icon: const Icon(LucideIcons.plus, size: 18),
+              label: Text(
+                l10n.addVariant,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
+                elevation: 0,
+                minimumSize: const Size(double.infinity, 46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
           ),
         ),
         Expanded(
           child: _variants.isEmpty
               ? Center(
-                  child: Text(
-                    AppLocalizations.of(context)!.noVariantsYet,
-                    style: const TextStyle(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.layers,
+                        size: 32,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.noVariantsYet,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   itemCount: _variants.length,
-                  separatorBuilder: (context, index) => const Divider(),
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final variant = _variants[index];
-                    return ListTile(
-                      title: Text(variant['name'] ?? 'Unnamed'),
-                      subtitle: Text(
-                        variant['comparePrice'] != null && (variant['comparePrice'] as num) > (variant['basePrice'] as num)
-                            ? '\$${variant['basePrice']} (Was: \$${variant['comparePrice']}) • Stock: ${variant['tracksStock'] == false ? 'Not tracked' : variant['stock']}'
-                            : '\$${variant['basePrice']} • Stock: ${variant['tracksStock'] == false ? 'Not tracked' : variant['stock']}',
+                    final hasCompare = variant['comparePrice'] != null &&
+                        (variant['comparePrice'] as num) >
+                            (variant['basePrice'] as num);
+                    final stockText = variant['tracksStock'] == false
+                        ? l10n.notTracked
+                        : '${variant['stock'] ?? 0}';
+                    return AppDialogSectionCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(LucideIcons.edit2, size: 18),
-                            onPressed: () =>
-                                _showAddVariantDialog(variant: variant),
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          variant['name'] ?? l10n.unknown,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
-                          IconButton(
-                            icon: const Icon(
-                              LucideIcons.trash2,
-                              size: 18,
-                              color: AppColors.error,
+                        ),
+                        subtitle: Text(
+                          hasCompare
+                              ? '${variant['basePrice']} ${l10n.egp} (${variant['comparePrice']}) • ${l10n.stock}: $stockText'
+                              : '${variant['basePrice']} ${l10n.egp} • ${l10n.stock}: $stockText',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(LucideIcons.edit2, size: 17),
+                              onPressed: () =>
+                                  _showAddVariantDialog(variant: variant),
                             ),
-                            onPressed: () => _deleteVariant(variant['id']),
+                            IconButton(
+                              icon: const Icon(
+                                LucideIcons.trash2,
+                                size: 17,
+                                color: AppColors.error,
+                              ),
+                              onPressed: () => _deleteVariant(variant['id']),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOptionsTab() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+    final accentTextColor =
+        isDark ? AppColors.primary : const Color(0xFFB45309);
+    if (_isLoadingDetails) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showAddOptionGroupDialog(),
+              icon: const Icon(LucideIcons.plus, size: 18),
+              label: Text(
+                l10n.addOptionGroup,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
+                elevation: 0,
+                minimumSize: const Size(double.infinity, 46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _optionGroups.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.listChecks,
+                        size: 32,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.noOptionGroupsYet,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: _optionGroups.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final group = _optionGroups[index];
+                    final options = group['options'] as List? ?? [];
+                    return AppDialogSectionCard(
+                      padding: EdgeInsets.zero,
+                      child: ExpansionTile(
+                        shape: const Border(),
+                        collapsedShape: const Border(),
+                        title: Text(
+                          group['name'] ?? l10n.unknown,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${options.length} ${l10n.options} • ${l10n.min}: ${group['minSelect']} • ${l10n.max}: ${group['maxSelect']}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        children: [
+                          Divider(
+                            height: 1,
+                            color: AppDialogStyles.borderColor(context),
+                          ),
+                          ...options.map(
+                            (opt) => ListTile(
+                              dense: true,
+                              title: Text(opt['name'] ?? l10n.unknown),
+                              subtitle: Text(
+                                '+${opt['priceAdded']} ${l10n.egp}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(LucideIcons.edit2, size: 15),
+                                    onPressed: () => _showAddOptionDialog(
+                                      group['id'],
+                                      option: opt,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      LucideIcons.trash2,
+                                      size: 15,
+                                      color: AppColors.error,
+                                    ),
+                                    onPressed: () =>
+                                        _deleteOption(group['id'], opt['id']),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          ListTile(
+                            dense: true,
+                            onTap: () => _showAddOptionDialog(group['id']),
+                            leading: Icon(
+                              LucideIcons.plus,
+                              size: 16,
+                              color: accentTextColor,
+                            ),
+                            title: Text(
+                              l10n.addOption,
+                              style: TextStyle(
+                                color: accentTextColor,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton.icon(
+                                  onPressed: () =>
+                                      _showAddOptionGroupDialog(group: group),
+                                  icon: const Icon(LucideIcons.edit2, size: 14),
+                                  label: Text(
+                                    l10n.editOptionGroup,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                TextButton.icon(
+                                  onPressed: () =>
+                                      _deleteOptionGroup(group['id']),
+                                  icon: const Icon(
+                                    LucideIcons.trash2,
+                                    size: 14,
+                                    color: AppColors.error,
+                                  ),
+                                  label: Text(
+                                    l10n.deleteOptionGroup,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.error,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -1124,141 +1247,9 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     );
   }
 
-  Widget _buildOptionsTab(bool isMobile) {
-    if (_isLoadingDetails) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ElevatedButton.icon(
-            onPressed: () => _showAddOptionGroupDialog(),
-            icon: const Icon(LucideIcons.plus, size: 18),
-            label: Text(AppLocalizations.of(context)!.addOptionGroup),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 45),
-            ),
-          ),
-        ),
-        Expanded(
-          child: _optionGroups.isEmpty
-              ? Center(
-                  child: Text(
-                    AppLocalizations.of(context)!.noOptionGroupsYet,
-                    style: const TextStyle(),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _optionGroups.length,
-                  itemBuilder: (context, index) {
-                    final group = _optionGroups[index];
-                    final options = group['options'] as List? ?? [];
-                    return ExpansionTile(
-                      title: Text(group['name'] ?? 'Unnamed Group'),
-                      subtitle: Text(
-                        '${options.length} options • Min: ${group['minSelect']} Max: ${group['maxSelect']}',
-                      ),
-                      children: [
-                        ...options.map(
-                          (opt) => ListTile(
-                            dense: true,
-                            title: Text(opt['name'] ?? 'Unnamed Option'),
-                            subtitle: Text('+\$${opt['priceAdded']}'),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(LucideIcons.edit2, size: 14),
-                                  onPressed: () => _showAddOptionDialog(
-                                    group['id'],
-                                    option: opt,
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    LucideIcons.trash2,
-                                    size: 14,
-                                    color: AppColors.error,
-                                  ),
-                                  onPressed: () =>
-                                      _deleteOption(group['id'], opt['id']),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        ListTile(
-                          onTap: () => _showAddOptionDialog(group['id']),
-                          leading: const Icon(
-                            LucideIcons.plus,
-                            size: 16,
-                            color: AppColors.primary,
-                          ),
-                          title: Text(
-                            AppLocalizations.of(context)!.addOption,
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton.icon(
-                                onPressed: () =>
-                                    _showAddOptionGroupDialog(group: group),
-                                icon: const Icon(LucideIcons.edit2, size: 14),
-                                label: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.editOptionGroup,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              TextButton.icon(
-                                onPressed: () =>
-                                    _deleteOptionGroup(group['id']),
-                                icon: const Icon(
-                                  LucideIcons.trash2,
-                                  size: 14,
-                                  color: AppColors.error,
-                                ),
-                                label: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  )!.deleteOptionGroup,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.error,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
   void _showAddVariantDialog({dynamic variant}) async {
     var tracksStock = variant?['tracksStock'] ?? true;
+    var isSaving = false;
     final nameController = TextEditingController(text: variant?['name'] ?? '');
     final nameArController = TextEditingController(
       text: variant?['nameAr'] ?? '',
@@ -1276,206 +1267,266 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          variant == null
-              ? AppLocalizations.of(context)!.addVariant
-              : AppLocalizations.of(context)!.editVariant,
-        ),
-        content: SingleChildScrollView(
-          child: Form(
-            key: _variantFormKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildTextField(
-                  controller: nameController,
-                  label: AppLocalizations.of(context)!.nameEn,
-                  hint: 'e.g. Cheese Pizza, Tuna Pizza',
-                  icon: LucideIcons.type,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty)
-                          ? AppLocalizations.of(context)!.fieldRequired
-                          : null,
-                ),
-                const SizedBox(height: 12),
-                _buildTextField(
-                  controller: nameArController,
-                  label: AppLocalizations.of(context)!.nameAr,
-                  hint: 'مثال: بيتزا جبنة، بيتزا تونة',
-                  icon: LucideIcons.languages,
-                  textAlign: TextAlign.right,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTextField(
-                        controller: priceController,
-                        label: AppLocalizations.of(context)!.price,
-                        hint: '0.00',
-                        icon: LucideIcons.dollarSign,
-                        keyboardType: TextInputType.number,
-                        validator: (v) {
-                          final p = double.tryParse(v ?? '');
-                          if (p == null || p <= 0) {
-                            return AppLocalizations.of(context)!.fieldRequired;
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildTextField(
-                        controller: comparePriceController,
-                        label: AppLocalizations.of(context)!.comparePrice,
-                        hint: '0.00',
-                        icon: LucideIcons.tag,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTextField(
-                        controller: stockController,
-                        label: AppLocalizations.of(context)!.stock,
-                        hint: '0',
-                        icon: LucideIcons.box,
-                        keyboardType: TextInputType.number,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildTextField(
-                        controller: skuController,
-                        label: AppLocalizations.of(context)!.sku,
-                        hint: AppLocalizations.of(context)!.optional,
-                        icon: LucideIcons.hash,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                StatefulBuilder(
-                  builder: (context, setDialogState) => _buildSwitchTile(
-                    title: AppLocalizations.of(context)!.trackStock,
-                    subtitle: AppLocalizations.of(context)!.trackStockSubtitle,
-                    value: tracksStock,
-                    onChanged: (v) => setDialogState(() => tracksStock = v),
-                    icon: LucideIcons.boxes,
+      builder: (dialogCtx) {
+        final l10n = AppLocalizations.of(dialogCtx)!;
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) => AppDialog(
+            maxWidth: 520,
+            canPop: !isSaving,
+            header: AppDialogHeader(
+              icon: LucideIcons.layers,
+              title: variant == null ? l10n.addVariant : l10n.editVariant,
+              isCloseDisabled: isSaving,
+              onClose: () => Navigator.pop(dialogCtx),
+            ),
+            body: Form(
+              key: _variantFormKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildTextField(
+                    controller: nameController,
+                    label: l10n.nameEn,
+                    languageTag: 'EN',
+                    isRequired: true,
+                    hint: 'e.g. Cheese Pizza, Tuna Pizza',
+                    icon: LucideIcons.type,
+                    textDirection: TextDirection.ltr,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  _buildTextField(
+                    controller: nameArController,
+                    label: l10n.nameAr,
+                    languageTag: 'عربي',
+                    languageTagColor: AppColors.info,
+                    hint: 'مثال: بيتزا جبنة، بيتزا تونة',
+                    icon: LucideIcons.languages,
+                    textDirection: TextDirection.rtl,
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildTextField(
+                          controller: priceController,
+                          label: l10n.price,
+                          isRequired: true,
+                          hint: '0.00',
+                          icon: LucideIcons.dollarSign,
+                          keyboardType: TextInputType.number,
+                          textDirection: TextDirection.ltr,
+                          validator: (v) {
+                            final p = double.tryParse(v ?? '');
+                            if (p == null || p <= 0) {
+                              return l10n.fieldRequired;
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildTextField(
+                          controller: comparePriceController,
+                          label: l10n.comparePrice,
+                          hint: '0.00',
+                          icon: LucideIcons.tag,
+                          keyboardType: TextInputType.number,
+                          textDirection: TextDirection.ltr,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildTextField(
+                          controller: stockController,
+                          label: l10n.stock,
+                          hint: '0',
+                          icon: LucideIcons.box,
+                          keyboardType: TextInputType.number,
+                          textDirection: TextDirection.ltr,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildTextField(
+                          controller: skuController,
+                          label: l10n.sku,
+                          hint: l10n.optional,
+                          icon: LucideIcons.hash,
+                          textDirection: TextDirection.ltr,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  AppDialogSectionCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    child: _buildSwitchTile(
+                      title: l10n.trackStock,
+                      subtitle: l10n.trackStockSubtitle,
+                      value: tracksStock,
+                      onChanged: (v) => setDialogState(() => tracksStock = v),
+                      icon: LucideIcons.boxes,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!(_variantFormKey.currentState?.validate() ?? false)) {
-                return;
-              }
-              final comparePriceVal = comparePriceController.text.trim().isNotEmpty
-                  ? double.tryParse(comparePriceController.text.trim())
-                  : null;
-              final data = {
-                'name': nameController.text,
-                'nameAr': nameArController.text,
-                'basePrice': double.tryParse(priceController.text) ?? 0.0,
-                'comparePrice': comparePriceVal,
-                'stock': int.tryParse(stockController.text),
-                'sku': skuController.text.trim().isEmpty ? null : skuController.text.trim(),
-                'tracksStock': tracksStock,
-              };
-              bool success = false;
-              if (variant == null) {
-                if (widget.product == null) {
-                  setState(() {
-                    _variants.add({
-                      'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                      'name': data['name'],
-                      'nameAr': data['nameAr'],
-                      'basePrice': data['basePrice'],
-                      'comparePrice': data['comparePrice'],
-                      'stock': data['stock'],
-                      'sku': data['sku'],
-                      'tracksStock': data['tracksStock'],
-                      'optionGroups': [],
-                    });
-                  });
-                  success = true;
-                } else {
-                  try { await ref
-                      .read(adminVendorsRepositoryProvider)
-                      .addVariant(widget.vendorId, widget.product['id'], CreateProductVariantDto((b) {
-                        b.name = data['name'] as String;
-                        b.nameAr = data['nameAr'] as String;
-                        b.basePrice = data['basePrice'] as num;
-                        if (data['comparePrice'] != null) b.comparePrice = data['comparePrice'] as num;
-                        b.stock = data['stock'] as num?;
-                        if (data['tracksStock'] != null) b.tracksStock = data['tracksStock'] as bool;
-                        if (data['sku'] != null && (data['sku'] as String).isNotEmpty) b.sku = data['sku'] as String;
-                      })); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
-                }
-              } else {
-                if (widget.product == null) {
-                  setState(() {
-                    final idx = _variants.indexWhere(
-                      (v) => v['id'] == variant['id'],
-                    );
-                    if (idx != -1) {
-                      _variants[idx] = {
-                        ..._variants[idx],
-                        'name': data['name'],
-                        'nameAr': data['nameAr'],
-                        'basePrice': data['basePrice'],
-                        'comparePrice': data['comparePrice'],
-                        'stock': data['stock'],
-                        'sku': data['sku'],
-                        'tracksStock': data['tracksStock'],
+            footer: AppDialogFooter(
+              cancelLabel: l10n.cancel,
+              onCancel: () => Navigator.pop(dialogCtx),
+              confirmLabel: variant == null ? l10n.add : l10n.save,
+              confirmIcon:
+                  variant == null ? LucideIcons.plus : LucideIcons.check,
+              isLoading: isSaving,
+              onConfirm: isSaving
+                  ? null
+                  : () async {
+                      if (!(_variantFormKey.currentState?.validate() ?? false)) {
+                        return;
+                      }
+                      setDialogState(() => isSaving = true);
+                      final comparePriceVal =
+                          comparePriceController.text.trim().isNotEmpty
+                              ? double.tryParse(
+                                  comparePriceController.text.trim(),
+                                )
+                              : null;
+                      final data = {
+                        'name': nameController.text,
+                        'nameAr': nameArController.text,
+                        'basePrice':
+                            double.tryParse(priceController.text) ?? 0.0,
+                        'comparePrice': comparePriceVal,
+                        'stock': int.tryParse(stockController.text),
+                        'sku': skuController.text.trim().isEmpty
+                            ? null
+                            : skuController.text.trim(),
+                        'tracksStock': tracksStock,
                       };
-                    }
-                  });
-                  success = true;
-                } else {
-                  try { await ref
-                      .read(adminVendorsRepositoryProvider)
-                      .updateVariant(
-                        widget.vendorId,
-                        widget.product['id'],
-                        variant['id'],
-                        UpdateProductVariantDto((b) {
-                          b.name = data['name'] as String;
-                          b.nameAr = data['nameAr'] as String;
-                          b.basePrice = data['basePrice'] as num;
-                          if (data['comparePrice'] != null) b.comparePrice = data['comparePrice'] as num;
-                          b.stock = data['stock'] as num?;
-                          if (data['tracksStock'] != null) b.tracksStock = data['tracksStock'] as bool;
-                          if (data['sku'] != null && (data['sku'] as String).isNotEmpty) b.sku = data['sku'] as String;
-                        }),
-                      ); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
-                }
-              }
-              if (!context.mounted) return;
-              Navigator.pop(context, success);
-            },
-            child: Text(
-              variant == null
-                  ? AppLocalizations.of(context)!.add
-                  : AppLocalizations.of(context)!.save,
+                      bool success = false;
+                      if (variant == null) {
+                        if (widget.product == null) {
+                          setState(() {
+                            _variants.add({
+                              'id':
+                                  'temp_${DateTime.now().millisecondsSinceEpoch}',
+                              'name': data['name'],
+                              'nameAr': data['nameAr'],
+                              'basePrice': data['basePrice'],
+                              'comparePrice': data['comparePrice'],
+                              'stock': data['stock'],
+                              'sku': data['sku'],
+                              'tracksStock': data['tracksStock'],
+                              'optionGroups': [],
+                            });
+                          });
+                          success = true;
+                        } else {
+                          try {
+                            await ref
+                                .read(adminVendorsRepositoryProvider)
+                                .addVariant(
+                                  widget.vendorId,
+                                  widget.product['id'],
+                                  CreateProductVariantDto((b) {
+                                    b.name = data['name'] as String;
+                                    b.nameAr = data['nameAr'] as String;
+                                    b.basePrice = data['basePrice'] as num;
+                                    if (data['comparePrice'] != null) {
+                                      b.comparePrice =
+                                          data['comparePrice'] as num;
+                                    }
+                                    b.stock = data['stock'] as num?;
+                                    if (data['tracksStock'] != null) {
+                                      b.tracksStock =
+                                          data['tracksStock'] as bool;
+                                    }
+                                    if (data['sku'] != null &&
+                                        (data['sku'] as String).isNotEmpty) {
+                                      b.sku = data['sku'] as String;
+                                    }
+                                  }),
+                                );
+                            success = true;
+                          } catch (e) {
+                            success = false;
+                            debugPrint(e.toString());
+                          }
+                        }
+                      } else {
+                        if (widget.product == null) {
+                          setState(() {
+                            final idx = _variants.indexWhere(
+                              (v) => v['id'] == variant['id'],
+                            );
+                            if (idx != -1) {
+                              _variants[idx] = {
+                                ..._variants[idx],
+                                'name': data['name'],
+                                'nameAr': data['nameAr'],
+                                'basePrice': data['basePrice'],
+                                'comparePrice': data['comparePrice'],
+                                'stock': data['stock'],
+                                'sku': data['sku'],
+                                'tracksStock': data['tracksStock'],
+                              };
+                            }
+                          });
+                          success = true;
+                        } else {
+                          try {
+                            await ref
+                                .read(adminVendorsRepositoryProvider)
+                                .updateVariant(
+                                  widget.vendorId,
+                                  widget.product['id'],
+                                  variant['id'],
+                                  UpdateProductVariantDto((b) {
+                                    b.name = data['name'] as String;
+                                    b.nameAr = data['nameAr'] as String;
+                                    b.basePrice = data['basePrice'] as num;
+                                    if (data['comparePrice'] != null) {
+                                      b.comparePrice =
+                                          data['comparePrice'] as num;
+                                    }
+                                    b.stock = data['stock'] as num?;
+                                    if (data['tracksStock'] != null) {
+                                      b.tracksStock =
+                                          data['tracksStock'] as bool;
+                                    }
+                                    if (data['sku'] != null &&
+                                        (data['sku'] as String).isNotEmpty) {
+                                      b.sku = data['sku'] as String;
+                                    }
+                                  }),
+                                );
+                            success = true;
+                          } catch (e) {
+                            success = false;
+                            debugPrint(e.toString());
+                          }
+                        }
+                      }
+                      if (!dialogCtx.mounted) return;
+                      Navigator.pop(dialogCtx, success);
+                    },
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
 
     if (result == true && widget.product != null) _fetchProductDetails();
@@ -1492,25 +1543,16 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   }
 
   void _deleteVariant(String variantId) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.deleteVariant),
-        content: Text(AppLocalizations.of(context)!.deleteConfirmVariant),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              AppLocalizations.of(context)!.delete,
-              style: const TextStyle(color: AppColors.error),
-            ),
-          ),
-        ],
-      ),
+    final l10n = AppLocalizations.of(context)!;
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteVariant,
+      message: l10n.deleteConfirmVariant,
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
 
     if (confirm == true) {
@@ -1521,9 +1563,15 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
         });
         success = true;
       } else {
-        try { await ref
-            .read(adminVendorsRepositoryProvider)
-            .deleteVariant(widget.vendorId, widget.product['id'], variantId); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
+        try {
+          await ref
+              .read(adminVendorsRepositoryProvider)
+              .deleteVariant(widget.vendorId, widget.product['id'], variantId);
+          success = true;
+        } catch (e) {
+          success = false;
+          debugPrint(e.toString());
+        }
       }
       if (success && widget.product != null) _fetchProductDetails();
       if (mounted) {
@@ -1549,159 +1597,199 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
       text: group?['maxSelect']?.toString() ?? '1',
     );
     bool isRequired = group?['isRequired'] ?? false;
+    bool isSaving = false;
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text(
-            group == null
-                ? AppLocalizations.of(context)!.addOptionGroup
-                : AppLocalizations.of(context)!.editOptionGroup,
-          ),
-          content: SingleChildScrollView(
-            child: Column(
+      builder: (dialogCtx) {
+        final l10n = AppLocalizations.of(dialogCtx)!;
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) => AppDialog(
+            maxWidth: 500,
+            canPop: !isSaving,
+            header: AppDialogHeader(
+              icon: LucideIcons.listPlus,
+              title: group == null ? l10n.addOptionGroup : l10n.editOptionGroup,
+              isCloseDisabled: isSaving,
+              onClose: () => Navigator.pop(dialogCtx),
+            ),
+            body: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildTextField(
                   controller: nameController,
-                  label: AppLocalizations.of(context)!.groupNameEn,
+                  label: l10n.groupNameEn,
+                  languageTag: 'EN',
                   hint: 'e.g. Size, Extras',
                   icon: LucideIcons.type,
+                  textDirection: TextDirection.ltr,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 _buildTextField(
                   controller: nameArController,
-                  label: AppLocalizations.of(context)!.groupNameAr,
+                  label: l10n.groupNameAr,
+                  languageTag: 'عربي',
+                  languageTagColor: AppColors.info,
                   hint: 'مثال: الحجم، الإضافات',
                   icon: LucideIcons.languages,
-                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: _buildTextField(
                         controller: minController,
-                        label: AppLocalizations.of(context)!.min,
+                        label: l10n.min,
                         hint: '0',
                         icon: LucideIcons.minus,
                         keyboardType: TextInputType.number,
+                        textDirection: TextDirection.ltr,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildTextField(
                         controller: maxController,
-                        label: AppLocalizations.of(context)!.max,
+                        label: l10n.max,
                         hint: '1',
                         icon: LucideIcons.plus,
                         keyboardType: TextInputType.number,
+                        textDirection: TextDirection.ltr,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                CheckboxListTile(
-                  title: Text(AppLocalizations.of(context)!.isRequired),
-                  value: isRequired,
-                  onChanged: (v) => setState(() => isRequired = v ?? false),
-                  contentPadding: EdgeInsets.zero,
+                const SizedBox(height: 14),
+                AppDialogSectionCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  child: CheckboxListTile(
+                    title: Text(
+                      l10n.isRequired,
+                      style: Theme.of(dialogCtx).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13.5,
+                          ),
+                    ),
+                    value: isRequired,
+                    activeColor: AppColors.primary,
+                    checkColor: AppColors.onPrimary,
+                    controlAffinity: ListTileControlAffinity.trailing,
+                    onChanged: (v) =>
+                        setDialogState(() => isRequired = v ?? false),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
                 ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(AppLocalizations.of(context)!.cancel),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final data = {
-                  'name': nameController.text,
-                  'nameAr': nameArController.text,
-                  'minSelect': int.tryParse(minController.text) ?? 0,
-                  'maxSelect': int.tryParse(maxController.text) ?? 1,
-                  'isRequired': isRequired,
-                };
-                bool success = false;
-                if (group == null) {
-                  if (widget.product == null) {
-                    setState(() {
-                      _optionGroups.add({
-                        'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
-                        'name': data['name'],
-                        'nameAr': data['nameAr'],
-                        'minSelect': data['minSelect'],
-                        'maxSelect': data['maxSelect'],
-                        'isRequired': data['isRequired'],
-                        'options': [],
-                      });
-                    });
-                    success = true;
-                  } else {
-                    try { await ref
-                        .read(adminVendorsRepositoryProvider)
-                        .addOptionGroup(
-                          widget.vendorId,
-                          widget.product['id'],
-                          CreateOptionGroupDto((b) {
-                            b.name = data['name'] as String;
-                            b.nameAr = data['nameAr'] as String;
-                            b.minSelect = data['minSelect'] as num;
-                            b.maxSelect = data['maxSelect'] as num;
-                            b.isRequired = data['isRequired'] as bool;
-                          }),
-                        ); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
-                  }
-                } else {
-                  if (widget.product == null) {
-                    setState(() {
-                      final idx = _optionGroups.indexWhere(
-                        (g) => g['id'] == group['id'],
-                      );
-                      if (idx != -1) {
-                        _optionGroups[idx] = {
-                          ..._optionGroups[idx],
-                          'name': data['name'],
-                          'nameAr': data['nameAr'],
-                          'minSelect': data['minSelect'],
-                          'maxSelect': data['maxSelect'],
-                          'isRequired': data['isRequired'],
-                        };
+            footer: AppDialogFooter(
+              cancelLabel: l10n.cancel,
+              onCancel: () => Navigator.pop(dialogCtx),
+              confirmLabel: group == null ? l10n.add : l10n.save,
+              confirmIcon:
+                  group == null ? LucideIcons.plus : LucideIcons.check,
+              isLoading: isSaving,
+              onConfirm: isSaving
+                  ? null
+                  : () async {
+                      setDialogState(() => isSaving = true);
+                      final data = {
+                        'name': nameController.text,
+                        'nameAr': nameArController.text,
+                        'minSelect': int.tryParse(minController.text) ?? 0,
+                        'maxSelect': int.tryParse(maxController.text) ?? 1,
+                        'isRequired': isRequired,
+                      };
+                      bool success = false;
+                      if (group == null) {
+                        if (widget.product == null) {
+                          setState(() {
+                            _optionGroups.add({
+                              'id':
+                                  'temp_${DateTime.now().millisecondsSinceEpoch}',
+                              'name': data['name'],
+                              'nameAr': data['nameAr'],
+                              'minSelect': data['minSelect'],
+                              'maxSelect': data['maxSelect'],
+                              'isRequired': data['isRequired'],
+                              'options': [],
+                            });
+                          });
+                          success = true;
+                        } else {
+                          try {
+                            await ref
+                                .read(adminVendorsRepositoryProvider)
+                                .addOptionGroup(
+                                  widget.vendorId,
+                                  widget.product['id'],
+                                  CreateOptionGroupDto((b) {
+                                    b.name = data['name'] as String;
+                                    b.nameAr = data['nameAr'] as String;
+                                    b.minSelect = data['minSelect'] as num;
+                                    b.maxSelect = data['maxSelect'] as num;
+                                    b.isRequired = data['isRequired'] as bool;
+                                  }),
+                                );
+                            success = true;
+                          } catch (e) {
+                            success = false;
+                            debugPrint(e.toString());
+                          }
+                        }
+                      } else {
+                        if (widget.product == null) {
+                          setState(() {
+                            final idx = _optionGroups.indexWhere(
+                              (g) => g['id'] == group['id'],
+                            );
+                            if (idx != -1) {
+                              _optionGroups[idx] = {
+                                ..._optionGroups[idx],
+                                'name': data['name'],
+                                'nameAr': data['nameAr'],
+                                'minSelect': data['minSelect'],
+                                'maxSelect': data['maxSelect'],
+                                'isRequired': data['isRequired'],
+                              };
+                            }
+                          });
+                          success = true;
+                        } else {
+                          try {
+                            await ref
+                                .read(adminVendorsRepositoryProvider)
+                                .updateOptionGroup(
+                                  widget.vendorId,
+                                  widget.product['id'],
+                                  group['id'],
+                                  UpdateOptionGroupDto((b) {
+                                    b.name = data['name'] as String;
+                                    b.nameAr = data['nameAr'] as String;
+                                    b.minSelect = data['minSelect'] as num;
+                                    b.maxSelect = data['maxSelect'] as num;
+                                    b.isRequired = data['isRequired'] as bool;
+                                  }),
+                                );
+                            success = true;
+                          } catch (e) {
+                            success = false;
+                            debugPrint(e.toString());
+                          }
+                        }
                       }
-                    });
-                    success = true;
-                  } else {
-                    try { await ref
-                        .read(adminVendorsRepositoryProvider)
-                        .updateOptionGroup(
-                          widget.vendorId,
-                          widget.product['id'],
-                          group['id'],
-                          UpdateOptionGroupDto((b) {
-                            b.name = data['name'] as String;
-                            b.nameAr = data['nameAr'] as String;
-                            b.minSelect = data['minSelect'] as num;
-                            b.maxSelect = data['maxSelect'] as num;
-                            b.isRequired = data['isRequired'] as bool;
-                          }),
-                        ); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
-                  }
-                }
-                if (!context.mounted) return;
-                Navigator.pop(context, success);
-              },
-              child: Text(
-                group == null
-                    ? AppLocalizations.of(context)!.add
-                    : AppLocalizations.of(context)!.save,
-              ),
+                      if (!dialogCtx.mounted) return;
+                      Navigator.pop(dialogCtx, success);
+                    },
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
 
     if (result == true && widget.product != null) _fetchProductDetails();
@@ -1718,25 +1806,16 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   }
 
   void _deleteOptionGroup(String groupId) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.deleteOptionGroup),
-        content: Text(AppLocalizations.of(context)!.deleteConfirmOptionGroup),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              AppLocalizations.of(context)!.delete,
-              style: const TextStyle(color: AppColors.error),
-            ),
-          ),
-        ],
-      ),
+    final l10n = AppLocalizations.of(context)!;
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteOptionGroup,
+      message: l10n.deleteConfirmOptionGroup,
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
 
     if (confirm == true) {
@@ -1747,9 +1826,19 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
         });
         success = true;
       } else {
-        try { await ref
-            .read(adminVendorsRepositoryProvider)
-            .deleteOptionGroup(widget.vendorId, widget.product['id'], groupId); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
+        try {
+          await ref
+              .read(adminVendorsRepositoryProvider)
+              .deleteOptionGroup(
+                widget.vendorId,
+                widget.product['id'],
+                groupId,
+              );
+          success = true;
+        } catch (e) {
+          success = false;
+          debugPrint(e.toString());
+        }
       }
       if (success && widget.product != null) _fetchProductDetails();
       if (mounted) {
@@ -1771,144 +1860,168 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     final priceController = TextEditingController(
       text: option?['priceAdded']?.toString() ?? '0',
     );
+    bool isSaving = false;
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          option == null
-              ? AppLocalizations.of(context)!.addOption
-              : AppLocalizations.of(context)!.editOption,
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildTextField(
-                controller: nameController,
-                label: AppLocalizations.of(context)!.optionNameEn,
-                hint: 'e.g. Medium, Extra Mozzarella',
-                icon: LucideIcons.type,
-              ),
-              const SizedBox(height: 12),
-              _buildTextField(
-                controller: nameArController,
-                label: AppLocalizations.of(context)!.optionNameAr,
-                hint: 'مثال: وسط، جبنة موزاريلا إضافية',
-                icon: LucideIcons.languages,
-                textAlign: TextAlign.right,
-              ),
-              const SizedBox(height: 12),
-              _buildTextField(
-                controller: priceController,
-                label: AppLocalizations.of(context)!.additionalPrice,
-                hint: '0.00',
-                icon: LucideIcons.dollarSign,
-                keyboardType: TextInputType.number,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final data = {
-                'name': nameController.text,
-                'nameAr': nameArController.text,
-                'priceAdded': double.tryParse(priceController.text) ?? 0.0,
-              };
-              bool success = false;
-              if (option == null) {
-                if (widget.product == null) {
-                  setState(() {
-                    final idx = _optionGroups.indexWhere(
-                      (g) => g['id'] == groupId,
-                    );
-                    if (idx != -1) {
-                      final options = List<dynamic>.from(
-                        _optionGroups[idx]['options'] ?? [],
-                      );
-                      options.add({
-                        'id':
-                            'temp_opt_${DateTime.now().millisecondsSinceEpoch}',
-                        'name': data['name'],
-                        'nameAr': data['nameAr'],
-                        'priceAdded': data['priceAdded'],
-                      });
-                      _optionGroups[idx]['options'] = options;
-                    }
-                  });
-                  success = true;
-                } else {
-                  try { await ref
-                      .read(adminVendorsRepositoryProvider)
-                      .addOption(
-                        widget.vendorId,
-                        widget.product['id'],
-                        groupId,
-                        CreateProductOptionDto((b) {
-                          b.name = data['name'] as String;
-                          b.nameAr = data['nameAr'] as String;
-                          b.priceAdded = data['priceAdded'] as num;
-                        }),
-                      ); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
-                }
-              } else {
-                if (widget.product == null) {
-                  setState(() {
-                    final idx = _optionGroups.indexWhere(
-                      (g) => g['id'] == groupId,
-                    );
-                    if (idx != -1) {
-                      final options = List<dynamic>.from(
-                        _optionGroups[idx]['options'] ?? [],
-                      );
-                      final optIdx = options.indexWhere(
-                        (o) => o['id'] == option['id'],
-                      );
-                      if (optIdx != -1) {
-                        options[optIdx] = {
-                          ...options[optIdx],
-                          'name': data['name'],
-                          'nameAr': data['nameAr'],
-                          'priceAdded': data['priceAdded'],
-                        };
+      builder: (dialogCtx) {
+        final l10n = AppLocalizations.of(dialogCtx)!;
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) => AppDialog(
+            maxWidth: 480,
+            canPop: !isSaving,
+            header: AppDialogHeader(
+              icon: LucideIcons.listChecks,
+              title: option == null ? l10n.addOption : l10n.editOption,
+              isCloseDisabled: isSaving,
+              onClose: () => Navigator.pop(dialogCtx),
+            ),
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildTextField(
+                  controller: nameController,
+                  label: l10n.optionNameEn,
+                  languageTag: 'EN',
+                  hint: 'e.g. Medium, Extra Mozzarella',
+                  icon: LucideIcons.type,
+                  textDirection: TextDirection.ltr,
+                ),
+                const SizedBox(height: 14),
+                _buildTextField(
+                  controller: nameArController,
+                  label: l10n.optionNameAr,
+                  languageTag: 'عربي',
+                  languageTagColor: AppColors.info,
+                  hint: 'مثال: وسط، جبنة موزاريلا إضافية',
+                  icon: LucideIcons.languages,
+                  textDirection: TextDirection.rtl,
+                ),
+                const SizedBox(height: 14),
+                _buildTextField(
+                  controller: priceController,
+                  label: l10n.additionalPrice,
+                  hint: '0.00',
+                  icon: LucideIcons.dollarSign,
+                  keyboardType: TextInputType.number,
+                  textDirection: TextDirection.ltr,
+                ),
+              ],
+            ),
+            footer: AppDialogFooter(
+              cancelLabel: l10n.cancel,
+              onCancel: () => Navigator.pop(dialogCtx),
+              confirmLabel: option == null ? l10n.add : l10n.save,
+              confirmIcon:
+                  option == null ? LucideIcons.plus : LucideIcons.check,
+              isLoading: isSaving,
+              onConfirm: isSaving
+                  ? null
+                  : () async {
+                      setDialogState(() => isSaving = true);
+                      final data = {
+                        'name': nameController.text,
+                        'nameAr': nameArController.text,
+                        'priceAdded':
+                            double.tryParse(priceController.text) ?? 0.0,
+                      };
+                      bool success = false;
+                      if (option == null) {
+                        if (widget.product == null) {
+                          setState(() {
+                            final idx = _optionGroups.indexWhere(
+                              (g) => g['id'] == groupId,
+                            );
+                            if (idx != -1) {
+                              final options = List<dynamic>.from(
+                                _optionGroups[idx]['options'] ?? [],
+                              );
+                              options.add({
+                                'id':
+                                    'temp_opt_${DateTime.now().millisecondsSinceEpoch}',
+                                'name': data['name'],
+                                'nameAr': data['nameAr'],
+                                'priceAdded': data['priceAdded'],
+                              });
+                              _optionGroups[idx]['options'] = options;
+                            }
+                          });
+                          success = true;
+                        } else {
+                          try {
+                            await ref
+                                .read(adminVendorsRepositoryProvider)
+                                .addOption(
+                                  widget.vendorId,
+                                  widget.product['id'],
+                                  groupId,
+                                  CreateProductOptionDto((b) {
+                                    b.name = data['name'] as String;
+                                    b.nameAr = data['nameAr'] as String;
+                                    b.priceAdded = data['priceAdded'] as num;
+                                  }),
+                                );
+                            success = true;
+                          } catch (e) {
+                            success = false;
+                            debugPrint(e.toString());
+                          }
+                        }
+                      } else {
+                        if (widget.product == null) {
+                          setState(() {
+                            final idx = _optionGroups.indexWhere(
+                              (g) => g['id'] == groupId,
+                            );
+                            if (idx != -1) {
+                              final options = List<dynamic>.from(
+                                _optionGroups[idx]['options'] ?? [],
+                              );
+                              final optIdx = options.indexWhere(
+                                (o) => o['id'] == option['id'],
+                              );
+                              if (optIdx != -1) {
+                                options[optIdx] = {
+                                  ...options[optIdx],
+                                  'name': data['name'],
+                                  'nameAr': data['nameAr'],
+                                  'priceAdded': data['priceAdded'],
+                                };
+                              }
+                              _optionGroups[idx]['options'] = options;
+                            }
+                          });
+                          success = true;
+                        } else {
+                          try {
+                            await ref
+                                .read(adminVendorsRepositoryProvider)
+                                .updateOption(
+                                  widget.vendorId,
+                                  widget.product['id'],
+                                  groupId,
+                                  option['id'],
+                                  UpdateProductOptionDto((b) {
+                                    b.name = data['name'] as String;
+                                    b.nameAr = data['nameAr'] as String;
+                                    b.priceAdded = data['priceAdded'] as num;
+                                  }),
+                                );
+                            success = true;
+                          } catch (e) {
+                            success = false;
+                            debugPrint(e.toString());
+                          }
+                        }
                       }
-                      _optionGroups[idx]['options'] = options;
-                    }
-                  });
-                  success = true;
-                } else {
-                  try { await ref
-                      .read(adminVendorsRepositoryProvider)
-                      .updateOption(
-                        widget.vendorId,
-                        widget.product['id'],
-                        groupId,
-                        option['id'],
-                        UpdateProductOptionDto((b) {
-                          b.name = data['name'] as String;
-                          b.nameAr = data['nameAr'] as String;
-                          b.priceAdded = data['priceAdded'] as num;
-                        }),
-                      ); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
-                }
-              }
-              if (!context.mounted) return;
-              Navigator.pop(context, success);
-            },
-            child: Text(
-              option == null
-                  ? AppLocalizations.of(context)!.add
-                  : AppLocalizations.of(context)!.save,
+                      if (!dialogCtx.mounted) return;
+                      Navigator.pop(dialogCtx, success);
+                    },
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
 
     if (result == true && widget.product != null) _fetchProductDetails();
@@ -1925,25 +2038,16 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   }
 
   void _deleteOption(String groupId, String optionId) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.deleteOption),
-        content: Text(AppLocalizations.of(context)!.deleteConfirmOption),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              AppLocalizations.of(context)!.delete,
-              style: const TextStyle(color: AppColors.error),
-            ),
-          ),
-        ],
-      ),
+    final l10n = AppLocalizations.of(context)!;
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteOption,
+      message: l10n.deleteConfirmOption,
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
 
     if (confirm == true) {
@@ -1961,14 +2065,20 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
         });
         success = true;
       } else {
-        try { await ref
-            .read(adminVendorsRepositoryProvider)
-            .deleteOption(
-              widget.vendorId,
-              widget.product['id'],
-              groupId,
-              optionId,
-            ); success = true; } catch (e) { success = false; debugPrint(e.toString()); }
+        try {
+          await ref
+              .read(adminVendorsRepositoryProvider)
+              .deleteOption(
+                widget.vendorId,
+                widget.product['id'],
+                groupId,
+                optionId,
+              );
+          success = true;
+        } catch (e) {
+          success = false;
+          debugPrint(e.toString());
+        }
       }
       if (success && widget.product != null) _fetchProductDetails();
       if (mounted) {
@@ -1983,147 +2093,152 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   }
 
   Widget _buildImagePicker() {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final hasImage = _imageFile != null || widget.product?['imageUrl'] != null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Builder(
-          builder: (imgCtx) => Stack(
-            children: [
-              GestureDetector(
-                onTap: () => _pickImage(),
-              child: Container(
-                height: 160,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-                    width: 1,
-                  ),
+    return Builder(
+      builder: (imgCtx) => Stack(
+        children: [
+          GestureDetector(
+            onTap: _isPickingImage ? null : () => _pickImage(),
+            child: Container(
+              height: 164,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppDialogStyles.subtleSurfaceColor(context),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppDialogStyles.borderColor(context),
+                  width: 1.2,
                 ),
-                child: _imageFile != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: _imageFileBytes != null
-                            ? Image.memory(
-                                _imageFileBytes!,
-                                fit: BoxFit.cover,
-                              )
-                            : kIsWeb
-                                ? Image.network(
-                                    _imageFile!.path,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Image.file(
-                                    File(_imageFile!.path),
-                                    fit: BoxFit.cover,
-                                  ),
-                      )
-                    : widget.product?['imageUrl'] != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Image.network(
-                          _formatImageUrl(widget.product!['imageUrl']),
-                          fit: BoxFit.cover,
+              ),
+              child: _imageFile != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(13),
+                      child: _imageFileBytes != null
+                          ? Image.memory(_imageFileBytes!, fit: BoxFit.cover)
+                          : kIsWeb
+                              ? Image.network(
+                                  _imageFile!.path,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.file(
+                                  File(_imageFile!.path),
+                                  fit: BoxFit.cover,
+                                ),
+                    )
+                  : widget.product?['imageUrl'] != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: Image.network(
+                            _formatImageUrl(widget.product!['imageUrl']),
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: const Icon(
+                                LucideIcons.image,
+                                color: AppColors.primary,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              l10n.uploadProductImage,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              l10n.imageFormatSupport,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              LucideIcons.image,
-                              color: AppColors.primary,
-                              size: 32,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            AppLocalizations.of(context)!.uploadProductImage,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            AppLocalizations.of(context)!.imageFormatSupport,
-                            style: const TextStyle(
-                              
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
+            ),
+          ),
+          if (hasImage)
+            PositionedDirectional(
+              end: 10,
+              top: 10,
+              child: Row(
+                children: [
+                  _buildImageActionButton(
+                    icon: LucideIcons.camera,
+                    onTap: () => _pickImage(),
+                    tooltip: l10n.changeImage,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildImageActionButton(
+                    icon: LucideIcons.trash2,
+                    onTap: () {
+                      setState(() {
+                        _imageFile = null;
+                        _imageFileBytes = null;
+                        if (widget.product != null) {
+                          widget.product['imageUrl'] = null;
+                        }
+                      });
+                    },
+                    backgroundColor: AppColors.error.withValues(alpha: 0.9),
+                    tooltip: l10n.removeImage,
+                  ),
+                ],
               ),
             ),
-            if (hasImage)
-              PositionedDirectional(
-                end: 12,
-                top: 12,
-                child: Row(
-                  children: [
-                    _buildImageActionButton(
-                      icon: LucideIcons.camera,
-                      onTap: () => _pickImage(),
-                      tooltip: AppLocalizations.of(context)!.changeImage,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildImageActionButton(
-                      icon: LucideIcons.trash2,
-                      onTap: () {
-                        setState(() {
-                          _imageFile = null;
-                          _imageFileBytes = null;
-                          if (widget.product != null) {
-                            widget.product['imageUrl'] = null;
-                          }
-                        });
-                      },
-                      color: AppColors.error,
-                      tooltip: AppLocalizations.of(context)!.removeImage,
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildImageActionButton({
     required IconData icon,
     required VoidCallback onTap,
-    Color? color,
+    Color? backgroundColor,
     String? tooltip,
   }) {
-    return Material(
-      color: Colors.black,
+    final button = Material(
+      color: backgroundColor ?? Colors.black.withValues(alpha: 0.72),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.16),
+            ),
+          ),
           child: Icon(
             icon,
-            color: color ?? Theme.of(context).colorScheme.onSurface,
-            size: 18,
+            color: Colors.white,
+            size: 16,
           ),
         ),
       ),
     );
+    return tooltip != null ? Tooltip(message: tooltip, child: button) : button;
   }
 
   Widget _buildSwitchTile({
@@ -2133,23 +2248,27 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     required ValueChanged<bool> onChanged,
     required IconData icon,
   }) {
+    final theme = Theme.of(context);
     return ListTile(
       leading: Icon(
         icon,
-        color: value ? AppColors.primary : AppColors.textMuted,
-        size: 20,
+        color: value ? AppColors.primary : theme.colorScheme.onSurfaceVariant,
+        size: 19,
       ),
       title: Text(
         title,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.onSurface,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w700,
+          color: theme.colorScheme.onSurface,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(fontSize: 12),
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontSize: 12,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
       ),
       trailing: Switch(
         value: value,

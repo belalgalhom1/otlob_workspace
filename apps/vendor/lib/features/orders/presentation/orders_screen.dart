@@ -94,6 +94,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       firstDate: DateTime(now.year - 2),
       lastDate: DateTime(now.year, now.month, now.day, 23, 59),
       initialDateRange: _customRange,
+      builder: AppDialogStyles.adaptivePickerTheme,
     );
     if (picked != null && mounted) {
       // Custom range replaces the preset window and vice versa.
@@ -3197,41 +3198,62 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                children: [
-                  const Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isArabic ? 'رفض محطة متجر: $storeName' : 'Reject Store Stop: $storeName',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
+            final theme = Theme.of(ctx);
+            final isDark = theme.brightness == Brightness.dark;
+            return AppDialog(
+              maxWidth: 500,
+              header: AppDialogHeader(
+                icon: LucideIcons.alertTriangle,
+                accentColor: AppColors.error,
+                titleColor: AppColors.error,
+                title: isArabic
+                    ? 'رفض محطة متجر: $storeName'
+                    : 'Reject Store Stop: $storeName',
+                subtitle: isArabic
+                    ? 'سيتم إلغاء هذا المتجر من الطلب وإعادة قيمة أصنافه للعميل، ولن تتأثر باقي المتاجر.'
+                    : 'This store portion will be cancelled and refunded to the customer. Other stores remain unaffected.',
+                onClose: () => Navigator.pop(dialogCtx),
               ),
-              content: Column(
+              body: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    isArabic
-                        ? 'سيتم إلغاء هذا المتجر من الطلب وإعادة قيمة أصنافه للعميل، ولن تتأثر باقي المتاجر.'
-                        : 'This store portion will be cancelled and refunded to the customer. Other stores remain unaffected.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  AppFieldLabel(
+                    label: isArabic ? 'اختر سبب الرفض' : 'Select Rejection Reason',
                   ),
-                  const SizedBox(height: 12),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: reasons.map((r) {
                       final isSelected = selectedCode == r['code'];
                       final rText = isArabic ? r['ar']! : r['en']!;
                       return ChoiceChip(
-                        label: Text(rText, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : null)),
+                        label: Text(
+                          rText,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected
+                                ? Colors.white
+                                : theme.colorScheme.onSurface,
+                          ),
+                        ),
                         selected: isSelected,
                         selectedColor: AppColors.error,
+                        backgroundColor:
+                            AppDialogStyles.subtleSurfaceColor(ctx),
+                        checkmarkColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(
+                            color: isSelected
+                                ? AppColors.error
+                                : (isDark
+                                    ? AppColors.borderDark
+                                    : AppColors.borderLight),
+                          ),
+                        ),
                         onSelected: (val) {
                           if (val) {
                             setDialogState(() {
@@ -3244,37 +3266,46 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
+                  AppFieldLabel(
+                    label: isArabic ? 'التفاصيل الإضافية' : 'Additional Details',
+                  ),
                   TextField(
                     controller: controller,
-                    decoration: InputDecoration(
-                      hintText: isArabic ? 'اكتب سبب الرفض بالتفصيل...' : 'Enter rejection reason...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    maxLines: 3,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 14,
                     ),
-                    maxLines: 2,
+                    decoration: AppDialogStyles.inputDecoration(
+                      ctx,
+                      hintText: isArabic
+                          ? 'اكتب سبب الرفض بالتفصيل...'
+                          : 'Enter rejection reason...',
+                      icon: LucideIcons.messageSquare,
+                      isMultiline: true,
+                    ),
                   ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx),
-                  child: Text(isArabic ? 'تراجع' : 'Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final reason = controller.text.trim().isNotEmpty ? controller.text.trim() : selectedReason;
-                    Navigator.pop(dialogCtx);
-                    ref.read(ordersProvider.notifier).rejectFulfillment(fulfillmentId, reason, code: selectedCode);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.error,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Text(isArabic ? 'تأكيد الرفض' : 'Confirm Rejection'),
-                ),
-              ],
+              footer: AppDialogFooter(
+                cancelLabel: isArabic ? 'تراجع' : 'Cancel',
+                onCancel: () => Navigator.pop(dialogCtx),
+                confirmLabel: isArabic ? 'تأكيد الرفض' : 'Confirm Rejection',
+                confirmIcon: LucideIcons.xCircle,
+                isDestructive: true,
+                onConfirm: () {
+                  final reason = controller.text.trim().isNotEmpty
+                      ? controller.text.trim()
+                      : selectedReason;
+                  Navigator.pop(dialogCtx);
+                  ref.read(ordersProvider.notifier).rejectFulfillment(
+                        fulfillmentId,
+                        reason,
+                        code: selectedCode,
+                      );
+                },
+              ),
             );
           },
         );
@@ -3935,37 +3966,44 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 
   void _viewFullPhoto(BuildContext context, String url) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     showDialog<void>(
       context: context,
-      builder: (ctx) => Dialog.fullscreen(
-        backgroundColor: Colors.black,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: InteractiveViewer(
-                maxScale: 5,
-                child: Center(
-                  child: CachedNetworkImage(
-                    imageUrl: url,
-                    fit: BoxFit.contain,
-                    errorWidget: (_, _, _) => const Icon(
-                      LucideIcons.imageOff,
-                      color: Colors.white70,
-                      size: 48,
-                    ),
+      builder: (ctx) => AppDialog(
+        maxWidth: 760,
+        maxHeight: 720,
+        scrollableBody: false,
+        expandBody: true,
+        bodyPadding: const EdgeInsets.all(16),
+        header: AppDialogHeader(
+          icon: LucideIcons.image,
+          title: isArabic ? 'معاينة الصورة' : 'Photo Preview',
+          onClose: () => Navigator.pop(ctx),
+        ),
+        body: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            color: Colors.black,
+            child: InteractiveViewer(
+              maxScale: 5,
+              child: Center(
+                child: CachedNetworkImage(
+                  imageUrl: url,
+                  fit: BoxFit.contain,
+                  errorWidget: (_, _, _) => const Icon(
+                    LucideIcons.imageOff,
+                    color: Colors.white70,
+                    size: 48,
                   ),
                 ),
               ),
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IconButton(
-                onPressed: () => Navigator.pop(ctx),
-                icon: const Icon(LucideIcons.x, color: Colors.white),
-              ),
-            ),
-          ],
+          ),
+        ),
+        footer: AppDialogFooter(
+          confirmLabel: isArabic ? 'إغلاق' : 'Close',
+          onConfirm: () => Navigator.pop(ctx),
         ),
       ),
     );
@@ -4253,131 +4291,150 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }) {
     int prepTime = 20; // Default
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    const presets = [10, 15, 20, 30, 45, 60];
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogCtx) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return DialogScaffold(child: AlertDialog(
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+          builder: (ctx, setDialogState) {
+            final theme = Theme.of(ctx);
+            final isDark = theme.brightness == Brightness.dark;
+            final selectedAccent =
+                isDark ? AppColors.primary : const Color(0xFFB45309);
+            return AppDialog(
+              maxWidth: 440,
+              header: AppDialogHeader(
+                icon: LucideIcons.clock,
+                title: isArabic ? 'تحديد وقت التحضير' : 'Set Preparation Time',
+                subtitle: isArabic
+                    ? 'كم دقيقة سيستغرق تحضير هذا الطلب؟'
+                    : 'How many minutes will it take to prepare this order?',
+                onClose: () => Navigator.pop(dialogCtx),
               ),
-              title: Text(
-                isArabic ? 'تحديد وقت التحضير' : 'Set Preparation Time',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              content: Column(
+              body: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    isArabic
-                        ? 'كم دقيقة سيستغرق تحضير هذا الطلب؟'
-                        : 'How many minutes will it take to prepare this order?',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface,
+                  AppDialogSectionCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 18,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton.outlined(
+                          onPressed: prepTime > 5
+                              ? () => setDialogState(() => prepTime -= 5)
+                              : null,
+                          style: IconButton.styleFrom(
+                            side: BorderSide(
+                              color: AppDialogStyles.borderColor(ctx),
+                            ),
+                            foregroundColor: theme.colorScheme.onSurface,
+                          ),
+                          icon: const Icon(LucideIcons.minus, size: 18),
+                        ),
+                        const SizedBox(width: 18),
+                        Container(
+                          constraints: const BoxConstraints(minWidth: 120),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppDialogStyles.backgroundColor(ctx),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Text(
+                            '$prepTime ${isArabic ? 'دقيقة' : 'mins'}',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 18),
+                        IconButton.outlined(
+                          onPressed: prepTime < 120
+                              ? () => setDialogState(() => prepTime += 5)
+                              : null,
+                          style: IconButton.styleFrom(
+                            side: BorderSide(
+                              color: AppDialogStyles.borderColor(ctx),
+                            ),
+                            foregroundColor: theme.colorScheme.onSurface,
+                          ),
+                          icon: const Icon(LucideIcons.plus, size: 18),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          LucideIcons.minusCircle,
-                          color: AppColors.primary,
-                          size: 28,
+                  const SizedBox(height: 14),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: presets.map((mins) {
+                      final isSelected = prepTime == mins;
+                      return ChoiceChip(
+                        label: Text(
+                          '$mins ${isArabic ? 'د' : 'm'}',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: isSelected
+                                ? selectedAccent
+                                : theme.colorScheme.onSurface,
+                          ),
                         ),
-                        onPressed: () {
-                          if (prepTime > 5) {
-                            setDialogState(() => prepTime -= 5);
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
+                        selected: isSelected,
+                        showCheckmark: false,
+                        selectedColor: AppColors.primary.withValues(
+                          alpha: isDark ? 0.16 : 0.14,
                         ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.05),
+                        backgroundColor:
+                            AppDialogStyles.subtleSurfaceColor(ctx),
+                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withValues(alpha: 0.08),
+                          side: BorderSide(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppDialogStyles.borderColor(ctx),
+                            width: isSelected ? 1.4 : 1.0,
                           ),
                         ),
-                        child: Text(
-                          '$prepTime ${isArabic ? 'دقيقة' : 'mins'}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(
-                          LucideIcons.plusCircle,
-                          color: AppColors.primary,
-                          size: 28,
-                        ),
-                        onPressed: () {
-                          if (prepTime < 120) {
-                            setDialogState(() => prepTime += 5);
-                          }
-                        },
-                      ),
-                    ],
+                        onSelected: (_) =>
+                            setDialogState(() => prepTime = mins),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx),
-                  child: Text(
-                    isArabic ? 'إلغاء' : 'Cancel',
-                    style: TextStyle(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(dialogCtx);
-                    ref
-                        .read(ordersProvider.notifier)
-                        .updateOrderStatus(
-                          orderId,
-                          'PREPARING',
-                          estimatedPrepTime: prepTime,
-                          fulfillmentId: fulfillmentId,
-                        );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(isArabic ? 'بدء التحضير' : 'Start'),
-                ),
-              ],
-            ));
+              footer: AppDialogFooter(
+                cancelLabel: isArabic ? 'إلغاء' : 'Cancel',
+                onCancel: () => Navigator.pop(dialogCtx),
+                confirmLabel: isArabic ? 'بدء التحضير' : 'Start',
+                confirmIcon: LucideIcons.chefHat,
+                onConfirm: () {
+                  Navigator.pop(dialogCtx);
+                  ref.read(ordersProvider.notifier).updateOrderStatus(
+                        orderId,
+                        'PREPARING',
+                        estimatedPrepTime: prepTime,
+                        fulfillmentId: fulfillmentId,
+                      );
+                },
+              ),
+            );
           },
         );
       },
@@ -4392,92 +4449,66 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }) {
     final reasonController = TextEditingController();
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogCtx) {
-        return DialogScaffold(child: AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        final theme = Theme.of(dialogCtx);
+        return AppDialog(
+          maxWidth: 460,
+          header: AppDialogHeader(
+            icon: LucideIcons.xCircle,
+            accentColor: AppColors.error,
+            titleColor: AppColors.error,
+            title: isArabic ? 'إلغاء الطلب' : 'Cancel Order',
+            subtitle: isArabic
+                ? 'برجاء كتابة سبب إلغاء هذا الطلب:'
+                : 'Please specify the reason for cancelling this order:',
+            onClose: () => Navigator.pop(dialogCtx),
           ),
-          title: Text(
-            isArabic ? 'إلغاء الطلب' : 'Cancel Order',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: Column(
+          body: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                isArabic
-                    ? 'برجاء كتابة سبب إلغاء هذا الطلب:'
-                    : 'Please specify the reason for cancelling this order:',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface,
-                ),
+              AppFieldLabel(
+                label: isArabic ? 'سبب الإلغاء' : 'Cancellation Reason',
               ),
-              const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
-                decoration: InputDecoration(
+                maxLines: 3,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 14,
+                ),
+                decoration: AppDialogStyles.inputDecoration(
+                  dialogCtx,
                   hintText: isArabic
                       ? 'مثال: المنتج غير متوفر'
                       : 'e.g., Out of stock',
-                  hintStyle: const TextStyle(fontSize: 13),
-                  filled: true,
-                  fillColor: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.03),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.1),
-                    ),
-                  ),
+                  icon: LucideIcons.messageSquare,
+                  isMultiline: true,
                 ),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: Text(
-                isArabic ? 'تراجع' : 'Back',
-                style: TextStyle(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final reason = reasonController.text.trim();
-                Navigator.pop(dialogCtx);
-                ref
-                    .read(ordersProvider.notifier)
-                    .cancelOrder(
-                      orderId,
-                      reason.isNotEmpty ? reason : 'Cancelled by vendor/admin',
-                      fulfillmentId: fulfillmentId,
-                    );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(isArabic ? 'إلغاء الطلب' : 'Cancel Order'),
-            ),
-          ],
-        ));
+          footer: AppDialogFooter(
+            cancelLabel: isArabic ? 'تراجع' : 'Back',
+            onCancel: () => Navigator.pop(dialogCtx),
+            confirmLabel: isArabic ? 'إلغاء الطلب' : 'Cancel Order',
+            confirmIcon: LucideIcons.xCircle,
+            isDestructive: true,
+            onConfirm: () {
+              final reason = reasonController.text.trim();
+              Navigator.pop(dialogCtx);
+              ref.read(ordersProvider.notifier).cancelOrder(
+                    orderId,
+                    reason.isNotEmpty ? reason : 'Cancelled by vendor/admin',
+                    fulfillmentId: fulfillmentId,
+                  );
+            },
+          ),
+        );
       },
-    );
+    ).then((_) => reasonController.dispose());
   }
 }
 

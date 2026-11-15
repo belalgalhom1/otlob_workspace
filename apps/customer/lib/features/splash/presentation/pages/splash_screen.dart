@@ -3,6 +3,9 @@ import 'package:data/data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:ui_kit/ui_kit.dart'
+    show AppDialog, AppDialogHeader, AppDialogFooter;
 
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -90,15 +93,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         final s = AppStrings.of(context);
         await showDialog<void>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(s.updateAvailableTitle),
-            content: Text(s.updateAvailableMessage),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(s.updateLater),
-              ),
-            ],
+          builder: (ctx) => AppDialog(
+            maxWidth: 440,
+            header: AppDialogHeader(
+              icon: LucideIcons.sparkles,
+              title: s.updateAvailableTitle,
+              onClose: () => Navigator.pop(ctx),
+            ),
+            body: Text(
+              s.updateAvailableMessage,
+              style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                    fontSize: 14,
+                    height: 1.55,
+                  ),
+            ),
+            footer: AppDialogFooter(
+              confirmLabel: s.updateLater,
+              onConfirm: () => Navigator.pop(ctx),
+            ),
           ),
         );
         if (!mounted) return;

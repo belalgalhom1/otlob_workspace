@@ -188,31 +188,6 @@ class _ChatMediaCaptionDialogState extends State<ChatMediaCaptionDialog> {
                 ),
               ),
 
-            if (_isTooLarge)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(LucideIcons.alertCircle, color: Colors.redAccent, size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        isAr
-                            ? 'حجم الملف يتجاوز الحد الأقصى المسموح به (10 ميجابايت). يرجى اختيار ملف أصغر.'
-                            : 'File size exceeds 10MB limit. Please choose a smaller file.',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
             // Caption Input Bar
             Container(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomInset),
@@ -270,7 +245,7 @@ class _ChatMediaCaptionDialogState extends State<ChatMediaCaptionDialog> {
                       child: const Center(
                         child: Icon(
                           LucideIcons.send,
-                          color: Colors.white,
+                          color: AppColors.onPrimary,
                           size: 20,
                         ),
                       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:data/data.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
@@ -99,30 +100,17 @@ class _TermsAcceptanceGateScreenState
 
   Future<void> _decline() async {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isAr ? 'تسجيل الخروج' : 'Log Out'),
-        content: Text(
-          isAr
-              ? 'يتطلب استخدام التطبيق كمندوب توصيل الموافقة على شروط الاستخدام. هل ترغب في تسجيل الخروج؟'
-              : 'Continuing as a driver requires accepting the Terms of Use. Would you like to log out?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(isAr ? 'إلغاء' : 'Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(isAr ? 'تسجيل الخروج' : 'Log Out'),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: isAr ? 'تسجيل الخروج' : 'Log Out',
+      message: isAr
+          ? 'يتطلب استخدام التطبيق كمندوب توصيل الموافقة على شروط الاستخدام. هل ترغب في تسجيل الخروج؟'
+          : 'Continuing as a driver requires accepting the Terms of Use. Would you like to log out?',
+      confirmLabel: isAr ? 'تسجيل الخروج' : 'Log Out',
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      icon: LucideIcons.logOut,
+      confirmIcon: LucideIcons.logOut,
+      isDestructive: true,
     );
 
     if (confirmed == true && mounted) {

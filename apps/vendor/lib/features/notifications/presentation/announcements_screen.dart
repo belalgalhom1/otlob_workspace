@@ -47,34 +47,14 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         }[_audience] ??
         _audience;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(LucideIcons.radio, color: AppColors.primary, size: 20),
-            const SizedBox(width: 8),
-            Text(l10n.confirmBroadcast),
-          ],
-        ),
-        content: Text(l10n.confirmBroadcastBody(audienceLabel)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n.cancelAction),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(LucideIcons.send, size: 16),
-            onPressed: () => Navigator.pop(context, true),
-            label: Text(l10n.broadcastNow),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.confirmBroadcast,
+      message: l10n.confirmBroadcastBody(audienceLabel),
+      confirmLabel: l10n.broadcastNow,
+      cancelLabel: l10n.cancelAction,
+      icon: LucideIcons.radio,
+      confirmIcon: LucideIcons.send,
     );
 
     if (confirmed != true) return;

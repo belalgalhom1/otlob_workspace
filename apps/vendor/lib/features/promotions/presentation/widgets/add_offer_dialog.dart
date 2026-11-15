@@ -76,12 +76,25 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
     }
   }
 
+  @override
+  void dispose() {
+    _originalPriceController.dispose();
+    _offerPriceController.dispose();
+    _sortOrderController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchVendors() async {
     try {
       final result = await ref.read(adminVendorsRepositoryProvider).getVendors();
       if (mounted) {
         setState(() {
-          _vendors = (result is List) ? result : (result['items'] ?? result['vendors'] ?? result['data']?['vendors'] ?? []);
+          _vendors = (result is List)
+              ? result
+              : (result['items'] ??
+                  result['vendors'] ??
+                  result['data']?['vendors'] ??
+                  []);
           _isLoadingVendors = false;
         });
 
@@ -105,7 +118,12 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
           .getProducts(vendorId);
       if (mounted) {
         setState(() {
-          _products = (result is List) ? result : (result['items'] ?? result['products'] ?? result['data']?['products'] ?? []);
+          _products = (result is List)
+              ? result
+              : (result['items'] ??
+                  result['products'] ??
+                  result['data']?['products'] ??
+                  []);
           _isLoadingProducts = false;
         });
       }
@@ -118,163 +136,116 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isEdit = widget.offer != null;
-    final mediaQuery = MediaQuery.of(context);
-    final isMobile = mediaQuery.size.width < 600;
     final isVendor = widget.userRole == 'VENDOR';
 
-    return DialogScaffold(child: Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : mediaQuery.size.width * 0.2,
-        vertical: 24,
+    return AppDialog(
+      maxWidth: 620,
+      maxHeight: 800,
+      header: AppDialogHeader(
+        icon: LucideIcons.tag,
+        title: isEdit ? l10n.editOffer : l10n.addOffer,
+        onClose: () => Navigator.pop(context),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!isVendor) ...[
+              AppFieldLabel(label: l10n.selectVendor, isRequired: true),
+              _buildVendorDropdown(l10n),
+            ],
+            if (_selectedVendorId != null) ...[
+              if (!isVendor) const SizedBox(height: 16),
+              AppFieldLabel(label: l10n.selectProduct, isRequired: true),
+              _buildProductDropdown(l10n),
+              if (_hasSelectedProductVariants()) ...[
+                const SizedBox(height: 16),
+                AppFieldLabel(
+                  label: Localizations.localeOf(context).languageCode == 'ar'
+                      ? 'تطبيق العرض على'
+                      : 'Apply Offer To',
+                ),
+                _buildVariantDropdown(context, l10n),
+                _buildVariantOfferNotice(context),
+              ],
+            ],
+            const SizedBox(height: 20),
+            AppFieldLabel(label: l10n.offerPrice, isRequired: true),
+            _buildTextField(
+              controller: _offerPriceController,
+              hint: '49',
+              icon: LucideIcons.tag,
+              keyboardType: TextInputType.number,
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? l10n.fieldRequired : null,
             ),
+            const SizedBox(height: 16),
+            AppFieldLabel(label: l10n.originalPrice, isRequired: true),
+            _buildTextField(
+              controller: _originalPriceController,
+              hint: '99',
+              icon: LucideIcons.scissors,
+              keyboardType: TextInputType.number,
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? l10n.fieldRequired : null,
+            ),
+            const SizedBox(height: 20),
+            _buildDateSelectors(l10n),
+            const SizedBox(height: 16),
+            if (!isVendor) ...[
+              AppFieldLabel(label: l10n.sortOrder),
+              _buildTextField(
+                controller: _sortOrderController,
+                hint: '0',
+                icon: LucideIcons.listOrdered,
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+            ],
+            _buildSwitchTile(l10n),
           ],
         ),
-        child: Material(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(28),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(l10n, isEdit),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (!isVendor) _buildVendorDropdown(l10n),
-                        if (_selectedVendorId != null) ...[
-                          if (!isVendor) const SizedBox(height: 16),
-                          _buildProductDropdown(l10n),
-                          if (_hasSelectedProductVariants()) ...[
-                            const SizedBox(height: 16),
-                            _buildVariantDropdown(context, l10n),
-                            _buildVariantOfferNotice(context, l10n),
-                          ],
-                        ],
-                        const SizedBox(height: 24),
-                        _buildTextField(
-                          controller: _offerPriceController,
-                          label: l10n.offerPrice,
-                          hint: '49',
-                          icon: LucideIcons.tag,
-                          keyboardType: TextInputType.number,
-                          validator: (v) => (v == null || v.isEmpty)
-                              ? l10n.fieldRequired
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _originalPriceController,
-                          label: l10n.originalPrice,
-                          hint: '99',
-                          icon: LucideIcons.scissors,
-                          keyboardType: TextInputType.number,
-                          validator: (v) => (v == null || v.isEmpty)
-                              ? l10n.fieldRequired
-                              : null,
-                        ),
-                        const SizedBox(height: 24),
-                        _buildDateSelectors(l10n),
-                        const SizedBox(height: 24),
-                        if (!isVendor) ...[
-                          _buildTextField(
-                            controller: _sortOrderController,
-                            label: l10n.sortOrder,
-                            hint: '0',
-                            icon: LucideIcons.listOrdered,
-                            keyboardType: TextInputType.number,
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        _buildSwitchTile(l10n),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              _buildFooter(l10n, isEdit),
-            ],
-          ),
-        ),
-        ),
       ),
-    ));
-  }
-
-  Widget _buildHeader(AppLocalizations l10n, bool isEdit) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.05),
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.05),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.orange,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(LucideIcons.tag, color: Theme.of(context).colorScheme.onSurface, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              isEdit ? l10n.editOffer : l10n.addOffer,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(LucideIcons.x, size: 20),
-          ),
-        ],
+      footer: AppDialogFooter(
+        cancelLabel: l10n.cancel,
+        onCancel: () => Navigator.pop(context),
+        confirmLabel: isEdit ? l10n.update : l10n.create,
+        confirmIcon: LucideIcons.check,
+        onConfirm: _submit,
       ),
     );
   }
 
   Widget _buildVendorDropdown(AppLocalizations l10n) {
+    final theme = Theme.of(context);
     if (_isLoadingVendors) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     return DropdownButtonFormField<String>(
       initialValue: _selectedVendorId,
-      decoration: InputDecoration(
-        labelText: l10n.selectVendor,
-        prefixIcon: const Icon(LucideIcons.store, size: 18),
+      isExpanded: true,
+      dropdownColor: AppDialogStyles.dropdownColor(context),
+      style: theme.textTheme.bodyMedium?.copyWith(
+        fontSize: 14,
+        color: theme.colorScheme.onSurface,
+      ),
+      decoration: AppDialogStyles.inputDecoration(
+        context,
+        hintText: l10n.selectVendor,
+        icon: LucideIcons.store,
       ),
       items: _vendors
           .map(
             (v) => DropdownMenuItem<String>(
               value: v['id'],
-              child: Text(v['storeName'] ?? ''),
+              child: Text(
+                v['storeName'] ?? '',
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           )
           .toList(),
@@ -292,20 +263,34 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
   }
 
   Widget _buildProductDropdown(AppLocalizations l10n) {
+    final theme = Theme.of(context);
     if (_isLoadingProducts) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     return DropdownButtonFormField<String>(
       initialValue: _selectedProductId,
-      decoration: InputDecoration(
-        labelText: l10n.selectProduct,
-        prefixIcon: const Icon(LucideIcons.package, size: 18),
+      isExpanded: true,
+      dropdownColor: AppDialogStyles.dropdownColor(context),
+      style: theme.textTheme.bodyMedium?.copyWith(
+        fontSize: 14,
+        color: theme.colorScheme.onSurface,
+      ),
+      decoration: AppDialogStyles.inputDecoration(
+        context,
+        hintText: l10n.selectProduct,
+        icon: LucideIcons.package,
       ),
       items: _products
           .map(
             (p) => DropdownMenuItem<String>(
               value: p['id'],
-              child: Text(p['name'] ?? ''),
+              child: Text(
+                p['name'] ?? '',
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           )
           .toList(),
@@ -338,7 +323,8 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
       orElse: () => null,
     );
     if (product == null) return false;
-    return product['hasVariants'] == true || (product['variants'] as List?)?.isNotEmpty == true;
+    return product['hasVariants'] == true ||
+        (product['variants'] as List?)?.isNotEmpty == true;
   }
 
   List<dynamic> _getSelectedProductVariants() {
@@ -352,34 +338,42 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
   }
 
   Widget _buildVariantDropdown(BuildContext context, AppLocalizations l10n) {
+    final theme = Theme.of(context);
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final variants = _getSelectedProductVariants();
 
     return DropdownButtonFormField<String?>(
       initialValue: _selectedVariantId,
-      decoration: InputDecoration(
-        labelText: isAr ? 'تطبيق العرض على' : 'Apply Offer To',
-        prefixIcon: const Icon(LucideIcons.layers, size: 18),
+      isExpanded: true,
+      dropdownColor: AppDialogStyles.dropdownColor(context),
+      style: theme.textTheme.bodyMedium?.copyWith(
+        fontSize: 14,
+        color: theme.colorScheme.onSurface,
+      ),
+      decoration: AppDialogStyles.inputDecoration(
+        context,
+        icon: LucideIcons.layers,
       ),
       items: [
         DropdownMenuItem<String?>(
           value: null,
           child: Text(
             isAr
-                ? '🌟 جميع الأصناف (خصم نسبي على كل الأصناف)'
-                : '🌟 All Variants (Proportional Discount)',
+                ? 'جميع الأصناف (خصم نسبي على كل الأصناف)'
+                : 'All Variants (Proportional Discount)',
             style: const TextStyle(fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         ...variants.map((v) {
-          final vName = isAr
-              ? (v['nameAr'] ?? v['name'] ?? '')
-              : (v['name'] ?? '');
+          final vName =
+              isAr ? (v['nameAr'] ?? v['name'] ?? '') : (v['name'] ?? '');
           final vPrice = v['basePrice'] ?? v['price'] ?? '';
           return DropdownMenuItem<String?>(
             value: v['id'],
             child: Text(
               '$vName ($vPrice EGP)',
+              overflow: TextOverflow.ellipsis,
             ),
           );
         }),
@@ -417,20 +411,17 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
     );
   }
 
-  Widget _buildVariantOfferNotice(BuildContext context, AppLocalizations l10n) {
+  Widget _buildVariantOfferNotice(BuildContext context) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    return Container(
+    return AppDialogSectionCard(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.25)),
-      ),
+      backgroundColor: AppColors.info.withValues(alpha: 0.08),
+      borderColor: AppColors.info.withValues(alpha: 0.28),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(LucideIcons.info, size: 18, color: Colors.blue),
+          const Icon(LucideIcons.info, size: 17, color: AppColors.info),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -439,9 +430,9 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
                   : 'Select "All Variants" to apply the discount proportionally across all flavors/types (e.g. Cheese Pizza, Tuna Pizza), or choose a specific variant to discount only that item.',
               style: const TextStyle(
                 fontSize: 12,
-                color: Colors.blue,
+                color: AppColors.info,
                 fontWeight: FontWeight.w500,
-                height: 1.4,
+                height: 1.45,
               ),
             ),
           ),
@@ -452,7 +443,6 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
 
   Widget _buildTextField({
     required TextEditingController controller,
-    required String label,
     required String hint,
     required IconData icon,
     TextInputType? keyboardType,
@@ -462,27 +452,29 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
+      textDirection: TextDirection.ltr,
+      decoration: AppDialogStyles.inputDecoration(
+        context,
         hintText: hint,
-        prefixIcon: Icon(icon, size: 18),
+        icon: icon,
       ),
     );
   }
 
   Widget _buildDateSelectors(AppLocalizations l10n) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        AppFieldLabel(label: l10n.startDate),
         _buildDatePicker(
           l10n,
-          l10n.startDate,
           _startDate,
           (d) => setState(() => _startDate = d),
         ),
         const SizedBox(height: 16),
+        AppFieldLabel(label: l10n.endDate),
         _buildDatePicker(
           l10n,
-          l10n.endDate,
           _endDate,
           (d) => setState(() => _endDate = d),
         ),
@@ -492,93 +484,71 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
 
   Widget _buildDatePicker(
     AppLocalizations l10n,
-    String label,
     DateTime? date,
     Function(DateTime?) onSelect,
   ) {
-    return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: const Icon(LucideIcons.calendar, size: 18),
-        suffixIcon: date != null
-            ? IconButton(
-                icon: const Icon(LucideIcons.x, size: 16),
-                onPressed: () => onSelect(null),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              )
-            : null,
-      ),
-      child: InkWell(
-        onTap: () async {
-          final d = await showDatePicker(
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: () async {
+        final d = await showDatePicker(
+          context: context,
+          initialDate: date ?? DateTime.now(),
+          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+          builder: AppDialogStyles.adaptivePickerTheme,
+        );
+        if (d != null && mounted) {
+          final t = await showTimePicker(
             context: context,
-            initialDate: date ?? DateTime.now(),
-            firstDate: DateTime.now().subtract(const Duration(days: 365)),
-            lastDate: DateTime.now().add(const Duration(days: 365)),
+            initialTime: TimeOfDay.fromDateTime(date ?? DateTime.now()),
+            builder: AppDialogStyles.adaptivePickerTheme,
           );
-          if (d != null && mounted) {
-            final t = await showTimePicker(
-              context: context,
-              initialTime: TimeOfDay.fromDateTime(date ?? DateTime.now()),
-            );
-            if (t != null) {
-              onSelect(DateTime(d.year, d.month, d.day, t.hour, t.minute));
-            }
+          if (t != null) {
+            onSelect(DateTime(d.year, d.month, d.day, t.hour, t.minute));
           }
-        },
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                date != null
-                    ? DateFormat('MMM dd, yyyy hh:mm a').format(date)
-                    : l10n.noExpiry,
-                style: const TextStyle(fontSize: 14),
-              ),
-            ),
-          ],
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: AppDialogStyles.inputDecoration(
+          context,
+          icon: LucideIcons.calendar,
+          suffixIcon: date != null
+              ? IconButton(
+                  icon: const Icon(LucideIcons.x, size: 16),
+                  onPressed: () => onSelect(null),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                )
+              : null,
+        ),
+        child: Text(
+          date != null
+              ? DateFormat('MMM dd, yyyy hh:mm a').format(date)
+              : l10n.noExpiry,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontSize: 14,
+            color: date != null
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
     );
   }
 
   Widget _buildSwitchTile(AppLocalizations l10n) {
-    return SwitchListTile(
-      title: Text(
-        l10n.active,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-      ),
-      value: _isActive,
-      onChanged: (v) => setState(() => _isActive = v),
-      activeThumbColor: AppColors.primary,
-      contentPadding: EdgeInsets.zero,
-    );
-  }
-
-  Widget _buildFooter(AppLocalizations l10n, bool isEdit) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.cancel),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-              child: Text(isEdit ? l10n.update : l10n.create),
-            ),
-          ),
-        ],
+    return AppDialogSectionCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      child: SwitchListTile(
+        title: Text(
+          l10n.active,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        value: _isActive,
+        onChanged: (v) => setState(() => _isActive = v),
+        activeThumbColor: AppColors.primary,
+        contentPadding: EdgeInsets.zero,
       ),
     );
   }

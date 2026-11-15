@@ -29,6 +29,7 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
   final _maxDriversController = TextEditingController(text: '20');
   String? _selectedZoneId;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -60,6 +61,8 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
       initialDate: (isStart ? _startDate : _endDate) ?? DateTime.now(),
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) =>
+          AppDialogStyles.adaptivePickerTheme(context, child),
     );
     if (picked != null) {
       setState(() {
@@ -80,16 +83,9 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
       context: context,
       initialTime: initialTime,
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Color(0xFF1E1E1E),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: MediaQuery(
+        return AppDialogStyles.adaptivePickerTheme(
+          context,
+          MediaQuery(
             data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
             child: child!,
           ),
@@ -109,16 +105,17 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
     }
   }
 
-  Future<void> _submit(BuildContext ctx) async {
-    final l10n = AppLocalizations.of(ctx)!;
+  Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
     if (_formKey.currentState?.validate() != true) return;
     if (_startDate == null || _endDate == null) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(content: Text(l10n.required), backgroundColor: AppColors.error),
-      );
+      setState(() => _errorMessage = l10n.required);
       return;
     }
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       final startHh = _startTime.hour.toString().padLeft(2, '0');
       final startMm = _startTime.minute.toString().padLeft(2, '0');
@@ -141,25 +138,24 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
                   : _titleArController.text.trim(),
             ),
           );
-      if (ctx.mounted) {
+      if (mounted) {
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        final msg = l10n.shiftGeneratedSuccessfully;
         Navigator.pop(context);
         widget.onSuccess();
-        ScaffoldMessenger.of(ctx).showSnackBar(
+        messenger?.showSnackBar(
           SnackBar(
-            content: Text(l10n.shiftGeneratedSuccessfully),
+            content: Text(msg),
             backgroundColor: AppColors.success,
           ),
         );
       }
     } catch (e) {
-      if (ctx.mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(ErrorUtils.translate(context, e)),
-            backgroundColor: AppColors.error,
-          ),
-        );
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = ErrorUtils.translate(context, e);
+        });
       }
     }
   }
@@ -167,240 +163,241 @@ class _GenerateShiftsDialogState extends ConsumerState<GenerateShiftsDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final theme = Theme.of(context);
     final zonesState = ref.watch(zoneProvider);
-    return DialogScaffold(child: Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(LucideIcons.calendarPlus, size: 20, color: AppColors.primary),
-                      ),
-                      const SizedBox(width: 14),
-                      Text(
-                        l10n.generateShifts,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const Spacer(),
-                      InkWell(
-                        onTap: () => Navigator.pop(context),
-                        borderRadius: BorderRadius.circular(8),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(LucideIcons.x, size: 18),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
 
-                  // Title
-                  TextFormField(
-                    controller: _titleController,
-                    maxLength: 100,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: l10n.shiftTitle,
-                      hintText: l10n.shiftTitleHint,
-                      prefixIcon: const Icon(LucideIcons.tag, size: 16),
-                      isDense: true,
-                      counterText: '',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Arabic title
-                  TextFormField(
-                    controller: _titleArController,
-                    maxLength: 100,
-                    textInputAction: TextInputAction.next,
-                    textDirection: TextDirection.rtl,
-                    decoration: InputDecoration(
-                      labelText: l10n.shiftTitleAr,
-                      hintText: l10n.shiftTitleArHint,
-                      prefixIcon: const Icon(LucideIcons.tag, size: 16),
-                      isDense: true,
-                      counterText: '',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Date range row
-                  Row(
-                    children: [
-                      Expanded(child: _buildDateField(l10n.startDate, _startDate, () => _pickDate(true))),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildDateField(l10n.endDate, _endDate, () => _pickDate(false))),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Time row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _startTimeController,
-                          readOnly: true,
-                          onTap: () => _pickTime(true),
-                          style: const TextStyle(fontSize: 13),
-                          decoration: InputDecoration(
-                            labelText: l10n.startTime,
-                            labelStyle: const TextStyle(fontSize: 12),
-                            prefixIcon: const Icon(LucideIcons.sunrise, size: 16),
-                            prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                            isDense: true,
-                          ),
-                          validator: (v) => v == null || v.isEmpty ? l10n.required : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _endTimeController,
-                          readOnly: true,
-                          onTap: () => _pickTime(false),
-                          style: const TextStyle(fontSize: 13),
-                          decoration: InputDecoration(
-                            labelText: l10n.endTime,
-                            labelStyle: const TextStyle(fontSize: 12),
-                            prefixIcon: const Icon(LucideIcons.sunset, size: 16),
-                            prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                            isDense: true,
-                          ),
-                          validator: (v) => v == null || v.isEmpty ? l10n.required : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Max drivers
-                  TextFormField(
-                    controller: _maxDriversController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: l10n.maxDrivers,
-                      prefixIcon: const Icon(LucideIcons.users, size: 16),
-                      isDense: true,
-                    ),
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return l10n.required;
-                      if (int.tryParse(v) == null || int.parse(v) < 1) return l10n.required;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Zone dropdown
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedZoneId,
-                    decoration: const InputDecoration(
-                      labelText: 'Assigned Zone',
-                      prefixIcon: Icon(LucideIcons.map, size: 16),
-                      isDense: true,
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('Global (No Zone)'),
-                      ),
-                      ...?zonesState.value?.zones.map((zone) {
-                        return DropdownMenuItem(
-                          value: zone['id'].toString(),
-                          child: Text(zone['name'] ?? 'Unknown'),
-                        );
-                      }),
-                    ],
-                    onChanged: (v) => setState(() => _selectedZoneId = v),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Submit
-                  SizedBox(
-                    width: double.infinity,
-                    child: Builder(
-                      builder: (btnCtx) => FilledButton.icon(
-                      onPressed: _isLoading ? null : () => _submit(btnCtx),
-                      icon: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(LucideIcons.calendarPlus, size: 16),
-                      label: Text(_isLoading ? '...' : l10n.generateShifts),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                    ),
-                  ),
-                ],
-              ),
+    return AppDialog(
+      maxWidth: 520,
+      canPop: !_isLoading,
+      header: AppDialogHeader(
+        icon: LucideIcons.calendarPlus,
+        title: l10n.generateShifts,
+        subtitle: isAr
+            ? 'تحديد نطاق التواريخ والأوقات والحد الأقصى للسائقين'
+            : 'Configure shift date range, schedule window, and capacity',
+        isCloseDisabled: _isLoading,
+        onClose: () => Navigator.pop(context),
+      ),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_errorMessage != null && _errorMessage!.trim().isNotEmpty) ...[
+              AppDialogErrorBanner(message: _errorMessage!),
+              const SizedBox(height: 16),
+            ],
+            AppFieldLabel(label: l10n.shiftTitle, languageTag: 'EN'),
+            TextFormField(
+              controller: _titleController,
+              enabled: !_isLoading,
+              maxLength: 100,
+              textDirection: TextDirection.ltr,
+              textInputAction: TextInputAction.next,
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                hintText: l10n.shiftTitleHint,
+                icon: LucideIcons.tag,
+              ).copyWith(counterText: ''),
             ),
-          ),
+            const SizedBox(height: 16),
+            AppFieldLabel(label: l10n.shiftTitleAr, languageTag: 'عربي'),
+            TextFormField(
+              controller: _titleArController,
+              enabled: !_isLoading,
+              maxLength: 100,
+              textInputAction: TextInputAction.next,
+              textDirection: TextDirection.rtl,
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                hintText: l10n.shiftTitleArHint,
+                icon: LucideIcons.tag,
+              ).copyWith(counterText: ''),
+            ),
+            const SizedBox(height: 16),
+            AppFieldLabel(
+              label: isAr ? 'نطاق التاريخ' : 'Date Range',
+              isRequired: true,
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDateField(
+                    l10n.startDate,
+                    _startDate,
+                    () => _pickDate(true),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDateField(
+                    l10n.endDate,
+                    _endDate,
+                    () => _pickDate(false),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppFieldLabel(label: l10n.startTime, isRequired: true),
+                      TextFormField(
+                        controller: _startTimeController,
+                        readOnly: true,
+                        onTap: _isLoading ? null : () => _pickTime(true),
+                        style: const TextStyle(fontSize: 13.5),
+                        decoration: AppDialogStyles.inputDecoration(
+                          context,
+                          icon: LucideIcons.sunrise,
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? l10n.required : null,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppFieldLabel(label: l10n.endTime, isRequired: true),
+                      TextFormField(
+                        controller: _endTimeController,
+                        readOnly: true,
+                        onTap: _isLoading ? null : () => _pickTime(false),
+                        style: const TextStyle(fontSize: 13.5),
+                        decoration: AppDialogStyles.inputDecoration(
+                          context,
+                          icon: LucideIcons.sunset,
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? l10n.required : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            AppFieldLabel(label: l10n.maxDrivers, isRequired: true),
+            TextFormField(
+              controller: _maxDriversController,
+              enabled: !_isLoading,
+              keyboardType: TextInputType.number,
+              textDirection: TextDirection.ltr,
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                hintText: '20',
+                icon: LucideIcons.users,
+              ),
+              validator: (v) {
+                if (v == null || v.isEmpty) return l10n.required;
+                if (int.tryParse(v) == null || int.parse(v) < 1) {
+                  return l10n.required;
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            AppFieldLabel(label: isAr ? 'المنطقة المخصصة' : 'Assigned Zone'),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedZoneId,
+              isExpanded: true,
+              dropdownColor: AppDialogStyles.dropdownColor(context),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
+                color: theme.colorScheme.onSurface,
+              ),
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                icon: LucideIcons.map,
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: null,
+                  child: Text(
+                    isAr ? 'عام (بدون منطقة)' : 'Global (No Zone)',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                ...?zonesState.value?.zones.map((zone) {
+                  return DropdownMenuItem(
+                    value: zone['id'].toString(),
+                    child: Text(
+                      zone['name'] ?? l10n.unknown,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }),
+              ],
+              onChanged: _isLoading
+                  ? null
+                  : (v) => setState(() => _selectedZoneId = v),
+            ),
+          ],
         ),
       ),
-    ));
+      footer: AppDialogFooter(
+        cancelLabel: l10n.cancel,
+        onCancel: () => Navigator.pop(context),
+        confirmLabel: l10n.generateShifts,
+        confirmIcon: LucideIcons.calendarPlus,
+        isLoading: _isLoading,
+        onConfirm: _submit,
+      ),
+    );
   }
 
   Widget _buildDateField(String label, DateTime? value, VoidCallback onTap) {
+    final theme = Theme.of(context);
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      onTap: _isLoading ? null : onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
         decoration: BoxDecoration(
           border: Border.all(
             color: value != null
-                ? AppColors.primary.withValues(alpha: 0.5)
-                : Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                ? AppColors.primary.withValues(alpha: 0.65)
+                : AppDialogStyles.borderColor(context),
+            width: 1.2,
           ),
-          borderRadius: BorderRadius.circular(10),
-          color: value != null ? AppColors.primary.withValues(alpha: 0.05) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          color: value != null
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : AppDialogStyles.subtleSurfaceColor(context),
         ),
         child: Row(
           children: [
             Icon(
               LucideIcons.calendar,
-              size: 14,
+              size: 16,
               color: value != null
                   ? AppColors.primary
-                  : Theme.of(context).colorScheme.onSurface,
+                  : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                value != null ? '${value.day}/${value.month}/${value.year}' : label,
+                value != null
+                    ? '${value.day}/${value.month}/${value.year}'
+                    : label,
                 style: TextStyle(
                   fontSize: 13,
                   color: value != null
-                      ? AppColors.primary
-                      : Theme.of(context).colorScheme.onSurface,
-                  fontWeight: value != null ? FontWeight.w600 : FontWeight.normal,
+                      ? theme.colorScheme.onSurface
+                      : theme.colorScheme.onSurfaceVariant,
+                  fontWeight:
+                      value != null ? FontWeight.w600 : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),

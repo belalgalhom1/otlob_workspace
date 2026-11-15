@@ -41,6 +41,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
   bool _isScheduleActive = true;
   bool _is24Hours = false;
   List<Map<String, dynamic>> _workingHours = [];
+  String? _errorMessage;
 
   /// Commission is a platform-level commercial term: only SUPER_ADMIN can
   /// change it. Everyone else (including vendor members and ADMINs) sees the
@@ -71,7 +72,8 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
     _phoneController = TextEditingController(
       text: widget.vendor?['phone'] ?? '',
     );
-    _selectedVerticalId = widget.vendor?['vertical']?['id'] ?? widget.vendor?['verticalId'];
+    _selectedVerticalId =
+        widget.vendor?['vertical']?['id'] ?? widget.vendor?['verticalId'];
     _isContracted = widget.vendor?['isContracted'] ?? false;
     _isScheduleActive = widget.vendor?['isScheduleActive'] ?? true;
     _is24Hours = widget.vendor?['is24Hours'] ?? false;
@@ -93,7 +95,9 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
 
   Future<void> _loadVerticals() async {
     try {
-      final verticals = await ref.read(adminVerticalsRepositoryProvider).verticalsFindAll();
+      final verticals = await ref
+          .read(adminVerticalsRepositoryProvider)
+          .verticalsFindAll();
       if (mounted) {
         setState(() {
           _verticals = verticals;
@@ -110,425 +114,284 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isMobile = size.width < 600;
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final isMobile = AppDialogStyles.isMobile(context);
     final isEdit = widget.vendor != null;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
-    return DialogScaffold(child: Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 40,
-        vertical: 24,
+    return AppDialog(
+      maxWidth: 640,
+      header: AppDialogHeader(
+        icon: isEdit ? LucideIcons.edit3 : LucideIcons.store,
+        title: isEdit ? l10n.editVendor : l10n.addNewVendor,
+        subtitle: isEdit ? l10n.updateVendorDetails : l10n.registerNewStore,
+        onClose: () => Navigator.pop(context),
       ),
-      child: Container(
-        constraints: BoxConstraints(maxWidth: isMobile ? size.width : 600),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.08),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(
-                alpha: Theme.of(context).brightness == Brightness.dark
-                    ? 0.4
-                    : 0.1,
-              ),
-              blurRadius: 30,
-              offset: const Offset(0, 15),
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_errorMessage != null && _errorMessage!.trim().isNotEmpty) ...[
+              AppDialogErrorBanner(message: _errorMessage!),
+              const SizedBox(height: 16),
+            ],
+            _buildSectionHeader(
+              LucideIcons.info,
+              l10n.generalInformation,
             ),
+            const SizedBox(height: 14),
+            if (isMobile) ...[
+              _buildTextField(
+                controller: _nameController,
+                label: l10n.storeNameEn,
+                languageTag: 'EN',
+                isRequired: true,
+                hint: 'Enter store name',
+                icon: LucideIcons.type,
+                textDirection: TextDirection.ltr,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _nameArController,
+                label: l10n.storeNameAr,
+                languageTag: 'عربي',
+                languageTagColor: AppColors.info,
+                hint: 'اسم المتجر',
+                icon: LucideIcons.languages,
+                textDirection: TextDirection.rtl,
+              ),
+            ] else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildTextField(
+                      controller: _nameController,
+                      label: l10n.storeNameEn,
+                      languageTag: 'EN',
+                      isRequired: true,
+                      hint: 'Enter store name',
+                      icon: LucideIcons.type,
+                      textDirection: TextDirection.ltr,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? l10n.fieldRequired
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _buildTextField(
+                      controller: _nameArController,
+                      label: l10n.storeNameAr,
+                      languageTag: 'عربي',
+                      languageTagColor: AppColors.info,
+                      hint: 'اسم المتجر',
+                      icon: LucideIcons.languages,
+                      textDirection: TextDirection.rtl,
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _descriptionController,
+              label: l10n.descriptionEn,
+              languageTag: 'EN',
+              hint: 'Short description about the store',
+              icon: LucideIcons.alignLeft,
+              maxLines: 2,
+              textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _descriptionArController,
+              label: l10n.descriptionAr,
+              languageTag: 'عربي',
+              languageTagColor: AppColors.info,
+              hint: 'وصف المتجر',
+              icon: LucideIcons.languages,
+              maxLines: 2,
+              textDirection: TextDirection.rtl,
+            ),
+            const SizedBox(height: 22),
+            _buildSectionHeader(
+              LucideIcons.layers,
+              l10n.businessCategory,
+            ),
+            const SizedBox(height: 12),
+            _buildVerticalDropdown(),
+            const SizedBox(height: 22),
+            _buildSectionHeader(
+              LucideIcons.fileText,
+              l10n.financials,
+            ),
+            const SizedBox(height: 14),
+            if (isMobile) ...[
+              _buildTextField(
+                controller: _taxIdController,
+                label: l10n.taxId,
+                hint: '123-456-789',
+                icon: LucideIcons.hash,
+                textDirection: TextDirection.ltr,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _commissionController,
+                label: l10n.commissionPercent,
+                hint: '10',
+                icon: LucideIcons.percent,
+                keyboardType: TextInputType.number,
+                textDirection: TextDirection.ltr,
+                enabled: _canEditCommission,
+              ),
+            ] else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildTextField(
+                      controller: _taxIdController,
+                      label: l10n.taxId,
+                      hint: '123-456-789',
+                      icon: LucideIcons.hash,
+                      textDirection: TextDirection.ltr,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _buildTextField(
+                      controller: _commissionController,
+                      label: l10n.commissionPercent,
+                      hint: '10',
+                      icon: LucideIcons.percent,
+                      keyboardType: TextInputType.number,
+                      textDirection: TextDirection.ltr,
+                      enabled: _canEditCommission,
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _phoneController,
+              label: l10n.phone,
+              hint: '+201234567890',
+              icon: LucideIcons.phone,
+              keyboardType: TextInputType.phone,
+              textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: 22),
+            _buildSectionHeader(
+              LucideIcons.shieldCheck,
+              isAr ? 'حالة الشراكة' : 'Partnership Status',
+            ),
+            const SizedBox(height: 12),
+            AppDialogSectionCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Material(
+                color: Colors.transparent,
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    isAr ? 'متعاقد معنا' : 'Contracted with us',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  subtitle: Text(
+                    isAr
+                        ? 'تحديد هذا المتجر كشريك رسمي على المنصة'
+                        : 'Mark this vendor as officially contracted with our platform',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  value: _isContracted,
+                  activeThumbColor: AppColors.primary,
+                  onChanged: (val) {
+                    setState(() {
+                      _isContracted = val;
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            _buildWorkingHoursSection(isAr),
+            const SizedBox(height: 22),
+            _buildSectionHeader(
+              LucideIcons.image,
+              l10n.storeAppearance,
+            ),
+            const SizedBox(height: 12),
+            _buildImagePicker(),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.05),
-                      Colors.transparent,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        isEdit ? LucideIcons.edit3 : LucideIcons.store,
-                        color: AppColors.primary,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isEdit
-                                ? AppLocalizations.of(context)!.editVendor
-                                : AppLocalizations.of(context)!.addNewVendor,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                          Text(
-                            isEdit
-                                ? AppLocalizations.of(
-                                    context,
-                                  )!.updateVendorDetails
-                                : AppLocalizations.of(
-                                    context,
-                                  )!.registerNewStore,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
-                        LucideIcons.x,
-                        
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Form
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeader(
-                          LucideIcons.info,
-                          AppLocalizations.of(context)!.generalInformation,
-                        ),
-                        const SizedBox(height: 16),
-                        if (isMobile) ...[
-                          _buildTextField(
-                            controller: _nameController,
-                            label: AppLocalizations.of(context)!.storeNameEn,
-                            hint: 'Enter store name',
-                            icon: LucideIcons.type,
-                            validator: (v) => v?.isEmpty ?? true
-                                ? AppLocalizations.of(context)!.fieldRequired
-                                : null,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _nameArController,
-                            label: AppLocalizations.of(context)!.storeNameAr,
-                            hint: 'اسم المتجر',
-                            icon: LucideIcons.languages,
-                            textAlign: TextAlign.right,
-                          ),
-                        ] else
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTextField(
-                                  controller: _nameController,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.storeNameEn,
-                                  hint: 'Enter store name',
-                                  icon: LucideIcons.type,
-                                  validator: (v) => v?.isEmpty ?? true
-                                      ? AppLocalizations.of(context)!.unknown
-                                      : null,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: _buildTextField(
-                                  controller: _nameArController,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.storeNameAr,
-                                  hint: 'اسم المتجر',
-                                  icon: LucideIcons.languages,
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ],
-                          ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _descriptionController,
-                          label: AppLocalizations.of(context)!.descriptionEn,
-                          hint: 'Short description about the store',
-                          icon: LucideIcons.alignLeft,
-                          maxLines: 2,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _descriptionArController,
-                          label: AppLocalizations.of(context)!.descriptionAr,
-                          hint: 'وصف المتجر',
-                          icon: LucideIcons.languages,
-                          maxLines: 2,
-                          textAlign: TextAlign.right,
-                        ),
-                        const SizedBox(height: 24),
-                        _buildSectionHeader(
-                          LucideIcons.layers,
-                          AppLocalizations.of(context)!.businessCategory,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildVerticalDropdown(),
-                        const SizedBox(height: 24),
-                        _buildSectionHeader(
-                          LucideIcons.fileText,
-                          AppLocalizations.of(context)!.financials,
-                        ),
-                        const SizedBox(height: 16),
-                        if (isMobile) ...[
-                          _buildTextField(
-                            controller: _taxIdController,
-                            label: AppLocalizations.of(context)!.taxId,
-                            hint: '123-456-789',
-                            icon: LucideIcons.hash,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _commissionController,
-                            label: AppLocalizations.of(
-                              context,
-                            )!.commissionPercent,
-                            hint: '10',
-                            icon: LucideIcons.percent,
-                            keyboardType: TextInputType.number,
-                            enabled: _canEditCommission,
-                          ),
-                        ] else
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTextField(
-                                  controller: _taxIdController,
-                                  label: AppLocalizations.of(context)!.taxId,
-                                  hint: '123-456-789',
-                                  icon: LucideIcons.hash,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: _buildTextField(
-                                  controller: _commissionController,
-                                  label: AppLocalizations.of(
-                                    context,
-                                  )!.commissionPercent,
-                                  hint: '10',
-                                  icon: LucideIcons.percent,
-                                  keyboardType: TextInputType.number,
-                                  enabled: _canEditCommission,
-                                ),
-                              ),
-                            ],
-                          ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _phoneController,
-                          label: AppLocalizations.of(context)!.phone,
-                          hint: '+201234567890',
-                          icon: LucideIcons.phone,
-                          keyboardType: TextInputType.phone,
-                        ),
-                        const SizedBox(height: 24),
-                        _buildSectionHeader(
-                          LucideIcons.shieldCheck,
-                          Localizations.localeOf(context).languageCode == 'ar'
-                              ? 'حالة الشراكة'
-                              : 'Partnership Status',
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
-                            ),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              Localizations.localeOf(context).languageCode ==
-                                      'ar'
-                                  ? 'متعاقد معنا'
-                                  : 'Contracted with us',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                            subtitle: Text(
-                              Localizations.localeOf(context).languageCode ==
-                                      'ar'
-                                  ? 'تحديد هذا المتجر كشريك رسمي على المنصة'
-                                  : 'Mark this vendor as officially contracted with our platform',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                            value: _isContracted,
-                            activeThumbColor: AppColors.primary,
-                            onChanged: (val) {
-                              setState(() {
-                                _isContracted = val;
-                              });
-                            },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        _buildWorkingHoursSection(
-                          Localizations.localeOf(context).languageCode == 'ar',
-                        ),
-                        const SizedBox(height: 24),
-                        _buildSectionHeader(
-                          LucideIcons.image,
-                          AppLocalizations.of(context)!.storeAppearance,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildImagePicker(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // Footer
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
-                  border: Border(
-                    top: BorderSide(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                      ),
-                      child: Text(AppLocalizations.of(context)!.cancel),
-                    ),
-                    const SizedBox(width: 16),
-                    Builder(
-                      builder: (btnCtx) => ElevatedButton(
-                        onPressed: () => _submit(btnCtx),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(120, 48),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        isEdit
-                            ? AppLocalizations.of(context)!.updateVendor
-                            : AppLocalizations.of(context)!.registerStore,
-                      ),
-                    ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
-    ));
+      footer: AppDialogFooter(
+        cancelLabel: l10n.cancel,
+        onCancel: () => Navigator.pop(context),
+        confirmLabel: isEdit ? l10n.updateVendor : l10n.registerStore,
+        confirmIcon: LucideIcons.check,
+        onConfirm: _submit,
+      ),
+    );
   }
 
   Widget _buildVerticalDropdown() {
+    final l10n = AppLocalizations.of(context)!;
     final isVendor = widget.userRole == 'VENDOR_MEMBER';
     return _isLoadingVerticals
-        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+        ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          )
         : _buildDropdownField(
-            label: AppLocalizations.of(context)!.businessType,
-            hint: AppLocalizations.of(context)!.selectCategory,
+            label: l10n.businessType,
+            hint: l10n.selectCategory,
             icon: LucideIcons.layoutGrid,
+            isRequired: true,
             value: _selectedVerticalId,
             items: _verticals
                 .map(
                   (v) => DropdownMenuItem<String>(
                     value: v['id'] as String?,
-                    child: Text(v['name'] ?? 'Unknown'),
+                    child: Text(
+                      v['name'] ?? l10n.unknown,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                 .toList(),
             onChanged: isVendor
                 ? null
-                : (val) => setState(() => _selectedVerticalId = val),
+                : (val) => setState(() {
+                      _selectedVerticalId = val;
+                      _errorMessage = null;
+                    }),
           );
   }
 
   Widget _buildSectionHeader(IconData icon, String title) {
+    final theme = Theme.of(context);
     return Row(
       children: [
         Icon(icon, size: 16, color: AppColors.primary),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            title.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.1,
-              
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
             ),
             overflow: TextOverflow.ellipsis,
           ),
@@ -545,40 +408,40 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
     int maxLines = 1,
     String? Function(String?)? validator,
     TextInputType? keyboardType,
-    TextAlign textAlign = TextAlign.start,
+    TextDirection? textDirection,
     bool enabled = true,
+    bool isRequired = false,
+    String? languageTag,
+    Color? languageTagColor,
   }) {
+    final theme = Theme.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            
-            fontWeight: FontWeight.w500,
-          ),
+        AppFieldLabel(
+          label: label,
+          isRequired: isRequired,
+          languageTag: languageTag,
+          languageTagColor: languageTagColor,
         ),
-        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           maxLines: maxLines,
           validator: validator,
           keyboardType: keyboardType,
-          textAlign: textAlign,
+          textDirection: textDirection,
           enabled: enabled,
           style: TextStyle(
             fontSize: 14,
             color: enabled
-                ? Theme.of(context).colorScheme.onSurface
-                : Theme.of(
-                    context,
-                  ).colorScheme.onSurface,
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme.onSurfaceVariant,
           ),
-          decoration: InputDecoration(
+          decoration: AppDialogStyles.inputDecoration(
+            context,
             hintText: hint,
-            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
-            contentPadding: const EdgeInsets.all(16),
+            icon: icon,
+            isMultiline: maxLines > 1,
           ),
         ),
       ],
@@ -592,36 +455,32 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
     required String? value,
     required List<DropdownMenuItem<String>> items,
     required void Function(String?)? onChanged,
+    bool isRequired = false,
   }) {
+    final theme = Theme.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
+        AppFieldLabel(label: label, isRequired: isRequired),
         DropdownButtonFormField<String>(
           initialValue: value,
           items: items,
           onChanged: onChanged,
           isExpanded: true,
-          dropdownColor: Theme.of(context).colorScheme.surface,
+          dropdownColor: AppDialogStyles.dropdownColor(context),
+          icon: Icon(
+            LucideIcons.chevronDown,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           style: TextStyle(
             fontSize: 14,
-            color: Theme.of(context).colorScheme.onSurface,
+            color: theme.colorScheme.onSurface,
           ),
-          decoration: InputDecoration(
+          decoration: AppDialogStyles.inputDecoration(
+            context,
             hintText: hint,
-            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
+            icon: icon,
           ),
         ),
       ],
@@ -629,152 +488,159 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
   }
 
   Widget _buildImagePicker() {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final existingCover =
+        widget.vendor?['coverImage'] ?? widget.vendor?['image'];
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          AppLocalizations.of(context)!.uploadCover,
-          style: const TextStyle(
-            fontSize: 13,
-            
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
+        AppFieldLabel(label: l10n.uploadCover),
         Builder(
           builder: (imgCtx) => InkWell(
             onTap: () => _pickImage(imgCtx),
-            borderRadius: BorderRadius.circular(12),
-          child: Container(
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.03),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08)),
-            ),
-            child: _pickedImage != null
-                ? Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: _pickedImageBytes != null
-                            ? Image.memory(
-                                _pickedImageBytes!,
-                                height: 140,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              )
-                            : kIsWeb
-                                ? Image.network(
-                                    _pickedImage!.path,
-                                    height: 140,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Image.file(
-                                    File(_pickedImage!.path),
-                                    height: 140,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  ),
-                      ),
-                      PositionedDirectional(
-                        end: 8,
-                        top: 8,
-                        child: IconButton(
-                          icon: const Icon(
-                            LucideIcons.trash2,
-                            color: AppColors.error,
-                            size: 18,
-                          ),
-                          onPressed: () => setState(() {
-                            _pickedImage = null;
-                            _pickedImageBytes = null;
-                          }),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.black26,
-                          ),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              height: 150,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppDialogStyles.subtleSurfaceColor(context),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppDialogStyles.borderColor(context),
+                  width: 1.2,
+                ),
+              ),
+              child: _pickedImage != null
+                  ? Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: _pickedImageBytes != null
+                              ? Image.memory(
+                                  _pickedImageBytes!,
+                                  height: 150,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                )
+                              : kIsWeb
+                                  ? Image.network(
+                                      _pickedImage!.path,
+                                      height: 150,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.file(
+                                      File(_pickedImage!.path),
+                                      height: 150,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                    ),
                         ),
-                      ),
-                    ],
-                  )
-                : (widget.vendor?['coverImage'] ?? widget.vendor?['image']) !=
-                      null
-                ? Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          ImageUtils.formatImageUrl(
-                            widget.vendor?['coverImage'] ??
-                                widget.vendor?['image'],
-                          ),
-                          height: 140,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                LucideIcons.imagePlus,
-                                size: 32,
-                                
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                AppLocalizations.of(context)!.uploadCover,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            AppLocalizations.of(context)!.changeImage,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                        PositionedDirectional(
+                          end: 10,
+                          top: 10,
+                          child: IconButton(
+                            icon: const Icon(
+                              LucideIcons.trash2,
+                              color: AppColors.error,
+                              size: 18,
+                            ),
+                            onPressed: () => setState(() {
+                              _pickedImage = null;
+                              _pickedImageBytes = null;
+                            }),
+                            style: IconButton.styleFrom(
+                              backgroundColor:
+                                  Colors.black.withValues(alpha: 0.72),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        LucideIcons.imagePlus,
-                        size: 32,
-                        
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        AppLocalizations.of(context)!.uploadCover,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    )
+                  : existingCover != null
+                      ? Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(13),
+                              child: Image.network(
+                                ImageUtils.formatImageUrl(existingCover),
+                                height: 150,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    _buildCoverPlaceholder(theme, l10n),
+                              ),
+                            ),
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.72),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.camera,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      l10n.changeImage,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : _buildCoverPlaceholder(theme, l10n),
+            ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildCoverPlaceholder(ThemeData theme, AppLocalizations l10n) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            LucideIcons.imagePlus,
+            size: 26,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.uploadCover,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -859,13 +725,14 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         rawHours = null;
       }
     }
-    
+
     if (rawHours != null && rawHours is List && rawHours.isNotEmpty) {
       _workingHours = List<Map<String, dynamic>>.from(
         rawHours.map((h) => Map<String, dynamic>.from(h as Map)),
       );
       _workingHours.sort(
-        (a, b) => _getDaySortValue(a['day'] as int).compareTo(_getDaySortValue(b['day'] as int)),
+        (a, b) => _getDaySortValue(a['day'] as int)
+            .compareTo(_getDaySortValue(b['day'] as int)),
       );
     } else {
       _workingHours = [];
@@ -929,43 +796,53 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
   }
 
   Widget _buildWorkingHoursSection(bool isArabic) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final accentTextColor =
+        isDark ? Colors.amber.shade300 : const Color(0xFFB45309);
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _buildSectionHeader(
+          LucideIcons.calendarClock,
+          isArabic ? 'ساعات العمل الأسبوعية' : 'Weekly Working Hours',
+        ),
+        const SizedBox(height: 10),
         Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 8,
           runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Container(
-              constraints: const BoxConstraints(maxWidth: 250),
-              child: _buildSectionHeader(
-                LucideIcons.calendarClock,
-                isArabic ? 'ساعات العمل الأسبوعية' : 'Weekly Working Hours',
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(8),
+                color: AppDialogStyles.subtleSurfaceColor(context),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppDialogStyles.borderColor(context)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     isArabic ? '24 ساعة' : '24 Hours',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   SizedBox(
-                    height: 24,
-                    width: 40,
+                    height: 26,
+                    width: 42,
                     child: Switch(
                       value: _is24Hours,
                       activeThumbColor: AppColors.primary,
-                      onChanged: (val) => setState(() => _is24Hours = val),
+                      onChanged: (val) => setState(() {
+                        _is24Hours = val;
+                        _errorMessage = null;
+                      }),
                     ),
                   ),
                 ],
@@ -973,26 +850,34 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
             ),
             if (!_is24Hours)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppDialogStyles.subtleSurfaceColor(context),
+                  borderRadius: BorderRadius.circular(10),
+                  border:
+                      Border.all(color: AppDialogStyles.borderColor(context)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       isArabic ? 'تلقائي' : 'Auto-Sync',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     SizedBox(
-                      height: 24,
-                      width: 40,
+                      height: 26,
+                      width: 42,
                       child: Switch(
                         value: _isScheduleActive,
                         activeThumbColor: AppColors.primary,
-                        onChanged: (val) => setState(() => _isScheduleActive = val),
+                        onChanged: (val) =>
+                            setState(() => _isScheduleActive = val),
                       ),
                     ),
                   ],
@@ -1001,19 +886,20 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
             if (!_is24Hours && _workingHours.isNotEmpty)
               TextButton.icon(
                 onPressed: _applyFirstDayToAll,
-                icon: const Icon(LucideIcons.copy, size: 14),
+                icon: Icon(LucideIcons.copy, size: 14, color: accentTextColor),
                 label: Text(
                   isArabic ? 'تطبيق الأول على الكل' : 'Apply First to All',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: accentTextColor,
                   ),
                 ),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
+                  foregroundColor: accentTextColor,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 10,
+                    vertical: 6,
                   ),
                 ),
               ),
@@ -1026,10 +912,10 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
               isArabic
                   ? 'اضغط على اليوم لإضافته لمواعيد العمل:'
                   : 'Tap a day to add to working hours:',
-              style: const TextStyle(
+              style: theme.textTheme.bodySmall?.copyWith(
                 fontSize: 12,
-                fontWeight: FontWeight.bold,
-                
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
@@ -1040,14 +926,17 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                 final isAdded = _workingHours.any((h) => h['day'] == i);
                 if (isAdded) return const SizedBox.shrink();
                 return ActionChip(
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-                  side: const BorderSide(color: AppColors.primary, width: 1),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  side: BorderSide(
+                    color: AppColors.primary.withValues(alpha: 0.45),
+                    width: 1,
+                  ),
                   label: Text(
                     _getDayName(i, isArabic),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: accentTextColor,
                     ),
                   ),
                   onPressed: () {
@@ -1059,165 +948,156 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                         'isClosed': false,
                       });
                       _workingHours.sort(
-                        (a, b) => _getDaySortValue(a['day'] as int).compareTo(_getDaySortValue(b['day'] as int)),
+                        (a, b) => _getDaySortValue(a['day'] as int)
+                            .compareTo(_getDaySortValue(b['day'] as int)),
                       );
                       _isScheduleActive = true;
+                      _errorMessage = null;
                     });
                   },
                 );
               }).toList(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
           ],
           ...List.generate(_workingHours.length, (index) {
-          final schedule = _workingHours[index];
-          final dayNum = schedule['day'] as int;
-          final isClosed = schedule['isClosed'] as bool? ?? false;
-          final openTime = schedule['openTime'] as String? ?? '09:00';
-          final closeTime = schedule['closeTime'] as String? ?? '22:00';
+            final schedule = _workingHours[index];
+            final dayNum = schedule['day'] as int;
+            final isClosed = schedule['isClosed'] as bool? ?? false;
+            final openTime = schedule['openTime'] as String? ?? '09:00';
+            final closeTime = schedule['closeTime'] as String? ?? '22:00';
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: isClosed
-                  ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.01)
-                  : AppColors.primary.withValues(alpha: 0.02),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isClosed
-                    ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04)
-                    : AppColors.primary.withValues(alpha: 0.12),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Row 1: Header (Day Name, Switch, Delete Button)
-                Row(
-                  children: [
-                    Icon(
-                      LucideIcons.calendar,
-                      size: 16,
-                      color: isClosed
-                          ? AppColors.textSecondary
-                          : AppColors.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _getDayName(dayNum, isArabic),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: isClosed
-                            ? AppColors.textSecondary
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      isClosed
-                          ? (isArabic ? 'إجازة' : 'Day Off')
-                          : (isArabic ? 'مفتوح' : 'Open'),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: isClosed
-                            ? Colors.red.shade300
-                            : AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Switch(
-                      value: !isClosed,
-                      activeThumbColor: AppColors.primary,
-                      onChanged: (val) {
-                        setState(() {
-                          schedule['isClosed'] = !val;
-                          _isScheduleActive = true;
-                        });
-                      },
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(
-                        LucideIcons.trash2,
-                        size: 16,
-                        color: Colors.redAccent,
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        setState(() {
-                          _workingHours.removeAt(index);
-                          _isScheduleActive = true;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-
-                // Row 2: Time Settings / Closed Indicator
-                if (!isClosed) ...[
-                  const SizedBox(height: 8),
-                  Divider(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1), height: 1),
-                  const SizedBox(height: 8),
+            return AppDialogSectionCard(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              backgroundColor: isClosed
+                  ? AppDialogStyles.subtleSurfaceColor(context)
+                  : AppColors.primary.withValues(alpha: isDark ? 0.06 : 0.05),
+              borderColor: isClosed
+                  ? AppDialogStyles.borderColor(context)
+                  : AppColors.primary.withValues(alpha: 0.25),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: _timePickerButton(
-                          context,
-                          timeStr: openTime,
-                          label: isArabic ? 'من' : 'From',
-                          onTimeSelected: (newTime) {
-                            setState(() {
-                              schedule['openTime'] = newTime;
-                              _isScheduleActive = true;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
                       Icon(
-                        isArabic
-                            ? LucideIcons.arrowLeft
-                            : LucideIcons.arrowRight,
-                        size: 14,
-                        
+                        LucideIcons.calendar,
+                        size: 16,
+                        color: isClosed
+                            ? theme.colorScheme.onSurfaceVariant
+                            : AppColors.primary,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: _timePickerButton(
-                          context,
-                          timeStr: closeTime,
-                          label: isArabic ? 'إلى' : 'To',
-                          onTimeSelected: (newTime) {
-                            setState(() {
-                              schedule['closeTime'] = newTime;
-                              _isScheduleActive = true;
-                            });
-                          },
+                        child: Text(
+                          _getDayName(dayNum, isArabic),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.5,
+                            color: isClosed
+                                ? theme.colorScheme.onSurfaceVariant
+                                : theme.colorScheme.onSurface,
+                          ),
                         ),
+                      ),
+                      AppBadgePill(
+                        text: isClosed
+                            ? (isArabic ? 'إجازة' : 'Day Off')
+                            : (isArabic ? 'مفتوح' : 'Open'),
+                        accentColor:
+                            isClosed ? AppColors.error : AppColors.success,
+                      ),
+                      const SizedBox(width: 6),
+                      Switch(
+                        value: !isClosed,
+                        activeThumbColor: AppColors.primary,
+                        onChanged: (val) {
+                          setState(() {
+                            schedule['isClosed'] = !val;
+                            _isScheduleActive = true;
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(
+                          LucideIcons.trash2,
+                          size: 16,
+                          color: AppColors.error,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          setState(() {
+                            _workingHours.removeAt(index);
+                            _isScheduleActive = true;
+                          });
+                        },
                       ),
                     ],
                   ),
-                ] else ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    isArabic ? 'مغلق طوال اليوم' : 'Closed all day',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                      
+                  if (!isClosed) ...[
+                    const SizedBox(height: 8),
+                    Divider(
+                      color: AppDialogStyles.borderColor(context),
+                      height: 1,
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _timePickerButton(
+                            context,
+                            timeStr: openTime,
+                            label: isArabic ? 'من' : 'From',
+                            onTimeSelected: (newTime) {
+                              setState(() {
+                                schedule['openTime'] = newTime;
+                                _isScheduleActive = true;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          isArabic
+                              ? LucideIcons.arrowLeft
+                              : LucideIcons.arrowRight,
+                          size: 14,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _timePickerButton(
+                            context,
+                            timeStr: closeTime,
+                            label: isArabic ? 'إلى' : 'To',
+                            onTimeSelected: (newTime) {
+                              setState(() {
+                                schedule['closeTime'] = newTime;
+                                _isScheduleActive = true;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      isArabic ? 'مغلق طوال اليوم' : 'Closed all day',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 11.5,
+                        fontStyle: FontStyle.italic,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          );
-        }),
+              ),
+            );
+          }),
         ],
       ],
     );
@@ -1229,7 +1109,10 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
     required String label,
     required ValueChanged<String> onTimeSelected,
   }) {
+    final theme = Theme.of(context);
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     return InkWell(
+      borderRadius: BorderRadius.circular(10),
       onTap: () async {
         final parts = timeStr.split(':');
         final currentHour = int.tryParse(parts[0]) ?? 9;
@@ -1238,19 +1121,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         final selectedTime = await showTimePicker(
           context: context,
           initialTime: TimeOfDay(hour: currentHour, minute: currentMin),
-          builder: (context, child) {
-            return Theme(
-              data: Theme.of(context).copyWith(
-                colorScheme: const ColorScheme.dark(
-                  primary: AppColors.primary,
-                  onPrimary: Colors.white,
-                  surface: Color(0xFF1E1E1E),
-                  onSurface: Colors.white,
-                ),
-              ),
-              child: child!,
-            );
-          },
+          builder: AppDialogStyles.adaptivePickerTheme,
         );
 
         if (selectedTime != null) {
@@ -1260,31 +1131,28 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08)),
+          color: AppDialogStyles.backgroundColor(context),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppDialogStyles.borderColor(context)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               '$label: ',
-              style: const TextStyle(
-                fontSize: 11,
-                
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 11.5,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             Text(
-              _formatTimeTo12Hour(
-                timeStr,
-                Localizations.localeOf(context).languageCode == 'ar',
-              ),
-              style: TextStyle(
-                fontSize: 12,
+              _formatTimeTo12Hour(timeStr, isAr),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 12.5,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+                color: theme.colorScheme.onSurface,
               ),
             ),
           ],
@@ -1293,53 +1161,55 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
     );
   }
 
-  void _submit(BuildContext ctx) {
-    if (_formKey.currentState?.validate() ?? false) {
-      if (_selectedVerticalId == null) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(ctx)!.pleaseSelectBusinessType,
-            ),
-          ),
-        );
-        return;
-      }
+  void _submit() {
+    final l10n = AppLocalizations.of(context)!;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
-      if (!_is24Hours && _workingHours.isEmpty) {
-        final isArabic = Localizations.localeOf(ctx).languageCode == 'ar';
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(
-              isArabic
-                  ? 'برجاء تحديد مواعيد العمل الأسبوعية للمتجر!'
-                  : 'Please set weekly working hours for the store!',
-            ),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-        return;
-      }
-
-      final data = {
-        'storeName': _nameController.text,
-        'storeNameAr': _nameArController.text,
-        'description': _descriptionController.text,
-        'descriptionAr': _descriptionArController.text,
-        'taxId': _taxIdController.text,
-        if (_canEditCommission)
-          'commissionRate': double.tryParse(_commissionController.text) ?? 10.0,
-        'verticalId': _selectedVerticalId,
-        'phone': _phoneController.text,
-        'coverImage': _pickedImage,
-        'isContracted': _isContracted,
-        'isScheduleActive': _isScheduleActive,
-        'is24Hours': _is24Hours,
-        'workingHours': _is24Hours ? [] : _workingHours,
-      };
-
-      Navigator.pop(context, data);
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      setState(() => _errorMessage = l10n.pleaseFillRequiredFields);
+      return;
     }
+
+    if (_selectedVerticalId == null) {
+      final msg = l10n.pleaseSelectBusinessType;
+      setState(() => _errorMessage = msg);
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    if (!_is24Hours && _workingHours.isEmpty) {
+      final msg = isArabic
+          ? 'برجاء تحديد مواعيد العمل الأسبوعية للمتجر!'
+          : 'Please set weekly working hours for the store!';
+      setState(() => _errorMessage = msg);
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: AppColors.error),
+      );
+      return;
+    }
+
+    setState(() => _errorMessage = null);
+
+    final data = {
+      'storeName': _nameController.text,
+      'storeNameAr': _nameArController.text,
+      'description': _descriptionController.text,
+      'descriptionAr': _descriptionArController.text,
+      'taxId': _taxIdController.text,
+      if (_canEditCommission)
+        'commissionRate': double.tryParse(_commissionController.text) ?? 10.0,
+      'verticalId': _selectedVerticalId,
+      'phone': _phoneController.text,
+      'coverImage': _pickedImage,
+      'isContracted': _isContracted,
+      'isScheduleActive': _isScheduleActive,
+      'is24Hours': _is24Hours,
+      'workingHours': _is24Hours ? [] : _workingHours,
+    };
+
+    Navigator.pop(context, data);
   }
 }
 

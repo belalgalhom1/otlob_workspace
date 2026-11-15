@@ -119,8 +119,6 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
   Future<void> _showAddMemberDialog() async {
     final l10n = AppLocalizations.of(context)!;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final identifierController = TextEditingController();
     String selectedRole = 'STAFF';
     String? selectedBranchId;
@@ -130,293 +128,220 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
     await showDialog<void>(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 460),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: isDark ? theme.colorScheme.surface : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: theme.dividerColor.withValues(alpha: 0.12),
+        builder: (ctx, setDialogState) => AppDialog(
+          maxWidth: 480,
+          canPop: !isSubmitting,
+          header: AppDialogHeader(
+            icon: LucideIcons.userPlus,
+            title: isAr ? 'إضافة عضو جديد' : 'Add Team Member',
+            subtitle: widget.vendorName,
+            isCloseDisabled: isSubmitting,
+            onClose: () => Navigator.pop(dialogCtx),
+          ),
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppFieldLabel(
+                label: isAr
+                    ? 'البريد الإلكتروني أو رقم الهاتف'
+                    : 'Email or Phone Number',
+                isRequired: true,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+              TextField(
+                controller: identifierController,
+                enabled: !isSubmitting,
+                autofocus: true,
+                decoration: AppDialogStyles.inputDecoration(
+                  ctx,
+                  hintText: isAr
+                      ? 'user@example.com / 010...'
+                      : 'user@example.com / +2010...',
+                  icon: LucideIcons.user,
                 ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
+              ),
+              const SizedBox(height: 16),
+              AppFieldLabel(
+                label: isAr ? 'الدور الوظيفي' : 'Role',
+                isRequired: true,
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: selectedRole,
+                dropdownColor: AppDialogStyles.dropdownColor(ctx),
+                isExpanded: true,
+                decoration: AppDialogStyles.inputDecoration(
+                  ctx,
+                  icon: LucideIcons.shield,
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'OWNER',
+                    child: Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.crown,
+                          size: 16,
+                          color: Color(0xFFD97706),
                         ),
-                        child: Icon(
-                          LucideIcons.userPlus,
-                          color: theme.colorScheme.primary,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isAr ? 'إضافة عضو جديد' : 'Add Team Member',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              widget.vendorName,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(dialogCtx),
-                        icon: const Icon(LucideIcons.x, size: 20),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: identifierController,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      labelText: isAr
-                          ? 'البريد الإلكتروني أو رقم الهاتف'
-                          : 'Email or Phone Number',
-                      hintText: isAr
-                          ? 'user@example.com / 010...'
-                          : 'user@example.com / +2010...',
-                      prefixIcon: const Icon(LucideIcons.user, size: 18),
+                        const SizedBox(width: 8),
+                        Text(isAr ? 'مالك المتجر' : l10n.owner),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedRole,
-                    decoration: InputDecoration(
-                      labelText: isAr ? 'الدور الوظيفي' : 'Role',
-                      prefixIcon: const Icon(LucideIcons.shield, size: 18),
+                  DropdownMenuItem(
+                    value: 'MANAGER',
+                    child: Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.shieldCheck,
+                          size: 16,
+                          color: Color(0xFF8B5CF6),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(isAr ? 'مدير' : l10n.manager),
+                      ],
                     ),
-                    items: [
-                      DropdownMenuItem(
-                        value: 'OWNER',
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.crown, size: 16, color: Color(0xFFD97706)),
-                            const SizedBox(width: 8),
-                            Text(isAr ? 'مالك المتجر' : l10n.owner),
-                          ],
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'MANAGER',
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.shieldCheck, size: 16, color: Color(0xFF8B5CF6)),
-                            const SizedBox(width: 8),
-                            Text(isAr ? 'مدير' : l10n.manager),
-                          ],
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'STAFF',
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.userCheck, size: 16, color: AppColors.info),
-                            const SizedBox(width: 8),
-                            Text(isAr ? 'عضو طاقم' : l10n.staff),
-                          ],
-                        ),
-                      ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() => selectedRole = val);
-                      }
-                    },
                   ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String?>(
-                    initialValue: selectedBranchId,
-                    decoration: InputDecoration(
-                      labelText: isAr
-                          ? 'الفرع المخصص (اختياري)'
-                          : 'Assigned Branch (Optional)',
-                      prefixIcon: const Icon(LucideIcons.mapPin, size: 18),
+                  DropdownMenuItem(
+                    value: 'STAFF',
+                    child: Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.userCheck,
+                          size: 16,
+                          color: AppColors.info,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(isAr ? 'عضو طاقم' : l10n.staff),
+                      ],
                     ),
-                    items: [
-                      DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text(isAr ? 'جميع الفروع' : 'All Branches'),
-                      ),
-                      ..._branches.whereType<Map>().map((b) {
-                        final id = b['id']?.toString();
-                        final name = (isAr
+                  ),
+                ],
+                onChanged: isSubmitting
+                    ? null
+                    : (val) {
+                        if (val != null) {
+                          setDialogState(() => selectedRole = val);
+                        }
+                      },
+              ),
+              const SizedBox(height: 16),
+              AppFieldLabel(
+                label: isAr
+                    ? 'الفرع المخصص (اختياري)'
+                    : 'Assigned Branch (Optional)',
+              ),
+              DropdownButtonFormField<String?>(
+                initialValue: selectedBranchId,
+                dropdownColor: AppDialogStyles.dropdownColor(ctx),
+                isExpanded: true,
+                decoration: AppDialogStyles.inputDecoration(
+                  ctx,
+                  icon: LucideIcons.mapPin,
+                ),
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(isAr ? 'جميع الفروع' : 'All Branches'),
+                  ),
+                  ..._branches.whereType<Map>().map((b) {
+                    final id = b['id']?.toString();
+                    final name = (isAr
                                 ? (b['nameAr'] ?? b['name'])
                                 : (b['name'] ?? b['nameAr']))
                             ?.toString() ??
-                            '';
-                        return DropdownMenuItem<String?>(
-                          value: id,
-                          child: Text(name),
-                        );
-                      }),
-                    ],
-                    onChanged: (val) {
-                      setDialogState(() => selectedBranchId = val);
-                    },
-                  ),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(LucideIcons.alertCircle, size: 16, color: AppColors.error),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              errorMessage!,
-                              style: const TextStyle(
-                                color: AppColors.error,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
-                        child: Text(l10n.cancel),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: isSubmitting
-                            ? null
-                            : () async {
-                                final identifier = identifierController.text.trim();
-                                if (identifier.isEmpty) {
-                                  setDialogState(() {
-                                    errorMessage = l10n.requiredField;
-                                  });
-                                  return;
-                                }
-                                setDialogState(() {
-                                  isSubmitting = true;
-                                  errorMessage = null;
-                                });
-                                try {
-                                  await ref
-                                      .read(
-                                        vendorMembersProvider(widget.vendorId).notifier,
-                                      )
-                                      .addMember(
-                                        identifier: identifier,
-                                        role: selectedRole,
-                                        branchId: selectedBranchId,
-                                      );
-                                  if (dialogCtx.mounted) {
-                                    Navigator.pop(dialogCtx);
-                                  }
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          l10n.common_success_resource_created,
-                                        ),
-                                        backgroundColor: AppColors.success,
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (dialogCtx.mounted) {
-                                    setDialogState(() {
-                                      isSubmitting = false;
-                                      errorMessage = L10nErrorHelper.translate(context, e);
-                                    });
-                                  }
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: theme.colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: isSubmitting
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: theme.colorScheme.onPrimary,
-                                ),
-                              )
-                            : Text(
-                                isAr ? 'إضافة' : l10n.create,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                      ),
-                    ],
-                  ),
+                        '';
+                    return DropdownMenuItem<String?>(
+                      value: id,
+                      child: Text(name),
+                    );
+                  }),
                 ],
+                onChanged: isSubmitting
+                    ? null
+                    : (val) {
+                        setDialogState(() => selectedBranchId = val);
+                      },
               ),
-            ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 16),
+                AppDialogErrorBanner(message: errorMessage!),
+              ],
+            ],
+          ),
+          footer: AppDialogFooter(
+            cancelLabel: l10n.cancel,
+            onCancel: () => Navigator.pop(dialogCtx),
+            confirmLabel: isAr ? 'إضافة' : l10n.create,
+            confirmIcon: LucideIcons.userPlus,
+            isLoading: isSubmitting,
+            onConfirm: () async {
+              final identifier = identifierController.text.trim();
+              if (identifier.isEmpty) {
+                setDialogState(() {
+                  errorMessage = l10n.requiredField;
+                });
+                return;
+              }
+              setDialogState(() {
+                isSubmitting = true;
+                errorMessage = null;
+              });
+              try {
+                await ref
+                    .read(vendorMembersProvider(widget.vendorId).notifier)
+                    .addMember(
+                      identifier: identifier,
+                      role: selectedRole,
+                      branchId: selectedBranchId,
+                    );
+                if (dialogCtx.mounted) {
+                  Navigator.pop(dialogCtx);
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n.common_success_resource_created),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (dialogCtx.mounted) {
+                  setDialogState(() {
+                    isSubmitting = false;
+                    errorMessage = L10nErrorHelper.translate(context, e);
+                  });
+                }
+              }
+            },
           ),
         ),
       ),
-    );
+    ).whenComplete(() {
+      Future<void>.delayed(
+        const Duration(milliseconds: 350),
+        identifierController.dispose,
+      );
+    });
   }
 
   Future<void> _showEditMemberDialog(dynamic member) async {
     final l10n = AppLocalizations.of(context)!;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final memberId = member['id']?.toString() ?? '';
     final user = member['user'] ?? {};
     final userName = (user['name'] ?? l10n.unknown).toString();
     final userEmail = (user['email'] ?? '').toString();
     String selectedRole = (member['role'] ?? 'STAFF').toString();
     final initialBranchId =
-        (member['branchId'] ?? (member['branch'] is Map ? member['branch']['id'] : null))
+        (member['branchId'] ??
+                (member['branch'] is Map ? member['branch']['id'] : null))
             ?.toString();
     final hasMatchingBranch = initialBranchId != null &&
-        _branches.any((b) => b is Map && b['id']?.toString() == initialBranchId);
+        _branches.any(
+          (b) => b is Map && b['id']?.toString() == initialBranchId,
+        );
     String? selectedBranchId = hasMatchingBranch ? initialBranchId : null;
     String? errorMessage;
     bool isSubmitting = false;
@@ -424,278 +349,202 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
     await showDialog<void>(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 460),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: isDark ? theme.colorScheme.surface : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: theme.dividerColor.withValues(alpha: 0.12),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+        builder: (ctx, setDialogState) {
+          final theme = Theme.of(ctx);
+          return AppDialog(
+            maxWidth: 480,
+            canPop: !isSubmitting,
+            header: AppDialogHeader(
+              icon: LucideIcons.pencil,
+              accentColor: AppColors.info,
+              title: isAr ? 'تعديل عضو الفريق' : 'Edit Team Member',
+              subtitle: userName,
+              isCloseDisabled: isSubmitting,
+              onClose: () => Navigator.pop(dialogCtx),
             ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.info.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (userEmail.isNotEmpty) ...[
+                  AppDialogSectionCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          LucideIcons.mail,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                        child: const Icon(
-                          LucideIcons.pencil,
-                          color: AppColors.info,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isAr ? 'تعديل عضو الفريق' : 'Edit Team Member',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            userEmail,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w500,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              userName,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(dialogCtx),
-                        icon: const Icon(LucideIcons.x, size: 20),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  if (userEmail.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: theme.dividerColor.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.mail, size: 14, color: theme.colorScheme.onSurfaceVariant),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              userEmail,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                  const SizedBox(height: 20),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedRole,
-                    decoration: InputDecoration(
-                      labelText: isAr ? 'الدور الوظيفي' : 'Role',
-                      prefixIcon: const Icon(LucideIcons.shield, size: 18),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                        value: 'OWNER',
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.crown, size: 16, color: Color(0xFFD97706)),
-                            const SizedBox(width: 8),
-                            Text(isAr ? 'مالك المتجر' : l10n.owner),
-                          ],
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'MANAGER',
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.shieldCheck, size: 16, color: Color(0xFF8B5CF6)),
-                            const SizedBox(width: 8),
-                            Text(isAr ? 'مدير' : l10n.manager),
-                          ],
-                        ),
-                      ),
-                      DropdownMenuItem(
-                        value: 'STAFF',
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.userCheck, size: 16, color: AppColors.info),
-                            const SizedBox(width: 8),
-                            Text(isAr ? 'عضو طاقم' : l10n.staff),
-                          ],
-                        ),
-                      ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() => selectedRole = val);
-                      }
-                    },
                   ),
                   const SizedBox(height: 16),
-                  DropdownButtonFormField<String?>(
-                    initialValue: selectedBranchId,
-                    decoration: InputDecoration(
-                      labelText: isAr ? 'الفرع المخصص' : 'Assigned Branch',
-                      prefixIcon: const Icon(LucideIcons.mapPin, size: 18),
-                    ),
-                    items: [
-                      DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text(isAr ? 'جميع الفروع' : 'All Branches'),
-                      ),
-                      ..._branches.whereType<Map>().map((b) {
-                        final id = b['id']?.toString();
-                        final name = (isAr
-                                ? (b['nameAr'] ?? b['name'])
-                                : (b['name'] ?? b['nameAr']))
-                            ?.toString() ??
-                            '';
-                        return DropdownMenuItem<String?>(
-                          value: id,
-                          child: Text(name),
-                        );
-                      }),
-                    ],
-                    onChanged: (val) {
-                      setDialogState(() => selectedBranchId = val);
-                    },
+                ],
+                AppFieldLabel(
+                  label: isAr ? 'الدور الوظيفي' : 'Role',
+                  isRequired: true,
+                ),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedRole,
+                  dropdownColor: AppDialogStyles.dropdownColor(ctx),
+                  isExpanded: true,
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    icon: LucideIcons.shield,
                   ),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'OWNER',
                       child: Row(
                         children: [
-                          const Icon(LucideIcons.alertCircle, size: 16, color: AppColors.error),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              errorMessage!,
-                              style: const TextStyle(
-                                color: AppColors.error,
-                                fontSize: 13,
-                              ),
-                            ),
+                          const Icon(
+                            LucideIcons.crown,
+                            size: 16,
+                            color: Color(0xFFD97706),
                           ),
+                          const SizedBox(width: 8),
+                          Text(isAr ? 'مالك المتجر' : l10n.owner),
+                        ],
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'MANAGER',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.shieldCheck,
+                            size: 16,
+                            color: Color(0xFF8B5CF6),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(isAr ? 'مدير' : l10n.manager),
+                        ],
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'STAFF',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.userCheck,
+                            size: 16,
+                            color: AppColors.info,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(isAr ? 'عضو طاقم' : l10n.staff),
                         ],
                       ),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
-                        child: Text(l10n.cancel),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: isSubmitting
-                            ? null
-                            : () async {
-                                setDialogState(() {
-                                  isSubmitting = true;
-                                  errorMessage = null;
-                                });
-                                try {
-                                  await ref
-                                      .read(
-                                        vendorMembersProvider(widget.vendorId).notifier,
-                                      )
-                                      .updateRole(
-                                        memberId,
-                                        selectedRole,
-                                        branchId: selectedBranchId,
-                                        updateBranch: true,
-                                      );
-                                  if (dialogCtx.mounted) {
-                                    Navigator.pop(dialogCtx);
-                                  }
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          l10n.roleUpdatedSuccessfully,
-                                        ),
-                                        backgroundColor: AppColors.success,
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (dialogCtx.mounted) {
-                                    setDialogState(() {
-                                      isSubmitting = false;
-                                      errorMessage = L10nErrorHelper.translate(context, e);
-                                    });
-                                  }
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor: theme.colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: isSubmitting
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: theme.colorScheme.onPrimary,
-                                ),
-                              )
-                            : Text(
-                                l10n.update,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                      ),
-                    ],
+                  onChanged: isSubmitting
+                      ? null
+                      : (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedRole = val);
+                          }
+                        },
+                ),
+                const SizedBox(height: 16),
+                AppFieldLabel(
+                  label: isAr ? 'الفرع المخصص' : 'Assigned Branch',
+                ),
+                DropdownButtonFormField<String?>(
+                  initialValue: selectedBranchId,
+                  dropdownColor: AppDialogStyles.dropdownColor(ctx),
+                  isExpanded: true,
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    icon: LucideIcons.mapPin,
                   ),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(isAr ? 'جميع الفروع' : 'All Branches'),
+                    ),
+                    ..._branches.whereType<Map>().map((b) {
+                      final id = b['id']?.toString();
+                      final name = (isAr
+                                  ? (b['nameAr'] ?? b['name'])
+                                  : (b['name'] ?? b['nameAr']))
+                              ?.toString() ??
+                          '';
+                      return DropdownMenuItem<String?>(
+                        value: id,
+                        child: Text(name),
+                      );
+                    }),
+                  ],
+                  onChanged: isSubmitting
+                      ? null
+                      : (val) {
+                          setDialogState(() => selectedBranchId = val);
+                        },
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  AppDialogErrorBanner(message: errorMessage!),
                 ],
-              ),
+              ],
             ),
-          ),
-        ),
+            footer: AppDialogFooter(
+              cancelLabel: l10n.cancel,
+              onCancel: () => Navigator.pop(dialogCtx),
+              confirmLabel: l10n.update,
+              confirmIcon: LucideIcons.save,
+              isLoading: isSubmitting,
+              onConfirm: () async {
+                setDialogState(() {
+                  isSubmitting = true;
+                  errorMessage = null;
+                });
+                try {
+                  await ref
+                      .read(vendorMembersProvider(widget.vendorId).notifier)
+                      .updateRole(
+                        memberId,
+                        selectedRole,
+                        branchId: selectedBranchId,
+                        updateBranch: true,
+                      );
+                  if (dialogCtx.mounted) {
+                    Navigator.pop(dialogCtx);
+                  }
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(l10n.roleUpdatedSuccessfully),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (dialogCtx.mounted) {
+                    setDialogState(() {
+                      isSubmitting = false;
+                      errorMessage = L10nErrorHelper.translate(context, e);
+                    });
+                  }
+                }
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -706,48 +555,18 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
     final memberId = member['id']?.toString() ?? '';
     final userName = (member['user']?['name'] ?? l10n.unknown).toString();
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(LucideIcons.userMinus, size: 20, color: AppColors.error),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(isAr ? 'إزالة العضو' : 'Remove Member'),
-            ),
-          ],
-        ),
-        content: Text(
-          isAr
-              ? 'هل أنت متأكد من إزالة "$userName" من طاقم عمل "${widget.vendorName}"؟'
-              : 'Are you sure you want to remove "$userName" from the team of "${widget.vendorName}"?',
-          style: const TextStyle(height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx, false),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(dialogCtx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: isAr ? 'إزالة العضو' : 'Remove Member',
+      subtitle: widget.vendorName,
+      message: isAr
+          ? 'هل أنت متأكد من إزالة "$userName" من طاقم عمل "${widget.vendorName}"؟'
+          : 'Are you sure you want to remove "$userName" from the team of "${widget.vendorName}"?',
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.userMinus,
+      confirmIcon: LucideIcons.userMinus,
+      isDestructive: true,
     );
 
     if (confirmed != true || !mounted) return;

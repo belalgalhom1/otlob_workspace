@@ -51,14 +51,22 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final size = MediaQuery.of(context).size;
+    final size = MediaQuery.sizeOf(context);
+    final mediaPadding = MediaQuery.paddingOf(context);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final isMobile = size.width < 600;
+    final maxDialogHeight = (size.height -
+            mediaPadding.vertical -
+            viewInsets.bottom -
+            (isMobile ? 28.0 : 48.0))
+        .clamp(220.0, size.height * 0.90);
 
     return PopScope(
       canPop: false, // Force explicit choice
       child: Dialog(
-        insetPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.xl,
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 12 : AppSpacing.lg,
+          vertical: isMobile ? 14 : AppSpacing.xl,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -73,10 +81,10 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: 680,
-            maxHeight: size.height * 0.90,
+            maxHeight: maxDialogHeight,
           ),
           child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -133,7 +141,9 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                                 child: Text(
                                   'v${widget.version}',
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color: AppColors.primary,
+                                    color: isDark
+                                        ? AppColors.primary
+                                        : const Color(0xFFB45309),
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -245,19 +255,35 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
                   const SizedBox(height: AppSpacing.xs),
                   Align(
                     alignment: AlignmentDirectional.centerStart,
-                    child: TextButton.icon(
-                      icon: const Icon(LucideIcons.shieldCheck, size: 16),
-                      label: Text(
-                        widget.privacyPolicyLabel ??
-                            (widget.isArabic
-                                ? 'عرض سياسة الخصوصية وحماية البيانات'
-                                : 'View Privacy Policy & Data Protection'),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDark
+                            ? AppColors.primary
+                            : const Color(0xFFB45309),
                       ),
                       onPressed: widget.onViewPrivacyPolicy,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(LucideIcons.shieldCheck, size: 16),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              widget.privacyPolicyLabel ??
+                                  (widget.isArabic
+                                      ? 'عرض سياسة الخصوصية وحماية البيانات'
+                                      : 'View Privacy Policy & Data Protection'),
+                              softWrap: true,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isDark
+                                    ? AppColors.primary
+                                    : const Color(0xFFB45309),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

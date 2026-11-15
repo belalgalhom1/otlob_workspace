@@ -534,29 +534,17 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
   }
 
   Future<void> _confirmUnassignDriver(String managerUserId, String driverId, String driverName) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(ctx).colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        title: Text(_isAr ? 'إلغاء تعيين السائق' : 'Unassign Driver'),
-        content: Text(
-          _isAr
-              ? 'هل أنت متأكد من إلغاء تعيين السائق "$driverName" من هذا المدير؟'
-              : 'Are you sure you want to unassign driver "$driverName" from this manager?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(_isAr ? 'إلغاء' : 'Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-            child: Text(_isAr ? 'إلغاء التعيين' : 'Unassign'),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: _isAr ? 'إلغاء تعيين السائق' : 'Unassign Driver',
+      message: _isAr
+          ? 'هل أنت متأكد من إلغاء تعيين السائق "$driverName" من هذا المدير؟'
+          : 'Are you sure you want to unassign driver "$driverName" from this manager?',
+      confirmLabel: _isAr ? 'إلغاء التعيين' : 'Unassign',
+      cancelLabel: _isAr ? 'إلغاء' : 'Cancel',
+      icon: LucideIcons.userMinus,
+      confirmIcon: LucideIcons.userMinus,
+      isDestructive: true,
     );
 
     if (confirm != true) return;
@@ -627,6 +615,7 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
   bool _isLoadingDrivers = true;
   bool _isSaving = false;
   String? _error;
+  String? _submitError;
   List<DriverProfile> _allDrivers = [];
   String _search = '';
 
@@ -662,7 +651,10 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
   bool get _isAr => Localizations.localeOf(context).languageCode == 'ar';
 
   Future<void> _save() async {
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _submitError = null;
+    });
     try {
       final repo = ref.read(adminDriversRepositoryProvider);
       await repo.assignDriversToManager(
@@ -673,7 +665,7 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
       if (mounted) {
         Navigator.pop(context);
         widget.onSaved();
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text(
               _isAr ? 'تم تحديث تعيين السائقين بنجاح' : 'Driver assignments updated successfully',
@@ -683,10 +675,10 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ErrorUtils.translate(context, e)), backgroundColor: AppColors.error),
-        );
+        setState(() {
+          _isSaving = false;
+          _submitError = ErrorUtils.translate(context, e);
+        });
       }
     }
   }
@@ -694,7 +686,7 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isMobile = AppDialogStyles.isMobile(context);
 
     final filteredDrivers = _allDrivers.where((d) {
       if (_search.isEmpty) return true;
@@ -704,212 +696,179 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
           (d.vehiclePlate ?? '').toLowerCase().contains(q);
     }).toList();
 
-    final isMobile = MediaQuery.of(context).size.width < 600;
-    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final secondaryTextColor = theme.colorScheme.onSurface.withValues(alpha: 0.68);
+    final secondaryTextColor = theme.colorScheme.onSurfaceVariant;
+    final horizontalPad = isMobile ? 16.0 : 24.0;
 
-    return Dialog(
-      backgroundColor: theme.colorScheme.surface,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 650, maxHeight: 750),
-        child: Padding(
-          padding: EdgeInsets.all(isMobile ? 16 : 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                    child: const Icon(LucideIcons.userPlus, color: AppColors.primary, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _isAr
-                              ? 'تعيين السائقين للمدير: ${widget.managerName}'
-                              : 'Assign Drivers to: ${widget.managerName}',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 16 : 18),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          _isAr
-                              ? 'حدد السائقين الذين يتبعون هذا المدير للحصول على العمولات وإدارة الحسابات'
-                              : 'Select drivers under this manager to route commissions and management',
-                          style: TextStyle(color: secondaryTextColor, fontSize: 13),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(LucideIcons.x, size: 20),
-                  ),
-                ],
+    return AppDialog(
+      maxWidth: 660,
+      maxHeight: 760,
+      canPop: !_isSaving,
+      scrollableBody: false,
+      expandBody: !_manageAllDrivers,
+      bodyPadding: EdgeInsets.fromLTRB(horizontalPad, 16, horizontalPad, 16),
+      header: AppDialogHeader(
+        icon: LucideIcons.userPlus,
+        title: _isAr
+            ? 'تعيين السائقين للمدير: ${widget.managerName}'
+            : 'Assign Drivers to: ${widget.managerName}',
+        subtitle: _isAr
+            ? 'حدد السائقين الذين يتبعون هذا المدير للحصول على العمولات وإدارة الحسابات'
+            : 'Select drivers under this manager to route commissions and management',
+        isCloseDisabled: _isSaving,
+        onClose: () => Navigator.pop(context),
+      ),
+      body: Column(
+        mainAxisSize: _manageAllDrivers ? MainAxisSize.min : MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_submitError != null) ...[
+            AppDialogErrorBanner(message: _submitError!),
+            const SizedBox(height: 12),
+          ],
+          AppDialogSectionCard(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: SwitchListTile(
+              value: _manageAllDrivers,
+              onChanged: _isSaving ? null : (val) => setState(() => _manageAllDrivers = val),
+              contentPadding: EdgeInsets.zero,
+              activeThumbColor: AppColors.primary,
+              title: Text(
+                _isAr ? 'إدارة جميع السائقين تلقائياً' : 'Manage All Drivers Automatically',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
-              const SizedBox(height: 16),
-              Divider(height: 1, color: borderColor),
-              const SizedBox(height: 16),
-
-              // Manage All Drivers Switch
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: borderColor),
-                ),
-                child: SwitchListTile(
-                  value: _manageAllDrivers,
-                  onChanged: (val) => setState(() => _manageAllDrivers = val),
-                  contentPadding: EdgeInsets.zero,
-                  activeThumbColor: AppColors.primary,
-                  title: Text(
-                    _isAr ? 'إدارة جميع السائقين تلقائياً' : 'Manage All Drivers Automatically',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                  ),
-                  subtitle: Text(
-                    _isAr
-                        ? 'عند التفعيل، سيتم ربط جميع سائقي المنصة بهذا المدير دون الحاجة لتحديدهم يدوياً'
-                        : 'When enabled, this manager oversees all drivers across the platform',
-                    style: TextStyle(fontSize: 12, color: secondaryTextColor),
-                  ),
-                ),
+              subtitle: Text(
+                _isAr
+                    ? 'عند التفعيل، سيتم ربط جميع سائقي المنصة بهذا المدير دون الحاجة لتحديدهم يدوياً'
+                    : 'When enabled, this manager oversees all drivers across the platform',
+                style: TextStyle(fontSize: 12, color: secondaryTextColor),
               ),
-              const SizedBox(height: 16),
-
-              // Individual driver list section (shown only when manageAll is false)
-              if (!_manageAllDrivers) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        onChanged: (v) => setState(() => _search = v.trim()),
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(LucideIcons.search, size: 16),
-                          hintText: _isAr ? 'بحث عن سائق...' : 'Search driver...',
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      _isAr
-                          ? 'المحدد: ${_selectedDriverIds.length}'
-                          : 'Selected: ${_selectedDriverIds.length}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _isLoadingDrivers
-                      ? const Center(child: CircularProgressIndicator())
-                      : _error != null
-                          ? Center(child: Text(ErrorUtils.translate(context, _error)))
-                          : filteredDrivers.isEmpty
-                              ? Center(
-                                  child: Text(_isAr ? 'لم يتم العثور على سائقين' : 'No drivers found'),
-                                )
-                              : ListView.builder(
-                                  itemCount: filteredDrivers.length,
-                                  itemBuilder: (ctx, i) {
-                                    final d = filteredDrivers[i];
-                                    final isSelected = _selectedDriverIds.contains(d.id);
-                                    final otherManager = d.driverManagerName;
-                                    final isCurrentManager = d.driverManagerUserId == widget.managerUserId;
-
-                                    return CheckboxListTile(
-                                      value: isSelected,
-                                      onChanged: (val) {
-                                        setState(() {
-                                          if (val == true) {
-                                            _selectedDriverIds.add(d.id);
-                                          } else {
-                                            _selectedDriverIds.remove(d.id);
-                                          }
-                                        });
-                                      },
-                                      title: Row(
-                                        children: [
-                                          Text(d.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: (d.status == 'ONLINE' ? Colors.green : Colors.grey)
-                                                  .withValues(alpha: 0.15),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              d.status,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: d.status == 'ONLINE' ? Colors.green : Colors.grey,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      subtitle: Text(
-                                        otherManager != null && !isCurrentManager
-                                            ? (_isAr
-                                                ? 'معين حالياً للمدير: $otherManager (سيتم نقله لهذا المدير)'
-                                                : 'Currently assigned to: $otherManager (will be reassigned)')
-                                            : (d.vehiclePlate != null ? 'لوحة: ${d.vehiclePlate}' : ''),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: otherManager != null && !isCurrentManager
-                                              ? Colors.orange
-                                              : secondaryTextColor,
-                                        ),
-                                      ),
-                                      controlAffinity: ListTileControlAffinity.leading,
-                                    );
-                                  },
-                                ),
-                ),
-              ] else
-                const Spacer(),
-
-              const SizedBox(height: 16),
-              Divider(height: 1, color: borderColor),
-              const SizedBox(height: 16),
-
-              // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _isSaving ? null : () => Navigator.pop(context),
-                    child: Text(_isAr ? 'إلغاء' : 'Cancel'),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: _isSaving ? null : _save,
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : Text(_isAr ? 'حفظ التعيينات' : 'Save Assignments'),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
+          if (!_manageAllDrivers) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    onChanged: (v) => setState(() => _search = v.trim()),
+                    decoration: AppDialogStyles.inputDecoration(
+                      context,
+                      hintText: _isAr ? 'بحث عن سائق...' : 'Search driver...',
+                      icon: LucideIcons.search,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                AppBadgePill(
+                  text: _isAr
+                      ? 'المحدد: ${_selectedDriverIds.length}'
+                      : 'Selected: ${_selectedDriverIds.length}',
+                  accentColor: AppColors.primary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppDialogStyles.subtleSurfaceColor(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppDialogStyles.borderColor(context)),
+                ),
+                child: _isLoadingDrivers
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: AppDialogErrorBanner(
+                                message: ErrorUtils.translate(context, _error),
+                              ),
+                            ),
+                          )
+                        : filteredDrivers.isEmpty
+                            ? Center(
+                                child: Text(
+                                  _isAr ? 'لم يتم العثور على سائقين' : 'No drivers found',
+                                  style: TextStyle(color: secondaryTextColor),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: filteredDrivers.length,
+                                separatorBuilder: (_, _) => Divider(
+                                  height: 1,
+                                  color: AppDialogStyles.borderColor(context),
+                                ),
+                                itemBuilder: (ctx, i) {
+                                  final d = filteredDrivers[i];
+                                  final isSelected = _selectedDriverIds.contains(d.id);
+                                  final otherManager = d.driverManagerName;
+                                  final isCurrentManager = d.driverManagerUserId == widget.managerUserId;
+
+                                  return CheckboxListTile(
+                                    value: isSelected,
+                                    activeColor: AppColors.primary,
+                                    checkColor: AppColors.onPrimary,
+                                    onChanged: _isSaving
+                                        ? null
+                                        : (val) {
+                                            setState(() {
+                                              if (val == true) {
+                                                _selectedDriverIds.add(d.id);
+                                              } else {
+                                                _selectedDriverIds.remove(d.id);
+                                              }
+                                            });
+                                          },
+                                    title: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            d.name,
+                                            style: const TextStyle(fontWeight: FontWeight.w600),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        AppBadgePill(
+                                          text: d.status,
+                                          accentColor: d.status == 'ONLINE'
+                                              ? AppColors.success
+                                              : theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ],
+                                    ),
+                                    subtitle: (otherManager != null && !isCurrentManager) || d.vehiclePlate != null
+                                        ? Text(
+                                            otherManager != null && !isCurrentManager
+                                                ? (_isAr
+                                                    ? 'معين حالياً للمدير: $otherManager (سيتم نقله لهذا المدير)'
+                                                    : 'Currently assigned to: $otherManager (will be reassigned)')
+                                                : '${_isAr ? 'لوحة' : 'Plate'}: ${d.vehiclePlate}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: otherManager != null && !isCurrentManager
+                                                  ? AppColors.warning
+                                                  : secondaryTextColor,
+                                            ),
+                                          )
+                                        : null,
+                                    controlAffinity: ListTileControlAffinity.leading,
+                                  );
+                                },
+                              ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      footer: AppDialogFooter(
+        cancelLabel: _isAr ? 'إلغاء' : 'Cancel',
+        onCancel: () => Navigator.pop(context),
+        confirmLabel: _isAr ? 'حفظ التعيينات' : 'Save Assignments',
+        confirmIcon: LucideIcons.check,
+        isLoading: _isSaving,
+        onConfirm: _save,
       ),
     );
   }

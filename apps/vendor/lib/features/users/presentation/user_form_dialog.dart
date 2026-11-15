@@ -32,6 +32,8 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
   late TextEditingController titleArController;
   
   bool obscurePassword = true;
+  bool _isSaving = false;
+  String? _errorMessage;
   late String selectedRole;
   String? selectedVendorId;
   String? initialVendorId;
@@ -66,9 +68,9 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     passwordController = TextEditingController();
     titleController = TextEditingController(text: widget.user?['title']?.toString() ?? '');
     titleArController = TextEditingController(text: widget.user?['titleAr']?.toString() ?? '');
-    
+
     selectedRole = widget.user?['role'] ?? (widget.currentUserRole == 'ADMIN' ? 'DRIVER' : 'ADMIN');
-    
+
     if (widget.user != null && widget.user['permissions'] != null) {
       selectedPermissions = List<String>.from(widget.user['permissions']);
     }
@@ -118,441 +120,448 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
     }
   }
 
-  Widget _buildField(String label, IconData icon, TextEditingController controller, String hint, {bool obscure = false, Widget? suffixIcon}) {
+  Widget _buildField(
+    String label,
+    IconData icon,
+    TextEditingController controller,
+    String hint, {
+    bool obscure = false,
+    Widget? suffixIcon,
+    bool isRequired = false,
+    TextDirection? textDirection,
+    TextInputType? keyboardType,
+    String? languageTag,
+  }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
+        AppFieldLabel(
+          label: label,
+          isRequired: isRequired,
+          languageTag: languageTag,
         ),
-        const SizedBox(height: 8),
         TextField(
           controller: controller,
+          enabled: !_isSaving,
           obscureText: obscure,
-          decoration: InputDecoration(
+          textDirection: textDirection,
+          keyboardType: keyboardType,
+          decoration: AppDialogStyles.inputDecoration(
+            context,
             hintText: hint,
-            prefixIcon: Icon(icon, size: 18),
+            icon: icon,
             suffixIcon: suffixIcon,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
           ),
         ),
       ],
     );
   }
 
+  Future<void> _openPermissionsDialog() async {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final l10n = AppLocalizations.of(context)!;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (contextInner, setDialogStateInner) {
+            return AppDialog(
+              maxWidth: 480,
+              maxHeight: 620,
+              header: AppDialogHeader(
+                icon: LucideIcons.shieldCheck,
+                title: isAr ? 'اختر الصلاحيات' : 'Select Permissions',
+                subtitle: isAr
+                    ? '${selectedPermissions.length} صلاحيات محددة'
+                    : '${selectedPermissions.length} selected',
+                onClose: () => Navigator.pop(ctx),
+              ),
+              body: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: availablePermissions.map((perm) {
+                  final checked = selectedPermissions.contains(perm);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: AppDialogSectionCard(
+                      padding: EdgeInsets.zero,
+                      backgroundColor: checked
+                          ? AppColors.primary.withValues(alpha: 0.08)
+                          : null,
+                      borderColor: checked
+                          ? AppColors.primary.withValues(alpha: 0.35)
+                          : null,
+                      child: CheckboxListTile(
+                        title: Text(
+                          _getPermissionName(context, perm),
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        value: checked,
+                        activeColor: AppColors.primary,
+                        checkColor: AppColors.onPrimary,
+                        onChanged: (val) {
+                          setDialogStateInner(() {
+                            if (val == true) {
+                              selectedPermissions.add(perm);
+                            } else {
+                              selectedPermissions.remove(perm);
+                            }
+                          });
+                          setState(() {});
+                        },
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              footer: AppDialogFooter(
+                confirmLabel: l10n.save,
+                confirmIcon: LucideIcons.check,
+                onConfirm: () => Navigator.pop(ctx),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      String? successMsg;
+      if (widget.user == null) {
+        await ref.read(userProvider.notifier).addUser(
+              name: nameController.text,
+              email: emailController.text,
+              password: passwordController.text,
+              role: selectedRole,
+              phone: PhoneUtils.normalize(phoneController.text),
+              vendorId: selectedVendorId,
+              vendorRole: selectedVendorRole,
+              title: titleController.text.isNotEmpty ? titleController.text : null,
+              titleAr: titleArController.text.isNotEmpty ? titleArController.text : null,
+              permissions: (selectedRole == 'ADMIN' || selectedRole == 'DRIVER_MANAGER')
+                  ? selectedPermissions
+                  : null,
+            );
+        successMsg = l10n.common_success_resource_created;
+      } else if (widget.user!['id'] != null) {
+        await ref.read(userProvider.notifier).updateUser(
+              id: widget.user!['id'],
+              name: nameController.text,
+              email: emailController.text,
+              phone: PhoneUtils.normalize(phoneController.text),
+              role: selectedRole,
+              vendorId: selectedVendorId,
+              oldVendorId: initialVendorId,
+              oldMemberId: initialMemberId,
+              vendorRole: selectedVendorRole,
+              password: passwordController.text.isNotEmpty
+                  ? passwordController.text
+                  : null,
+              title: titleController.text.isNotEmpty ? titleController.text : null,
+              titleAr: titleArController.text.isNotEmpty ? titleArController.text : null,
+              permissions: selectedRole == 'ADMIN' ? selectedPermissions : null,
+            );
+        successMsg = l10n.common_success_resource_updated;
+      }
+
+      if (mounted) {
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        Navigator.pop(context);
+        if (successMsg != null) {
+          messenger?.showSnackBar(
+            SnackBar(content: Text(successMsg), backgroundColor: AppColors.success),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _errorMessage = L10nErrorHelper.translate(context, e);
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
+    final l10n = AppLocalizations.of(context)!;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final theme = Theme.of(context);
+    final isNew = widget.user == null;
+
+    return AppDialog(
+      maxWidth: 540,
+      canPop: !_isSaving,
+      header: AppDialogHeader(
+        icon: isNew ? LucideIcons.userPlus : LucideIcons.user,
+        title: isNew ? l10n.createNewUser : l10n.editUserProfile,
+        isCloseDisabled: _isSaving,
+        onClose: () => Navigator.pop(context),
       ),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    widget.user == null ? LucideIcons.userPlus : LucideIcons.user,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.user == null
-                          ? AppLocalizations.of(context)!.createNewUser
-                          : AppLocalizations.of(context)!.editUserProfile,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildField(
-                AppLocalizations.of(context)!.fullName,
-                LucideIcons.user,
-                nameController,
-                'e.g. Ahmed Ali',
-              ),
-              const SizedBox(height: 16),
-              _buildField(
-                AppLocalizations.of(context)!.emailAddress,
-                LucideIcons.mail,
-                emailController,
-                'admin@otlob.com',
-              ),
-              const SizedBox(height: 16),
-              _buildField(
-                AppLocalizations.of(context)!.phone,
-                LucideIcons.phone,
-                phoneController,
-                '+201100000000',
-              ),
-              const SizedBox(height: 16),
-              _buildField(
-                widget.user == null
-                    ? AppLocalizations.of(context)!.password
-                    : (Localizations.localeOf(context).languageCode == 'ar'
-                          ? 'كلمة المرور الجديدة'
-                          : 'New Password'),
-                LucideIcons.lock,
-                passwordController,
-                widget.user == null
-                    ? '********'
-                    : (Localizations.localeOf(context).languageCode == 'ar'
-                          ? 'اتركها فارغة للإبقاء على الحالية'
-                          : 'Leave blank to keep current'),
-                obscure: obscurePassword,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff,
-                    size: 18,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      obscurePassword = !obscurePassword;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildField(
-                Localizations.localeOf(context).languageCode == 'ar'
-                    ? 'المسمى الوظيفي (EN)'
-                    : 'Job Title (EN)',
-                LucideIcons.briefcase,
-                titleController,
-                'e.g. Sales Manager',
-              ),
-              const SizedBox(height: 16),
-              _buildField(
-                Localizations.localeOf(context).languageCode == 'ar'
-                    ? 'المسمى الوظيفي (AR)'
-                    : 'Job Title (AR)',
-                LucideIcons.briefcase,
-                titleArController,
-                'e.g. مدير المبيعات',
-              ),
-              if (widget.currentUserRole != 'ADMIN') ...[
-                const SizedBox(height: 16),
-                Text(
-                  AppLocalizations.of(context)!.accountRole,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedRole,
-                  dropdownColor: Theme.of(context).colorScheme.surface,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(LucideIcons.shield, size: 18),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: [
-                    DropdownMenuItem(
-                      value: 'SUPER_ADMIN',
-                      child: Text(AppLocalizations.of(context)!.superAdmin),
-                    ),
-                    DropdownMenuItem(
-                      value: 'ADMIN',
-                      child: Text(AppLocalizations.of(context)!.admin),
-                    ),
-                    DropdownMenuItem(
-                      value: 'VENDOR_MEMBER',
-                      child: Text(
-                        AppLocalizations.of(context)!.vendorMember,
-                      ),
-                    ),
-                    DropdownMenuItem(
-                      value: 'DRIVER',
-                      child: Text(AppLocalizations.of(context)!.driver),
-                    ),
-                    DropdownMenuItem(
-                      value: 'DRIVER_MANAGER',
-                      child: Text(Localizations.localeOf(context).languageCode == 'ar' ? 'مسؤول سائقين' : 'Driver Manager'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'CUSTOMER',
-                      child: Text(AppLocalizations.of(context)!.customer),
-                    ),
-                  ],
-                  onChanged: (v) {
-                    setState(() {
-                      selectedRole = v!;
-                    });
-                  },
-                ),
-              ],
-              if (selectedRole == 'ADMIN' || selectedRole == 'DRIVER_MANAGER') ...[
-                const SizedBox(height: 16),
-                Text(
-                  Localizations.localeOf(context).languageCode == 'ar'
-                      ? 'الصلاحيات الإدارية'
-                      : 'Global Permissions (Admin Only)',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) {
-                        return StatefulBuilder(
-                          builder: (contextInner, setDialogStateInner) {
-                            return DialogScaffold(child: AlertDialog(
-                              backgroundColor: Theme.of(context).colorScheme.surface,
-                              title: Text(
-                                Localizations.localeOf(context).languageCode == 'ar'
-                                    ? 'اختر الصلاحيات'
-                                    : 'Select Permissions',
-                              ),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: availablePermissions.map((perm) {
-                                    return CheckboxListTile(
-                                      title: Text(_getPermissionName(context, perm)),
-                                      value: selectedPermissions.contains(perm),
-                                      activeColor: AppColors.primary,
-                                      onChanged: (val) {
-                                        setDialogStateInner(() {
-                                          if (val == true) {
-                                            selectedPermissions.add(perm);
-                                          } else {
-                                            selectedPermissions.remove(perm);
-                                          }
-                                        });
-                                        setState(() {}); 
-                                      },
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx),
-                                  child: Text(AppLocalizations.of(context)!.save),
-                                )
-                              ],
-                            ));
-                          }
-                        );
-                      }
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            selectedPermissions.isEmpty 
-                              ? (Localizations.localeOf(context).languageCode == 'ar' ? 'اختر الصلاحيات...' : 'Select Permissions...')
-                              : '${selectedPermissions.length} ${Localizations.localeOf(context).languageCode == 'ar' ? 'محددة' : 'selected'}',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ),
-                        const Icon(LucideIcons.chevronDown, size: 18, color: AppColors.textMuted),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              if (selectedRole == 'VENDOR_MEMBER') ...[
-                const SizedBox(height: 16),
-                Text(
-                  AppLocalizations.of(context)!.assignToVendor,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedVendorId,
-                  dropdownColor: Theme.of(context).colorScheme.surface,
-                  hint: Text(AppLocalizations.of(context)!.selectVendor),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(LucideIcons.store, size: 18),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: widget.vendors
-                      .map(
-                        (v) => DropdownMenuItem<String>(
-                          value: v['id'].toString(),
-                          child: Text(
-                            v['storeName'] ??
-                                v['name'] ??
-                                AppLocalizations.of(context)!.unknown,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) =>
-                      setState(() => selectedVendorId = v),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  AppLocalizations.of(context)!.vendorRole,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedVendorRole,
-                  dropdownColor: Theme.of(context).colorScheme.surface,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(LucideIcons.userCheck, size: 18),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: [
-                    DropdownMenuItem(
-                      value: 'OWNER',
-                      child: Text(AppLocalizations.of(context)!.owner),
-                    ),
-                    DropdownMenuItem(
-                      value: 'MANAGER',
-                      child: Text(AppLocalizations.of(context)!.manager),
-                    ),
-                    DropdownMenuItem(
-                      value: 'STAFF',
-                      child: Text(AppLocalizations.of(context)!.staff),
-                    ),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => selectedVendorRole = v!),
-                ),
-              ],
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        AppLocalizations.of(context)!.cancel,
-                        style: const TextStyle(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Builder(
-                      builder: (btnCtx) => ElevatedButton(
-                      onPressed: () async {
-                        try {
-                          if (widget.user == null) {
-                            await ref
-                                .read(userProvider.notifier)
-                                .addUser(
-                                  name: nameController.text,
-                                  email: emailController.text,
-                                  password: passwordController.text,
-                                  role: selectedRole,
-                                  phone: PhoneUtils.normalize(
-                                    phoneController.text,
-                                  ),
-                                  vendorId: selectedVendorId,
-                                  vendorRole: selectedVendorRole,
-                                  title: titleController.text.isNotEmpty ? titleController.text : null,
-                                  titleAr: titleArController.text.isNotEmpty ? titleArController.text : null,
-                                  permissions: (selectedRole == 'ADMIN' || selectedRole == 'DRIVER_MANAGER') ? selectedPermissions : null,
-                                );
-                            if (btnCtx.mounted) {
-                              ScaffoldMessenger.of(btnCtx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(btnCtx)!.common_success_resource_created), backgroundColor: AppColors.success));
-                            }
-                          } else {
-                            if (widget.user!['id'] != null) {
-                              await ref
-                                  .read(userProvider.notifier)
-                                  .updateUser(
-                                    id: widget.user!['id'],
-                                    name: nameController.text,
-                                    email: emailController.text,
-                                    phone: PhoneUtils.normalize(
-                                      phoneController.text,
-                                    ),
-                                    role: selectedRole,
-                                    vendorId: selectedVendorId,
-                                    oldVendorId: initialVendorId,
-                                    oldMemberId: initialMemberId,
-                                    vendorRole: selectedVendorRole,
-                                    password:
-                                        passwordController.text.isNotEmpty
-                                        ? passwordController.text
-                                        : null,
-                                    title: titleController.text.isNotEmpty ? titleController.text : null,
-                                    titleAr: titleArController.text.isNotEmpty ? titleArController.text : null,
-                                    permissions: selectedRole == 'ADMIN' ? selectedPermissions : null,
-                                  );
-                              if (btnCtx.mounted) {
-                                ScaffoldMessenger.of(btnCtx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(btnCtx)!.common_success_resource_updated), backgroundColor: AppColors.success));
-                              }
-                            }
-                          }
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                          }
-                        } catch (e) {
-                          if (btnCtx.mounted) {
-                            ScaffoldMessenger.of(btnCtx).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(btnCtx, e)), backgroundColor: AppColors.error));
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        widget.user == null
-                            ? AppLocalizations.of(context)!.create
-                            : AppLocalizations.of(context)!.update,
-                      ),
-                    ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_errorMessage != null && _errorMessage!.trim().isNotEmpty) ...[
+            AppDialogErrorBanner(message: _errorMessage!),
+            const SizedBox(height: 16),
+          ],
+          _buildField(
+            l10n.fullName,
+            LucideIcons.user,
+            nameController,
+            'e.g. Ahmed Ali',
+            isRequired: true,
           ),
-        ),
+          const SizedBox(height: 16),
+          _buildField(
+            l10n.emailAddress,
+            LucideIcons.mail,
+            emailController,
+            'admin@otlob.com',
+            isRequired: true,
+            textDirection: TextDirection.ltr,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 16),
+          _buildField(
+            l10n.phone,
+            LucideIcons.phone,
+            phoneController,
+            '+201100000000',
+            textDirection: TextDirection.ltr,
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 16),
+          _buildField(
+            isNew
+                ? l10n.password
+                : (isAr ? 'كلمة المرور الجديدة' : 'New Password'),
+            LucideIcons.lock,
+            passwordController,
+            isNew
+                ? '********'
+                : (isAr
+                    ? 'اتركها فارغة للإبقاء على الحالية'
+                    : 'Leave blank to keep current'),
+            isRequired: isNew,
+            obscure: obscurePassword,
+            suffixIcon: IconButton(
+              icon: Icon(
+                obscurePassword ? LucideIcons.eye : LucideIcons.eyeOff,
+                size: 18,
+              ),
+              onPressed: _isSaving
+                  ? null
+                  : () {
+                      setState(() {
+                        obscurePassword = !obscurePassword;
+                      });
+                    },
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildField(
+            isAr ? 'المسمى الوظيفي' : 'Job Title',
+            LucideIcons.briefcase,
+            titleController,
+            'e.g. Sales Manager',
+            languageTag: 'EN',
+            textDirection: TextDirection.ltr,
+          ),
+          const SizedBox(height: 16),
+          _buildField(
+            isAr ? 'المسمى الوظيفي' : 'Job Title',
+            LucideIcons.briefcase,
+            titleArController,
+            'مثال: مدير المبيعات',
+            languageTag: 'عربي',
+            textDirection: TextDirection.rtl,
+          ),
+          if (widget.currentUserRole != 'ADMIN') ...[
+            const SizedBox(height: 16),
+            AppFieldLabel(label: l10n.accountRole, isRequired: true),
+            DropdownButtonFormField<String>(
+              initialValue: selectedRole,
+              isExpanded: true,
+              dropdownColor: AppDialogStyles.dropdownColor(context),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
+                color: theme.colorScheme.onSurface,
+              ),
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                icon: LucideIcons.shield,
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: 'SUPER_ADMIN',
+                  child: Text(l10n.superAdmin, overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'ADMIN',
+                  child: Text(l10n.admin, overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'VENDOR_MEMBER',
+                  child: Text(l10n.vendorMember, overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'DRIVER',
+                  child: Text(l10n.driver, overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'DRIVER_MANAGER',
+                  child: Text(
+                    isAr ? 'مسؤول سائقين' : 'Driver Manager',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: 'CUSTOMER',
+                  child: Text(l10n.customer, overflow: TextOverflow.ellipsis),
+                ),
+              ],
+              onChanged: _isSaving
+                  ? null
+                  : (v) {
+                      setState(() {
+                        selectedRole = v!;
+                      });
+                    },
+            ),
+          ],
+          if (selectedRole == 'ADMIN' || selectedRole == 'DRIVER_MANAGER') ...[
+            const SizedBox(height: 16),
+            AppFieldLabel(
+              label: isAr
+                  ? 'الصلاحيات الإدارية'
+                  : 'Global Permissions (Admin Only)',
+            ),
+            InkWell(
+              onTap: _isSaving ? null : _openPermissionsDialog,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                decoration: BoxDecoration(
+                  color: AppDialogStyles.subtleSurfaceColor(context),
+                  border: Border.all(
+                    color: AppDialogStyles.borderColor(context),
+                    width: 1.2,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      LucideIcons.shieldCheck,
+                      size: 17,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        selectedPermissions.isEmpty
+                            ? (isAr ? 'اختر الصلاحيات...' : 'Select Permissions...')
+                            : '${selectedPermissions.length} ${isAr ? 'محددة' : 'selected'}',
+                        style: theme.textTheme.bodyMedium?.copyWith(fontSize: 14),
+                      ),
+                    ),
+                    Icon(
+                      LucideIcons.chevronDown,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (selectedRole == 'VENDOR_MEMBER') ...[
+            const SizedBox(height: 16),
+            AppFieldLabel(label: l10n.assignToVendor),
+            DropdownButtonFormField<String>(
+              initialValue: selectedVendorId,
+              isExpanded: true,
+              dropdownColor: AppDialogStyles.dropdownColor(context),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
+                color: theme.colorScheme.onSurface,
+              ),
+              hint: Text(l10n.selectVendor),
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                icon: LucideIcons.store,
+              ),
+              items: widget.vendors
+                  .map(
+                    (v) => DropdownMenuItem<String>(
+                      value: v['id'].toString(),
+                      child: Text(
+                        v['storeName'] ?? v['name'] ?? l10n.unknown,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _isSaving
+                  ? null
+                  : (v) => setState(() => selectedVendorId = v),
+            ),
+            const SizedBox(height: 16),
+            AppFieldLabel(label: l10n.vendorRole),
+            DropdownButtonFormField<String>(
+              initialValue: selectedVendorRole,
+              isExpanded: true,
+              dropdownColor: AppDialogStyles.dropdownColor(context),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
+                color: theme.colorScheme.onSurface,
+              ),
+              decoration: AppDialogStyles.inputDecoration(
+                context,
+                icon: LucideIcons.userCheck,
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: 'OWNER',
+                  child: Text(l10n.owner, overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'MANAGER',
+                  child: Text(l10n.manager, overflow: TextOverflow.ellipsis),
+                ),
+                DropdownMenuItem(
+                  value: 'STAFF',
+                  child: Text(l10n.staff, overflow: TextOverflow.ellipsis),
+                ),
+              ],
+              onChanged: _isSaving
+                  ? null
+                  : (v) => setState(() => selectedVendorRole = v!),
+            ),
+          ],
+        ],
+      ),
+      footer: AppDialogFooter(
+        cancelLabel: l10n.cancel,
+        onCancel: () => Navigator.pop(context),
+        confirmLabel: isNew ? l10n.create : l10n.update,
+        confirmIcon: isNew ? LucideIcons.userPlus : LucideIcons.save,
+        isLoading: _isSaving,
+        onConfirm: _submit,
       ),
     );
   }

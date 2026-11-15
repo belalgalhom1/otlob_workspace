@@ -115,37 +115,52 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
   }
 
   void _viewPhoto(String url, AppLocalizations l10n) {
+    final isAr = l10n.localeName == 'ar';
     showDialog<void>(
       context: context,
-      builder: (ctx) => Dialog.fullscreen(
-        backgroundColor: Colors.black,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: InteractiveViewer(
-                maxScale: 5,
-                child: Center(
-                  child: Image.network(
-                    _resolveMediaUrl(url),
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Icon(
+      builder: (ctx) => AppDialog(
+        maxWidth: 680,
+        scrollableBody: false,
+        bodyPadding: const EdgeInsets.all(16),
+        header: AppDialogHeader(
+          icon: LucideIcons.image,
+          title: isAr ? 'صورة التحقق' : 'Verification Photo',
+          onClose: () => Navigator.pop(ctx),
+        ),
+        body: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 500),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5.0,
+              child: Image.network(
+                _resolveMediaUrl(url),
+                fit: BoxFit.contain,
+                loadingBuilder: (c, child, progress) {
+                  if (progress == null) return child;
+                  return const SizedBox(
+                    height: 220,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                },
+                errorBuilder: (_, _, _) => const SizedBox(
+                  height: 180,
+                  child: Center(
+                    child: Icon(
                       LucideIcons.imageOff,
-                      color: Colors.white70,
-                      size: 48,
+                      color: AppColors.textMuted,
+                      size: 44,
                     ),
                   ),
                 ),
               ),
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IconButton(
-                onPressed: () => Navigator.pop(ctx),
-                icon: const Icon(LucideIcons.x, color: Colors.white),
-              ),
-            ),
-          ],
+          ),
+        ),
+        footer: AppDialogFooter(
+          cancelLabel: isAr ? 'إغلاق' : 'Close',
+          onCancel: () => Navigator.pop(ctx),
         ),
       ),
     );
@@ -379,22 +394,14 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
     required String actionLabel,
   }) {
     if (!mounted) return Future.value(null);
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(isAr ? 'إلغاء' : 'Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(actionLabel),
-          ),
-        ],
-      ),
+    return AppConfirmDialog.show(
+      context,
+      title: title,
+      message: body,
+      confirmLabel: actionLabel,
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      icon: LucideIcons.mapPin,
+      confirmIcon: LucideIcons.settings,
     );
   }
 
@@ -441,6 +448,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
         firstDate: DateTime(2024),
         lastDate: DateTime(2030),
         initialDateRange: _customRange,
+        builder: AppDialogStyles.adaptivePickerTheme,
       );
       if (picked == null) return;
       setState(() {
@@ -520,6 +528,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                             firstDate: DateTime(2024),
                             lastDate: DateTime(2030),
                             initialDateRange: custom,
+                            builder: AppDialogStyles.adaptivePickerTheme,
                           );
                           if (picked == null) return;
                           setSheet(() {

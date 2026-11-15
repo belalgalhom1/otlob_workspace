@@ -22,6 +22,7 @@ import 'package:otlob_customer/features/profile/presentation/pages/profile_scree
 import 'package:otlob_customer/features/profile/presentation/providers/coin_history_provider.dart';
 import 'package:otlob_customer/features/profile/presentation/providers/profile_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ui_kit/ui_kit.dart' show AppConfirmDialog;
 
 class _CatalogAssetLoader extends AssetLoader {
   const _CatalogAssetLoader();
@@ -360,11 +361,11 @@ void main() {
         await tester.tap(logoutButtonFinder);
         await tester.pumpAndSettle();
 
-        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(find.byType(AppConfirmDialog), findsOneWidget);
         final confirmButton = find
             .descendant(
-              of: find.byType(AlertDialog),
-              matching: find.byType(TextButton),
+              of: find.byType(AppConfirmDialog),
+              matching: find.byWidgetPredicate((w) => w is ElevatedButton),
             )
             .last;
         await tester.tap(confirmButton);

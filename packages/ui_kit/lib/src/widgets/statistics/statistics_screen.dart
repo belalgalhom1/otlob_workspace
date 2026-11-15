@@ -3,6 +3,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/app_colors.dart';
+import '../dialogs/app_dialog.dart';
 import '../trend_bar_chart.dart';
 import '../../services/data_export_service.dart';
 import 'statistics_config.dart';
@@ -68,6 +69,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       saveText: _isArabic ? 'حفظ' : 'Save',
       initialDateRange:
           _customRange ?? DateTimeRange(start: DateTime(now.year), end: now),
+      builder: AppDialogStyles.adaptivePickerTheme,
     );
     if (picked != null) {
       setState(() => _customRange = picked);

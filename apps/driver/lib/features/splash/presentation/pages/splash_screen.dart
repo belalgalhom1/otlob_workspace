@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
-import 'package:ui_kit/ui_kit.dart' show ExternalActionLauncher;
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:ui_kit/ui_kit.dart'
+    show ExternalActionLauncher, AppConfirmDialog;
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -105,26 +107,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
     ref.read(appUpdateAvailableProvider.notifier).set(false);
     final l10n = AppLocalizations.of(context)!;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.updateAvailableTitle),
-        content: Text(l10n.updateAvailableMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.updateLater),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await _openStore(ref.read(updateStoreUrlProvider));
-            },
-            child: Text(l10n.updateNow),
-          ),
-        ],
-      ),
+    final shouldUpdate = await AppConfirmDialog.show(
+      context,
+      title: l10n.updateAvailableTitle,
+      message: l10n.updateAvailableMessage,
+      confirmLabel: l10n.updateNow,
+      cancelLabel: l10n.updateLater,
+      icon: LucideIcons.sparkles,
+      confirmIcon: LucideIcons.externalLink,
     );
+    if (shouldUpdate == true) {
+      await _openStore(ref.read(updateStoreUrlProvider));
+    }
     if (mounted) context.go(target);
   }
 

@@ -292,6 +292,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
         firstDate: DateTime(2024),
         lastDate: DateTime(2030),
         initialDateRange: _customRange,
+        builder: AppDialogStyles.adaptivePickerTheme,
       );
       if (picked == null) return;
       setState(() {
@@ -364,6 +365,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
                             firstDate: DateTime(2024),
                             lastDate: DateTime(2030),
                             initialDateRange: custom,
+                            builder: AppDialogStyles.adaptivePickerTheme,
                           );
                           if (picked == null) return;
                           setSheet(() {
@@ -898,7 +900,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
     );
   }
 
-  void _confirmDelete(ShiftPool pool) {
+  Future<void> _confirmDelete(ShiftPool pool) async {
     final l10n = AppLocalizations.of(context)!;
     final hasAssignedDrivers = pool.driverShifts.any(
       (s) => s.status == 'SCHEDULED' || s.status == 'ACTIVE',
@@ -912,56 +914,42 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
       );
       return;
     }
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(l10n.deleteShiftPool),
-        content: Text(l10n.deleteShiftPoolConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                final deleted = await ref
-                    .read(shiftPoolsProvider.notifier)
-                    .deleteShiftPool(pool.id);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        deleted
-                            ? l10n.shiftDeletedSuccessfully
-                            : l10n.shiftPoolDisabledDueToHistory,
-                      ),
-                      backgroundColor:
-                          deleted ? AppColors.success : AppColors.error,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(ErrorUtils.translate(context, e)),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              }
-            },
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteShiftPool,
+      message: l10n.deleteShiftPoolConfirm,
+      cancelLabel: l10n.cancel,
+      confirmLabel: l10n.delete,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+    if (confirmed != true || !mounted) return;
+    try {
+      final deleted = await ref
+          .read(shiftPoolsProvider.notifier)
+          .deleteShiftPool(pool.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              deleted
+                  ? l10n.shiftDeletedSuccessfully
+                  : l10n.shiftPoolDisabledDueToHistory,
+            ),
+            backgroundColor: deleted ? AppColors.success : AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorUtils.translate(context, e)),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }

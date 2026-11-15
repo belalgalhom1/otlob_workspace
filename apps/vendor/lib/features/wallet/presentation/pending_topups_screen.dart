@@ -331,37 +331,73 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
   }
 
   void _showScreenshot(BuildContext context, String url, AppLocalizations l10n) {
-    showDialog(
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    showDialog<void>(
       context: context,
-      builder: (c) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Image.network(url, fit: BoxFit.cover),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: TextButton(
-                onPressed: () => Navigator.pop(c),
-                child: Text(l10n.closeAction),
+      builder: (c) => AppDialog(
+        maxWidth: 680,
+        scrollableBody: false,
+        bodyPadding: const EdgeInsets.all(16),
+        header: AppDialogHeader(
+          icon: LucideIcons.image,
+          title: isAr ? 'إيصال التحويل' : 'Transfer Receipt',
+          onClose: () => Navigator.pop(c),
+        ),
+        body: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 480),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: Image.network(
+                url,
+                fit: BoxFit.contain,
+                loadingBuilder: (ctx, child, progress) {
+                  if (progress == null) return child;
+                  return const SizedBox(
+                    height: 220,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                },
+                errorBuilder: (ctx, err, stack) => const SizedBox(
+                  height: 180,
+                  child: Center(
+                    child: Icon(
+                      LucideIcons.image,
+                      size: 40,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ],
+          ),
+        ),
+        footer: AppDialogFooter(
+          cancelLabel: l10n.closeAction,
+          onCancel: () => Navigator.pop(c),
         ),
       ),
     );
   }
 
-  void _reviewTopUp(BuildContext context, WidgetRef ref, String id, String status, AppLocalizations l10n) {
-    showDialog(
+  void _reviewTopUp(
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+    String status,
+    AppLocalizations l10n,
+  ) {
+    final controller = TextEditingController();
+    String? error;
+    bool submitting = false;
+    final isApprove = status == 'APPROVED';
+    final statusColor = isApprove ? AppColors.success : AppColors.error;
+
+    showDialog<void>(
       context: context,
       builder: (c) {
-        final controller = TextEditingController();
-        String? error;
-        bool submitting = false;
         return StatefulBuilder(
           builder: (dialogContext, setState) {
             Future<void> submit() async {
@@ -378,82 +414,74 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(status == 'APPROVED' ? l10n.topUpApproved : l10n.topUpRejected),
-                    backgroundColor: status == 'APPROVED' ? AppColors.success : AppColors.error,
+                    content: Text(
+                      isApprove ? l10n.topUpApproved : l10n.topUpRejected,
+                    ),
+                    backgroundColor: statusColor,
                   ),
                 );
               } catch (e) {
                 if (!c.mounted) return;
                 setState(() {
                   submitting = false;
-                  error = '${l10n.topUpFailed}: ${ErrorUtils.translate(context, e)}';
+                  error =
+                      '${l10n.topUpFailed}: ${ErrorUtils.translate(context, e)}';
                 });
               }
             }
 
-            return DialogScaffold(child: AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                children: [
-                  Icon(
-                    status == 'APPROVED' ? LucideIcons.checkCircle : LucideIcons.xCircle,
-                    color: status == 'APPROVED' ? AppColors.success : AppColors.error,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(l10n.reviewTopUp),
-                ],
+            return AppDialog(
+              maxWidth: 460,
+              canPop: !submitting,
+              header: AppDialogHeader(
+                icon: isApprove ? LucideIcons.checkCircle : LucideIcons.xCircle,
+                accentColor: statusColor,
+                title: l10n.reviewTopUp,
+                isCloseDisabled: submitting,
+                onClose: () => Navigator.pop(c),
               ),
-              content: Column(
+              body: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  AppFieldLabel(label: l10n.optionalNotes),
                   TextField(
                     controller: controller,
-                    decoration: InputDecoration(
-                      labelText: l10n.optionalNotes,
-                      border: const OutlineInputBorder(),
+                    enabled: !submitting,
+                    maxLines: 3,
+                    decoration: AppDialogStyles.inputDecoration(
+                      dialogContext,
+                      hintText: l10n.optionalNotes,
+                      icon: LucideIcons.messageSquare,
+                      isMultiline: true,
                     ),
-                    maxLines: 2,
                   ),
                   if (error != null) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(LucideIcons.alertCircle, color: AppColors.error, size: 16),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
-                        ),
-                      ],
-                    ),
+                    const SizedBox(height: 16),
+                    AppDialogErrorBanner(message: error!),
                   ],
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: submitting ? null : () => Navigator.pop(c),
-                  child: Text(l10n.cancelAction),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: status == 'APPROVED' ? AppColors.success : AppColors.error,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: submitting ? null : submit,
-                  child: submitting
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : Text(status == 'APPROVED' ? l10n.approve : l10n.reject),
-                ),
-              ],
-            ));
+              footer: AppDialogFooter(
+                cancelLabel: l10n.cancelAction,
+                onCancel: () => Navigator.pop(c),
+                confirmLabel: isApprove ? l10n.approve : l10n.reject,
+                confirmIcon:
+                    isApprove ? LucideIcons.checkCircle : LucideIcons.xCircle,
+                confirmBackgroundColor: statusColor,
+                confirmForegroundColor: Colors.white,
+                isLoading: submitting,
+                onConfirm: submit,
+              ),
+            );
           },
         );
       },
-    );
+    ).whenComplete(() {
+      Future<void>.delayed(
+        const Duration(milliseconds: 350),
+        controller.dispose,
+      );
+    });
   }
 }

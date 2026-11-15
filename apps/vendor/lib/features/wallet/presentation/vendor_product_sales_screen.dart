@@ -496,6 +496,7 @@ class _VendorProductSalesScreenState
           context: context,
           firstDate: DateTime(2020),
           lastDate: DateTime.now(),
+          builder: AppDialogStyles.adaptivePickerTheme,
           initialDateRange: _from != null && _to != null
               ? DateTimeRange(start: _from!, end: _to!)
               : null,

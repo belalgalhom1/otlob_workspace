@@ -51,6 +51,7 @@ class _AllDriversStatisticsScreenState
       saveText: _isArabic ? 'حفظ' : 'Save',
       initialDateRange:
           _customRange ?? DateTimeRange(start: DateTime(now.year), end: now),
+      builder: AppDialogStyles.adaptivePickerTheme,
     );
     if (picked != null) {
       setState(() => _customRange = picked);

@@ -1208,37 +1208,52 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
   }
 
   void _viewPhoto(BuildContext context, WidgetRef ref, String url) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     showDialog<void>(
       context: context,
-      builder: (ctx) => Dialog.fullscreen(
-        backgroundColor: Colors.black,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: InteractiveViewer(
-                maxScale: 5,
-                child: Center(
-                  child: Image.network(
-                    _resolveMediaUrl(ref, url),
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Icon(
+      builder: (ctx) => AppDialog(
+        maxWidth: 680,
+        scrollableBody: false,
+        bodyPadding: const EdgeInsets.all(16),
+        header: AppDialogHeader(
+          icon: LucideIcons.image,
+          title: isAr ? 'عرض الصورة' : 'Photo Preview',
+          onClose: () => Navigator.pop(ctx),
+        ),
+        body: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 500),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5.0,
+              child: Image.network(
+                _resolveMediaUrl(ref, url),
+                fit: BoxFit.contain,
+                loadingBuilder: (c, child, progress) {
+                  if (progress == null) return child;
+                  return const SizedBox(
+                    height: 220,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                },
+                errorBuilder: (_, _, _) => const SizedBox(
+                  height: 180,
+                  child: Center(
+                    child: Icon(
                       LucideIcons.imageOff,
-                      color: Colors.white70,
-                      size: 48,
+                      color: AppColors.textMuted,
+                      size: 44,
                     ),
                   ),
                 ),
               ),
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IconButton(
-                onPressed: () => Navigator.pop(ctx),
-                icon: const Icon(LucideIcons.x, color: Colors.white),
-              ),
-            ),
-          ],
+          ),
+        ),
+        footer: AppDialogFooter(
+          cancelLabel: isAr ? 'إغلاق' : 'Close',
+          onCancel: () => Navigator.pop(ctx),
         ),
       ),
     );
@@ -1314,95 +1329,158 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
       {'code': 'OTHER', 'label': isAr ? 'سبب آخر' : 'Other'},
     ];
 
-    showDialog(
+    bool isSubmitting = false;
+    String? errorText;
+
+    showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              const Icon(LucideIcons.userPlus, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isAr ? 'طلب كابتن إضافي للمساعدة' : 'Request Assistant Driver',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isAr
-                      ? 'حدد سبب طلب كابتن مساعد لمشاركتك في تنفيذ هذا التوصيل:'
-                      : 'Select why you need a second driver for this delivery:',
-                  style: const TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedReason,
-                  decoration: InputDecoration(
-                    labelText: isAr ? 'سبب المساعدة' : 'Reason',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  items: reasons.map((r) => DropdownMenuItem(
-                    value: r['code'],
-                    child: Text(r['label']!),
-                  )).toList(),
-                  onChanged: (val) {
-                    if (val != null) setDialogState(() => selectedReason = val);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: noteController,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: isAr ? 'ملاحظات إضافية (اختياري)' : 'Additional Notes (Optional)',
-                    hintText: isAr ? 'مثال: يوجد 4 كراتين كبيرة...' : 'e.g., 4 large boxes...',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(isAr ? 'إلغاء' : 'Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final ok = await ref.read(orderExecutionProvider.notifier).requestAssist(
+        builder: (ctx, setDialogState) {
+          Future<void> submit() async {
+            if (isSubmitting) return;
+            setDialogState(() {
+              isSubmitting = true;
+              errorText = null;
+            });
+            final ok = await ref.read(orderExecutionProvider.notifier).requestAssist(
                   reason: selectedReason,
-                  note: noteController.text.trim().isNotEmpty ? noteController.text.trim() : null,
+                  note: noteController.text.trim().isNotEmpty
+                      ? noteController.text.trim()
+                      : null,
                   deliveryGroupId: deliveryGroupId,
                 );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(ok
-                          ? (isAr ? 'تم إرسال طلب المساعدة بنجاح' : 'Assist request sent successfully')
-                          : (isAr ? 'تعذر إرسال الطلب' : 'Failed to send assist request')),
-                      backgroundColor: ok ? AppColors.success : AppColors.error,
+            if (!ctx.mounted) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      ok
+                          ? (isAr
+                              ? 'تم إرسال طلب المساعدة بنجاح'
+                              : 'Assist request sent successfully')
+                          : (isAr
+                              ? 'تعذر إرسال الطلب'
+                              : 'Failed to send assist request'),
                     ),
-                  );
-                  Navigator.pop(context); // Close bottom sheet to refresh
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.black,
-              ),
-              child: Text(isAr ? 'إرسال الطلب' : 'Submit Request'),
+                    backgroundColor: ok ? AppColors.success : AppColors.error,
+                  ),
+                );
+                if (ok) Navigator.pop(context);
+              }
+              return;
+            }
+            if (ok) {
+              Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isAr
+                          ? 'تم إرسال طلب المساعدة بنجاح'
+                          : 'Assist request sent successfully',
+                    ),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+                Navigator.pop(context); // Close bottom sheet to refresh
+              }
+            } else {
+              setDialogState(() {
+                isSubmitting = false;
+                errorText = isAr
+                    ? 'تعذر إرسال الطلب'
+                    : 'Failed to send assist request';
+              });
+            }
+          }
+
+          return AppDialog(
+            maxWidth: 480,
+            canPop: !isSubmitting,
+            header: AppDialogHeader(
+              icon: LucideIcons.userPlus,
+              title: isAr
+                  ? 'طلب كابتن إضافي للمساعدة'
+                  : 'Request Assistant Driver',
+              subtitle: isAr
+                  ? 'حدد سبب طلب كابتن مساعد لمشاركتك في تنفيذ هذا التوصيل'
+                  : 'Select why you need a second driver for this delivery',
+              isCloseDisabled: isSubmitting,
+              onClose: () => Navigator.pop(ctx),
             ),
-          ],
-        ),
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppFieldLabel(
+                  label: isAr ? 'سبب المساعدة' : 'Reason',
+                  isRequired: true,
+                ),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedReason,
+                  isExpanded: true,
+                  dropdownColor: AppDialogStyles.dropdownColor(ctx),
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    icon: LucideIcons.helpCircle,
+                  ),
+                  items: reasons
+                      .map(
+                        (r) => DropdownMenuItem(
+                          value: r['code'],
+                          child: Text(r['label']!),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: isSubmitting
+                      ? null
+                      : (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedReason = val);
+                          }
+                        },
+                ),
+                const SizedBox(height: 16),
+                AppFieldLabel(
+                  label: isAr
+                      ? 'ملاحظات إضافية (اختياري)'
+                      : 'Additional Notes (Optional)',
+                ),
+                TextField(
+                  controller: noteController,
+                  enabled: !isSubmitting,
+                  maxLines: 3,
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: isAr
+                        ? 'مثال: يوجد 4 كراتين كبيرة...'
+                        : 'e.g., 4 large boxes...',
+                    icon: LucideIcons.messageSquare,
+                    isMultiline: true,
+                  ),
+                ),
+                if (errorText != null)
+                  AppDialogErrorBanner(
+                    message: errorText!,
+                    margin: const EdgeInsets.only(top: 14),
+                  ),
+              ],
+            ),
+            footer: AppDialogFooter(
+              cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+              onCancel: () => Navigator.pop(ctx),
+              confirmLabel: isAr ? 'إرسال الطلب' : 'Submit Request',
+              confirmIcon: LucideIcons.send,
+              isLoading: isSubmitting,
+              onConfirm: submit,
+            ),
+          );
+        },
+      ),
+    ).whenComplete(
+      () => Future<void>.delayed(
+        const Duration(milliseconds: 350),
+        noteController.dispose,
       ),
     );
   }

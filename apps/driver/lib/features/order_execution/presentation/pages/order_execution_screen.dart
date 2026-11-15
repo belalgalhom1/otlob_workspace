@@ -133,42 +133,57 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   }
 
   void _viewPhoto({String? remoteUrl, XFile? localFile}) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     showDialog<void>(
       context: context,
-      builder: (ctx) => Dialog.fullscreen(
-        backgroundColor: Colors.black,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: InteractiveViewer(
-                maxScale: 5,
-                child: Center(
-                  child: localFile != null
-                      ? Image.file(
-                          File(localFile.path),
-                          fit: BoxFit.contain,
-                        )
-                      : Image.network(
-                          _resolveMediaUrl(remoteUrl!),
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => const Icon(
-                          LucideIcons.imageOff,
-                          color: Colors.white70,
-                          size: 48,
+      builder: (ctx) => AppDialog(
+        maxWidth: 680,
+        scrollableBody: false,
+        bodyPadding: const EdgeInsets.all(16),
+        header: AppDialogHeader(
+          icon: LucideIcons.image,
+          title: isAr ? 'عرض الصورة' : 'Photo Preview',
+          onClose: () => Navigator.pop(ctx),
+        ),
+        body: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 500),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5.0,
+              child: localFile != null
+                  ? Image.file(
+                      File(localFile.path),
+                      fit: BoxFit.contain,
+                    )
+                  : Image.network(
+                      _resolveMediaUrl(remoteUrl!),
+                      fit: BoxFit.contain,
+                      loadingBuilder: (c, child, progress) {
+                        if (progress == null) return child;
+                        return const SizedBox(
+                          height: 220,
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      },
+                      errorBuilder: (_, _, _) => const SizedBox(
+                        height: 180,
+                        child: Center(
+                          child: Icon(
+                            LucideIcons.imageOff,
+                            color: AppColors.textMuted,
+                            size: 44,
+                          ),
                         ),
-                        ),
-                ),
-              ),
+                      ),
+                    ),
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IconButton(
-                onPressed: () => Navigator.pop(ctx),
-                icon: const Icon(LucideIcons.x, color: Colors.white),
-              ),
-            ),
-          ],
+          ),
+        ),
+        footer: AppDialogFooter(
+          cancelLabel: isAr ? 'إغلاق' : 'Close',
+          onCancel: () => Navigator.pop(ctx),
         ),
       ),
     );
@@ -1598,16 +1613,14 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             ? (isAr ? 'أنت على بعد تقريبي $distKm كم من الموقع المحدد. هل تريد المتابعة وتأكيد العملية؟' : 'You appear to be approximately $distKm km from the target location. Do you wish to continue anyway?')
             : (isAr ? 'أنت بعيد جدا عن الموقع. هل تريد المتابعة؟' : 'You are far from the location. Continue anyway?');
 
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(isAr ? 'تأكيد المسافة' : 'Distance Override'),
-            content: Text(distMsg),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(isAr ? 'إلغاء' : 'Cancel')),
-              TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(isAr ? 'متابعة' : 'Continue')),
-            ],
-          ),
+        final confirm = await AppConfirmDialog.show(
+          context,
+          title: isAr ? 'تأكيد المسافة' : 'Distance Override',
+          message: distMsg,
+          confirmLabel: isAr ? 'متابعة' : 'Continue',
+          cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+          icon: LucideIcons.mapPin,
+          confirmIcon: LucideIcons.navigation,
         );
         if (confirm != true) return;
       }

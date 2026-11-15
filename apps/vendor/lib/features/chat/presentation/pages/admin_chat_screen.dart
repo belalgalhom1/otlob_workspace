@@ -365,48 +365,25 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
   Future<void> _escalateTicket() async {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceDark : AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          AppLocalizations.of(context)!.escalateComplaint,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Text(AppLocalizations.of(context)!.escalateComplaintConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber.shade800,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(isAr ? 'تأكيد التصعيد' : 'Confirm Escalation'),
-          ),
-        ],
-      ),
+    final l10n = AppLocalizations.of(context)!;
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: l10n.escalateComplaint,
+      message: l10n.escalateComplaintConfirm,
+      cancelLabel: l10n.cancel,
+      confirmLabel: isAr ? 'تأكيد التصعيد' : 'Confirm Escalation',
+      icon: LucideIcons.arrowUpRight,
+      accentColor: const Color(0xFFD97706),
+      confirmBackgroundColor: const Color(0xFFD97706),
+      confirmForegroundColor: Colors.white,
+      confirmIcon: LucideIcons.arrowUpRight,
     );
 
     if (confirm != true) return;
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      ),
-    );
+    _showProgressDialog(isAr ? 'جاري تصعيد الشكوى...' : 'Escalating ticket...');
 
     try {
       // 1. Fetch active ticket details
@@ -468,6 +445,40 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     }
   }
 
+  void _showProgressDialog(String message) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AppDialog(
+        maxWidth: 300,
+        canPop: false,
+        showDividers: false,
+        bodyPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+        body: Row(
+          children: [
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _transferTicket() async {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
 
@@ -505,105 +516,141 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     }
 
     final ticketId = activeTicket['id'].toString();
+    if (!mounted) return;
 
     // 2. Show Category Selection Dialog
+    final categories = [
+      (
+        'DELIVERY',
+        isAr ? 'التوصيل ومسؤولو السائقين' : 'Delivery',
+        LucideIcons.truck,
+        AppColors.info,
+      ),
+      (
+        'VENDOR',
+        isAr ? 'المطاعم والشركاء' : 'Vendors',
+        LucideIcons.store,
+        AppColors.primary,
+      ),
+      (
+        'PAYMENT',
+        isAr ? 'الدفع والحسابات' : 'Payment',
+        LucideIcons.creditCard,
+        Colors.teal,
+      ),
+      (
+        'ACCOUNT',
+        isAr ? 'إدارة الحساب' : 'Account',
+        LucideIcons.userCheck,
+        const Color(0xFFD97706),
+      ),
+      (
+        'RETURN_COMPLAINT',
+        isAr ? 'المرتجعات والشكاوى' : 'Return / Complaint',
+        LucideIcons.rotateCcw,
+        Colors.purple,
+      ),
+      (
+        'OTHER',
+        isAr ? 'أخرى' : 'Other',
+        LucideIcons.helpCircle,
+        AppColors.textSecondary,
+      ),
+    ];
+
     final selectedCategory = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceDark : AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          isAr ? 'تحويل الشكوى إلى' : 'Transfer Ticket To',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+      builder: (ctx) => AppDialog(
+        maxWidth: 460,
+        header: AppDialogHeader(
+          icon: LucideIcons.arrowRightLeft,
+          title: isAr ? 'تحويل الشكوى إلى' : 'Transfer Ticket To',
+          subtitle: isAr
+              ? 'اختر القسم المختص لتحويل هذه المحادثة إليه'
+              : 'Select the department to transfer this conversation to',
+          onClose: () => Navigator.pop(ctx),
         ),
-        content: Column(
+        body: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(LucideIcons.truck, color: Colors.blue),
-              title: Text(isAr ? 'التوصيل ومسؤولو السائقين' : 'Delivery'),
-              onTap: () => Navigator.pop(ctx, 'DELIVERY'),
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.store, color: AppColors.primary),
-              title: Text(isAr ? 'المطاعم والشركاء' : 'Vendors'),
-              onTap: () => Navigator.pop(ctx, 'VENDOR'),
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.creditCard, color: Colors.teal),
-              title: Text(isAr ? 'الدفع والحسابات' : 'Payment'),
-              onTap: () => Navigator.pop(ctx, 'PAYMENT'),
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.userCheck, color: Colors.orange),
-              title: Text(isAr ? 'إدارة الحساب' : 'Account'),
-              onTap: () => Navigator.pop(ctx, 'ACCOUNT'),
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.rotateCcw, color: Colors.purple),
-              title: Text(isAr ? 'المرتجعات والشكاوى' : 'Return / Complaint'),
-              onTap: () => Navigator.pop(ctx, 'RETURN_COMPLAINT'),
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.helpCircle, color: Colors.grey),
-              title: Text(isAr ? 'أخرى' : 'Other'),
-              onTap: () => Navigator.pop(ctx, 'OTHER'),
-            ),
+            for (var i = 0; i < categories.length; i++) ...[
+              InkWell(
+                onTap: () => Navigator.pop(ctx, categories[i].$1),
+                borderRadius: BorderRadius.circular(12),
+                child: AppDialogSectionCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: categories[i].$4.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          categories[i].$3,
+                          size: 18,
+                          color: categories[i].$4,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          categories[i].$2,
+                          style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                      Icon(
+                        isAr
+                            ? LucideIcons.chevronLeft
+                            : LucideIcons.chevronRight,
+                        size: 16,
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (i != categories.length - 1) const SizedBox(height: 8),
+            ],
           ],
+        ),
+        footer: AppDialogFooter(
+          cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+          onCancel: () => Navigator.pop(ctx),
         ),
       ),
     );
 
     if (selectedCategory == null) return;
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     // 3. Confirm Transfer Dialog
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceDark : AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          isAr ? 'تأكيد التحويل' : 'Confirm Transfer',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Text(
-          isAr
-              ? 'هل أنت متأكد من تحويل هذه الشكوى؟ سيتم إلغاء تعيينك وخروجك من المحادثة.'
-              : 'Are you sure you want to transfer this ticket? You will be unassigned and kicked from this conversation.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(isAr ? 'إلغاء' : 'Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(isAr ? 'تأكيد' : 'Confirm'),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: isAr ? 'تأكيد التحويل' : 'Confirm Transfer',
+      message: isAr
+          ? 'هل أنت متأكد من تحويل هذه الشكوى؟ سيتم إلغاء تعيينك وخروجك من المحادثة.'
+          : 'Are you sure you want to transfer this ticket? You will be unassigned and kicked from this conversation.',
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      confirmLabel: isAr ? 'تأكيد' : 'Confirm',
+      icon: LucideIcons.arrowRightLeft,
+      confirmIcon: LucideIcons.check,
     );
 
     if (confirm != true) return;
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     // 4. Perform Transfer API Call
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      ),
+    _showProgressDialog(
+      isAr ? 'جاري تحويل الشكوى...' : 'Transferring ticket...',
     );
 
     try {
@@ -690,18 +737,22 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
     final ticketId = activeTicket['id'].toString();
     final currentStatus = activeTicket['status']?.toString() ?? 'OPEN';
+    if (!mounted) return;
 
     // 2. Show Status Selection Dialog
     final selectedStatus = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceDark : AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          isAr ? 'تغيير حالة الشكوى' : 'Change Ticket Status',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+      builder: (ctx) => AppDialog(
+        maxWidth: 440,
+        header: AppDialogHeader(
+          icon: LucideIcons.tag,
+          title: isAr ? 'تغيير حالة الشكوى' : 'Change Ticket Status',
+          subtitle: isAr
+              ? 'اختر الحالة الجديدة لهذه الشكوى'
+              : 'Select the updated status for this ticket',
+          onClose: () => Navigator.pop(ctx),
         ),
-        content: Column(
+        body: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildStatusTile(
@@ -709,15 +760,17 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
               'OPEN',
               isAr ? 'مفتوح' : 'Open',
               currentStatus,
-              Colors.blue,
+              AppColors.info,
             ),
+            const SizedBox(height: 8),
             _buildStatusTile(
               ctx,
               'IN_PROGRESS',
               isAr ? 'قيد المعالجة' : 'In Progress',
               currentStatus,
-              Colors.orange,
+              const Color(0xFFD97706),
             ),
+            const SizedBox(height: 8),
             _buildStatusTile(
               ctx,
               'WAITING_ON_USER',
@@ -725,43 +778,46 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
               currentStatus,
               Colors.purple,
             ),
+            const SizedBox(height: 8),
             _buildStatusTile(
               ctx,
               'ESCALATED',
               isAr ? 'تم التصعيد' : 'Escalated',
               currentStatus,
-              Colors.amber,
+              const Color(0xFFD97706),
             ),
+            const SizedBox(height: 8),
             _buildStatusTile(
               ctx,
               'RESOLVED',
               isAr ? 'تم الحل' : 'Resolved',
               currentStatus,
-              Colors.green,
+              AppColors.success,
             ),
+            const SizedBox(height: 8),
             _buildStatusTile(
               ctx,
               'CLOSED',
               isAr ? 'مغلق' : 'Closed',
               currentStatus,
-              Colors.grey,
+              AppColors.textSecondary,
             ),
           ],
+        ),
+        footer: AppDialogFooter(
+          cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+          onCancel: () => Navigator.pop(ctx),
         ),
       ),
     );
 
     if (selectedStatus == null || selectedStatus == currentStatus) return;
 
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     // 3. Perform Status Change API Call
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      ),
+    _showProgressDialog(
+      isAr ? 'جاري تحديث الحالة...' : 'Updating ticket status...',
     );
 
     try {
@@ -815,20 +871,39 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     String currentStatus,
     Color color,
   ) {
+    final theme = Theme.of(ctx);
     final isSelected = currentStatus == value;
-    return ListTile(
-      leading: Icon(
-        isSelected ? LucideIcons.checkCircle : LucideIcons.circle,
-        color: isSelected ? color : Colors.grey,
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? color : null,
+    return InkWell(
+      onTap: () => Navigator.pop(ctx, value),
+      borderRadius: BorderRadius.circular(12),
+      child: AppDialogSectionCard(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        backgroundColor: isSelected
+            ? color.withValues(alpha: 0.1)
+            : AppDialogStyles.sectionCardColor(ctx),
+        borderColor: isSelected
+            ? color.withValues(alpha: 0.45)
+            : AppDialogStyles.borderColor(ctx),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? LucideIcons.checkCircle : LucideIcons.circle,
+              size: 18,
+              color: isSelected ? color : theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? color : theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      onTap: () => Navigator.pop(ctx, value),
     );
   }
 
@@ -2148,40 +2223,21 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     );
   }
 
-  void _confirmDelete(String messageId) {
+  Future<void> _confirmDelete(String messageId) async {
     final l10n = AppLocalizations.of(context)!;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceDark : AppColors.surface,
-        title: Text(
-          l10n.deleteMessage,
-          style: TextStyle(
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppColors.textPrimary,
-          ),
-        ),
-        content: Text(
-          l10n.deleteMessageConfirm,
-          style: TextStyle(
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : AppColors.textSecondary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteMessage(messageId);
-            },
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteMessage,
+      message: l10n.deleteMessageConfirm,
+      cancelLabel: l10n.cancel,
+      confirmLabel: l10n.delete,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+    if (confirmed == true) {
+      await _deleteMessage(messageId);
+    }
   }
 
   Future<void> _deleteMessage(String messageId) async {
@@ -2199,61 +2255,77 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     final l10n = AppLocalizations.of(context)!;
     final editController =
         TextEditingController(text: message['text']?.toString() ?? '');
-    showDialog(
+    bool isSaving = false;
+
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceDark : AppColors.surface,
-        title: Text(
-          l10n.editMessage,
-          style: TextStyle(
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppColors.textPrimary,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => AppDialog(
+          maxWidth: 480,
+          canPop: !isSaving,
+          header: AppDialogHeader(
+            icon: LucideIcons.edit2,
+            title: l10n.editMessage,
+            isCloseDisabled: isSaving,
+            onClose: () => Navigator.pop(dialogCtx),
           ),
-        ),
-        content: TextField(
-          controller: editController,
-          autofocus: true,
-          style: TextStyle(
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppColors.textPrimary,
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppFieldLabel(label: l10n.editMessage, isRequired: true),
+              TextField(
+                controller: editController,
+                autofocus: true,
+                minLines: 2,
+                maxLines: 4,
+                style: TextStyle(
+                  color: Theme.of(dialogCtx).colorScheme.onSurface,
+                  fontSize: 14,
+                ),
+                decoration: AppDialogStyles.inputDecoration(
+                  dialogCtx,
+                  hintText: l10n.enterNewText,
+                  icon: LucideIcons.messageSquare,
+                  isMultiline: true,
+                ),
+              ),
+            ],
           ),
-          decoration: InputDecoration(
-            hintText: l10n.enterNewText,
-            hintStyle: TextStyle(
-              color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : AppColors.textMuted,
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final newText = editController.text.trim();
-              if (newText.isNotEmpty && newText != message['text']) {
-                final success = await ref
-                    .read(sharedChatRepositoryProvider)
-                    .updateMessage(
-                      widget.conversationId,
-                      message['id'],
-                      {'text': newText},
-                    );
-                if (success != null) {
-                  setState(() {
-                    final index = _messages.indexWhere(
-                      (m) => m['id'] == message['id'],
-                    );
-                    if (index != -1) {
-                      _messages[index]['text'] = newText;
+          footer: AppDialogFooter(
+            cancelLabel: l10n.cancel,
+            onCancel: () => Navigator.pop(dialogCtx),
+            confirmLabel: l10n.update,
+            confirmIcon: LucideIcons.check,
+            isLoading: isSaving,
+            onConfirm: isSaving
+                ? null
+                : () async {
+                    final newText = editController.text.trim();
+                    if (newText.isNotEmpty && newText != message['text']) {
+                      setDialogState(() => isSaving = true);
+                      final success = await ref
+                          .read(sharedChatRepositoryProvider)
+                          .updateMessage(
+                            widget.conversationId,
+                            message['id'],
+                            {'text': newText},
+                          );
+                      if (success != null && mounted) {
+                        setState(() {
+                          final index = _messages.indexWhere(
+                            (m) => m['id'] == message['id'],
+                          );
+                          if (index != -1) {
+                            _messages[index]['text'] = newText;
+                          }
+                        });
+                      }
                     }
-                  });
-                }
-              }
-              if (mounted) Navigator.pop(context);
-            },
-            child: Text(l10n.update),
+                    if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                  },
           ),
-        ],
+        ),
       ),
     ).then((_) => editController.dispose());
   }

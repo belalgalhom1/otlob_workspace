@@ -543,99 +543,115 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen>
     final minutesController = TextEditingController();
     final noteController = TextEditingController();
     bool submitting = false;
+    String? errorText;
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => AlertDialog(
-          title: Text('${l10n.breakGrant} — ${driver.name}'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: reason,
-                  decoration: InputDecoration(
-                    labelText: l10n.breakReason,
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: const ['PRAYER', 'MEAL', 'REST', 'PERSONAL', 'OTHER']
-                      .map(
-                        (r) => DropdownMenuItem(
-                          value: r,
-                          child: Text(_reasonLabel(l10n, r)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setSheetState(() => reason = v);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: minutesController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: l10n.breakMinutes,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: noteController,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: l10n.breakNote,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
+        builder: (ctx, setSheetState) => AppDialog(
+          maxWidth: 480,
+          canPop: !submitting,
+          header: AppDialogHeader(
+            icon: LucideIcons.coffee,
+            title: l10n.breakGrant,
+            subtitle: driver.name,
+            isCloseDisabled: submitting,
+            onClose: () => Navigator.of(ctx).pop(),
           ),
-          actions: [
-            TextButton(
-              onPressed: submitting ? null : () => Navigator.of(ctx).pop(),
-              child: Text(l10n.cancel),
-            ),
-            ElevatedButton(
-              onPressed: submitting
-                  ? null
-                  : () async {
-                      setSheetState(() => submitting = true);
-                      try {
-                        final repo =
-                            ref.read(driverBreaksRepositoryProvider);
-                        await repo.grantBreak(
-                          driver.id,
-                          reason: reason,
-                          note: noteController.text.trim().isEmpty
-                              ? null
-                              : noteController.text.trim(),
-                          requestedMinutes: int.tryParse(
-                            minutesController.text.trim(),
-                          ),
-                        );
-                        ref.invalidate(
-                          driverBreaksHistoryProvider(driver.id),
-                        );
-                        ref.invalidate(pendingBreaksProvider);
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                      } catch (e) {
-                        setSheetState(() => submitting = false);
-                        if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content:
-                                  Text(ErrorUtils.translate(ctx, e)),
-                              backgroundColor: AppColors.error,
-                            ),
-                          );
-                        }
-                      }
-                    },
-              child: Text(l10n.breakGrant),
-            ),
-          ],
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (errorText != null)
+                AppDialogErrorBanner(
+                  message: errorText!,
+                  margin: const EdgeInsets.only(bottom: 14),
+                ),
+              AppFieldLabel(label: l10n.breakReason, isRequired: true),
+              DropdownButtonFormField<String>(
+                initialValue: reason,
+                isExpanded: true,
+                dropdownColor: AppDialogStyles.dropdownColor(ctx),
+                decoration: AppDialogStyles.inputDecoration(
+                  ctx,
+                  icon: LucideIcons.tag,
+                ),
+                items: const ['PRAYER', 'MEAL', 'REST', 'PERSONAL', 'OTHER']
+                    .map(
+                      (r) => DropdownMenuItem(
+                        value: r,
+                        child: Text(_reasonLabel(l10n, r)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: submitting
+                    ? null
+                    : (v) {
+                        if (v != null) setSheetState(() => reason = v);
+                      },
+              ),
+              const SizedBox(height: 14),
+              AppFieldLabel(label: l10n.breakMinutes),
+              TextFormField(
+                controller: minutesController,
+                keyboardType: TextInputType.number,
+                decoration: AppDialogStyles.inputDecoration(
+                  ctx,
+                  hintText: '15',
+                  icon: LucideIcons.clock,
+                ),
+              ),
+              const SizedBox(height: 14),
+              AppFieldLabel(label: l10n.breakNote),
+              TextFormField(
+                controller: noteController,
+                maxLines: 2,
+                decoration: AppDialogStyles.inputDecoration(
+                  ctx,
+                  icon: LucideIcons.fileText,
+                  isMultiline: true,
+                ),
+              ),
+            ],
+          ),
+          footer: AppDialogFooter(
+            cancelLabel: l10n.cancel,
+            onCancel: () => Navigator.of(ctx).pop(),
+            confirmLabel: l10n.breakGrant,
+            confirmIcon: LucideIcons.check,
+            isLoading: submitting,
+            onConfirm: submitting
+                ? null
+                : () async {
+                    setSheetState(() {
+                      submitting = true;
+                      errorText = null;
+                    });
+                    try {
+                      final repo = ref.read(driverBreaksRepositoryProvider);
+                      await repo.grantBreak(
+                        driver.id,
+                        reason: reason,
+                        note: noteController.text.trim().isEmpty
+                            ? null
+                            : noteController.text.trim(),
+                        requestedMinutes: int.tryParse(
+                          minutesController.text.trim(),
+                        ),
+                      );
+                      ref.invalidate(
+                        driverBreaksHistoryProvider(driver.id),
+                      );
+                      ref.invalidate(pendingBreaksProvider);
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    } catch (e) {
+                      setSheetState(() {
+                        submitting = false;
+                        errorText = ErrorUtils.translate(ctx, e);
+                      });
+                    }
+                  },
+          ),
         ),
       ),
     ).whenComplete(() {

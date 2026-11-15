@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:vendor/core/providers.dart';
@@ -79,31 +80,25 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         if (status.shouldUpdate) {
           final l10n = AppLocalizations.of(context);
           if (l10n != null) {
-            await showDialog<void>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: Text(l10n.updateAvailableTitle),
-                content: Text(l10n.updateAvailableMessage),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(l10n.updateLater),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      final url = (status.storeUrl ?? '').trim();
-                      if (url.isEmpty) return;
-                      await ExternalActionLauncher.openWebUrl(
-                        url,
-                        context: mounted ? context : null,
-                      );
-                    },
-                    child: Text(l10n.updateNow),
-                  ),
-                ],
-              ),
+            final shouldUpdate = await AppConfirmDialog.show(
+              context,
+              title: l10n.updateAvailableTitle,
+              message: l10n.updateAvailableMessage,
+              confirmLabel: l10n.updateNow,
+              cancelLabel: l10n.updateLater,
+              icon: LucideIcons.sparkles,
+              confirmIcon: LucideIcons.externalLink,
             );
+            if (!mounted || _navigated) return;
+            if (shouldUpdate == true) {
+              final url = (status.storeUrl ?? '').trim();
+              if (url.isNotEmpty) {
+                await ExternalActionLauncher.openWebUrl(
+                  url,
+                  context: mounted ? context : null,
+                );
+              }
+            }
             if (!mounted || _navigated) return;
           }
         }

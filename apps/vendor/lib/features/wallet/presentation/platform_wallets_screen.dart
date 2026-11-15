@@ -207,13 +207,14 @@ class PlatformWalletsScreen extends ConsumerWidget {
   }
 
   void _createWallet(BuildContext context, WidgetRef ref, AppLocalizations l10n) {
-    showDialog(
+    final numberController = TextEditingController();
+    String selectedProvider = 'VODAFONE';
+    String? error;
+    bool submitting = false;
+
+    showDialog<void>(
       context: context,
       builder: (c) {
-        String selectedProvider = 'VODAFONE';
-        final numberController = TextEditingController();
-        String? error;
-        bool submitting = false;
         return StatefulBuilder(
           builder: (dialogContext, setState) {
             Future<void> submit() async {
@@ -238,91 +239,93 @@ class PlatformWalletsScreen extends ConsumerWidget {
                 if (!c.mounted) return;
                 setState(() {
                   submitting = false;
-                  error = '${l10n.walletFailed}: ${ErrorUtils.translate(context, e)}';
+                  error =
+                      '${l10n.walletFailed}: ${ErrorUtils.translate(context, e)}';
                 });
               }
             }
 
-            return DialogScaffold(child: AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                children: [
-                  const Icon(LucideIcons.wallet, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(l10n.addPlatformWallet)),
-                ],
+            return AppDialog(
+              maxWidth: 460,
+              canPop: !submitting,
+              header: AppDialogHeader(
+                icon: LucideIcons.wallet,
+                title: l10n.addPlatformWallet,
+                isCloseDisabled: submitting,
+                onClose: () => Navigator.pop(c),
               ),
-              content: Column(
+              body: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  AppFieldLabel(
+                    label: l10n.walletProvider,
+                    isRequired: true,
+                  ),
                   DropdownButtonFormField<String>(
                     initialValue: selectedProvider,
-                    decoration: InputDecoration(
-                      labelText: l10n.walletProvider,
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(LucideIcons.building2),
+                    dropdownColor: AppDialogStyles.dropdownColor(dialogContext),
+                    isExpanded: true,
+                    decoration: AppDialogStyles.inputDecoration(
+                      dialogContext,
+                      icon: LucideIcons.building2,
                     ),
                     items: [
-                      DropdownMenuItem(value: 'VODAFONE', child: Text(AppLocalizations.of(dialogContext)!.mobileWallet)),
-                      DropdownMenuItem(value: 'INSTAPAY', child: Text(AppLocalizations.of(dialogContext)!.instaPay)),
+                      DropdownMenuItem(
+                        value: 'VODAFONE',
+                        child: Text(AppLocalizations.of(dialogContext)!.mobileWallet),
+                      ),
+                      DropdownMenuItem(
+                        value: 'INSTAPAY',
+                        child: Text(AppLocalizations.of(dialogContext)!.instaPay),
+                      ),
                     ],
-                    onChanged: (v) {
-                      setState(() {
-                        selectedProvider = v ?? 'VODAFONE';
-                      });
-                    },
+                    onChanged: submitting
+                        ? null
+                        : (v) {
+                            setState(() {
+                              selectedProvider = v ?? 'VODAFONE';
+                            });
+                          },
                   ),
                   const SizedBox(height: 16),
+                  AppFieldLabel(
+                    label: l10n.walletNumber,
+                    isRequired: true,
+                  ),
                   TextField(
                     controller: numberController,
+                    enabled: !submitting,
                     keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      labelText: l10n.walletNumber,
+                    decoration: AppDialogStyles.inputDecoration(
+                      dialogContext,
                       hintText: l10n.walletNumberHint,
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(LucideIcons.hash),
+                      icon: LucideIcons.hash,
                     ),
                   ),
                   if (error != null) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(LucideIcons.alertCircle, color: AppColors.error, size: 16),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(error!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
-                        ),
-                      ],
-                    ),
+                    const SizedBox(height: 16),
+                    AppDialogErrorBanner(message: error!),
                   ],
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: submitting ? null : () => Navigator.pop(c),
-                  child: Text(l10n.cancelAction),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: submitting
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(LucideIcons.plus, size: 16),
-                  onPressed: submitting ? null : submit,
-                  label: Text(l10n.addWallet),
-                ),
-              ],
-            ));
-          }
+              footer: AppDialogFooter(
+                cancelLabel: l10n.cancelAction,
+                onCancel: () => Navigator.pop(c),
+                confirmLabel: l10n.addWallet,
+                confirmIcon: LucideIcons.plus,
+                isLoading: submitting,
+                onConfirm: submit,
+              ),
+            );
+          },
         );
       },
-    );
+    ).whenComplete(() {
+      Future<void>.delayed(
+        const Duration(milliseconds: 350),
+        numberController.dispose,
+      );
+    });
   }
 }

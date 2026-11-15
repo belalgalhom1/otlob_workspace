@@ -886,54 +886,101 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     }
   }
 
-  void _showBanReasonDialog(BuildContext context, String userId) {
+  Future<void> _showBanReasonDialog(BuildContext context, String userId) async {
+    final l10n = AppLocalizations.of(context)!;
     final reasonController = TextEditingController();
-    showDialog(
+    String? errorMessage;
+    bool isSubmitting = false;
+
+    await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        title: Text(AppLocalizations.of(context)!.banUser),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(AppLocalizations.of(context)!.banUserConfirm),
-            const SizedBox(height: 16),
-            TextField(
-              controller: reasonController,
-              decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.reasonOptional,
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(AppLocalizations.of(context)!.cancel),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AppDialog(
+          maxWidth: 460,
+          canPop: !isSubmitting,
+          header: AppDialogHeader(
+            icon: LucideIcons.ban,
+            accentColor: AppColors.warning,
+            title: l10n.banUser,
+            isCloseDisabled: isSubmitting,
+            onClose: () => Navigator.pop(dialogContext),
           ),
-          ElevatedButton(
-            onPressed: () async {
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l10n.banUserConfirm,
+                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                  height: 1.5,
+                  color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.85),
+                ),
+              ),
+              const SizedBox(height: 16),
+              AppFieldLabel(label: l10n.reasonOptional),
+              TextField(
+                controller: reasonController,
+                enabled: !isSubmitting,
+                maxLines: 2,
+                decoration: AppDialogStyles.inputDecoration(
+                  ctx,
+                  hintText: l10n.reasonOptional,
+                  icon: LucideIcons.messageSquare,
+                  isMultiline: true,
+                ),
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 16),
+                AppDialogErrorBanner(message: errorMessage!),
+              ],
+            ],
+          ),
+          footer: AppDialogFooter(
+            cancelLabel: l10n.cancel,
+            onCancel: () => Navigator.pop(dialogContext),
+            confirmLabel: l10n.banUser,
+            confirmIcon: LucideIcons.ban,
+            confirmBackgroundColor: const Color(0xFFD97706),
+            confirmForegroundColor: Colors.white,
+            isLoading: isSubmitting,
+            onConfirm: () async {
+              setDialogState(() {
+                isSubmitting = true;
+                errorMessage = null;
+              });
               try {
                 await ref
                     .read(userProvider.notifier)
                     .banUser(userId, reason: reasonController.text);
                 if (dialogContext.mounted) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(AppLocalizations.of(dialogContext)!.common_success_operation), backgroundColor: AppColors.success));
                   Navigator.pop(dialogContext);
+                }
+                if (mounted && this.context.mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n.common_success_operation),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
                 }
               } catch (e) {
                 if (dialogContext.mounted) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(dialogContext, e)), backgroundColor: AppColors.error));
+                  setDialogState(() {
+                    isSubmitting = false;
+                    errorMessage = L10nErrorHelper.translate(ctx, e);
+                  });
                 }
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning),
-            child: Text(AppLocalizations.of(context)!.banUser),
           ),
-        ],
+        ),
       ),
-    );
+    ).whenComplete(() {
+      Future<void>.delayed(
+        const Duration(milliseconds: 350),
+        reasonController.dispose,
+      );
+    });
   }
 
   /// Avatar image with initial-letter fallback. Backend stores a relative
@@ -962,49 +1009,50 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, dynamic user) {
+  Future<void> _showDeleteConfirmation(BuildContext context, dynamic user) async {
+    final l10n = AppLocalizations.of(context)!;
     if (user['id'] == _currentUserId) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.cannotDeleteSelf),
+          content: Text(l10n.cannotDeleteSelf),
           backgroundColor: AppColors.error,
         ),
       );
       return;
     }
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        title: Text(AppLocalizations.of(context)!.deleteUser),
-        content: Text(
-          AppLocalizations.of(context)!.deleteUserConfirm(user['name'] ?? ''),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await ref.read(userProvider.notifier).deleteUser(user['id']);
-                if (dialogContext.mounted) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(AppLocalizations.of(dialogContext)!.common_success_resource_deleted), backgroundColor: AppColors.success));
-                  Navigator.pop(dialogContext);
-                }
-              } catch (e) {
-                if (dialogContext.mounted) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(dialogContext, e)), backgroundColor: AppColors.error));
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: Text(AppLocalizations.of(context)!.delete),
-          ),
-        ],
-      ),
+
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteUser,
+      message: l10n.deleteUserConfirm(user['name'] ?? ''),
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(userProvider.notifier).deleteUser(user['id']);
+      if (this.context.mounted) {
+        ScaffoldMessenger.of(this.context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.common_success_resource_deleted),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (this.context.mounted) {
+        ScaffoldMessenger.of(this.context).showSnackBar(
+          SnackBar(
+            content: Text(L10nErrorHelper.translate(this.context, e)),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildActionItem({

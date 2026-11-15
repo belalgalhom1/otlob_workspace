@@ -585,47 +585,40 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, dynamic zone) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.delete),
-        content: Text(AppLocalizations.of(context)!.deleteConfirmContent(zone['name'] ?? 'Zone')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await ref.read(zoneProvider.notifier).deleteZone(zone['id']);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(AppLocalizations.of(context)!.common_success_resource_deleted),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(ErrorUtils.translateZoneDeleteDetails(context, e)),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: Text(AppLocalizations.of(context)!.delete),
-          ),
-        ],
-      ),
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, dynamic zone) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.delete,
+      message: l10n.deleteConfirmContent(zone['name'] ?? 'Zone'),
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref.read(zoneProvider.notifier).deleteZone(zone['id']);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.common_success_resource_deleted),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorUtils.translateZoneDeleteDetails(context, e)),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }
 

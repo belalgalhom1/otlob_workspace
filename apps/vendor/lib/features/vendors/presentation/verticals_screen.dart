@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -431,37 +431,24 @@ class _VerticalsScreenState extends ConsumerState<VerticalsScreen> {
     });
   }
 
-  void _confirmDelete(BuildContext context, dynamic vertical) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        title: Text(AppLocalizations.of(context)!.deleteBusinessType),
-        content: Text(
-          AppLocalizations.of(context)!.deleteBusinessTypeConfirm(
-            vertical['name'] ?? AppLocalizations.of(context)!.unknown,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref
-                  .read(verticalProvider.notifier)
-                  .deleteVertical(vertical['id']);
-            },
-            child: Text(
-              AppLocalizations.of(context)!.delete,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-        ],
+  Future<void> _confirmDelete(BuildContext context, dynamic vertical) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteBusinessType,
+      message: l10n.deleteBusinessTypeConfirm(
+        vertical['name'] ?? l10n.unknown,
       ),
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+
+    if (confirmed == true && mounted) {
+      ref.read(verticalProvider.notifier).deleteVertical(vertical['id']);
+    }
   }
 
   Widget _buildImage(String url) {

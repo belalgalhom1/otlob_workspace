@@ -774,45 +774,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  void _confirmDelete(String messageId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          AppStrings.of(context).deleteConfirmTitle,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Text(AppStrings.of(context).deleteConfirmBody),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey,
-            ),
-            child: Text(AppStrings.of(context).cancel),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteMessage(messageId);
-            },
-            child: Text(
-              AppStrings.of(context).delete,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
+  Future<void> _confirmDelete(String messageId) async {
+    final s = AppStrings.of(context);
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: s.deleteConfirmTitle,
+      message: s.deleteConfirmBody,
+      confirmLabel: s.delete,
+      cancelLabel: s.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+    if (confirmed == true && mounted) {
+      _deleteMessage(messageId);
+    }
   }
 
   void _deleteMessage(String messageId) {
@@ -820,32 +796,84 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _editMessage(Message msg) {
+    final s = AppStrings.of(context);
     final editController = TextEditingController(text: msg.content);
-    showDialog(
+    String? errorText;
+
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.of(context).edit),
-        content: TextField(
-          controller: editController,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Enter new text'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppStrings.of(context).cancel),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AppDialog(
+          maxWidth: 460,
+          header: AppDialogHeader(
+            icon: LucideIcons.pencil,
+            title: s.edit,
+            onClose: () => Navigator.pop(dialogContext),
           ),
-          ElevatedButton(
-            onPressed: () {
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppFieldLabel(
+                label: s.isArabic ? 'نص الرسالة' : 'Message text',
+                isRequired: true,
+              ),
+              TextField(
+                controller: editController,
+                autofocus: true,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.newline,
+                onChanged: (_) {
+                  if (errorText != null) {
+                    setDialogState(() => errorText = null);
+                  }
+                },
+                decoration: AppDialogStyles.inputDecoration(
+                  dialogContext,
+                  hintText: s.isArabic
+                      ? 'أدخل نص الرسالة الجديد...'
+                      : 'Enter new text...',
+                  icon: LucideIcons.messageSquare,
+                  isMultiline: true,
+                ),
+              ),
+              if (errorText != null)
+                AppDialogErrorBanner(
+                  message: errorText!,
+                  margin: const EdgeInsets.only(top: 12),
+                ),
+            ],
+          ),
+          footer: AppDialogFooter(
+            cancelLabel: s.cancel,
+            onCancel: () => Navigator.pop(dialogContext),
+            confirmLabel: s.saveChanges,
+            confirmIcon: LucideIcons.check,
+            onConfirm: () {
               final newText = editController.text.trim();
-              if (newText.isNotEmpty && newText != msg.content) {
-                ref.read(sharedChatProvider(_args).notifier).editMessage(msg.id, newText);
+              if (newText.isEmpty) {
+                setDialogState(
+                  () => errorText = s.isArabic
+                      ? 'يرجى إدخال نص الرسالة'
+                      : 'Please enter a message',
+                );
+                return;
               }
-              Navigator.pop(context);
+              if (newText != msg.content) {
+                ref
+                    .read(sharedChatProvider(_args).notifier)
+                    .editMessage(msg.id, newText);
+              }
+              Navigator.pop(dialogContext);
             },
-            child: const Text('Update'),
           ),
-        ],
+        ),
+      ),
+    ).whenComplete(
+      () => Future<void>.delayed(
+        const Duration(milliseconds: 350),
+        editController.dispose,
       ),
     );
   }

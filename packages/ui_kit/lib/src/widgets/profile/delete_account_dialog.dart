@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../theme/app_colors.dart';
-import '../dialog_scaffold.dart';
+import '../dialogs/app_dialog.dart';
 
 class DeleteAccountDialog extends StatefulWidget {
   final Future<void> Function() onConfirm;
@@ -52,84 +53,53 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final theme = Theme.of(context);
 
-    return DialogScaffold(
-      child: AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                widget.title ?? (isAr ? 'حذف الحساب نهائياً' : 'Delete Account Permanently'),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.error),
-              ),
-            ),
+    return AppDialog(
+      maxWidth: 460,
+      canPop: !_isLoading,
+      header: AppDialogHeader(
+        icon: LucideIcons.alertTriangle,
+        accentColor: AppColors.error,
+        title: widget.title ??
+            (isAr ? 'حذف الحساب نهائياً' : 'Delete Account Permanently'),
+        titleColor: AppColors.error,
+        isCloseDisabled: _isLoading,
+        onClose: () => Navigator.of(context).pop(false),
+      ),
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_errorMessage != null && _errorMessage!.trim().isNotEmpty) ...[
+            AppDialogErrorBanner(message: _errorMessage!),
+            const SizedBox(height: 14),
           ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_errorMessage != null) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: AppColors.error, fontSize: 13),
-                ),
-              ),
-            ],
-            Text(
+          AppDialogSectionCard(
+            backgroundColor: AppColors.error.withValues(alpha: 0.06),
+            borderColor: AppColors.error.withValues(alpha: 0.2),
+            child: Text(
               widget.content ??
                   (isAr
                       ? 'هل أنت متأكد من رغبتك في حذف حسابك؟ سيتم إنهاء جميع الجلسات وحذف بياناتك الشخصية نهائياً ولا يمكن التراجع عن هذا الإجراء.'
                       : 'Are you sure you want to delete your account? All active sessions will be terminated and your personal details will be permanently removed. This action cannot be undone.'),
-              style: TextStyle(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 fontSize: 14,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                height: 1.5,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                height: 1.55,
               ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: _isLoading ? null : () => Navigator.of(context).pop(false),
-            child: Text(
-              widget.cancelText ?? (isAr ? 'إلغاء' : 'Cancel'),
-              style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: _isLoading ? null : _handleDelete,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : Text(widget.deleteText ?? (isAr ? 'تأكيد الحذف' : 'Delete Account')),
           ),
         ],
+      ),
+      footer: AppDialogFooter(
+        cancelLabel: widget.cancelText ?? (isAr ? 'إلغاء' : 'Cancel'),
+        onCancel: () => Navigator.of(context).pop(false),
+        confirmLabel:
+            widget.deleteText ?? (isAr ? 'تأكيد الحذف' : 'Delete Account'),
+        confirmIcon: LucideIcons.trash2,
+        isDestructive: true,
+        isLoading: _isLoading,
+        loadingLabel: isAr ? 'جارٍ الحذف...' : 'Deleting...',
+        onConfirm: _handleDelete,
       ),
     );
   }

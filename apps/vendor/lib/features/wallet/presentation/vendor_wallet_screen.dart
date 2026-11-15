@@ -434,6 +434,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
           context: context,
           firstDate: DateTime(2020),
           lastDate: now,
+          builder: AppDialogStyles.adaptivePickerTheme,
           initialDateRange: from != null && to != null
               ? DateTimeRange(start: from, end: to)
               : null,

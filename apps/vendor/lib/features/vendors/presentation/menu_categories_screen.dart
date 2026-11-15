@@ -445,560 +445,468 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
       }
     }
 
+    String? errorMessage;
+    bool isSubmitting = false;
+
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isEdit ? LucideIcons.edit3 : LucideIcons.plusCircle,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      isEdit
-                          ? AppLocalizations.of(context)!.editCategory
-                          : AppLocalizations.of(context)!.newCategory,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Flexible(
-                child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: StatefulBuilder(
-                  builder: (context, setDialogState) {
-                    return SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Icon Picker
-                          GestureDetector(
-                            onTap: () async {
-                              try {
-                                final result = await FilePicker.pickFiles(
-                                  type: FileType.image,
-                                  allowMultiple: false,
-                                );
-                                if (result != null && result.files.isNotEmpty) {
-                                  setDialogState(
-                                    () => selectedIcon = result.files.first,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final l10n = AppLocalizations.of(ctx)!;
+          final isAr = Localizations.localeOf(ctx).languageCode == 'ar';
+          final theme = Theme.of(ctx);
+
+          return AppDialog(
+            maxWidth: 500,
+            canPop: !isSubmitting,
+            header: AppDialogHeader(
+              icon: isEdit ? LucideIcons.edit3 : LucideIcons.plusCircle,
+              title: isEdit ? l10n.editCategory : l10n.newCategory,
+              subtitle: widget.vendorName,
+              isCloseDisabled: isSubmitting,
+              onClose: () => Navigator.pop(dialogCtx),
+            ),
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Column(
+                    children: [
+                      InkWell(
+                        onTap: isSubmitting
+                            ? null
+                            : () async {
+                                try {
+                                  final picked = await FilePicker.pickFiles(
+                                    type: FileType.image,
+                                    allowMultiple: false,
                                   );
+                                  if (picked != null &&
+                                      picked.files.isNotEmpty) {
+                                    setDialogState(
+                                      () => selectedIcon = picked.files.first,
+                                    );
+                                  }
+                                } catch (e) {
+                                  debugPrint('Error picking icon: $e');
                                 }
-                              } catch (e) {
-                                debugPrint('Error picking icon: $e');
-                              }
-                            },
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(
-                                  alpha: 0.05,
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                ),
-                              ),
-                              child: selectedIcon != null
+                              },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            color: AppDialogStyles.subtleSurfaceColor(ctx),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: selectedIcon != null
+                                  ? AppColors.primary
+                                  : AppDialogStyles.borderColor(ctx),
+                              width: selectedIcon != null ? 1.8 : 1.2,
+                            ),
+                          ),
+                          child: selectedIcon != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: selectedIcon!.bytes != null
+                                      ? Image.memory(
+                                          selectedIcon!.bytes!,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.file(
+                                          File(selectedIcon!.path!),
+                                          fit: BoxFit.cover,
+                                        ),
+                                )
+                              : (category?['iconUrl'] ?? category?['icon']) !=
+                                      null
                                   ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: selectedIcon!.bytes != null
-                                          ? Image.memory(
-                                              selectedIcon!.bytes!,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Image.file(
-                                              File(selectedIcon!.path!),
-                                              fit: BoxFit.cover,
-                                            ),
-                                    )
-                                  : (category?['iconUrl'] ??
-                                            category?['icon']) !=
-                                        null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(18),
                                       child: Image.network(
                                         '${ImageUtils.formatImageUrl(category?['iconUrl'] ?? category?['icon'])}?t=${DateTime.now().millisecondsSinceEpoch}',
                                         fit: BoxFit.cover,
                                       ),
                                     )
-                                  : const Icon(
-                                      LucideIcons.imagePlus,
-                                      color: AppColors.primary,
-                                      size: 30,
+                                  : Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          LucideIcons.imagePlus,
+                                          color: AppColors.primary,
+                                          size: 28,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          isAr ? 'اختيار' : 'Upload',
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color: theme.colorScheme
+                                                    .onSurfaceVariant,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ],
                                     ),
-                            ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.categoryIcon,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AppFieldLabel(
+                  label: l10n.nameEn,
+                  isRequired: true,
+                  languageTag: 'EN',
+                  languageTagColor: AppColors.info,
+                ),
+                TextField(
+                  controller: nameController,
+                  enabled: !isSubmitting,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: 'e.g. Main Dishes',
+                    icon: LucideIcons.type,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppFieldLabel(
+                  label: l10n.nameAr,
+                  languageTag: 'عربي',
+                  languageTagColor: AppColors.success,
+                ),
+                TextField(
+                  controller: nameArController,
+                  enabled: !isSubmitting,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: 'مثال: الأطباق الرئيسية',
+                    icon: LucideIcons.languages,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                AppDialogSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.gitBranch,
+                            size: 17,
+                            color: AppColors.primary,
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            AppLocalizations.of(context)!.categoryIcon,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          _buildDialogTextField(
-                            controller: nameController,
-                            label: AppLocalizations.of(context)!.nameEn,
-                            hint: 'e.g. Main Dishes',
-                            icon: LucideIcons.type,
-                          ),
-                          const SizedBox(height: 20),
-                          _buildDialogTextField(
-                            controller: nameArController,
-                            label: AppLocalizations.of(context)!.nameAr,
-                            hint: 'مثال: الأطباق الرئيسية',
-                            icon: LucideIcons.languages,
-                            textAlign: TextAlign.right,
-                          ),
-                          const SizedBox(height: 20),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.branchAvailability,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
                               ),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(LucideIcons.gitBranch, size: 18, color: AppColors.primary),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        AppLocalizations.of(context)!.branchAvailability,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  branchAvailabilityMode == 'ALL'
-                                      ? AppLocalizations.of(context)!.allBranchesHint
-                                      : AppLocalizations.of(context)!.specificBranchesHint,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                SegmentedButton<String>(
-                                  segments: [
-                                    ButtonSegment<String>(
-                                      value: 'ALL',
-                                      label: Text(
-                                        AppLocalizations.of(context)!.allBranches,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ),
-                                    ButtonSegment<String>(
-                                      value: 'SPECIFIC',
-                                      label: Text(
-                                        AppLocalizations.of(context)!.specificBranches,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ),
-                                  ],
-                                  selected: {branchAvailabilityMode},
-                                  onSelectionChanged: (val) {
-                                    setDialogState(() {
-                                      branchAvailabilityMode = val.first;
-                                      if (branchAvailabilityMode == 'SPECIFIC' && selectedBranchIds.isEmpty && _branches.isNotEmpty) {
-                                        selectedBranchIds.addAll(_branches.map((b) => b['id'].toString()));
-                                      }
-                                    });
-                                  },
-                                ),
-                                if (branchAvailabilityMode == 'SPECIFIC') ...[
-                                  const SizedBox(height: 12),
-                                  if (_branches.isEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      child: Text(
-                                        AppLocalizations.of(context)!.noBranchesAvailable,
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      ),
-                                    )
-                                  else
-                                    ..._branches.map((branch) {
-                                      final id = branch['id']?.toString() ?? '';
-                                      final bName = (Localizations.localeOf(context).languageCode == 'ar'
-                                              ? branch['nameAr']
-                                              : branch['name']) ??
-                                          branch['name'] ??
-                                          id;
-                                      final isChecked = selectedBranchIds.contains(id);
-                                      return CheckboxListTile(
-                                        value: isChecked,
-                                        dense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        title: Text(bName.toString(), style: const TextStyle(fontSize: 13)),
-                                        onChanged: (val) {
-                                          setDialogState(() {
-                                            if (val == true) {
-                                              selectedBranchIds.add(id);
-                                            } else {
-                                              selectedBranchIds.remove(id);
-                                            }
-                                          });
-                                        },
-                                      );
-                                    }),
-                                ],
-                              ],
                             ),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.01),
-                  border: Border(
-                    top: BorderSide(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        AppLocalizations.of(context)!.cancel,
-                        style: const TextStyle(),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: () async {
-                        try {
-                          bool success;
-                          String? categoryId = category?['id'];
-
-                          if (branchAvailabilityMode == 'SPECIFIC' && selectedBranchIds.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(AppLocalizations.of(context)!.branchAvailabilityRequired),
-                                backgroundColor: AppColors.error,
-                              ),
-                            );
-                            return;
-                          }
-
-                          if (isEdit) {
-                            success = (await ref
-                                .read(adminVendorsRepositoryProvider)
-                                .updateMenuCategoryRaw(
-                                  widget.vendorId,
-                                  categoryId!,
-                                  name: nameController.text.trim(),
-                                  nameAr: nameArController.text.trim(),
-                                  branchAvailabilityMode: branchAvailabilityMode,
-                                  branchIds: branchAvailabilityMode == 'SPECIFIC'
-                                      ? selectedBranchIds.toList()
-                                      : [],
-                                  isAdmin: widget.isAdmin,
-                                )) != null;
-                          } else {
-                            final res = await ref
-                                .read(adminVendorsRepositoryProvider)
-                                .createMenuCategoryRaw(
-                                  widget.vendorId,
-                                  name: nameController.text.trim(),
-                                  nameAr: nameArController.text.trim(),
-                                  branchAvailabilityMode: branchAvailabilityMode,
-                                  branchIds: branchAvailabilityMode == 'SPECIFIC'
-                                      ? selectedBranchIds.toList()
-                                      : [],
-                                  isAdmin: widget.isAdmin,
-                                );
-                            success = res != null;
-                            if (res is Map && res['id'] != null) {
-                              categoryId = res['id']?.toString();
-                            }
-                          }
-
-                          if (success && selectedIcon != null) {
-                            if (!isEdit && categoryId == null) {
-                              final categoriesRaw = await ref
-                                  .read(adminVendorsRepositoryProvider)
-                                  .getMenuCategories(widget.vendorId);
-                              final List<dynamic> categoriesList = categoriesRaw is List
-                                  ? categoriesRaw
-                                  : (categoriesRaw is Map && categoriesRaw['data'] is List
-                                      ? categoriesRaw['data'] as List
-                                      : const []);
-                              final newCat = categoriesList.firstWhere(
-                                (c) => c is Map && c['name'] == nameController.text.trim(),
-                                orElse: () => null,
-                              );
-                              if (newCat != null && newCat is Map) {
-                                categoryId = newCat['id']?.toString();
-                              }
-                            }
-
-                            if (categoryId != null) {
-                              final iconBytes =
-                                  selectedIcon!.bytes ??
-                                  await File(selectedIcon!.path!).readAsBytes();
-
-                              await ref
-                                  .read(adminVendorsRepositoryProvider)
-                                  .uploadMenuCategoryIcon(
-                                    widget.vendorId,
-                                    categoryId,
-                                    iconBytes.toList(),
-                                    selectedIcon!.name,
-                                    isAdmin: widget.isAdmin,
-                                  );
-                            }
-                          }
-
-                          if (!context.mounted) return;
-                          Navigator.pop(context, success);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                ErrorUtils.translate(
-                                  context,
-                                  isEdit
-                                      ? 'common.success.resource_updated'
-                                      : 'common.success.resource_created',
-                                ),
-                              ),
-                              backgroundColor: AppColors.success,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        } catch (e) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                ErrorUtils.translate(context, e),
-                              ),
-                              backgroundColor: AppColors.error,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(100, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 4),
+                      Text(
+                        branchAvailabilityMode == 'ALL'
+                            ? l10n.allBranchesHint
+                            : l10n.specificBranchesHint,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11.5,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      child: Text(
-                        isEdit
-                            ? AppLocalizations.of(context)!.update
-                            : AppLocalizations.of(context)!.add,
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<String>(
+                          segments: [
+                            ButtonSegment<String>(
+                              value: 'ALL',
+                              label: Text(
+                                l10n.allBranches,
+                                style: const TextStyle(fontSize: 12.5),
+                              ),
+                            ),
+                            ButtonSegment<String>(
+                              value: 'SPECIFIC',
+                              label: Text(
+                                l10n.specificBranches,
+                                style: const TextStyle(fontSize: 12.5),
+                              ),
+                            ),
+                          ],
+                          selected: {branchAvailabilityMode},
+                          onSelectionChanged: isSubmitting
+                              ? null
+                              : (val) {
+                                  setDialogState(() {
+                                    errorMessage = null;
+                                    branchAvailabilityMode = val.first;
+                                    if (branchAvailabilityMode == 'SPECIFIC' &&
+                                        selectedBranchIds.isEmpty &&
+                                        _branches.isNotEmpty) {
+                                      selectedBranchIds.addAll(
+                                        _branches.map((b) => b['id'].toString()),
+                                      );
+                                    }
+                                  });
+                                },
+                        ),
                       ),
-                    ),
-                  ],
+                      if (branchAvailabilityMode == 'SPECIFIC') ...[
+                        const SizedBox(height: 12),
+                        if (_branches.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              l10n.noBranchesAvailable,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        else
+                          ..._branches.map((branch) {
+                            final id = branch['id']?.toString() ?? '';
+                            final bName = (isAr
+                                    ? branch['nameAr']
+                                    : branch['name']) ??
+                                branch['name'] ??
+                                id;
+                            final isChecked = selectedBranchIds.contains(id);
+                            return CheckboxListTile(
+                              value: isChecked,
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              activeColor: AppColors.primary,
+                              checkColor: AppColors.onPrimary,
+                              title: Text(
+                                bName.toString(),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 13,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                              onChanged: isSubmitting
+                                  ? null
+                                  : (val) {
+                                      setDialogState(() {
+                                        if (val == true) {
+                                          selectedBranchIds.add(id);
+                                        } else {
+                                          selectedBranchIds.remove(id);
+                                        }
+                                      });
+                                    },
+                            );
+                          }),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  AppDialogErrorBanner(message: errorMessage!),
+                ],
+              ],
+            ),
+            footer: AppDialogFooter(
+              cancelLabel: l10n.cancel,
+              onCancel: () => Navigator.pop(dialogCtx),
+              confirmLabel: isEdit ? l10n.update : l10n.add,
+              confirmIcon: isEdit ? LucideIcons.save : LucideIcons.plus,
+              isLoading: isSubmitting,
+              onConfirm: () async {
+                if (branchAvailabilityMode == 'SPECIFIC' &&
+                    selectedBranchIds.isEmpty) {
+                  setDialogState(() {
+                    errorMessage = l10n.branchAvailabilityRequired;
+                  });
+                  return;
+                }
+
+                setDialogState(() {
+                  isSubmitting = true;
+                  errorMessage = null;
+                });
+
+                try {
+                  bool success;
+                  String? categoryId = category?['id'];
+
+                  if (isEdit) {
+                    success = (await ref
+                            .read(adminVendorsRepositoryProvider)
+                            .updateMenuCategoryRaw(
+                              widget.vendorId,
+                              categoryId!,
+                              name: nameController.text.trim(),
+                              nameAr: nameArController.text.trim(),
+                              branchAvailabilityMode: branchAvailabilityMode,
+                              branchIds: branchAvailabilityMode == 'SPECIFIC'
+                                  ? selectedBranchIds.toList()
+                                  : [],
+                              isAdmin: widget.isAdmin,
+                            )) !=
+                        null;
+                  } else {
+                    final res = await ref
+                        .read(adminVendorsRepositoryProvider)
+                        .createMenuCategoryRaw(
+                          widget.vendorId,
+                          name: nameController.text.trim(),
+                          nameAr: nameArController.text.trim(),
+                          branchAvailabilityMode: branchAvailabilityMode,
+                          branchIds: branchAvailabilityMode == 'SPECIFIC'
+                              ? selectedBranchIds.toList()
+                              : [],
+                          isAdmin: widget.isAdmin,
+                        );
+                    success = res != null;
+                    if (res is Map && res['id'] != null) {
+                      categoryId = res['id']?.toString();
+                    }
+                  }
+
+                  if (success && selectedIcon != null) {
+                    if (!isEdit && categoryId == null) {
+                      final categoriesRaw = await ref
+                          .read(adminVendorsRepositoryProvider)
+                          .getMenuCategories(widget.vendorId);
+                      final List<dynamic> categoriesList = categoriesRaw is List
+                          ? categoriesRaw
+                          : (categoriesRaw is Map &&
+                                  categoriesRaw['data'] is List
+                              ? categoriesRaw['data'] as List
+                              : const []);
+                      final newCat = categoriesList.firstWhere(
+                        (c) =>
+                            c is Map && c['name'] == nameController.text.trim(),
+                        orElse: () => null,
+                      );
+                      if (newCat != null && newCat is Map) {
+                        categoryId = newCat['id']?.toString();
+                      }
+                    }
+
+                    if (categoryId != null) {
+                      final iconBytes = selectedIcon!.bytes ??
+                          await File(selectedIcon!.path!).readAsBytes();
+
+                      await ref
+                          .read(adminVendorsRepositoryProvider)
+                          .uploadMenuCategoryIcon(
+                            widget.vendorId,
+                            categoryId,
+                            iconBytes.toList(),
+                            selectedIcon!.name,
+                            isAdmin: widget.isAdmin,
+                          );
+                    }
+                  }
+
+                  if (!dialogCtx.mounted) return;
+                  Navigator.pop(dialogCtx, success);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          ErrorUtils.translate(
+                            context,
+                            isEdit
+                                ? 'common.success.resource_updated'
+                                : 'common.success.resource_created',
+                          ),
+                        ),
+                        backgroundColor: AppColors.success,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (!dialogCtx.mounted) return;
+                  setDialogState(() {
+                    isSubmitting = false;
+                    errorMessage = ErrorUtils.translate(ctx, e);
+                  });
+                }
+              },
+            ),
+          );
+        },
       ),
-    );
+    ).whenComplete(() {
+      Future<void>.delayed(const Duration(milliseconds: 350), () {
+        nameController.dispose();
+        nameArController.dispose();
+      });
+    });
 
     if (result == true) _fetchCategories();
   }
 
-  Widget _buildDialogTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    TextAlign textAlign = TextAlign.start,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 13),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          textAlign: textAlign,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
-            contentPadding: const EdgeInsets.all(16),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _confirmDelete(dynamic category) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                LucideIcons.alertTriangle,
-                color: AppColors.error,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                AppLocalizations.of(context)!.deleteCategory,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                AppLocalizations.of(context)!.deleteCategoryConfirm(
-                  category['name'] ??
-                      AppLocalizations.of(context)!.unnamedCategory,
-                ),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final messenger = ScaffoldMessenger.of(context);
-                        try {
-                          final response = await ref
-                              .read(adminVendorsRepositoryProvider)
-                              .deleteMenuCategory(
-                                widget.vendorId,
-                                category['id'],
-                                isAdmin: widget.isAdmin,
-                              );
-                          final success = response != null;
-                          if (!dialogContext.mounted) return;
-                          Navigator.pop(dialogContext);
-                          if (success) {
-                            _fetchCategories();
-                            if (mounted) {
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    AppLocalizations.of(context)!.common_success_resource_deleted,
-                                  ),
-                                  backgroundColor: AppColors.success,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            }
-                          }
-                        } catch (e) {
-                          if (!dialogContext.mounted) return;
-                          Navigator.pop(dialogContext);
-                          if (mounted) {
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  ErrorUtils.translate(context, e),
-                                ),
-                                backgroundColor: AppColors.error,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.error,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(AppLocalizations.of(context)!.delete),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+  Future<void> _confirmDelete(dynamic category) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteCategory,
+      message: l10n.deleteCategoryConfirm(
+        category['name'] ?? l10n.unnamedCategory,
       ),
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final response = await ref
+          .read(adminVendorsRepositoryProvider)
+          .deleteMenuCategory(
+            widget.vendorId,
+            category['id'],
+            isAdmin: widget.isAdmin,
+          );
+      if (response != null && mounted) {
+        _fetchCategories();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.common_success_resource_deleted),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(ErrorUtils.translate(context, e)),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }
 

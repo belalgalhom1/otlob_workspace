@@ -182,6 +182,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
         firstDate: DateTime(2024),
         lastDate: DateTime(2030),
         initialDateRange: _customRange,
+        builder: AppDialogStyles.adaptivePickerTheme,
       );
       if (picked == null) return;
       setState(() {
@@ -239,6 +240,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                             firstDate: DateTime(2024),
                             lastDate: DateTime(2030),
                             initialDateRange: custom,
+                            builder: AppDialogStyles.adaptivePickerTheme,
                           );
                           if (picked == null) return;
                           setSheet(() {

@@ -456,27 +456,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 16),
               PrimaryButton(
                 text: l10n.logoutUpper,
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text(l10n.logout),
-                      content: Text(l10n.logoutConfirm),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(l10n.cancelUpper),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            ref.read(authProvider.notifier).logout();
-                          },
-                          child: Text(l10n.logoutUpper, style: const TextStyle(color: AppColors.error)),
-                        ),
-                      ],
-                    ),
+                onPressed: () async {
+                  final confirmed = await AppConfirmDialog.show(
+                    context,
+                    title: l10n.logout,
+                    message: l10n.logoutConfirm,
+                    confirmLabel: l10n.logout,
+                    cancelLabel: l10n.cancel,
+                    icon: LucideIcons.logOut,
+                    confirmIcon: LucideIcons.logOut,
+                    isDestructive: true,
                   );
+                  if (confirmed == true) {
+                    ref.read(authProvider.notifier).logout();
+                  }
                 },
                 backgroundColor: AppColors.error,
               ),

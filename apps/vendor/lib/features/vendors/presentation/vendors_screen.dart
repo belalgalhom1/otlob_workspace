@@ -1360,103 +1360,139 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
     );
   }
 
-  void _confirmDelete(BuildContext context, dynamic v) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(
-          AppLocalizations.of(context)!.deleteConfirmTitle,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        content: Text(
-          AppLocalizations.of(context)!.deleteConfirmContent(v['storeName'] ?? ''),
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context)!.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await ref.read(vendorProvider.notifier).deleteVendor(v['id']);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        AppLocalizations.of(context)!.common_success_resource_deleted,
-                      ),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(L10nErrorHelper.translate(context, e)),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: Text(AppLocalizations.of(context)!.delete),
-          ),
-        ],
-      ),
+  Future<void> _confirmDelete(BuildContext context, dynamic v) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: l10n.deleteConfirmTitle,
+      message: l10n.deleteConfirmContent(v['storeName'] ?? ''),
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(vendorProvider.notifier).deleteVendor(v['id']);
+      if (this.context.mounted) {
+        ScaffoldMessenger.of(this.context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.common_success_resource_deleted),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (this.context.mounted) {
+        ScaffoldMessenger.of(this.context).showSnackBar(
+          SnackBar(
+            content: Text(L10nErrorHelper.translate(this.context, e)),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   void _confirmStatusChange(BuildContext context, dynamic v) {
+    final l10n = AppLocalizations.of(context)!;
     final currentStatus = v['status'] ?? 'CLOSED';
     final List<String> statuses = ['OPEN', 'CLOSED', 'PAUSED', 'SUSPENDED'];
 
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(
-          AppLocalizations.of(context)!.changeStatusTitle,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: statuses.map((status) {
-            final isSelected = status == currentStatus;
-            return ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              title: Text(
-                _translateStatus(context, status),
-                style: TextStyle(
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+      builder: (dialogCtx) {
+        final theme = Theme.of(dialogCtx);
+        return AppDialog(
+          maxWidth: 440,
+          header: AppDialogHeader(
+            icon: LucideIcons.activity,
+            title: l10n.changeStatusTitle,
+            subtitle: (v['storeName'] ?? '').toString(),
+            onClose: () => Navigator.pop(dialogCtx),
+          ),
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: statuses.asMap().entries.map((entry) {
+              final index = entry.key;
+              final status = entry.value;
+              final isSelected = status == currentStatus;
+              final Color statusColor = switch (status) {
+                'OPEN' => AppColors.success,
+                'CLOSED' => AppColors.error,
+                'PAUSED' => AppColors.warning,
+                _ => AppColors.textMuted,
+              };
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: index == statuses.length - 1 ? 0 : 10,
                 ),
-              ),
-              trailing: isSelected
-                  ? const Icon(LucideIcons.check, color: AppColors.success)
-                  : null,
-              onTap: () {
-                Navigator.pop(context);
-                if (!isSelected) {
-                  ref.read(vendorProvider.notifier).updateVendorStatus(v['id'], status);
-                }
-              },
-            );
-          }).toList(),
-        ),
-      ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pop(dialogCtx);
+                    if (!isSelected) {
+                      ref
+                          .read(vendorProvider.notifier)
+                          .updateVendorStatus(v['id'], status);
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: AppDialogSectionCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    backgroundColor: isSelected
+                        ? statusColor.withValues(alpha: 0.1)
+                        : null,
+                    borderColor: isSelected
+                        ? statusColor.withValues(alpha: 0.45)
+                        : null,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _translateStatus(dialogCtx, status),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          Icon(
+                            LucideIcons.checkCircle2,
+                            size: 18,
+                            color: statusColor,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          footer: AppDialogFooter(
+            cancelLabel: l10n.cancel,
+            onCancel: () => Navigator.pop(dialogCtx),
+          ),
+        );
+      },
     );
   }
 

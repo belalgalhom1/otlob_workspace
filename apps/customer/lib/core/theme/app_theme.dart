@@ -66,6 +66,13 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: AppRadius.mdRadius),
       ),
 
+      dialogTheme: _buildDialogTheme(
+        backgroundColor: Colors.white,
+        borderColor: AppColors.borderLight,
+        titleColor: AppColors.textPrimaryLight,
+        contentColor: AppColors.textPrimaryLight,
+      ),
+
       dividerTheme: const DividerThemeData(thickness: 1, space: 1),
 
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
@@ -146,6 +153,13 @@ class AppTheme {
         elevation: 0,
         color: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.mdRadius),
+      ),
+
+      dialogTheme: _buildDialogTheme(
+        backgroundColor: AppColors.surfaceDark,
+        borderColor: AppColors.borderDark,
+        titleColor: AppColors.textPrimaryDark,
+        contentColor: AppColors.textPrimaryDark,
       ),
 
       dividerTheme: const DividerThemeData(thickness: 1, space: 1),
@@ -233,6 +247,34 @@ class AppTheme {
       errorBorder: OutlineInputBorder(
         borderRadius: AppRadius.mdRadius,
         borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+      ),
+    );
+  }
+
+  static DialogThemeData _buildDialogTheme({
+    required Color backgroundColor,
+    required Color borderColor,
+    required Color titleColor,
+    required Color contentColor,
+  }) {
+    return DialogThemeData(
+      backgroundColor: backgroundColor,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: borderColor),
+      ),
+      titleTextStyle: AppTypography.headlineMedium.copyWith(
+        fontSize: 16.5,
+        fontWeight: FontWeight.bold,
+        color: titleColor,
+      ),
+      contentTextStyle: AppTypography.bodyMedium.copyWith(
+        fontSize: 14,
+        color: contentColor,
+        height: 1.5,
       ),
     );
   }

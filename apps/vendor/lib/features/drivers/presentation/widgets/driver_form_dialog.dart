@@ -41,6 +41,7 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
   final _vehiclePlateController = TextEditingController();
   bool _isApproved = true;
   bool _isLoading = false;
+  String? _errorMessage;
   String? _selectedDriverManagerUserId;
   List<dynamic> _driverManagers = [];
 
@@ -91,7 +92,8 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
     super.dispose();
   }
 
-  Future<void> _submit(BuildContext ctx) async {
+  Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
@@ -102,16 +104,19 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
     final vehiclePlate = _vehiclePlateController.text.trim();
 
     if (name.isEmpty) {
-      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ctx)!.common_error_validation)));
-      return;
-    }
-    
-    if (widget.driver == null && (email.isEmpty || password.isEmpty || phone.isEmpty)) {
-      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ctx)!.common_error_validation)));
+      setState(() => _errorMessage = l10n.common_error_validation);
       return;
     }
 
-    setState(() => _isLoading = true);
+    if (widget.driver == null && (email.isEmpty || password.isEmpty || phone.isEmpty)) {
+      setState(() => _errorMessage = l10n.common_error_validation);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
       final payload = {
@@ -129,35 +134,28 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
 
       if (widget.driver == null) {
         await ref.read(driversProvider.notifier).createDriver(payload);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.common_success_operation)));
-          Navigator.of(context).pop();
-        }
       } else {
         await ref.read(driversProvider.notifier).updateDriver(widget.driver!.id, payload);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.common_success_operation)));
-          Navigator.of(context).pop();
-        }
+      }
+      if (mounted) {
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        final msg = l10n.common_success_operation;
+        Navigator.of(context).pop();
+        messenger?.showSnackBar(SnackBar(content: Text(msg)));
       }
     } catch (e) {
-      if (ctx.mounted) {
-        ScaffoldMessenger.of(ctx).showSnackBar(
-          SnackBar(
-            content: Text(ErrorUtils.translate(ctx, e)),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _errorMessage = ErrorUtils.translate(context, e);
+          _isLoading = false;
+        });
       }
     }
   }
 
   Widget _buildDriverManagerDropdown() {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final theme = Theme.of(context);
     if (widget.readOnly) {
       return _buildReadOnlyField(
         isAr ? 'مسؤول السائقين' : 'Driver Manager',
@@ -167,53 +165,84 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: DropdownButtonFormField<String?>(
-        initialValue: _selectedDriverManagerUserId,
-        decoration: InputDecoration(
-          labelText: isAr ? 'مسؤول السائقين' : 'Driver Manager',
-          prefixIcon: const Icon(LucideIcons.userCheck),
-          helperText: isAr
-              ? 'تحديد مسؤول السائقين لتوجيه العمولات والمتابعة'
-              : 'Select driver manager for commissions and oversight',
-        ),
-        items: [
-          DropdownMenuItem<String?>(
-            value: null,
-            child: Text(isAr ? 'بدون مدير (غير معين)' : 'None (Unassigned)'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppFieldLabel(label: isAr ? 'مسؤول السائقين' : 'Driver Manager'),
+          DropdownButtonFormField<String?>(
+            initialValue: _selectedDriverManagerUserId,
+            isExpanded: true,
+            dropdownColor: AppDialogStyles.dropdownColor(context),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 14,
+              color: theme.colorScheme.onSurface,
+            ),
+            decoration: AppDialogStyles.inputDecoration(
+              context,
+              hintText: isAr ? 'بدون مدير (غير معين)' : 'None (Unassigned)',
+              icon: LucideIcons.userCheck,
+              helperText: isAr
+                  ? 'تحديد مسؤول السائقين لتوجيه العمولات والمتابعة'
+                  : 'Select driver manager for commissions and oversight',
+            ),
+            items: [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text(
+                  isAr ? 'بدون مدير (غير معين)' : 'None (Unassigned)',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              ..._driverManagers.map((m) {
+                final uid = (m['userId'] ?? '').toString();
+                final name = (m['name'] ?? '').toString();
+                final phone = (m['phone'] ?? '').toString();
+                final label = phone.isNotEmpty ? '$name ($phone)' : name;
+                return DropdownMenuItem<String?>(
+                  value: uid,
+                  child: Text(label, overflow: TextOverflow.ellipsis),
+                );
+              }),
+            ],
+            onChanged: _isLoading
+                ? null
+                : (val) => setState(() => _selectedDriverManagerUserId = val),
           ),
-          ..._driverManagers.map((m) {
-            final uid = (m['userId'] ?? '').toString();
-            final name = (m['name'] ?? '').toString();
-            final phone = (m['phone'] ?? '').toString();
-            final label = phone.isNotEmpty ? '$name ($phone)' : name;
-            return DropdownMenuItem<String?>(
-              value: uid,
-              child: Text(label),
-            );
-          }),
         ],
-        onChanged: (val) => setState(() => _selectedDriverManagerUserId = val),
       ),
     );
   }
 
-  Widget _buildField(String label, IconData icon, TextEditingController controller, [String? hint, bool isPassword = false]) {
+  Widget _buildField(
+    String label,
+    IconData icon,
+    TextEditingController controller, {
+    String? hint,
+    bool isPassword = false,
+    bool isRequired = false,
+    TextInputType? keyboardType,
+    TextDirection? textDirection,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: TextField(
-        controller: controller,
-        readOnly: widget.readOnly,
-        obscureText: isPassword,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          prefixIcon: Icon(icon, size: 20),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppFieldLabel(label: label, isRequired: isRequired && !widget.readOnly),
+          TextField(
+            controller: controller,
+            enabled: !widget.readOnly && !_isLoading,
+            readOnly: widget.readOnly,
+            obscureText: isPassword,
+            keyboardType: keyboardType,
+            textDirection: textDirection,
+            decoration: AppDialogStyles.inputDecoration(
+              context,
+              hintText: hint ?? label,
+              icon: icon,
+            ),
           ),
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceBright,
-        ),
+        ],
       ),
     );
   }
@@ -221,18 +250,19 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
   Widget _buildReadOnlyField(String label, IconData icon, String? value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        initialValue: (value == null || value.trim().isEmpty) ? '—' : value,
-        readOnly: true,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, size: 20),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppFieldLabel(label: label),
+          TextFormField(
+            initialValue: (value == null || value.trim().isEmpty) ? '—' : value,
+            readOnly: true,
+            decoration: AppDialogStyles.inputDecoration(
+              context,
+              icon: icon,
+            ),
           ),
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceBright,
-        ),
+        ],
       ),
     );
   }
@@ -251,33 +281,42 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
 
   Widget _buildVehicleTypeDropdown(String label, IconData icon) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: DropdownButtonFormField<String>(
-        initialValue: _selectedVehicleType,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, size: 20),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppFieldLabel(label: label),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedVehicleType,
+            isExpanded: true,
+            dropdownColor: AppDialogStyles.dropdownColor(context),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 14,
+              color: theme.colorScheme.onSurface,
+            ),
+            decoration: AppDialogStyles.inputDecoration(
+              context,
+              hintText: label,
+              icon: icon,
+            ),
+            items: _vehicleTypes.map((type) {
+              final displayType = _getVehicleTypeTranslation(l10n, type);
+              return DropdownMenuItem(
+                value: type,
+                child: Text(displayType, overflow: TextOverflow.ellipsis),
+              );
+            }).toList(),
+            onChanged: (widget.readOnly || _isLoading)
+                ? null
+                : (value) {
+                    if (value != null) {
+                      setState(() => _selectedVehicleType = value);
+                    }
+                  },
           ),
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceBright,
-        ),
-        items: _vehicleTypes.map((type) {
-          final displayType = _getVehicleTypeTranslation(l10n, type);
-          return DropdownMenuItem(
-            value: type,
-            child: Text(displayType),
-          );
-        }).toList(),
-        onChanged: widget.readOnly
-            ? null
-            : (value) {
-                if (value != null) {
-                  setState(() => _selectedVehicleType = value);
-                }
-              },
+        ],
       ),
     );
   }
@@ -286,97 +325,118 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
   Widget build(BuildContext context) {
     final isNew = widget.driver == null;
     final l10n = AppLocalizations.of(context)!;
-    
-    return DialogScaffold(child: Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    isNew ? LucideIcons.userPlus : LucideIcons.user,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.readOnly
-                          ? (Localizations.localeOf(context).languageCode == 'ar'
-                              ? 'تفاصيل السائق'
-                              : 'Driver Details')
-                          : (isNew ? l10n.createNewUser : l10n.editUserProfile),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              _buildField(l10n.fullName, LucideIcons.user, _nameController),
-              _buildField(l10n.emailAddress, LucideIcons.mail, _emailController),
-              _buildField(l10n.phone, LucideIcons.phone, _phoneController),
-              if (isNew)
-                _buildField(l10n.password, LucideIcons.lock, _passwordController, null, true),
-              _buildField(l10n.nationalId, LucideIcons.creditCard, _nationalIdController),
-              _buildField(l10n.licenseNumber, LucideIcons.fileText, _licenseNumberController),
-              _buildVehicleTypeDropdown(
-                l10n.vehicleType,
-                driverVehicleIcon(_selectedVehicleType),
-              ),
-              _buildField(l10n.vehiclePlate, LucideIcons.hash, _vehiclePlateController),
-              _buildDriverManagerDropdown(),
-              SwitchListTile(
-                title: Text(l10n.driverApprovedTitle),
-                subtitle: Text(l10n.driverApprovedSubtitle),
-                value: _isApproved,
-                onChanged: widget.readOnly
-                    ? null
-                    : (val) => setState(() => _isApproved = val),
-                contentPadding: EdgeInsets.zero,
-                activeThumbColor: AppColors.primary,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                    child: Text(widget.readOnly ? l10n.done : l10n.cancel),
-                  ),
-                  if (!widget.readOnly) ...[
-                    const SizedBox(width: 12),
-                    Builder(
-                      builder: (btnCtx) => FilledButton(
-                        onPressed: _isLoading ? null : () => _submit(btnCtx),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(l10n.save),
-                    ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ),
-        ),
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final theme = Theme.of(context);
+
+    return AppDialog(
+      maxWidth: 540,
+      canPop: !_isLoading,
+      header: AppDialogHeader(
+        icon: isNew ? LucideIcons.userPlus : LucideIcons.user,
+        title: widget.readOnly
+            ? (isAr ? 'تفاصيل السائق' : 'Driver Details')
+            : (isNew ? l10n.createNewUser : l10n.editUserProfile),
+        isCloseDisabled: _isLoading,
+        onClose: () => Navigator.of(context).pop(),
       ),
-    ));
+      body: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_errorMessage != null && _errorMessage!.trim().isNotEmpty) ...[
+            AppDialogErrorBanner(message: _errorMessage!),
+            const SizedBox(height: 16),
+          ],
+          _buildField(
+            l10n.fullName,
+            LucideIcons.user,
+            _nameController,
+            isRequired: true,
+          ),
+          _buildField(
+            l10n.emailAddress,
+            LucideIcons.mail,
+            _emailController,
+            isRequired: isNew,
+            keyboardType: TextInputType.emailAddress,
+            textDirection: TextDirection.ltr,
+          ),
+          _buildField(
+            l10n.phone,
+            LucideIcons.phone,
+            _phoneController,
+            isRequired: isNew,
+            keyboardType: TextInputType.phone,
+            textDirection: TextDirection.ltr,
+          ),
+          if (isNew)
+            _buildField(
+              l10n.password,
+              LucideIcons.lock,
+              _passwordController,
+              isPassword: true,
+              isRequired: true,
+            ),
+          _buildField(
+            l10n.nationalId,
+            LucideIcons.creditCard,
+            _nationalIdController,
+            textDirection: TextDirection.ltr,
+          ),
+          _buildField(
+            l10n.licenseNumber,
+            LucideIcons.fileText,
+            _licenseNumberController,
+            textDirection: TextDirection.ltr,
+          ),
+          _buildVehicleTypeDropdown(
+            l10n.vehicleType,
+            driverVehicleIcon(_selectedVehicleType),
+          ),
+          _buildField(
+            l10n.vehiclePlate,
+            LucideIcons.hash,
+            _vehiclePlateController,
+          ),
+          _buildDriverManagerDropdown(),
+          AppDialogSectionCard(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                l10n.driverApprovedTitle,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                l10n.driverApprovedSubtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              value: _isApproved,
+              onChanged: (widget.readOnly || _isLoading)
+                  ? null
+                  : (val) => setState(() => _isApproved = val),
+              activeThumbColor: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+      footer: widget.readOnly
+          ? AppDialogFooter(
+              confirmLabel: l10n.done,
+              onConfirm: () => Navigator.of(context).pop(),
+            )
+          : AppDialogFooter(
+              cancelLabel: l10n.cancel,
+              onCancel: () => Navigator.of(context).pop(),
+              confirmLabel: l10n.save,
+              confirmIcon: LucideIcons.save,
+              isLoading: _isLoading,
+              onConfirm: _submit,
+            ),
+    );
   }
 }

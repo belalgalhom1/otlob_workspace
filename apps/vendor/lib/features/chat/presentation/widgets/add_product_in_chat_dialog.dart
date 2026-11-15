@@ -53,6 +53,7 @@ class _AddProductInChatDialogState
   Uint8List? _imageFileBytes;
   String? _existingImageUrl;
   bool _isPickingImage = false;
+  String? _validationError;
 
   @override
   void initState() {
@@ -174,6 +175,7 @@ class _AddProductInChatDialogState
       _isFeatured = product['isFeatured'] ?? false;
       _pushToMenu = false; // Existing product, no need to push
       _existingImageUrl = product['imageUrl'] ?? product['image'];
+      _validationError = null;
     });
   }
 
@@ -192,402 +194,253 @@ class _AddProductInChatDialogState
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isMobile = size.width < 600;
+    final l10n = AppLocalizations.of(context)!;
 
-    return DialogScaffold(child: Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 40,
-        vertical: 24,
+    return AppDialog(
+      maxWidth: 580,
+      header: AppDialogHeader(
+        icon: LucideIcons.shoppingCart,
+        title: l10n.createOrderOffer,
+        subtitle: l10n.vendor(widget.vendorName),
+        onClose: () => Navigator.pop(context),
       ),
-      child: Container(
-        constraints: BoxConstraints(maxWidth: isMobile ? size.width : 550),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.08),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(
-                alpha: Theme.of(context).brightness == Brightness.dark
-                    ? 0.4
-                    : 0.1,
+      body: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_validationError != null) ...[
+              AppDialogErrorBanner(message: _validationError!),
+              const SizedBox(height: 16),
+            ],
+            _buildSectionHeader(
+              LucideIcons.search,
+              l10n.searchExistingProduct,
+            ),
+            const SizedBox(height: 10),
+            _buildProductAutocomplete(),
+            const SizedBox(height: 18),
+
+            // Category Selection
+            _buildCategoryDropdown(),
+            const SizedBox(height: 20),
+
+            _buildSectionHeader(
+              LucideIcons.image,
+              l10n.productImage,
+            ),
+            const SizedBox(height: 10),
+            _buildImagePicker(),
+            const SizedBox(height: 22),
+
+            _buildSectionHeader(
+              LucideIcons.info,
+              l10n.basicInfo,
+            ),
+            const SizedBox(height: 12),
+            _buildTextField(
+              controller: _nameController,
+              label: l10n.productNameEn,
+              languageTag: 'EN',
+              isRequired: true,
+              hint: 'e.g. Classic Cheeseburger',
+              icon: LucideIcons.type,
+              textDirection: TextDirection.ltr,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _nameArController,
+              label: l10n.productNameAr,
+              languageTag: 'عربي',
+              languageTagColor: AppColors.info,
+              isRequired: true,
+              hint: 'مثال: تشيز برجر كلاسيك',
+              icon: LucideIcons.languages,
+              textDirection: TextDirection.rtl,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _descriptionController,
+              label: l10n.descriptionEn,
+              languageTag: 'EN',
+              hint: l10n.detailedProductDescription,
+              icon: LucideIcons.alignLeft,
+              maxLines: 3,
+              textDirection: TextDirection.ltr,
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: _descriptionArController,
+              label: l10n.descriptionAr,
+              languageTag: 'عربي',
+              languageTagColor: AppColors.info,
+              hint: 'وصف المنتج بالتفصيل...',
+              icon: LucideIcons.alignRight,
+              maxLines: 3,
+              textDirection: TextDirection.rtl,
+            ),
+
+            const SizedBox(height: 22),
+            _buildSectionHeader(
+              LucideIcons.dollarSign,
+              l10n.pricingInventory,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _priceController,
+                    label: l10n.basePrice,
+                    isRequired: true,
+                    hint: '0.00',
+                    icon: LucideIcons.dollarSign,
+                    keyboardType: TextInputType.number,
+                    textDirection: TextDirection.ltr,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? l10n.fieldRequired
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _comparePriceController,
+                    label: l10n.comparePrice,
+                    hint: '0.00',
+                    icon: LucideIcons.tag,
+                    keyboardType: TextInputType.number,
+                    textDirection: TextDirection.ltr,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _skuController,
+                    label: l10n.sku,
+                    hint: l10n.stockUnit,
+                    icon: LucideIcons.shoppingBag,
+                    textDirection: TextDirection.ltr,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _stockController,
+                    label: l10n.initialStock,
+                    hint: '0',
+                    icon: LucideIcons.box,
+                    keyboardType: TextInputType.number,
+                    textDirection: TextDirection.ltr,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 22),
+            _buildSectionHeader(
+              LucideIcons.settings2,
+              l10n.settings,
+            ),
+            const SizedBox(height: 12),
+            AppDialogSectionCard(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Column(
+                children: [
+                  _buildSwitchTile(
+                    title: l10n.productActiveStatus,
+                    subtitle: l10n.productVisibleToCustomers,
+                    value: _isActive,
+                    onChanged: (v) => setState(() => _isActive = v),
+                    icon: LucideIcons.eye,
+                  ),
+                  Divider(
+                    color: AppDialogStyles.borderColor(context),
+                    height: 1,
+                    indent: 48,
+                  ),
+                  _buildSwitchTile(
+                    title: l10n.featuredProduct,
+                    subtitle: l10n.showAtTopOfMenu,
+                    value: _isFeatured,
+                    onChanged: (v) => setState(() => _isFeatured = v),
+                    icon: LucideIcons.star,
+                  ),
+                  Divider(
+                    color: AppDialogStyles.borderColor(context),
+                    height: 1,
+                    indent: 48,
+                  ),
+                  _buildSwitchTile(
+                    title: l10n.pushToMenu,
+                    subtitle: l10n.pushToMenuSubtitle,
+                    value: _pushToMenu,
+                    onChanged: (v) => setState(() => _pushToMenu = v),
+                    icon: LucideIcons.listPlus,
+                  ),
+                  Divider(
+                    color: AppDialogStyles.borderColor(context),
+                    height: 1,
+                    indent: 48,
+                  ),
+                  _buildSwitchTile(
+                    title: l10n.createPendingOrderImmediately,
+                    subtitle: l10n.createPendingOrderSubtitle,
+                    value: _createPendingOrder,
+                    onChanged: (v) => setState(() => _createPendingOrder = v),
+                    icon: LucideIcons.zap,
+                    activeColor: AppColors.success,
+                  ),
+                ],
               ),
-              blurRadius: 30,
-              offset: const Offset(0, 15),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Container(
-                padding: EdgeInsets.all(isMobile ? 20 : 24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.05),
-                      Colors.transparent,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        LucideIcons.shoppingCart,
-                        color: AppColors.primary,
-                        size: isMobile ? 20 : 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            AppLocalizations.of(context)!.createOrderOffer,
-                            style: TextStyle(
-                              fontSize: isMobile ? 20 : 22,
-                              fontWeight: FontWeight.w800,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            AppLocalizations.of(
-                              context,
-                            )!.vendor(widget.vendorName),
-                            style: TextStyle(
-                              fontSize: isMobile ? 12 : 13,
-                              
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(LucideIcons.x, size: 20),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Form
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(isMobile ? 20 : 24),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionHeader(
-                          AppLocalizations.of(context)!.searchExistingProduct,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildProductAutocomplete(),
-                        const SizedBox(height: 24),
-
-                        // Category Selection
-                        _buildCategoryDropdown(),
-                        const SizedBox(height: 24),
-
-                        _buildSectionHeader(
-                          AppLocalizations.of(context)!.productImage,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildImagePicker(),
-                        const SizedBox(height: 24),
-
-                        _buildSectionHeader(
-                          AppLocalizations.of(context)!.basicInfo,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildTextField(
-                          controller: _nameController,
-                          label:
-                              AppLocalizations.of(context)!.productNameEn,
-                          hint: 'e.g. Classic Cheeseburger',
-                          icon: LucideIcons.type,
-                          validator: (v) => v?.isEmpty ?? true
-                              ? AppLocalizations.of(context)!.fieldRequired
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _nameArController,
-                          label:
-                              AppLocalizations.of(context)!.productNameAr,
-                          hint: 'مثال: تشيز برجر كلاسيك',
-                          icon: LucideIcons.languages,
-                          textAlign: TextAlign.right,
-                          validator: (v) => v?.isEmpty ?? true
-                              ? AppLocalizations.of(context)!.fieldRequired
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _descriptionController,
-                          label:
-                              AppLocalizations.of(context)!.descriptionEn,
-                          hint: AppLocalizations.of(context)!.detailedProductDescription,
-                          icon: LucideIcons.alignLeft,
-                          maxLines: 3,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _descriptionArController,
-                          label:
-                              AppLocalizations.of(context)!.descriptionAr,
-                          hint: 'وصف المنتج بالتفصيل...',
-                          icon: LucideIcons.alignRight,
-                          maxLines: 3,
-                          textAlign: TextAlign.right,
-                        ),
-
-                        const SizedBox(height: 24),
-                        _buildSectionHeader(
-                          AppLocalizations.of(context)!.pricingInventory,
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildTextField(
-                                controller: _priceController,
-                                label:
-                                    AppLocalizations.of(context)!.basePrice,
-                                hint: '0.00',
-                                icon: LucideIcons.dollarSign,
-                                keyboardType: TextInputType.number,
-                                validator: (v) => v?.isEmpty ?? true
-                                    ? AppLocalizations.of(
-                                        context,
-                                      )!.fieldRequired
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildTextField(
-                                controller: _comparePriceController,
-                                label:
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.comparePrice,
-                                hint: '0.00',
-                                icon: LucideIcons.tag,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildTextField(
-                                controller: _skuController,
-                                label:
-                                    AppLocalizations.of(context)!.sku,
-                                hint: AppLocalizations.of(context)!.stockUnit,
-                                icon: LucideIcons.shoppingBag,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildTextField(
-                                controller: _stockController,
-                                label:
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.initialStock,
-                                hint: '0',
-                                icon: LucideIcons.box,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 24),
-                        _buildSectionHeader(
-                          AppLocalizations.of(context)!.settings,
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              _buildSwitchTile(
-                                title:
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.productActiveStatus,
-                                subtitle:
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.productVisibleToCustomers,
-                                value: _isActive,
-                                onChanged: (v) => setState(() => _isActive = v),
-                                icon: LucideIcons.eye,
-                              ),
-                              Divider(
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                                height: 1,
-                                indent: 48,
-                              ),
-                              _buildSwitchTile(
-                                title:
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.featuredProduct,
-                                subtitle:
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.showAtTopOfMenu,
-                                value: _isFeatured,
-                                onChanged: (v) =>
-                                    setState(() => _isFeatured = v),
-                                icon: LucideIcons.star,
-                              ),
-                              Divider(
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                                height: 1,
-                                indent: 48,
-                              ),
-                              _buildSwitchTile(
-                                title:
-                                    AppLocalizations.of(context)!.pushToMenu,
-                                subtitle:
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.pushToMenuSubtitle,
-                                value: _pushToMenu,
-                                onChanged: (v) =>
-                                    setState(() => _pushToMenu = v),
-                                icon: LucideIcons.listPlus,
-                              ),
-                              Divider(
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                                height: 1,
-                                indent: 48,
-                              ),
-                              _buildSwitchTile(
-                                title: AppLocalizations.of(context)!.createPendingOrderImmediately,
-                                subtitle:
-                                    AppLocalizations.of(context)!.createPendingOrderSubtitle,
-                                value: _createPendingOrder,
-                                onChanged: (v) =>
-                                    setState(() => _createPendingOrder = v),
-                                icon: LucideIcons.zap,
-                                activeColor: AppColors.success,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // Footer
-              Container(
-                padding: EdgeInsets.all(isMobile ? 20 : 24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
-                  border: Border(
-                    top: BorderSide(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                      ),
-                      child: Text(
-                        AppLocalizations.of(context)!.cancel,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(120, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                              AppLocalizations.of(context)!.sendOffer,
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
-    ));
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title.toUpperCase(),
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        color: AppColors.primary.withValues(alpha: 0.8),
-        letterSpacing: 1.2,
+      footer: AppDialogFooter(
+        cancelLabel: l10n.cancel,
+        onCancel: () => Navigator.pop(context),
+        confirmLabel: l10n.sendOffer,
+        confirmIcon: LucideIcons.send,
+        onConfirm: _submit,
       ),
     );
   }
 
+  Widget _buildSectionHeader(IconData icon, String title) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildProductAutocomplete() {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Autocomplete<Map<String, dynamic>>(
       displayStringForOption: (option) => BilingualHelper.getLocalizedText(
         context,
@@ -611,51 +464,51 @@ class _AddProductInChatDialogState
           controller: controller,
           focusNode: focusNode,
           onEditingComplete: onEditingComplete,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: InputDecoration(
-            hintText: AppLocalizations.of(context)!.searchVendorCatalog,
-            prefixIcon: const Icon(
-              LucideIcons.search,
-              size: 18,
-              
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-              ),
-            ),
+          style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 14),
+          decoration: AppDialogStyles.inputDecoration(
+            context,
+            hintText: l10n.searchVendorCatalog,
+            icon: LucideIcons.search,
           ),
         );
       },
       optionsViewBuilder: (context, onSelected, options) {
         return Align(
-          alignment: Alignment.topLeft,
+          alignment: AlignmentDirectional.topStart,
           child: Material(
-            elevation: 4,
+            elevation: 6,
             borderRadius: BorderRadius.circular(12),
-            color: Theme.of(context).colorScheme.surface,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 200, maxWidth: 300),
+            color: AppDialogStyles.dropdownColor(context),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppDialogStyles.borderColor(context)),
+              ),
+              constraints: const BoxConstraints(maxHeight: 220, maxWidth: 420),
               child: ListView.builder(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 shrinkWrap: true,
                 itemCount: options.length,
                 itemBuilder: (context, index) {
                   final option = options.elementAt(index);
                   return ListTile(
+                    dense: true,
                     title: Text(
                       BilingualHelper.getLocalizedText(
                         context,
                         enText: option['name'],
                         arText: option['nameAr'],
                       ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    subtitle: Text('${option['basePrice']} EGP'),
+                    subtitle: Text(
+                      '${option['basePrice']} ${l10n.egp}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                     onTap: () => onSelected(option),
                   );
                 },
@@ -668,32 +521,31 @@ class _AddProductInChatDialogState
   }
 
   Widget _buildCategoryDropdown() {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          AppLocalizations.of(context)!.menuCategory,
-          style: const TextStyle(fontSize: 13),
-        ),
-        const SizedBox(height: 8),
+        AppFieldLabel(label: l10n.menuCategory, isRequired: true),
         DropdownButtonFormField<String>(
           initialValue: _selectedCategoryId,
           hint: Text(
-            _isLoadingData
-                ? (AppLocalizations.of(context)!.loadingCategories)
-                : (AppLocalizations.of(context)!.selectMenuCategory),
-            style: const TextStyle( fontSize: 14),
+            _isLoadingData ? l10n.loadingCategories : l10n.selectMenuCategory,
+            style: TextStyle(
+              fontSize: 13.5,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           isExpanded: true,
-          dropdownColor: Theme.of(context).colorScheme.surface,
-          icon: const Icon(
+          dropdownColor: AppDialogStyles.dropdownColor(context),
+          icon: Icon(
             LucideIcons.chevronDown,
             size: 16,
-            
+            color: theme.colorScheme.onSurfaceVariant,
           ),
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
-            fontSize: 15,
+            color: theme.colorScheme.onSurface,
+            fontSize: 14,
           ),
           items: _categories.map((cat) {
             return DropdownMenuItem<String>(
@@ -704,29 +556,15 @@ class _AddProductInChatDialogState
                   enText: cat['name'],
                   arText: cat['nameAr'],
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             );
           }).toList(),
           onChanged: (v) => setState(() => _selectedCategoryId = v),
-          validator: (v) => v == null
-              ? AppLocalizations.of(context)!.pleaseSelectCategory
-              : null,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(
-              LucideIcons.list,
-              size: 18,
-              
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-              ),
-            ),
+          validator: (v) => v == null ? l10n.pleaseSelectCategory : null,
+          decoration: AppDialogStyles.inputDecoration(
+            context,
+            icon: LucideIcons.list,
           ),
         ),
       ],
@@ -741,27 +579,33 @@ class _AddProductInChatDialogState
     int maxLines = 1,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
-    TextAlign textAlign = TextAlign.start,
+    TextDirection? textDirection,
+    bool isRequired = false,
+    String? languageTag,
+    Color? languageTagColor,
   }) {
+    final theme = Theme.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 13),
+        AppFieldLabel(
+          label: label,
+          isRequired: isRequired,
+          languageTag: languageTag,
+          languageTagColor: languageTagColor,
         ),
-        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           maxLines: maxLines,
           keyboardType: keyboardType,
           validator: validator,
-          textAlign: textAlign,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: InputDecoration(
+          textDirection: textDirection,
+          style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 14),
+          decoration: AppDialogStyles.inputDecoration(
+            context,
             hintText: hint,
-            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
-            contentPadding: const EdgeInsets.all(16),
+            icon: icon,
+            isMultiline: maxLines > 1,
           ),
         ),
       ],
@@ -769,29 +613,34 @@ class _AddProductInChatDialogState
   }
 
   Widget _buildImagePicker() {
-    final hasImage = _imageFile != null;
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final hasImage =
+        _imageFile != null ||
+        (_existingImageUrl != null && _existingImageUrl!.trim().isNotEmpty);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Stack(
           children: [
-            GestureDetector(
+            InkWell(
               onTap: _pickImage,
+              borderRadius: BorderRadius.circular(14),
               child: Container(
                 height: 160,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
-                  borderRadius: BorderRadius.circular(20),
+                  color: AppDialogStyles.subtleSurfaceColor(context),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-                    width: 1,
+                    color: AppDialogStyles.borderColor(context),
+                    width: 1.2,
                   ),
                 ),
                 child: _imageFile != null
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(13),
                         child: _imageFileBytes != null
                             ? Image.memory(
                                 _imageFileBytes!,
@@ -807,53 +656,68 @@ class _AddProductInChatDialogState
                                     fit: BoxFit.cover,
                                   ),
                       )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
+                    : (_existingImageUrl != null &&
+                            _existingImageUrl!.trim().isNotEmpty)
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: Image.network(
+                              ImageUtils.formatImageUrl(_existingImageUrl!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Center(
+                                child: Icon(
+                                  LucideIcons.imageOff,
+                                  size: 32,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
                             ),
-                            child: const Icon(
-                              LucideIcons.image,
-                              color: AppColors.primary,
-                              size: 32,
-                            ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  LucideIcons.image,
+                                  color: AppColors.primary,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                l10n.uploadProductImage,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.optionalForChatOffers,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            AppLocalizations.of(context)!.uploadProductImage,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            AppLocalizations.of(context)!.optionalForChatOffers,
-                            style: TextStyle(
-                              
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
               ),
             ),
             if (hasImage)
               PositionedDirectional(
-                end: 12,
-                top: 12,
+                end: 10,
+                top: 10,
                 child: Row(
                   children: [
                     _buildImageActionButton(
                       icon: LucideIcons.camera,
                       onTap: _pickImage,
-                      tooltip:
-                          AppLocalizations.of(context)!.changeImage,
+                      tooltip: l10n.changeImage,
                     ),
                     const SizedBox(width: 8),
                     _buildImageActionButton(
@@ -862,11 +726,11 @@ class _AddProductInChatDialogState
                         setState(() {
                           _imageFile = null;
                           _imageFileBytes = null;
+                          _existingImageUrl = null;
                         });
                       },
                       color: AppColors.error,
-                      tooltip:
-                          AppLocalizations.of(context)!.removeImage,
+                      tooltip: l10n.removeImage,
                     ),
                   ],
                 ),
@@ -883,18 +747,21 @@ class _AddProductInChatDialogState
     Color? color,
     String? tooltip,
   }) {
-    return Material(
-      color: Colors.black.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
+    return Tooltip(
+      message: tooltip ?? '',
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          child: Icon(
-            icon,
-            color: color ?? Theme.of(context).colorScheme.onSurface,
-            size: 18,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            child: Icon(
+              icon,
+              color: color ?? Colors.white,
+              size: 18,
+            ),
           ),
         ),
       ),
@@ -909,23 +776,30 @@ class _AddProductInChatDialogState
     required IconData icon,
     Color? activeColor,
   }) {
+    final theme = Theme.of(context);
     return ListTile(
+      dense: true,
       leading: Icon(
         icon,
-        color: value ? (activeColor ?? AppColors.primary) : AppColors.textMuted,
-        size: 20,
+        color: value
+            ? (activeColor ?? AppColors.primary)
+            : theme.colorScheme.onSurfaceVariant,
+        size: 19,
       ),
       title: Text(
         title,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.onSurface,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.onSurface,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(fontSize: 12),
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontSize: 12,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
       ),
       trailing: Switch(
         value: value,
@@ -937,6 +811,7 @@ class _AddProductInChatDialogState
 
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _validationError = null);
       Navigator.pop(context, {
         'vendorId': widget.vendorId,
         'categoryId': _selectedCategoryId,
@@ -948,7 +823,9 @@ class _AddProductInChatDialogState
         'descriptionAr': _descriptionArController.text,
         'basePrice': double.tryParse(_priceController.text),
         'comparePrice': double.tryParse(_comparePriceController.text),
-        'sku': _skuController.text.trim().isEmpty ? null : _skuController.text.trim(),
+        'sku': _skuController.text.trim().isEmpty
+            ? null
+            : _skuController.text.trim(),
         'stock': double.tryParse(_stockController.text),
         'isActive': _isActive,
         'isFeatured': _isFeatured,
@@ -956,6 +833,10 @@ class _AddProductInChatDialogState
         'createPendingOrder': _createPendingOrder, // Returns toggle state
         'imageFile': _imageFile,
         'imageUrl': _existingImageUrl,
+      });
+    } else {
+      setState(() {
+        _validationError = AppLocalizations.of(context)!.pleaseFillRequiredFields;
       });
     }
   }

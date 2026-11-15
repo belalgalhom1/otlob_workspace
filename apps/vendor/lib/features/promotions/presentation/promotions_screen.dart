@@ -736,68 +736,57 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
     }
   }
 
-  void _confirmDelete(
+  Future<void> _confirmDelete(
     BuildContext context,
     dynamic item,
     AppLocalizations l10n,
-  ) {
+  ) async {
     final isOffer = item['_isOffer'] == true;
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(
-          isOffer ? l10n.deleteOffer : l10n.deletePromotion,
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        content: Text(
-          isOffer
-              ? l10n.deleteOfferConfirm
-              : l10n.deletePromotionConfirm(item['title'] ?? ''),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-              try {
-                if (isOffer) {
-                  await ref
-                      .read(adminOffersRepositoryProvider)
-                      .offersRemove(id: item['id'] ?? item['_id']);
-                } else {
-                  await ref
-                      .read(adminVendorsRepositoryProvider)
-                      .deletePromotion(item['id'] ?? item['_id']);
-                }
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isOffer ? l10n.offerDeleted : l10n.deletePromotion,
-                      ),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                  ref.read(promotionProvider.notifier).fetchPromotions();
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-          ).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e))));
-                }
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: isOffer ? l10n.deleteOffer : l10n.deletePromotion,
+      message: isOffer
+          ? l10n.deleteOfferConfirm
+          : l10n.deletePromotionConfirm(item['title'] ?? ''),
+      confirmLabel: l10n.delete,
+      cancelLabel: l10n.cancel,
+      icon: LucideIcons.trash2,
+      confirmIcon: LucideIcons.trash2,
+      isDestructive: true,
     );
+
+    if (confirmed != true || !mounted) return;
+    try {
+      if (isOffer) {
+        await ref
+            .read(adminOffersRepositoryProvider)
+            .offersRemove(id: item['id'] ?? item['_id']);
+      } else {
+        await ref
+            .read(adminVendorsRepositoryProvider)
+            .deletePromotion(item['id'] ?? item['_id']);
+      }
+      if (this.context.mounted) {
+        ScaffoldMessenger.of(this.context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isOffer ? l10n.offerDeleted : l10n.deletePromotion,
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        ref.read(promotionProvider.notifier).fetchPromotions();
+      }
+    } catch (e) {
+      if (this.context.mounted) {
+        ScaffoldMessenger.of(this.context).showSnackBar(
+          SnackBar(
+            content: Text(L10nErrorHelper.translate(this.context, e)),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   String _formatImageUrl(String? url) {

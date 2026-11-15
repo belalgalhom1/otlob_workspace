@@ -84,6 +84,10 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     final orderNumber = order['orderNumber']?.toString() ?? order['id']?.toString() ?? '';
     final status = (order['status']?.toString() ?? 'PENDING').toUpperCase();
     final statusColor = _getStatusColor(status);
+    final readableAmber =
+        isDark ? Colors.amber.shade300 : const Color(0xFFB45309);
+    final readablePrimaryText =
+        isDark ? AppColors.primary : const Color(0xFFB45309);
     final orderType = order['type']?.toString() ?? 'STANDARD';
 
     // Customer
@@ -150,342 +154,172 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
       pickupLat = (pickupLoc[1] as num?)?.toDouble();
     }
 
-    return Dialog(
-      backgroundColor: theme.colorScheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 720),
-        child: Column(
+    return AppDialog(
+      maxWidth: 640,
+      maxHeight: 760,
+      header: AppDialogHeader(
+        icon: LucideIcons.packageCheck,
+        title: '#$orderNumber',
+        subtitleWidget: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 16, 12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
+            AppBadgePill(
+              text: _translateStatus(status, isArabic),
+              accentColor: statusColor,
+            ),
+            Text(
+              '${isArabic ? "نوع الطلب: " : "Type: "}$orderType',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 12,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        onClose: () => Navigator.of(context).pop(),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Stage summary card
+          AppDialogSectionCard(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Icon(
+                  status == 'PICKED_UP'
+                      ? LucideIcons.truck
+                      : LucideIcons.store,
+                  size: 16,
+                  color: statusColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    status == 'PICKED_UP'
+                        ? (isArabic
+                            ? 'السائق في الطريق إلى العميل'
+                            : 'Driver is on the way to customer')
+                        : (isArabic
+                            ? 'السائق في طريقه للمتجر للاستلام'
+                            : 'Driver is heading to store for pickup'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: statusColor,
                     ),
-                    child: const Icon(LucideIcons.packageCheck, size: 20, color: AppColors.primary),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Pickup & Delivery route box
+          _buildRouteCard(
+            context: context,
+            isDark: isDark,
+            isArabic: isArabic,
+            vendorName: vendorName,
+            branchName: branchName,
+            pickupAddress: pickupAddress,
+            pickupLat: pickupLat,
+            pickupLng: pickupLng,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            deliveryAddress: deliveryAddress,
+            deliveryLat: deliveryLat,
+            deliveryLng: deliveryLng,
+            fulfillments: fulfillments,
+            isMultiVendor: isMultiVendor,
+          ),
+          const SizedBox(height: 16),
+
+          // Items list (Multi-Vendor breakdown or Single Store)
+          if (isMultiVendor && fulfillments.isNotEmpty) ...[
+            Text(
+              isArabic
+                  ? 'أصناف الطلب حسب الجهات (${fulfillments.length})'
+                  : 'Order Portions (${fulfillments.length})',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            for (var i = 0; i < fulfillments.length; i++) ...[
+              () {
+                final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
+                final fId = f['id']?.toString() ?? '';
+                final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
+                final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
+                final sName = isArabic
+                    ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? 'متجر')
+                    : (fVendor['storeName'] ?? fVendor['storeNameAr'] ?? 'Store');
+                final bName = isArabic ? (fBranch['nameAr'] ?? fBranch['name'] ?? '') : (fBranch['name'] ?? fBranch['nameAr'] ?? '');
+                final fStatus = f['status']?.toString() ?? 'PENDING';
+                final rawFItems = f['items'];
+                final portionItems = (rawFItems is List && rawFItems.isNotEmpty)
+                    ? rawFItems
+                    : items.where((it) => it is Map && it['fulfillmentId'] == fId).toList();
+
+                return AppDialogSectionCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
                           children: [
-                            Flexible(
+                            Container(
+                              width: 22,
+                              height: 22,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: readableAmber.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
                               child: Text(
-                                '#$orderNumber',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-                                overflow: TextOverflow.ellipsis,
+                                '${i + 1}',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: readableAmber),
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                              ),
+                            Expanded(
                               child: Text(
-                                _translateStatus(status, isArabic),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: statusColor,
-                                ),
+                                bName.toString().isNotEmpty ? '$sName ($bName)' : sName.toString(),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            _buildMiniPortionStatus(fStatus, isArabic),
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${isArabic ? "نوع الطلب: " : "Type: "}$orderType',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                      Divider(height: 1, color: AppDialogStyles.borderColor(context)),
+                      if (portionItems.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Text(
+                            isArabic ? 'لا توجد عناصر مسجلة لهذا المتجر' : 'No items listed for this store',
+                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(LucideIcons.x, size: 20),
-                    tooltip: isArabic ? 'إغلاق' : 'Close',
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Stage summary card
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                status == 'PICKED_UP'
-                                    ? LucideIcons.truck
-                                    : LucideIcons.store,
-                                size: 16,
-                                color: statusColor,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  status == 'PICKED_UP'
-                                      ? (isArabic
-                                          ? 'السائق في الطريق إلى العميل'
-                                          : 'Driver is on the way to customer')
-                                      : (isArabic
-                                          ? 'السائق في طريقه للمتجر للاستلام'
-                                          : 'Driver is heading to store for pickup'),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: statusColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Pickup & Delivery route box
-                    _buildRouteCard(
-                      context: context,
-                      isDark: isDark,
-                      isArabic: isArabic,
-                      vendorName: vendorName,
-                      branchName: branchName,
-                      pickupAddress: pickupAddress,
-                      pickupLat: pickupLat,
-                      pickupLng: pickupLng,
-                      customerName: customerName,
-                      customerPhone: customerPhone,
-                      deliveryAddress: deliveryAddress,
-                      deliveryLat: deliveryLat,
-                      deliveryLng: deliveryLng,
-                      fulfillments: fulfillments,
-                      isMultiVendor: isMultiVendor,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Items list (Multi-Vendor breakdown or Single Store)
-                    if (isMultiVendor && fulfillments.isNotEmpty) ...[
-                      Text(
-                        isArabic
-                            ? 'أصناف الطلب حسب الجهات (${fulfillments.length})'
-                            : 'Order Portions (${fulfillments.length})',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                      const SizedBox(height: 8),
-                      for (var i = 0; i < fulfillments.length; i++) ...[
-                        () {
-                          final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
-                          final fId = f['id']?.toString() ?? '';
-                          final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
-                          final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
-                          final sName = isArabic
-                              ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? 'متجر')
-                              : (fVendor['storeName'] ?? fVendor['storeNameAr'] ?? 'Store');
-                          final bName = isArabic ? (fBranch['nameAr'] ?? fBranch['name'] ?? '') : (fBranch['name'] ?? fBranch['nameAr'] ?? '');
-                          final fStatus = f['status']?.toString() ?? 'PENDING';
-                          final rawFItems = f['items'];
-                          final portionItems = (rawFItems is List && rawFItems.isNotEmpty)
-                              ? rawFItems
-                              : items.where((it) => it is Map && it['fulfillmentId'] == fId).toList();
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 22,
-                                        height: 22,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: Colors.amber.withValues(alpha: 0.15),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Text(
-                                          '${i + 1}',
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          bName.toString().isNotEmpty ? '$sName ($bName)' : sName.toString(),
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: _getStatusColor(fStatus).withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          _translateStatus(fStatus, isArabic),
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: _getStatusColor(fStatus),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Divider(height: 1),
-                                if (portionItems.isEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Text(
-                                      isArabic ? 'لا توجد عناصر مسجلة لهذا المتجر' : 'No items listed for this store',
-                                      style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                                    ),
-                                  )
-                                else
-                                  ListView.separated(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    itemCount: portionItems.length,
-                                    separatorBuilder: (_, _) => Divider(height: 1, color: theme.colorScheme.onSurface.withValues(alpha: 0.06)),
-                                    itemBuilder: (ctx, idx) {
-                                      final it = portionItems[idx];
-                                      final name = it['productName']?.toString() ?? it['name']?.toString() ?? it['product']?['name']?.toString() ?? (isArabic ? 'عنصر' : 'Item');
-                                      final variant = it['variantName']?.toString();
-                                      final unit = it['selectedUnit']?.toString();
-                                      final qty = it['quantity']?.toString() ?? '1';
-                                      final price = (it['unitPrice'] as num?)?.toDouble() ?? (it['price'] as num?)?.toDouble() ?? 0.0;
-                                      final totalPrice = (it['totalPrice'] as num?)?.toDouble() ?? (price * (int.tryParse(qty) ?? 1));
-
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 24,
-                                              height: 24,
-                                              alignment: Alignment.center,
-                                              decoration: BoxDecoration(
-                                                color: AppColors.primary.withValues(alpha: 0.15),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                qty,
-                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    name,
-                                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                                                    maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                  if ((variant != null && variant.isNotEmpty) || (unit != null && unit.isNotEmpty))
-                                                    Text(
-                                                      [if (variant != null && variant.isNotEmpty) variant, if (unit != null && unit.isNotEmpty) unit].join(' • '),
-                                                      style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Text(
-                                              '${totalPrice.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
-                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                              ],
-                            ),
-                          );
-                        }(),
-                      ],
-                      const SizedBox(height: 16),
-                    ] else if (items.isNotEmpty) ...[
-                      Text(
-                        isArabic ? 'عناصر الطلب' : 'Order Items',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                          ),
-                        ),
-                        child: ListView.separated(
+                        )
+                      else
+                        ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: items.length,
-                          separatorBuilder: (_, _) => Divider(
-                            height: 1,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-                          ),
+                          itemCount: portionItems.length,
+                          separatorBuilder: (_, _) => Divider(height: 1, color: AppDialogStyles.borderColor(context)),
                           itemBuilder: (ctx, idx) {
-                            final it = items[idx];
-                            final name = it['productName']?.toString() ??
-                                it['name']?.toString() ??
-                                it['product']?['name']?.toString() ??
-                                (isArabic ? 'عنصر' : 'Item');
+                            final it = portionItems[idx];
+                            final name = it['productName']?.toString() ?? it['name']?.toString() ?? it['product']?['name']?.toString() ?? (isArabic ? 'عنصر' : 'Item');
                             final variant = it['variantName']?.toString();
                             final unit = it['selectedUnit']?.toString();
                             final qty = it['quantity']?.toString() ?? '1';
-                            final price = (it['unitPrice'] as num?)?.toDouble() ??
-                                (it['price'] as num?)?.toDouble() ?? 0.0;
+                            final price = (it['unitPrice'] as num?)?.toDouble() ?? (it['price'] as num?)?.toDouble() ?? 0.0;
                             final totalPrice = (it['totalPrice'] as num?)?.toDouble() ?? (price * (int.tryParse(qty) ?? 1));
 
                             return Padding(
@@ -497,16 +331,12 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                                     height: 24,
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(alpha: 0.15),
+                                      color: AppColors.primary.withValues(alpha: 0.16),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       qty,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primary,
-                                      ),
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: readablePrimaryText),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -523,7 +353,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                                         if ((variant != null && variant.isNotEmpty) || (unit != null && unit.isNotEmpty))
                                           Text(
                                             [if (variant != null && variant.isNotEmpty) variant, if (unit != null && unit.isNotEmpty) unit].join(' • '),
-                                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
                                           ),
                                       ],
                                     ),
@@ -538,160 +368,209 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                             );
                           },
                         ),
-                      ),
-                      const SizedBox(height: 16),
                     ],
+                  ),
+                );
+              }(),
+            ],
+            const SizedBox(height: 16),
+          ] else if (items.isNotEmpty) ...[
+            Text(
+              isArabic ? 'عناصر الطلب' : 'Order Items',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            AppDialogSectionCard(
+              padding: EdgeInsets.zero,
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: items.length,
+                separatorBuilder: (_, _) => Divider(
+                  height: 1,
+                  color: AppDialogStyles.borderColor(context),
+                ),
+                itemBuilder: (ctx, idx) {
+                  final it = items[idx];
+                  final name = it['productName']?.toString() ??
+                      it['name']?.toString() ??
+                      it['product']?['name']?.toString() ??
+                      (isArabic ? 'عنصر' : 'Item');
+                  final variant = it['variantName']?.toString();
+                  final unit = it['selectedUnit']?.toString();
+                  final qty = it['quantity']?.toString() ?? '1';
+                  final price = (it['unitPrice'] as num?)?.toDouble() ??
+                      (it['price'] as num?)?.toDouble() ?? 0.0;
+                  final totalPrice = (it['totalPrice'] as num?)?.toDouble() ?? (price * (int.tryParse(qty) ?? 1));
 
-                    // Financial summary
-                    _buildFinancialCard(
-                      context: context,
-                      isDark: isDark,
-                      isArabic: isArabic,
-                      subtotal: subtotal,
-                      deliveryFee: deliveryFee,
-                      grandTotal: grandTotal,
-                      paymentMethod: paymentMethod,
-                      paymentStatus: paymentStatus,
-                    ),
-
-                    if (specialRequest != null && specialRequest.trim().isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(LucideIcons.messageSquare, size: 16, color: Colors.amber),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    isArabic ? 'ملاحظات العميل:' : 'Customer Notes:',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: Colors.amber,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    specialRequest,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    // Timestamps
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 6,
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
                       children: [
-                        if (order['createdAt'] != null)
-                          _buildTimestampChip(
-                            icon: LucideIcons.clock,
-                            label: '${isArabic ? "تاريخ الطلب: " : "Created: "}${_formatDate(order['createdAt'])}',
-                            theme: theme,
+                        Container(
+                          width: 24,
+                          height: 24,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                        if (order['pickedUpAt'] != null)
-                          _buildTimestampChip(
-                            icon: LucideIcons.checkCheck,
-                            label: '${isArabic ? "الاستلام: " : "Picked up: "}${_formatDate(order['pickedUpAt'])}',
-                            theme: theme,
+                          child: Text(
+                            qty,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: readablePrimaryText,
+                            ),
                           ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if ((variant != null && variant.isNotEmpty) || (unit != null && unit.isNotEmpty))
+                                Text(
+                                  [if (variant != null && variant.isNotEmpty) variant, if (unit != null && unit.isNotEmpty) unit].join(' • '),
+                                  style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '${totalPrice.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
+            const SizedBox(height: 16),
+          ],
 
-            // Footer
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16),
+          // Financial summary
+          _buildFinancialCard(
+            context: context,
+            isDark: isDark,
+            isArabic: isArabic,
+            subtotal: subtotal,
+            deliveryFee: deliveryFee,
+            grandTotal: grandTotal,
+            paymentMethod: paymentMethod,
+            paymentStatus: paymentStatus,
+          ),
+
+          if (specialRequest != null && specialRequest.trim().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            AppDialogSectionCard(
+              padding: const EdgeInsets.all(12),
+              backgroundColor: readableAmber.withValues(alpha: 0.08),
+              borderColor: readableAmber.withValues(alpha: 0.25),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  Icon(LucideIcons.messageSquare, size: 16, color: readableAmber),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isArabic ? 'ملاحظات العميل:' : 'Customer Notes:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: readableAmber,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          specialRequest,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
                     ),
-                    child: Text(isArabic ? 'إغلاق' : 'Close'),
                   ),
                 ],
               ),
             ),
           ],
-        ),
+
+          // Timestamps
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              if (order['createdAt'] != null)
+                _buildTimestampChip(
+                  icon: LucideIcons.clock,
+                  label: '${isArabic ? "تاريخ الطلب: " : "Created: "}${_formatDate(order['createdAt'])}',
+                  theme: theme,
+                ),
+              if (order['pickedUpAt'] != null)
+                _buildTimestampChip(
+                  icon: LucideIcons.checkCheck,
+                  label: '${isArabic ? "الاستلام: " : "Picked up: "}${_formatDate(order['pickedUpAt'])}',
+                  theme: theme,
+                ),
+            ],
+          ),
+        ],
+      ),
+      footer: AppDialogFooter(
+        cancelLabel: isArabic ? 'إغلاق' : 'Close',
+        onCancel: () => Navigator.of(context).pop(),
       ),
     );
   }
 
   Widget _buildMiniPortionStatus(String status, bool isArabic) {
     Color fg;
-    Color bg;
     String label;
     switch (status) {
       case 'PENDING':
         fg = AppColors.warning;
-        bg = AppColors.warning.withValues(alpha: 0.12);
         label = isArabic ? 'بانتظار القرار' : 'Pending';
         break;
       case 'ACCEPTED':
         fg = AppColors.info;
-        bg = AppColors.info.withValues(alpha: 0.12);
         label = isArabic ? 'مقبول' : 'Accepted';
         break;
       case 'PREPARING':
         fg = Colors.purple;
-        bg = Colors.purple.withValues(alpha: 0.12);
         label = isArabic ? 'قيد التحضير' : 'Preparing';
         break;
       case 'READY_FOR_PICKUP':
         fg = AppColors.success;
-        bg = AppColors.success.withValues(alpha: 0.12);
         label = isArabic ? 'جاهز للاستلام' : 'Ready';
         break;
       case 'PICKED_UP':
         fg = Colors.teal;
-        bg = Colors.teal.withValues(alpha: 0.12);
         label = isArabic ? 'تم الاستلام' : 'Picked Up';
         break;
       case 'DELIVERED':
         fg = AppColors.success;
-        bg = AppColors.success.withValues(alpha: 0.15);
         label = isArabic ? 'تم التوصيل' : 'Delivered';
         break;
       case 'REJECTED':
         fg = AppColors.error;
-        bg = AppColors.error.withValues(alpha: 0.12);
         label = isArabic ? 'مرفوض' : 'Rejected';
         break;
       default:
         fg = Colors.grey;
-        bg = Colors.grey.withValues(alpha: 0.12);
         label = status;
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
-      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: fg)),
-    );
+    return AppBadgePill(text: label, accentColor: fg);
   }
 
   Widget _buildRouteCard({
@@ -712,14 +591,13 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     bool isMultiVendor = false,
   }) {
     final theme = Theme.of(context);
+    final readableAmber =
+        isDark ? Colors.amber.shade300 : const Color(0xFFB45309);
+    final readablePrimaryText =
+        isDark ? AppColors.primary : const Color(0xFFB45309);
 
-    return Container(
+    return AppDialogSectionCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
-      ),
       child: Column(
         children: [
           // Store / Pickup
@@ -747,12 +625,12 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                         height: 22,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.15),
+                          color: readableAmber.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: Text(
                           '${i + 1}',
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber),
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: readableAmber),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -764,7 +642,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                               isArabic ? 'محطة استلام ${i + 1}' : 'Pickup Stop ${i + 1}',
                               style: TextStyle(
                                 fontSize: 10,
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                color: theme.colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -777,20 +655,12 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: isContracted ? AppColors.primary.withValues(alpha: 0.1) : AppColors.warning.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    isContracted ? (isArabic ? 'شريك' : 'Contracted') : (isArabic ? 'دفع بالاستلام' : 'Cash'),
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: isContracted ? AppColors.primary : AppColors.warning,
-                                    ),
-                                  ),
+                                AppBadgePill(
+                                  text: isContracted
+                                      ? (isArabic ? 'شريك' : 'Contracted')
+                                      : (isArabic ? 'دفع بالاستلام' : 'Cash'),
+                                  accentColor:
+                                      isContracted ? readablePrimaryText : AppColors.warning,
                                 ),
                               ],
                             ),
@@ -799,7 +669,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                                 fAddr,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                           ],
@@ -818,10 +688,10 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.15),
+                    color: readableAmber.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(LucideIcons.store, size: 14, color: Colors.amber),
+                  child: Icon(LucideIcons.store, size: 14, color: readableAmber),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -832,7 +702,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                         isArabic ? 'موقع الاستلام (المتجر)' : 'Pickup Location (Store)',
                         style: TextStyle(
                           fontSize: 11,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -845,7 +715,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                           pickupAddress,
                           style: TextStyle(
                             fontSize: 12,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                     ],
@@ -854,7 +724,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                 if (pickupLat != null && pickupLng != null)
                   IconButton(
                     onPressed: () => _openInMaps(pickupLat, pickupLng, label: vendorName),
-                    icon: const Icon(LucideIcons.store, size: 16, color: Colors.amber),
+                    icon: Icon(LucideIcons.store, size: 16, color: readableAmber),
                     tooltip: isArabic ? 'فتح موقع المتجر في خرائط Google' : 'Open Store in Google Maps',
                   ),
               ],
@@ -893,7 +763,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                       isArabic ? 'موقع التسليم (العميل)' : 'Delivery Location (Customer)',
                       style: TextStyle(
                         fontSize: 11,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -915,13 +785,13 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(LucideIcons.phone, size: 12, color: AppColors.primary),
+                                  Icon(LucideIcons.phone, size: 12, color: readablePrimaryText),
                                   const SizedBox(width: 3),
                                   Text(
                                     isArabic ? 'اتصال' : 'Call',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
-                                      color: AppColors.primary,
+                                      color: readablePrimaryText,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -936,7 +806,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                       deliveryAddress,
                       style: TextStyle(
                         fontSize: 12,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -966,14 +836,11 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     required String paymentStatus,
   }) {
     final theme = Theme.of(context);
+    final readablePrimaryText =
+        isDark ? AppColors.primary : const Color(0xFFB45309);
 
-    return Container(
+    return AppDialogSectionCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
-      ),
       child: Column(
         children: [
           Row(
@@ -983,7 +850,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                 isArabic ? 'المجموع الفرعي:' : 'Subtotal:',
                 style: TextStyle(
                   fontSize: 12,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               Text(
@@ -1000,7 +867,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                 isArabic ? 'رسوم التوصيل:' : 'Delivery Fee:',
                 style: TextStyle(
                   fontSize: 12,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               Text(
@@ -1019,10 +886,10 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
               ),
               Text(
                 '${grandTotal.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+                  color: readablePrimaryText,
                 ),
               ),
             ],
@@ -1035,28 +902,14 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                 '${isArabic ? "طريقة الدفع: " : "Payment: "}$paymentMethod',
                 style: TextStyle(
                   fontSize: 11,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: (paymentStatus.toUpperCase() == 'PAID'
-                          ? AppColors.success
-                          : AppColors.warning)
-                      .withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  paymentStatus,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: paymentStatus.toUpperCase() == 'PAID'
-                        ? AppColors.success
-                        : AppColors.warning,
-                  ),
-                ),
+              AppBadgePill(
+                text: paymentStatus,
+                accentColor: paymentStatus.toUpperCase() == 'PAID'
+                    ? AppColors.success
+                    : AppColors.warning,
               ),
             ],
           ),

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:dio/dio.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:ui_kit/ui_kit.dart'
+    show AppDialog, AppDialogHeader, AppDialogStyles;
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -305,52 +308,107 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   void _showSuccess(AppStrings s, String orderId) {
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          SizedBox(
-            height: 150,
-            width: 150,
-            child: Lottie.network(
-              'https://assets9.lottiefiles.com/packages/lf20_jbrw3hcz.json',
-              repeat: false,
-              errorBuilder: (c, e, st) =>
-                  const Icon(Icons.check_circle, size: 80, color: Colors.green),
+      builder: (ctx) => AppDialog(
+        maxWidth: 440,
+        canPop: false,
+        showDividers: false,
+        header: AppDialogHeader(
+          icon: LucideIcons.checkCircle2,
+          accentColor: AppColors.success,
+          title: s.orderSuccess,
+          showCloseButton: false,
+        ),
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 140,
+              width: 140,
+              child: Lottie.network(
+                'https://assets9.lottiefiles.com/packages/lf20_jbrw3hcz.json',
+                repeat: false,
+                errorBuilder: (c, e, st) => Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    LucideIcons.checkCircle2,
+                    size: 68,
+                    color: AppColors.success,
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(s.orderSuccess,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(s.orderSuccessSub,
+            const SizedBox(height: 12),
+            Text(
+              s.orderSuccessSub,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 13)),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                context.pop();
-                context.go('/home');
-                context.push('/order-tracking/$orderId');
-              },
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-              child: Text(s.goToOrders, style: const TextStyle(color: Colors.white)),
+              style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    fontSize: 13.5,
+                    height: 1.5,
+                  ),
             ),
+          ],
+        ),
+        footer: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  context.go('/home');
+                  context.push('/order-tracking/$orderId');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppDialogStyles.foregroundFor(
+                    AppColors.primary,
+                  ),
+                  elevation: 0,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(LucideIcons.navigation, size: 17),
+                label: Text(
+                  s.goToOrders,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  context.go('/home');
+                },
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 46),
+                  foregroundColor: Theme.of(ctx).colorScheme.onSurface,
+                  side: BorderSide(
+                    color: AppDialogStyles.borderColor(ctx),
+                    width: 1.2,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  s.navHome,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () {
-              context.pop();
-              context.go('/home');
-            },
-            child: Text(s.navHome),
-          ),
-        ]),
+        ),
       ),
     );
   }
