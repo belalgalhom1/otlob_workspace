@@ -21,9 +21,7 @@ concurrency:
 
 jobs:
 
-  # ==========================================
-  # 1. Detect changed apps
-  # ==========================================
+
   detect-changes:
     name: Detect Changed Apps
     runs-on: ubuntu-latest
@@ -78,7 +76,6 @@ jobs:
               - '.metadata'
               - '.github/workflows/**'
 
-      # Check existing release and identify missing APKs.
       - name: Check existing release assets
         id: release-assets
         if: github.event_name == 'push'
@@ -191,9 +188,7 @@ jobs:
             echo "No apps need rebuilding."
           fi
 
-  # ==========================================
-  # 2. Build changed apps
-  # ==========================================
+
   build-android-apps:
     name: ${{ matrix.app_job_name }}
     needs: detect-changes
@@ -370,9 +365,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # ==========================================
-  # 3. Update or recreate current release
-  # ==========================================
+
   release:
     name: Update Current APK Release
 
@@ -449,7 +442,6 @@ jobs:
 
           } > release-notes.md
 
-      # Delete the release only when ALL THREE APPS changed.
       - name: Delete existing release
         if: needs.detect-changes.outputs.all_apps_changed == 'true'
         env:
@@ -472,7 +464,6 @@ jobs:
             echo "No existing release to delete."
           fi
 
-      # Create a new release or update the existing one.
       - name: Create new release or update existing release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
