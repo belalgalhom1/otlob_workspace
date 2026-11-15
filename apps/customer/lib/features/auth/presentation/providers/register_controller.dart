@@ -52,7 +52,7 @@ class RegisterController extends _$RegisterController {
       return true;
     } catch (e, st) {
       final errorMessage = ApiErrorMapper.fromError(e);
-      state = AsyncError(ApiErrorMapper.fromError(errorMessage), st);
+      state = AsyncError(errorMessage, st);
       return false;
     }
   }

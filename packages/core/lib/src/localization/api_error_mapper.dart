@@ -1,5 +1,7 @@
+import 'dart:async' show TimeoutException;
 import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter/widgets.dart';
 
 /// Parsed view of a backend error payload.
@@ -64,14 +66,60 @@ class ApiErrorMapper {
       return 'common_error_server_error';
     }
 
+    if (error is TimeoutException) {
+      return 'common_error_server_error';
+    }
+
+    if (error is PlatformException) {
+      final mapped = _mapPlatformException(error);
+      if (mapped != null) return mapped;
+    }
+
     final errorString = error.toString().replaceFirst('Exception: ', '').trim();
     if (errorString.isEmpty) {
       return 'common_error_unknown';
     }
 
-    return _looksLikeKey(errorString)
-        ? _normalizeKey(errorString)
-        : 'common_error_unknown';
+    if (_looksLikeKey(errorString)) {
+      return _normalizeKey(errorString);
+    }
+
+    debugPrint('ApiErrorMapper unmapped error (${error.runtimeType}): $error');
+    return 'common_error_unknown';
+  }
+
+  static String? _mapPlatformException(PlatformException error) {
+    final code = error.code.toLowerCase();
+    final combined = '$code ${error.message ?? ''} ${error.details ?? ''}'.toLowerCase();
+
+    if (combined.contains('-34018') ||
+        combined.contains('-25299') ||
+        combined.contains('unexpected security result code') ||
+        combined.contains('keychain') ||
+        combined.contains('entitlement')) {
+      debugPrint(
+        'ApiErrorMapper Keychain PlatformException: '
+        'code=${error.code}, message=${error.message}, details=${error.details}',
+      );
+      return 'auth_error_secure_storage_unavailable';
+    }
+
+    if (code.startsWith('google_sign_in')) {
+      debugPrint(
+        'ApiErrorMapper GoogleSignIn PlatformException: '
+        'code=${error.code}, message=${error.message}, details=${error.details}',
+      );
+      if (combined.contains('gidclientid') ||
+          combined.contains('client_id') ||
+          combined.contains('clientid') ||
+          combined.contains('active configuration') ||
+          combined.contains('url scheme')) {
+        return 'auth_error_google_not_configured';
+      }
+      return 'auth_error_google_sign_in_failed';
+    }
+
+    return null;
   }
 
   /// Translates a backend error key, [DioException], or [Exception] using
@@ -170,7 +218,17 @@ class ApiErrorMapper {
 
   static _BackendError _extract(dynamic error) {
     if (error is! DioException) {
-      return _BackendError(message: error?.toString());
+      if (error is TimeoutException) {
+        return const _BackendError(message: 'common.error.server_error');
+      }
+      if (error is PlatformException) {
+        final mapped = _mapPlatformException(error);
+        if (mapped != null) {
+          return _BackendError(message: mapped);
+        }
+      }
+      final raw = error?.toString().replaceFirst('Exception: ', '').trim();
+      return _BackendError(message: (raw == null || raw.isEmpty) ? null : raw);
     }
 
     final data = error.response?.data;

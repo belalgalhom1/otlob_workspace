@@ -38,7 +38,7 @@ class LoginController extends _$LoginController {
         return false;
       }
       final errorMessage = ApiErrorMapper.fromError(e);
-      state = AsyncError(ApiErrorMapper.fromError(errorMessage), st);
+      state = AsyncError(errorMessage, st);
       return false;
     }
   }

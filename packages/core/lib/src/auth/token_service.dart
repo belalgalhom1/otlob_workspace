@@ -1,8 +1,67 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:api/api.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
+
+/// Shared helper for resilient [FlutterSecureStorage] reads and writes on iOS/macOS Keychain.
+class SecureStorageHelper {
+  const SecureStorageHelper._();
+
+  static bool _isDuplicateItemError(PlatformException e) {
+    final text = '${e.code} ${e.message ?? ''} ${e.details ?? ''}'.toLowerCase();
+    return text.contains('-25299') ||
+        text.contains('duplicate') ||
+        text.contains('already exists');
+  }
+
+  /// Writes [value] for [key], recovering from Keychain attribute conflicts (-25299)
+  /// and surfacing a canonical error key if Keychain access is unavailable (-34018).
+  static Future<void> writeSafely(
+    FlutterSecureStorage storage,
+    String key,
+    String value,
+  ) async {
+    try {
+      await storage.write(key: key, value: value);
+    } on PlatformException catch (e) {
+      debugPrint(
+        'SecureStorageHelper.writeSafely error for "$key": '
+        'code=${e.code}, message=${e.message}, details=${e.details}',
+      );
+      if (_isDuplicateItemError(e)) {
+        try {
+          await storage.delete(key: key);
+          await storage.write(key: key, value: value);
+          return;
+        } on PlatformException catch (retryError) {
+          debugPrint(
+            'SecureStorageHelper.writeSafely retry failed for "$key": '
+            'code=${retryError.code}, message=${retryError.message}',
+          );
+        }
+      }
+      throw Exception('auth.error.secure_storage_unavailable');
+    }
+  }
+
+  /// Reads [key] from [storage], returning `null` if Keychain access fails cleanly.
+  static Future<String?> readSafely(
+    FlutterSecureStorage storage,
+    String key,
+  ) async {
+    try {
+      return await storage.read(key: key);
+    } on PlatformException catch (e) {
+      debugPrint(
+        'SecureStorageHelper.readSafely error for "$key": '
+        'code=${e.code}, message=${e.message}, details=${e.details}',
+      );
+      return null;
+    }
+  }
+}
 
 class TokenService {
   final Api _apiClient;
@@ -19,16 +78,30 @@ class TokenService {
     List<dynamic>? vendorMemberships,
     List<dynamic>? permissions,
   }) async {
-    await _storage.write(key: 'access_token', value: accessToken);
-    await _storage.write(key: 'refresh_token', value: refreshToken);
-    if (userId != null) await _storage.write(key: 'user_id', value: userId);
-    if (role != null) await _storage.write(key: 'user_role', value: role);
-    if (name != null) await _storage.write(key: 'user_name', value: name);
+    await SecureStorageHelper.writeSafely(_storage, 'access_token', accessToken);
+    await SecureStorageHelper.writeSafely(_storage, 'refresh_token', refreshToken);
+    if (userId != null) {
+      await SecureStorageHelper.writeSafely(_storage, 'user_id', userId);
+    }
+    if (role != null) {
+      await SecureStorageHelper.writeSafely(_storage, 'user_role', role);
+    }
+    if (name != null) {
+      await SecureStorageHelper.writeSafely(_storage, 'user_name', name);
+    }
     if (vendorMemberships != null) {
-      await _storage.write(key: 'vendor_memberships', value: jsonEncode(vendorMemberships));
+      await SecureStorageHelper.writeSafely(
+        _storage,
+        'vendor_memberships',
+        jsonEncode(vendorMemberships),
+      );
     }
     if (permissions != null) {
-      await _storage.write(key: 'user_permissions', value: jsonEncode(permissions));
+      await SecureStorageHelper.writeSafely(
+        _storage,
+        'user_permissions',
+        jsonEncode(permissions),
+      );
     }
   }
 
@@ -52,24 +125,24 @@ class TokenService {
   }
 
   Future<bool> hasSession() async {
-    final token = await _storage.read(key: 'access_token');
+    final token = await SecureStorageHelper.readSafely(_storage, 'access_token');
     return token != null;
   }
 
   Future<String?> getUserId() async {
-    return await _storage.read(key: 'user_id');
+    return SecureStorageHelper.readSafely(_storage, 'user_id');
   }
 
   Future<String?> getUserRole() async {
-    return await _storage.read(key: 'user_role');
+    return SecureStorageHelper.readSafely(_storage, 'user_role');
   }
 
   Future<String?> getUserName() async {
-    return await _storage.read(key: 'user_name');
+    return SecureStorageHelper.readSafely(_storage, 'user_name');
   }
 
   Future<List<dynamic>> getVendorMemberships() async {
-    final str = await _storage.read(key: 'vendor_memberships');
+    final str = await SecureStorageHelper.readSafely(_storage, 'vendor_memberships');
     if (str != null) {
       try {
         return jsonDecode(str) as List<dynamic>;
@@ -79,7 +152,7 @@ class TokenService {
   }
 
   Future<List<String>> getUserPermissions() async {
-    final str = await _storage.read(key: 'user_permissions');
+    final str = await SecureStorageHelper.readSafely(_storage, 'user_permissions');
     if (str != null) {
       try {
         final list = jsonDecode(str) as List<dynamic>;
@@ -90,14 +163,14 @@ class TokenService {
   }
 
   Future<bool> isTokenExpired() async {
-    final token = await _storage.read(key: 'access_token');
+    final token = await SecureStorageHelper.readSafely(_storage, 'access_token');
     if (token == null) return true;
     return JwtDecoder.isExpired(token);
   }
 
   Future<String> refreshToken() async {
     try {
-      final refreshToken = await _storage.read(key: 'refresh_token');
+      final refreshToken = await SecureStorageHelper.readSafely(_storage, 'refresh_token');
       if (refreshToken == null) throw 'NO_REFRESH_TOKEN';
 
       final response = await _apiClient
@@ -132,20 +205,29 @@ class TokenService {
           throw 'REFRESH_FAILED';
         }
 
-        await _storage.write(key: 'access_token', value: newAccessToken);
-        await _storage.write(key: 'refresh_token', value: newRefreshToken);
+        await SecureStorageHelper.writeSafely(_storage, 'access_token', newAccessToken);
+        await SecureStorageHelper.writeSafely(_storage, 'refresh_token', newRefreshToken);
 
         if (user != null) {
           if (user['role'] != null) {
-            await _storage.write(key: 'user_role', value: user['role'].toString());
+            await SecureStorageHelper.writeSafely(
+              _storage,
+              'user_role',
+              user['role'].toString(),
+            );
           }
           if (user['name'] != null) {
-            await _storage.write(key: 'user_name', value: user['name'].toString());
+            await SecureStorageHelper.writeSafely(
+              _storage,
+              'user_name',
+              user['name'].toString(),
+            );
           }
           if (user['permissions'] != null) {
-            await _storage.write(
-              key: 'user_permissions',
-              value: jsonEncode(user['permissions']),
+            await SecureStorageHelper.writeSafely(
+              _storage,
+              'user_permissions',
+              jsonEncode(user['permissions']),
             );
           }
         }

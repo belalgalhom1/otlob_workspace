@@ -30,13 +30,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _loadSavedProfile() async {
-    final profile = await ref.read(tokenServiceProvider).getSavedProfile();
-    if (profile != null) {
+    try {
+      final profile = await ref.read(tokenServiceProvider).getSavedProfile();
+      if (!mounted || profile == null) return;
       setState(() {
         _savedProfile = profile;
         _emailController.text = profile['email'] ?? '';
       });
-    }
+    } catch (_) {}
   }
 
   @override
@@ -60,13 +61,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       
       if (result && context.mounted) {
         if (_saveInfo) {
-          // If login was successful, save info
-          await ref.read(tokenServiceProvider).saveSavedProfile(
-            email: email,
-            password: password,
-            name: email.split('@')[0],
-            role: 'CUSTOMER',
-          );
+          // If login was successful, save info without letting optional Keychain cache errors block navigation.
+          try {
+            await ref.read(tokenServiceProvider).saveSavedProfile(
+              email: email,
+              password: password,
+              name: email.split('@')[0],
+              role: 'CUSTOMER',
+            );
+          } catch (_) {}
         }
 
         if (!mounted) return;
@@ -343,6 +346,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildSavedProfileCard(AppStrings s) {
+    final savedName = (_savedProfile?['name'] ?? '').trim();
+    final initial = savedName.isNotEmpty ? savedName[0].toUpperCase() : 'U';
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -363,7 +368,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             radius: 24,
             backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
             child: Text(
-              _savedProfile!['name']?[0].toUpperCase() ?? 'U',
+              initial,
               style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
             ),
           ),

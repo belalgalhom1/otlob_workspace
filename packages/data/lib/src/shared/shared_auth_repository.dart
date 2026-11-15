@@ -97,7 +97,11 @@ class SharedAuthRepository {
     } else {
       // Fallback to parsed if JsonObject is not a Map
       final parsed = ResponseParser.parse(response);
-      payload = (parsed is Map && parsed.containsKey('data') && parsed['data'] != null) ? parsed['data'] : (parsed is Map ? parsed : {});
+      if (parsed is Map && parsed['data'] is Map) {
+        payload = Map<String, dynamic>.from(parsed['data'] as Map);
+      } else if (parsed is Map) {
+        payload = Map<String, dynamic>.from(parsed);
+      }
     }
     
     if (payload.isNotEmpty && payload['access_token'] != null) {
@@ -152,9 +156,11 @@ class SharedAuthRepository {
       payload = Map<String, dynamic>.from(rawData.data!.value as Map);
     } else {
       final parsed = ResponseParser.parse(response);
-      payload = (parsed is Map && parsed.containsKey('data') && parsed['data'] != null)
-          ? parsed['data']
-          : (parsed is Map ? parsed : {});
+      if (parsed is Map && parsed['data'] is Map) {
+        payload = Map<String, dynamic>.from(parsed['data'] as Map);
+      } else if (parsed is Map) {
+        payload = Map<String, dynamic>.from(parsed);
+      }
     }
 
     if (payload.isNotEmpty && payload['access_token'] != null) {

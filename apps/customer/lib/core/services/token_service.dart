@@ -1,3 +1,4 @@
+import 'package:core/core.dart' show SecureStorageHelper;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -30,27 +31,27 @@ class TokenService {
   static const _savedRoleKey = 'saved_role';
 
   Future<String?> getAccessToken() async {
-    return await _storage.read(key: _accessTokenKey);
+    return SecureStorageHelper.readSafely(_storage, _accessTokenKey);
   }
 
   Future<String?> getUserEmail() async {
-    return await _storage.read(key: _userEmailKey);
+    return SecureStorageHelper.readSafely(_storage, _userEmailKey);
   }
 
   Future<String?> getUserName() async {
-    return await _storage.read(key: _userNameKey);
+    return SecureStorageHelper.readSafely(_storage, _userNameKey);
   }
 
   Future<String?> getUserPhone() async {
-    return await _storage.read(key: _userPhoneKey);
+    return SecureStorageHelper.readSafely(_storage, _userPhoneKey);
   }
 
   Future<String?> getUserAvatar() async {
-    return await _storage.read(key: _userAvatarKey);
+    return SecureStorageHelper.readSafely(_storage, _userAvatarKey);
   }
 
   Future<String?> getRefreshToken() async {
-    return await _storage.read(key: _refreshTokenKey);
+    return SecureStorageHelper.readSafely(_storage, _refreshTokenKey);
   }
 
   Future<Map<String, String?>> getTokens() async {
@@ -64,27 +65,27 @@ class TokenService {
   }
 
   Future<void> saveAccessToken(String token) async {
-    await _storage.write(key: _accessTokenKey, value: token);
+    await SecureStorageHelper.writeSafely(_storage, _accessTokenKey, token);
   }
 
   Future<void> saveUserEmail(String email) async {
-    await _storage.write(key: _userEmailKey, value: email);
+    await SecureStorageHelper.writeSafely(_storage, _userEmailKey, email);
   }
 
   Future<void> saveUserName(String name) async {
-    await _storage.write(key: _userNameKey, value: name);
+    await SecureStorageHelper.writeSafely(_storage, _userNameKey, name);
   }
 
   Future<void> saveUserPhone(String phone) async {
-    await _storage.write(key: _userPhoneKey, value: phone);
+    await SecureStorageHelper.writeSafely(_storage, _userPhoneKey, phone);
   }
 
   Future<void> saveUserAvatar(String avatar) async {
-    await _storage.write(key: _userAvatarKey, value: avatar);
+    await SecureStorageHelper.writeSafely(_storage, _userAvatarKey, avatar);
   }
 
   Future<void> saveRefreshToken(String token) async {
-    await _storage.write(key: _refreshTokenKey, value: token);
+    await SecureStorageHelper.writeSafely(_storage, _refreshTokenKey, token);
   }
 
   Future<void> saveSavedProfile({
@@ -93,17 +94,17 @@ class TokenService {
     required String name,
     required String role,
   }) async {
-    await _storage.write(key: _savedEmailKey, value: email);
-    await _storage.write(key: _savedPasswordKey, value: password);
-    await _storage.write(key: _savedNameKey, value: name);
-    await _storage.write(key: _savedRoleKey, value: role);
+    await SecureStorageHelper.writeSafely(_storage, _savedEmailKey, email);
+    await SecureStorageHelper.writeSafely(_storage, _savedPasswordKey, password);
+    await SecureStorageHelper.writeSafely(_storage, _savedNameKey, name);
+    await SecureStorageHelper.writeSafely(_storage, _savedRoleKey, role);
   }
 
   Future<Map<String, String>?> getSavedProfile() async {
-    final email = await _storage.read(key: _savedEmailKey);
-    final password = await _storage.read(key: _savedPasswordKey);
-    final name = await _storage.read(key: _savedNameKey);
-    final role = await _storage.read(key: _savedRoleKey);
+    final email = await SecureStorageHelper.readSafely(_storage, _savedEmailKey);
+    final password = await SecureStorageHelper.readSafely(_storage, _savedPasswordKey);
+    final name = await SecureStorageHelper.readSafely(_storage, _savedNameKey);
+    final role = await SecureStorageHelper.readSafely(_storage, _savedRoleKey);
 
     if (email != null) {
       return {
