@@ -19,6 +19,7 @@ import 'dart:math' as math;
 import '../../../../core/services/location_service.dart';
 import '../providers/orders_provider.dart';
 import 'package:data/providers.dart';
+import '../widgets/order_tracking_sheet.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 
 class _TrackingLifecycleObserver with WidgetsBindingObserver {
@@ -251,6 +252,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   LatLng? _pendingDriverLocation;
   double? _pendingDriverHeading;
   XFile? _receiptFile;
+  double _sheetHeightPx = 0.0;
 
   Future<void> _callDriver(BuildContext context, String phone, AppStrings s) async {
     await ExternalActionLauncher.callPhone(phone, context: context);
@@ -843,44 +845,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     }
   }
 
-  String _getDisplayStatus(String rawStatus, bool isAr) {
-    switch (rawStatus) {
-      case 'PENDING':
-        return isAr ? 'بإنتظار المطعم' : 'Pending Vendor';
-      case 'LOOKING_FOR_DRIVER':
-        return isAr ? 'جاري البحث عن كابتن...' : 'Looking for Driver...';
-      case 'ACCEPTED':
-        return isAr ? 'تم القبول' : 'Accepted';
-      case 'PREPARING':
-        return isAr ? 'قيد التحضير' : 'Preparing';
-      case 'READY_FOR_PICKUP':
-        return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
-      case 'PARTIALLY_PICKED_UP':
-        return isAr ? 'جاري الاستلام من المتاجر' : 'Partially Picked Up';
-      case 'PICKED_UP':
-        return isAr ? 'الطلب في الطريق إليك' : 'On the Way';
-      case 'DELIVERED':
-        return isAr ? 'تم التوصيل' : 'Delivered';
-      case 'CANCELLED':
-        return isAr ? 'تم الإلغاء' : 'Cancelled';
-      case 'REJECTED':
-        return isAr ? 'مرفوض من المتجر' : 'Rejected by Store';
-      case 'DRIVER_ASSIGNED':
-        return isAr ? 'تم تعيين كابتن' : 'Driver Assigned';
-      case 'PENDING_PAYMENT':
-        return isAr ? 'بانتظار الدفع' : 'Pending Payment';
-      default:
-        return rawStatus
-            .replaceAll('_', ' ')
-            .split(' ')
-            .map(
-              (word) => word.isNotEmpty
-                  ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
-                  : '',
-            )
-            .join(' ');
-    }
-  }
+  String _getDisplayStatus(String rawStatus, bool isAr) =>
+      formatTrackingDisplayStatus(rawStatus, isAr);
 
   // Status label shown in the header. During the PICKED_UP leg (which covers the
   // whole drive to the customer, since the backend has no ARRIVING/IN_TRANSIT),
@@ -1019,10 +985,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
     try {
       final bounds = LatLngBounds.fromPoints(tripPath);
+      final bottomPad = math.max(70.0, _sheetHeightPx + 36.0);
       _mapController.fitCamera(
         CameraFit.bounds(
           bounds: bounds,
-          padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 70),
+          padding: EdgeInsets.fromLTRB(50, 50, 50, bottomPad),
         ),
       );
     } catch (e) {
@@ -1405,779 +1372,108 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                 ),
               ],
             ),
-          Positioned(
-            right: 16,
-            bottom: 24,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (tripPath.length >= 2) ...[
-                  Material(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                    shape: const CircleBorder(),
-                    elevation: 4,
-                    shadowColor: Colors.black26,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () => _fitEntireRoute(tripPath),
-                      child: Tooltip(
-                        message: s.isArabic
-                            ? 'عرض كامل مسار الرحلة'
-                            : 'Fit Entire Route',
-                        child: const Padding(
-                          padding: EdgeInsets.all(11.0),
-                          child: Icon(
-                            Icons.alt_route_rounded,
-                            size: 22,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                Material(
-                  color: _followDriver
-                      ? AppColors.primary
-                      : (isDark ? const Color(0xFF1E293B) : Colors.white),
-                  shape: const CircleBorder(),
-                  elevation: 4,
-                  shadowColor: Colors.black26,
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: _recenterOnDriver,
-                    child: Tooltip(
-                      message: s.isArabic
-                          ? 'إعادة التمركز على الكابتن'
-                          : 'Recenter on Driver',
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Icon(
-                          _followDriver
-                              ? Icons.my_location
-                              : Icons.location_searching,
-                          size: 24,
-                          color: _followDriver
-                              ? Colors.white
-                              : (isDark ? Colors.white : Colors.black87),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          OrderTrackingSheetOverlay(
+            orderStatus: _orderStatus,
+            statusLabel: _statusLabel(s.isArabic),
+            distanceLabel: _driverDistanceMeters() != null
+                ? _distanceLabel(_driverDistanceMeters()!)
+                : null,
+            orderDetails: _orderDetails,
+            tripPathLength: tripPath.length,
+            followDriver: _followDriver,
+            onFitRoute: tripPath.length >= 2
+                ? () => _fitEntireRoute(tripPath)
+                : null,
+            onRecenterDriver: _recenterOnDriver,
+            onOpenChat: () => _openOrderChat(context, s),
+            onRateOrder: _orderStatus == 'DELIVERED' &&
+                    _trackingCanRateOrder(_orderDetails)
+                ? () async {
+                    final rated = await RateOrderBottomSheet.show(
+                      context,
+                      widget.orderId,
+                      order: _orderDetails,
+                    );
+                    if (rated == true && mounted) {
+                      _fetchOrderDetails();
+                    }
+                  }
+                : null,
+            assistPromptWidget: _buildAssistPromptWidget(context, s),
+            pendingPaymentWidget: _buildPendingPaymentWidget(context, s),
+            assignedDriversWidgets: _orderDetails != null
+                ? _buildAssignedDriversSection(s, isDark)
+                : const [],
+            onSheetHeightChanged: (heightPx) => _sheetHeightPx = heightPx,
           ),
-          Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.72,
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                  Text(
-                    s.isArabic ? 'حالة الطلب' : 'Order Status',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _statusLabel(s.isArabic),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _orderStatus == 'LOOKING_FOR_DRIVER'
-                          ? Colors.orange
-                          : AppColors.primary,
-                    ),
-                  ),
-                  if (_driverDistanceMeters() != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.route, size: 16, color: Colors.grey),
-                        const SizedBox(width: 6),
-                        Text(
-                          _distanceLabel(_driverDistanceMeters()!),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  // Customer Assist Decision Prompt
-                  if (_orderDetails != null) ...[
-                    Builder(builder: (context) {
-                      final order = _orderDetails!;
-                      final deliveryGroups = order['deliveryGroups'] is List ? order['deliveryGroups'] as List : [];
-                      
-                      Map? pendingGroup;
-                      for (final g in deliveryGroups) {
-                        if (g is Map && g['assistDriverId'] != null && g['assistCustomerApproved'] == null) {
-                          pendingGroup = g;
-                          break;
-                        }
-                      }
-
-                      final isSinglePending = order['assistDriverId'] != null && order['assistCustomerApproved'] == null;
-                      if (!isSinglePending && pendingGroup == null) return const SizedBox.shrink();
-
-                      final fee = pendingGroup != null
-                          ? (pendingGroup['assistFee']?.toString() ?? '0')
-                          : (order['assistFee']?.toString() ?? '0');
-                      final deliveryGroupId = pendingGroup?['id']?.toString();
-                      final groupSeq = pendingGroup?['sequence'];
-                      final hasMultipleGroups = deliveryGroups.length > 1;
-                      final isAr = s.isArabic;
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.primary, width: 1.5),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.group_add_rounded, color: AppColors.primary, size: 24),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    isAr
-                                        ? (hasMultipleGroups && groupSeq != null
-                                            ? 'طلب مندوب مساعد إضافي للشحنة #$groupSeq'
-                                            : 'طلب مندوب مساعد إضافي للشحنة')
-                                        : (hasMultipleGroups && groupSeq != null
-                                            ? 'Assistant Driver Assigned (Trip #$groupSeq)'
-                                            : 'Assistant Driver Assigned'),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              isAr
-                                  ? 'تم تعيين كابتن مساعد إضافي لدعم توصيل الطلب. الرسوم الإضافية: $fee ج.م. يرجى تأكيد موافقتك للمتابعة.'
-                                  : 'An assistant driver has been assigned to support delivery (Fee: $fee EGP). Please confirm your decision to continue.',
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () async {
-                                      final ok = await ref.read(ordersProvider.notifier).decideAssistOrder(
-                                        widget.orderId,
-                                        approve: false,
-                                        deliveryGroupId: deliveryGroupId,
-                                      );
-                                      if (!context.mounted) return;
-                                      if (ok) {
-                                        _fetchOrderDetails();
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(isAr
-                                                ? 'تعذر إرسال القرار. حاول مرة أخرى.'
-                                                : 'Failed to submit decision. Please try again.'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.red,
-                                      side: const BorderSide(color: Colors.red),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    child: Text(isAr ? 'رفض' : 'Decline'),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: () async {
-                                      final ok = await ref.read(ordersProvider.notifier).decideAssistOrder(
-                                        widget.orderId,
-                                        approve: true,
-                                        deliveryGroupId: deliveryGroupId,
-                                      );
-                                      if (!context.mounted) return;
-                                      if (ok) {
-                                        _fetchOrderDetails();
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(isAr
-                                                ? 'تعذر إرسال القرار. حاول مرة أخرى.'
-                                                : 'Failed to submit decision. Please try again.'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: Colors.black,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    child: Text(isAr ? 'موافقة' : 'Approve'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-
-                  // Single-Vendor Store & Branch Card
-                  if (_orderDetails != null &&
-                      _orderDetails!['vendor'] != null &&
-                      (_orderDetails!['vendorFulfillments'] is! List ||
-                          (_orderDetails!['vendorFulfillments'] as List).isEmpty))
-                    Builder(builder: (context) {
-                      final v = _orderDetails!['vendor'] as Map;
-                      final b = _orderDetails!['vendorBranch'] as Map?;
-                      final storeName = (s.isArabic ? (v['storeNameAr'] ?? v['storeName']) : (v['storeName'] ?? v['name']))?.toString() ?? 'Store';
-                      final branchName = b != null ? (s.isArabic ? (b['nameAr'] ?? b['name']) : (b['name'] ?? b['nameAr']))?.toString() : null;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.storefront_rounded, size: 20, color: AppColors.primary),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    storeName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (branchName != null && branchName.isNotEmpty)
-                                    Text(
-                                      '${s.isArabic ? "الفرع: " : "Branch: "}$branchName',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: isDark ? Colors.white60 : Colors.black54,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-
-                  // Multi-Vendor Fulfillments Overview
-                  if (_orderDetails != null &&
-                      _orderDetails!['vendorFulfillments'] is List &&
-                      (_orderDetails!['vendorFulfillments'] as List).isNotEmpty) ...[
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.storefront_rounded, size: 20, color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              Text(
-                                s.isArabic ? 'حالة تحضير المتاجر للطلب' : 'Store Fulfillment Status',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ...(_orderDetails!['vendorFulfillments'] as List).map((f) {
-                            if (f is! Map) return const SizedBox.shrink();
-                            final v = f['vendor'] is Map ? f['vendor'] as Map : {};
-                            final b = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : null;
-                            final storeName = (s.isArabic ? (v['storeNameAr'] ?? v['storeName']) : (v['storeName'] ?? v['name']))?.toString() ?? 'Store';
-                            final branchName = b != null ? (s.isArabic ? (b['nameAr'] ?? b['name']) : (b['name'] ?? b['nameAr']))?.toString() : null;
-                            final fStatus = f['status']?.toString() ?? 'PENDING';
-                            final isRejected = fStatus == 'REJECTED' || fStatus == 'CANCELLED';
-                            final isReadyOrDone = fStatus == 'READY_FOR_PICKUP' || fStatus == 'PICKED_UP' || fStatus == 'DELIVERED';
-                            final rejectionReason = (s.isArabic ? (f['rejectionReasonAr'] ?? f['rejectionReason']) : (f['rejectionReason'] ?? f['rejectionReasonAr']))?.toString();
-                            final badgeColor = isRejected
-                                ? Colors.red
-                                : (isReadyOrDone
-                                    ? Colors.green
-                                    : (fStatus == 'PREPARING' ? Colors.orange : Colors.blue));
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          storeName,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            decoration: isRejected ? TextDecoration.lineThrough : null,
-                                          ),
-                                        ),
-                                        if (branchName != null && branchName.isNotEmpty)
-                                          Text(
-                                            '${s.isArabic ? "الفرع: " : "Branch: "}$branchName',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: isDark ? Colors.white54 : Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        if (isRejected && rejectionReason != null && rejectionReason.isNotEmpty)
-                                          Text(
-                                            rejectionReason,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.red,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: badgeColor.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      _getDisplayStatus(fStatus, s.isArabic),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: badgeColor,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (_orderDetails != null) ...[
-                    ..._buildAssignedDriversSection(s, isDark),
-                    _buildOrderActivityHistoryCard(s, isDark),
-                  ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        try {
-                          final chatRepo = ref.read(
-                            sharedChatRepositoryProvider,
-                          );
-                          final conversation = await chatRepo
-                              .createOrderConversation(widget.orderId);
-                          if (!context.mounted) return;
-                          if (conversation != null) {
-                            final convoId = conversation['id'];
-                            context.push(
-                              '/chat/order/$convoId',
-                              extra: {
-                                'title': s.isArabic ? 'طلب' : 'Order',
-                                'orderId': widget.orderId,
-                              },
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to start chat: $e'),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.chat_rounded, size: 20),
-                      label: Text(
-                        s.isArabic ? 'محادثة الطلب' : 'Order Chat',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary.withValues(
-                          alpha: 0.1,
-                        ),
-                        foregroundColor: AppColors.primary,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_orderStatus == 'PENDING_PAYMENT')
-                    Builder(builder: (context) {
-                      final upfront = double.tryParse(
-                            _orderDetails?['upfrontAmount']?.toString() ?? '0',
-                          ) ??
-                          0.0;
-                      final total = double.tryParse(
-                            (_orderDetails?['grandTotal'] ??
-                                    _orderDetails?['total'])
-                                ?.toString() ??
-                                '0',
-                          ) ??
-                          0.0;
-                      // Cash on delivery with an upfront requirement: the
-                      // customer pays the upfront first. Mobile wallet /
-                      // InstaPay: always the whole amount.
-                      final isUpfront =
-                          (_orderDetails?['paymentMethod']?.toString() ?? '') ==
-                                  'CASH_ON_DELIVERY' &&
-                              upfront > 0;
-                      final amountDue = isUpfront ? upfront : total;
-                      final paidClaimed =
-                          (_orderDetails?['paymentStatus']?.toString() ?? '') ==
-                              'PAID';
-                      return Column(
-                        children: [
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.orange),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Text(
-                                    isUpfront
-                                        ? (s.isArabic
-                                            ? 'المبلغ المقدم المطلوب دفعه أولاً: ${amountDue.toStringAsFixed(0)} ${s.egp}'
-                                            : 'Upfront amount to pay first: ${amountDue.toStringAsFixed(0)} ${s.egp}')
-                                        : (s.isArabic
-                                            ? 'المبلغ المطلوب تحويله: ${amountDue.toStringAsFixed(0)} ${s.egp}'
-                                            : 'Amount to transfer: ${amountDue.toStringAsFixed(0)} ${s.egp}'),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  s.isArabic
-                                      ? 'يرجى تحويل المبلغ للكابتن على المحفظة الإلكترونية ثم تأكيد التحويل. يمكنك استخدام المحادثة لإرسال الإيصال.'
-                                      : "Please transfer the amount to the driver's mobile wallet, then confirm. You can use chat to send the receipt.",
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                                const SizedBox(height: 8),
-                                if (_orderDetails != null &&
-                                    _orderDetails!['driver'] != null &&
-                                    _orderDetails!['driver']
-                                            ['mobileWallets'] !=
-                                        null &&
-                                    (_orderDetails!['driver']
-                                            ['mobileWallets'] as List)
-                                        .isNotEmpty)
-                                  ..._trackingVisibleWallets(
-                                          _orderDetails!['driver']
-                                              ['mobileWallets'] as List)
-                                      .map((wallet) {
-                                    final walletMap = wallet is Map
-                                        ? Map<dynamic, dynamic>.from(wallet)
-                                        : <dynamic, dynamic>{};
-                                    final number = (walletMap['number'] ??
-                                            walletMap['walletNumber'] ??
-                                            '')
-                                        .toString();
-                                    return Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 4),
-                                      child: Text(
-                                        '${_trackingWalletProviderName(walletMap, s)}: $number',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                                const SizedBox(height: 12),
-                                if (paidClaimed)
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.hourglass_top_rounded,
-                                        color: Colors.orange,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          s.isArabic
-                                              ? 'تم إرسال تأكيدك. بانتظار أن يؤكد الكابتن استلام المبلغ.'
-                                              : 'Your confirmation was sent. Waiting for the driver to confirm receipt.',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                else
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      OutlinedButton.icon(
-                                        onPressed: () async {
-                                          try {
-                                            final file =
-                                                await ImagePicker().pickImage(
-                                              source: ImageSource.gallery,
-                                              maxWidth: 1920,
-                                              imageQuality: 80,
-                                            );
-                                            if (file != null && mounted) {
-                                              setState(
-                                                () =>
-                                                    _receiptFile = file,
-                                              );
-                                            }
-                                          } catch (e) {
-                                            if (context.mounted) {
-                                              MediaPermissionHelper
-                                                  .handlePickerError(
-                                                e,
-                                                context: context,
-                                              );
-                                            }
-                                          }
-                                        },
-                                        icon: const Icon(
-                                            Icons.receipt_long_rounded),
-                                        label: Text(
-                                          _receiptFile != null
-                                              ? (_receiptFile!.name.isNotEmpty
-                                                  ? _receiptFile!.name
-                                                  : (s.isArabic
-                                                      ? 'تم إرفاق الإيصال'
-                                                      : 'Receipt attached'))
-                                              : (s.isArabic
-                                                  ? 'إرفاق لقطة شاشة من التحويل (إجباري)'
-                                                  : 'Attach transfer screenshot (required)'),
-                                        ),
-                                      ),
-                                      if (_receiptFile != null) ...[
-                                        const SizedBox(height: 8),
-                                        ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          child: Image.file(
-                                            File(_receiptFile!.path),
-                                            height: 120,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) =>
-                                                    const SizedBox.shrink(),
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(height: 12),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: ElevatedButton(
-                                          onPressed: () async {
-                                            if (_receiptFile == null) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    s.isArabic
-                                                        ? 'يرجى إرفاق لقطة الشاشة أولاً'
-                                                        : 'Please attach the screenshot first',
-                                                  ),
-                                                ),
-                                              );
-                                              return;
-                                            }
-                                            final success = await ref
-                                                .read(ordersProvider.notifier)
-                                                .markPaymentPaid(
-                                                  widget.orderId,
-                                                  receiptPath:
-                                                      _receiptFile!.path,
-                                                );
-                                            if (success) {
-                                              setState(
-                                                () => _receiptFile = null,
-                                              );
-                                              await _fetchOrderDetails();
-                                            }
-                                            if (!context.mounted) return;
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  success
-                                                      ? (s.isArabic
-                                                          ? 'تم التأكيد!'
-                                                          : 'Confirmed!')
-                                                      : (s.isArabic
-                                                          ? 'فشل التأكيد. حاول مرة أخرى.'
-                                                          : 'Confirmation failed. Try again.'),
-                                                ),
-                                                backgroundColor: success
-                                                    ? null
-                                                    : Colors.red,
-                                              ),
-                                            );
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.orange,
-                                          ),
-                                          child: Text(
-                                            isUpfront
-                                                ? (s.isArabic
-                                                    ? 'لقد دفعت المبلغ المقدم'
-                                                    : 'I Have Paid the Upfront')
-                                                : (s.isArabic
-                                                    ? 'لقد قمت بالتحويل'
-                                                    : 'I Have Transferred the Payment'),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    }),
-                  if (_orderStatus == 'DELIVERED' &&
-                      _trackingCanRateOrder(_orderDetails)) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final rated = await RateOrderBottomSheet.show(
-                            context,
-                            widget.orderId,
-                            order: _orderDetails,
-                          );
-                          if (rated == true && mounted) {
-                            _fetchOrderDetails();
-                          }
-                        },
-                        icon: const Icon(Icons.star_rate_rounded, size: 20),
-                        label: Text(s.isArabic ? 'تقييم الطلب' : 'Rate Order'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  ],
+        ],
       ),
     );
   }
 
-  Widget _buildOrderActivityHistoryCard(AppStrings s, bool isDark) {
-    final rawEvents = _orderDetails?['statusEvents'];
-    if (rawEvents is! List || rawEvents.isEmpty) {
-      return const SizedBox.shrink();
+  Future<void> _openOrderChat(BuildContext context, AppStrings s) async {
+    try {
+      final chatRepo = ref.read(sharedChatRepositoryProvider);
+      final conversation = await chatRepo.createOrderConversation(
+        widget.orderId,
+      );
+      if (!context.mounted) return;
+      if (conversation != null) {
+        final convoId = conversation['id'];
+        context.push(
+          '/chat/order/$convoId',
+          extra: {
+            'title': s.isArabic ? 'طلب' : 'Order',
+            'orderId': widget.orderId,
+          },
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to start chat: $e')),
+        );
+      }
+    }
+  }
+
+  Widget? _buildAssistPromptWidget(BuildContext context, AppStrings s) {
+    final order = _orderDetails;
+    if (order == null) return null;
+    final deliveryGroups = order['deliveryGroups'] is List
+        ? order['deliveryGroups'] as List
+        : const [];
+
+    Map? pendingGroup;
+    for (final g in deliveryGroups) {
+      if (g is Map &&
+          g['assistDriverId'] != null &&
+          g['assistCustomerApproved'] == null) {
+        pendingGroup = g;
+        break;
+      }
     }
 
-    final events = rawEvents.whereType<Map>().toList();
-    if (events.isEmpty) return const SizedBox.shrink();
+    final isSinglePending =
+        order['assistDriverId'] != null &&
+        order['assistCustomerApproved'] == null;
+    if (!isSinglePending && pendingGroup == null) return null;
 
-    final mutedColor = isDark ? Colors.white60 : Colors.black54;
+    final fee = pendingGroup != null
+        ? (pendingGroup['assistFee']?.toString() ?? '0')
+        : (order['assistFee']?.toString() ?? '0');
+    final deliveryGroupId = pendingGroup?['id']?.toString();
+    final groupSeq = pendingGroup?['sequence'];
+    final hasMultipleGroups = deliveryGroups.length > 1;
+    final isAr = s.isArabic;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+        color: AppColors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? Colors.white12 : Colors.grey.shade200,
-        ),
+        border: Border.all(color: AppColors.primary, width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2185,103 +1481,329 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           Row(
             children: [
               const Icon(
-                Icons.history_rounded,
-                size: 18,
+                Icons.group_add_rounded,
                 color: AppColors.primary,
+                size: 22,
               ),
               const SizedBox(width: 8),
-              Text(
-                s.isArabic ? 'تحديثات الطلب' : 'Order Updates',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              Expanded(
+                child: Text(
+                  isAr
+                      ? (hasMultipleGroups && groupSeq != null
+                            ? 'طلب مندوب مساعد إضافي للشحنة #$groupSeq'
+                            : 'طلب مندوب مساعد إضافي للشحنة')
+                      : (hasMultipleGroups && groupSeq != null
+                            ? 'Assistant Driver Assigned (Trip #$groupSeq)'
+                            : 'Assistant Driver Assigned'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14.5,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ...List.generate(events.length, (index) {
-            final ev = events[index];
-            final evStatus = ev['status']?.toString() ?? '';
-            final evNote = ev['note']?.toString().trim() ?? '';
-            final dt = DateTime.tryParse(ev['createdAt']?.toString() ?? '')
-                ?.toLocal();
-            final timeStr = dt != null
-                ? '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} · ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
-                : '';
-            final isLatest = index == 0;
-            final isLast = index == events.length - 1;
-            final dotColor = evStatus == 'CANCELLED' || evStatus == 'REJECTED'
-                ? Colors.redAccent
-                : (isLatest
-                    ? AppColors.primary
-                    : (isDark ? Colors.white38 : Colors.black38));
-
-            return Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 5),
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: dotColor,
-                      ),
+          const SizedBox(height: 8),
+          Text(
+            isAr
+                ? 'تم تعيين كابتن مساعد إضافي لدعم توصيل الطلب. الرسوم الإضافية: $fee ج.م. يرجى تأكيد موافقتك للمتابعة.'
+                : 'An assistant driver has been assigned to support delivery (Fee: $fee EGP). Please confirm your decision to continue.',
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () async {
+                    final ok = await ref
+                        .read(ordersProvider.notifier)
+                        .decideAssistOrder(
+                          widget.orderId,
+                          approve: false,
+                          deliveryGroupId: deliveryGroupId,
+                        );
+                    if (!context.mounted) return;
+                    if (ok) {
+                      _fetchOrderDetails();
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            isAr
+                                ? 'تعذر إرسال القرار. حاول مرة أخرى.'
+                                : 'Failed to submit decision. Please try again.',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _getDisplayStatus(evStatus, s.isArabic),
-                                style: TextStyle(
-                                  fontWeight: isLatest
-                                      ? FontWeight.w700
-                                      : FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                            if (timeStr.isNotEmpty) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                timeStr,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: mutedColor,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (evNote.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            evNote,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.35,
-                              color: mutedColor,
-                            ),
+                  child: Text(isAr ? 'رفض' : 'Decline'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final ok = await ref
+                        .read(ordersProvider.notifier)
+                        .decideAssistOrder(
+                          widget.orderId,
+                          approve: true,
+                          deliveryGroupId: deliveryGroupId,
+                        );
+                    if (!context.mounted) return;
+                    if (ok) {
+                      _fetchOrderDetails();
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            isAr
+                                ? 'تعذر إرسال القرار. حاول مرة أخرى.'
+                                : 'Failed to submit decision. Please try again.',
                           ),
-                        ],
-                      ],
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(isAr ? 'موافقة' : 'Approve'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildPendingPaymentWidget(BuildContext context, AppStrings s) {
+    if (_orderStatus != 'PENDING_PAYMENT') return null;
+
+    final upfront = double.tryParse(
+          _orderDetails?['upfrontAmount']?.toString() ?? '0',
+        ) ??
+        0.0;
+    final total = double.tryParse(
+          (_orderDetails?['grandTotal'] ?? _orderDetails?['total'])
+                  ?.toString() ??
+              '0',
+        ) ??
+        0.0;
+    // Cash on delivery with an upfront requirement: the customer pays the
+    // upfront first. Mobile wallet / InstaPay: always the whole amount.
+    final isUpfront =
+        (_orderDetails?['paymentMethod']?.toString() ?? '') ==
+            'CASH_ON_DELIVERY' &&
+        upfront > 0;
+    final amountDue = isUpfront ? upfront : total;
+    final paidClaimed =
+        (_orderDetails?['paymentStatus']?.toString() ?? '') == 'PAID';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              isUpfront
+                  ? (s.isArabic
+                        ? 'المبلغ المقدم المطلوب دفعه أولاً: ${amountDue.toStringAsFixed(0)} ${s.egp}'
+                        : 'Upfront amount to pay first: ${amountDue.toStringAsFixed(0)} ${s.egp}')
+                  : (s.isArabic
+                        ? 'المبلغ المطلوب تحويله: ${amountDue.toStringAsFixed(0)} ${s.egp}'
+                        : 'Amount to transfer: ${amountDue.toStringAsFixed(0)} ${s.egp}'),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14.5,
+              ),
+            ),
+          ),
+          Text(
+            s.isArabic
+                ? 'يرجى تحويل المبلغ للكابتن على المحفظة الإلكترونية ثم تأكيد التحويل. يمكنك استخدام المحادثة لإرسال الإيصال.'
+                : "Please transfer the amount to the driver's mobile wallet, then confirm. You can use chat to send the receipt.",
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          if (_orderDetails != null &&
+              _orderDetails!['driver'] != null &&
+              _orderDetails!['driver']['mobileWallets'] != null &&
+              (_orderDetails!['driver']['mobileWallets'] as List).isNotEmpty)
+            ..._trackingVisibleWallets(
+              _orderDetails!['driver']['mobileWallets'] as List,
+            ).map((wallet) {
+              final walletMap = wallet is Map
+                  ? Map<dynamic, dynamic>.from(wallet)
+                  : <dynamic, dynamic>{};
+              final number =
+                  (walletMap['number'] ?? walletMap['walletNumber'] ?? '')
+                      .toString();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '${_trackingWalletProviderName(walletMap, s)}: $number',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              );
+            }),
+          const SizedBox(height: 12),
+          if (paidClaimed)
+            Row(
+              children: [
+                const Icon(
+                  Icons.hourglass_top_rounded,
+                  color: Colors.orange,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    s.isArabic
+                        ? 'تم إرسال تأكيدك. بانتظار أن يؤكد الكابتن استلام المبلغ.'
+                        : 'Your confirmation was sent. Waiting for the driver to confirm receipt.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    try {
+                      final file = await ImagePicker().pickImage(
+                        source: ImageSource.gallery,
+                        maxWidth: 1920,
+                        imageQuality: 80,
+                      );
+                      if (file != null && mounted) {
+                        setState(() => _receiptFile = file);
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        MediaPermissionHelper.handlePickerError(
+                          e,
+                          context: context,
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.receipt_long_rounded),
+                  label: Text(
+                    _receiptFile != null
+                        ? (_receiptFile!.name.isNotEmpty
+                              ? _receiptFile!.name
+                              : (s.isArabic
+                                    ? 'تم إرفاق الإيصال'
+                                    : 'Receipt attached'))
+                        : (s.isArabic
+                              ? 'إرفاق لقطة شاشة من التحويل (إجباري)'
+                              : 'Attach transfer screenshot (required)'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (_receiptFile != null) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      File(_receiptFile!.path),
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox.shrink(),
                     ),
                   ),
                 ],
-              ),
-            );
-          }),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (_receiptFile == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              s.isArabic
+                                  ? 'يرجى إرفاق لقطة الشاشة أولاً'
+                                  : 'Please attach the screenshot first',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      final success = await ref
+                          .read(ordersProvider.notifier)
+                          .markPaymentPaid(
+                            widget.orderId,
+                            receiptPath: _receiptFile!.path,
+                          );
+                      if (success) {
+                        setState(() => _receiptFile = null);
+                        await _fetchOrderDetails();
+                      }
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            success
+                                ? (s.isArabic ? 'تم التأكيد!' : 'Confirmed!')
+                                : (s.isArabic
+                                      ? 'فشل التأكيد. حاول مرة أخرى.'
+                                      : 'Confirmation failed. Try again.'),
+                          ),
+                          backgroundColor: success ? null : Colors.red,
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                    ),
+                    child: Text(
+                      isUpfront
+                          ? (s.isArabic
+                                ? 'لقد دفعت المبلغ المقدم'
+                                : 'I Have Paid the Upfront')
+                          : (s.isArabic
+                                ? 'لقد قمت بالتحويل'
+                                : 'I Have Transferred the Payment'),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );

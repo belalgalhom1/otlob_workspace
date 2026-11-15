@@ -14,6 +14,7 @@ import 'package:vendor/core/utils/error_utils.dart';
 import '../../chat/presentation/pages/admin_chat_screen.dart';
 import '../presentation/orders_provider.dart';
 import 'widgets/assign_driver_sheet.dart';
+import 'widgets/multi_vendor_fulfillments_section.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   final String? initialOrderId;
@@ -1293,7 +1294,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 if (isExpanded) ...[
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(
+                      MediaQuery.sizeOf(context).width < 430 ? 12 : 16,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -2195,15 +2198,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Flexible(
-                            child: Text(
-                              storeName.toString(),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          Text(
+                            storeName.toString(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
                             ),
                           ),
-                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
@@ -2217,7 +2223,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                   ? (isArabic ? 'شريك معتمد' : 'Contracted')
                                   : (isArabic ? 'دفع بالاستلام' : 'Cash at pickup'),
                               style: TextStyle(
-                                fontSize: 9,
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
                                 color: isContracted ? AppColors.primary : AppColors.warning,
                               ),
@@ -2226,17 +2232,25 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         ],
                       ),
                       if (branchName.toString().isNotEmpty || branchAddress.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(LucideIcons.mapPin, size: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Icon(
+                                LucideIcons.mapPin,
+                                size: 11.5,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                              ),
+                            ),
                             const SizedBox(width: 4),
-                            Flexible(
+                            Expanded(
                               child: Text(
                                 branchName.toString().isNotEmpty && branchAddress.isNotEmpty
                                     ? '$branchName - $branchAddress'
                                     : (branchName.toString().isNotEmpty ? branchName.toString() : branchAddress),
-                                style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurface.withValues(alpha: 0.65)),
                               ),
                             ),
                           ],
@@ -2246,6 +2260,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   ),
                 ),
                 if (branchPhone.isNotEmpty) ...[
+                  const SizedBox(width: 8),
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -2386,9 +2401,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       '${(price * quantity).toStringAsFixed(2)} EGP',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ],
                 ),
@@ -2501,677 +2521,39 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     bool isArabic,
     Color statusColor,
   ) {
-    final theme = Theme.of(context);
-    final canManagePortions = _userRole == 'SUPER_ADMIN' ||
-        _userRole == 'ADMIN' ||
-        _userRole == 'VENDOR_MEMBER' ||
-        _canManageVendors ||
-        _canManageOrders;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.onSurface.withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(LucideIcons.store, size: 16, color: AppColors.primary),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fulfillments.length == 1
-                          ? (isArabic ? 'تفاصيل المتجر والفرع والأصناف' : 'Store, Branch & Items Details')
-                          : (isArabic
-                              ? 'محطات وأصناف المتاجر (${fulfillments.length} متاجر)'
-                              : 'Store Stops & Items (${fulfillments.length} Stores)'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      isArabic
-                          ? 'تفاصيل كل متجر والفرع والأصناف المستقلة وحالة التحضير'
-                          : 'Each store has a distinct branch stop, status, items, and settlement',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                ),
-                child: Text(
-                  isArabic ? 'متعدد المتاجر' : 'Multi-Vendor',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          for (var i = 0; i < fulfillments.length; i++) ...[
-            () {
-              final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
-              final fId = f['id']?.toString() ?? '';
-              final fStatus = f['status']?.toString() ?? 'PENDING';
-              final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
-              final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
-
-              final storeName = isArabic
-                  ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? fVendor['name'] ?? 'متجر')
-                  : (fVendor['storeName'] ?? fVendor['storeNameAr'] ?? fVendor['name'] ?? 'Store');
-
-              final branchName = isArabic
-                  ? (fBranch['nameAr'] ?? fBranch['name'] ?? '')
-                  : (fBranch['name'] ?? fBranch['nameAr'] ?? '');
-
-              final branchAddress = fBranch['address']?.toString() ?? '';
-              final storePhone = fBranch['phone']?.toString() ?? fVendor['phone']?.toString() ?? '';
-              final isContracted = fBranch['isContracted'] ?? fVendor['isContracted'] ?? false;
-              final storeLogo = fVendor['logo']?.toString() ?? '';
-
-              final fSubtotal = double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0;
-              final commRate = double.tryParse(f['commissionRate']?.toString() ?? '10') ?? 10.0;
-              final commAmount = isContracted ? (fSubtotal * commRate / 100).roundToDouble() : 0.0;
-              final netPayout = isContracted ? (fSubtotal - commAmount) : fSubtotal;
-
-              final rawFItems = f['items'];
-              List<dynamic> portionItems = (rawFItems is List && rawFItems.isNotEmpty)
-                  ? rawFItems
-                  : allItems.where((it) => it is Map && it['fulfillmentId'] == fId).toList();
-
-              if (portionItems.isEmpty && fulfillments.length == 1) {
-                portionItems = allItems;
-              }
-
-              final isRejected = fStatus == 'REJECTED' || fStatus == 'CANCELLED';
-              final rejectionReason = isArabic
-                  ? (f['rejectionReasonAr'] ?? f['rejectionReason'])
-                  : (f['rejectionReason'] ?? f['rejectionReasonAr']);
-              final rejectionCode = f['rejectionCode']?.toString();
-
-              final pickupPhoto = f['pickupImageUrl']?.toString();
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: isRejected
-                      ? AppColors.error.withValues(alpha: 0.04)
-                      : theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isRejected
-                        ? AppColors.error.withValues(alpha: 0.25)
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.09),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.02),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Store portion header
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Stop number pill
-                        Container(
-                          width: 28,
-                          height: 28,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '${i + 1}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Store Logo
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: storeLogo.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: ImageUtils.formatImageUrl(storeLogo),
-                                  fit: BoxFit.cover,
-                                  errorWidget: (_, _, _) => const Icon(LucideIcons.store, size: 18, color: AppColors.primary),
-                                )
-                              : const Icon(LucideIcons.store, size: 18, color: AppColors.primary),
-                        ),
-                        const SizedBox(width: 10),
-
-                        // Store Name & Branch Details
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      storeName.toString(),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        decoration: isRejected ? TextDecoration.lineThrough : null,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: isContracted
-                                          ? AppColors.primary.withValues(alpha: 0.08)
-                                          : AppColors.warning.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      isContracted
-                                          ? (isArabic ? 'شريك معتمد' : 'Contracted')
-                                          : (isArabic ? 'دفع بالاستلام' : 'Cash at pickup'),
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                        color: isContracted ? AppColors.primary : AppColors.warning,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (branchName.toString().isNotEmpty || branchAddress.isNotEmpty) ...[
-                                const SizedBox(height: 3),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 2),
-                                      child: Icon(
-                                        LucideIcons.mapPin,
-                                        size: 12,
-                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        branchName.toString().isNotEmpty && branchAddress.isNotEmpty
-                                            ? '$branchName - $branchAddress'
-                                            : (branchName.toString().isNotEmpty ? branchName.toString() : branchAddress),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Status Badge
-                        _buildPortionStatusBadge(fStatus, isArabic),
-
-                        // Store call button
-                        if (storePhone.isNotEmpty) ...[
-                          const SizedBox(width: 6),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: () => _callCustomer(context, storePhone, isArabic),
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(LucideIcons.phoneCall, color: AppColors.primary, size: 15),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-
-                    // Stage timestamps / progress pills
-                    if (f['preparingAt'] != null || f['readyAt'] != null || f['pickedUpAt'] != null || pickupPhoto != null) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          if (f['preparingAt'] != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.purple.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '${isArabic ? "بدء التحضير: " : "Preparing: "}${DateFormat("hh:mm a").format(DateTime.parse(f["preparingAt"].toString()).toLocal())}',
-                                style: const TextStyle(fontSize: 10, color: Colors.purple, fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                          if (f['readyAt'] != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.success.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '${isArabic ? "جاهز للاستلام: " : "Ready: "}${DateFormat("hh:mm a").format(DateTime.parse(f["readyAt"].toString()).toLocal())}',
-                                style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                          if (f['pickedUpAt'] != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.teal.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '${isArabic ? "استلم السائق: " : "Picked up: "}${DateFormat("hh:mm a").format(DateTime.parse(f["pickedUpAt"].toString()).toLocal())}',
-                                style: const TextStyle(fontSize: 10, color: Colors.teal, fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                          if (pickupPhoto != null && pickupPhoto.isNotEmpty)
-                            InkWell(
-                              onTap: () => _viewFullPhoto(context, pickupPhoto),
-                              borderRadius: BorderRadius.circular(4),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(LucideIcons.camera, size: 10, color: AppColors.primary),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      isArabic ? 'صورة استلام السائق' : 'Driver pickup photo',
-                                      style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-
-                    // Rejection alert
-                    if (isRejected && rejectionReason != null && rejectionReason.toString().isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(LucideIcons.alertTriangle, size: 14, color: AppColors.error),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '${isArabic ? "سبب الرفض: " : "Rejection Reason: "}$rejectionReason${rejectionCode != null ? " ($rejectionCode)" : ""}',
-                                style: const TextStyle(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Divider(height: 1),
-                    ),
-
-                    // Items in this store portion
-                    if (portionItems.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Text(
-                          isArabic ? 'لا توجد أصناف مسجلة لهذا المتجر' : 'No items listed for this store',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      )
-                    else
-                      for (final item in portionItems) ...[
-                        () {
-                          final pName = item['productName']?.toString() ??
-                              item['name']?.toString() ??
-                              (isArabic ? 'صنف' : 'Item');
-                          final variant = item['variantName']?.toString();
-                          final unit = item['selectedUnit']?.toString();
-                          final pQty = item['quantity'] ?? 1;
-                          final pPrice = double.tryParse(
-                                item['unitPrice']?.toString() ?? item['price']?.toString() ?? '0',
-                              ) ??
-                              0.0;
-                          final pTotalPrice = double.tryParse(item['totalPrice']?.toString() ?? '0') ?? (pPrice * (pQty as num));
-                          final product = item['product'] is Map ? item['product'] as Map : null;
-                          final pImgUrl = product?['imageUrl']?.toString() ?? item['imageUrl']?.toString() ?? '';
-                          final pNotes = item['specialRequest']?.toString();
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 5),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
-                                  ),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: pImgUrl.isNotEmpty
-                                      ? CachedNetworkImage(
-                                          imageUrl: ImageUtils.formatImageUrl(pImgUrl),
-                                          fit: BoxFit.cover,
-                                          errorWidget: (_, _, _) => const Icon(LucideIcons.package, size: 16, color: Colors.grey),
-                                        )
-                                      : const Icon(LucideIcons.package, size: 16, color: Colors.grey),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    '${pQty}x',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        pName,
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                      ),
-                                      if ((variant != null && variant.isNotEmpty) || (unit != null && unit.isNotEmpty))
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 1),
-                                          child: Text(
-                                            [if (variant != null && variant.isNotEmpty) variant, if (unit != null && unit.isNotEmpty) unit].join(' • '),
-                                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-                                          ),
-                                        ),
-                                      if (pNotes != null && pNotes.trim().isNotEmpty)
-                                        Container(
-                                          margin: const EdgeInsets.only(top: 3),
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.amber.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(LucideIcons.messageSquare, size: 10, color: Colors.amber),
-                                              const SizedBox(width: 4),
-                                              Flexible(
-                                                child: Text(
-                                                  pNotes,
-                                                  style: const TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.w500),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      for (final opt in ((item['selectedOptions'] as List?) ?? []))
-                                        if (opt is Map &&
-                                            (opt['optionName']?.toString().isNotEmpty ?? false))
-                                          Padding(
-                                            padding: const EdgeInsets.only(top: 1),
-                                            child: Text(
-                                              '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} EGP)' : ''}',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade600,
-                                              ),
-                                            ),
-                                          ),
-                                    ],
-                                  ),
-                                ),
-                                Text(
-                                  '${pTotalPrice.toStringAsFixed(2)} EGP',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          );
-                        }(),
-                      ],
-
-                    // Portion footer: Subtotal & net payout
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.03),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.05)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            isArabic ? 'إجمالي أصناف المتجر:' : 'Store Subtotal:',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                          ),
-                          Text(
-                            '${fSubtotal.toStringAsFixed(2)} EGP',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (isContracted) ...[
-                            Text(
-                              isArabic
-                                  ? 'الصافي (${(100 - commRate).toInt()}٪): ${netPayout.toStringAsFixed(2)} EGP'
-                                  : 'Net (${(100 - commRate).toInt()}%): ${netPayout.toStringAsFixed(2)} EGP',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.success,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    // Quick portion actions for Super Admin / Admin (or multi-branch Vendor Owner/Manager)
-                    if (canManagePortions &&
-                        (_userRole != 'VENDOR_MEMBER' || fulfillments.length > 1) &&
-                        !isRejected &&
-                        fStatus != 'DELIVERED') ...[
-                      const SizedBox(height: 10),
-                      if (fStatus == 'PENDING') ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  ref.read(ordersProvider.notifier).acceptFulfillment(fId);
-                                },
-                                icon: const Icon(LucideIcons.checkCheck, size: 14),
-                                label: Text(
-                                  isArabic ? 'قبول هذا المتجر' : 'Accept Store',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  _showRejectFulfillmentDialog(context, fId, storeName.toString(), isArabic);
-                                },
-                                icon: const Icon(LucideIcons.xCircle, size: 14),
-                                label: Text(
-                                  isArabic ? 'رفض' : 'Reject',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.error,
-                                  side: const BorderSide(color: AppColors.error),
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ] else if ((fStatus == 'ACCEPTED' ||
-                              fStatus == 'LOOKING_FOR_DRIVER') &&
-                          !(((order['status'] == 'PENDING_PAYMENT' ||
-                                      order['paymentMethod'] == 'MOBILE_WALLET' ||
-                                      (double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0) > 0) &&
-                                  order['paymentStatus'] != 'COMPLETED'))) ...[
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              _showPrepTimeDialog(
-                                context,
-                                order['id'],
-                                fulfillmentId: fId,
-                              );
-                            },
-                            icon: const Icon(LucideIcons.chefHat, size: 14),
-                            label: Text(
-                              isArabic ? 'بدء تحضير أصناف هذا المتجر' : 'Start Preparing This Store Items',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                      ] else if (fStatus == 'PREPARING') ...[
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              ref.read(ordersProvider.notifier).updateOrderStatus(
-                                order['id'],
-                                'READY_FOR_PICKUP',
-                                fulfillmentId: fId,
-                              );
-                            },
-                            icon: const Icon(LucideIcons.packageCheck, size: 14),
-                            label: Text(
-                              isArabic ? 'تأكيد جاهزية أصناف المتجر للاستلام' : 'Mark Store Ready for Pickup',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.success,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ],
-                ),
-              );
-            }(),
-          ],
-        ],
-      ),
+    final orderMap =
+        order is Map ? order : Map<dynamic, dynamic>.from(const {});
+    return MultiVendorFulfillmentsSection(
+      order: orderMap,
+      fulfillments: fulfillments,
+      allItems: allItems,
+      isArabic: isArabic,
+      userRole: _userRole,
+      canManageVendors: _canManageVendors,
+      canManageOrders: _canManageOrders,
+      statusBadgeBuilder: _buildPortionStatusBadge,
+      onCallStore: (phone) => _callCustomer(context, phone, isArabic),
+      onViewPhoto: (photoUrl) => _viewFullPhoto(context, photoUrl),
+      onAcceptFulfillment: (fId) {
+        ref.read(ordersProvider.notifier).acceptFulfillment(fId);
+      },
+      onRejectFulfillment: (fId, storeName) {
+        _showRejectFulfillmentDialog(context, fId, storeName, isArabic);
+      },
+      onStartPreparing: (fId) {
+        _showPrepTimeDialog(
+          context,
+          order['id'],
+          fulfillmentId: fId,
+        );
+      },
+      onMarkReady: (fId) {
+        ref.read(ordersProvider.notifier).updateOrderStatus(
+              order['id'],
+              'READY_FOR_PICKUP',
+              fulfillmentId: fId,
+            );
+      },
     );
   }
 
@@ -3354,9 +2736,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               children: [
                 const Icon(LucideIcons.receipt, size: 14, color: AppColors.primary),
                 const SizedBox(width: 6),
-                Text(
-                  isArabic ? 'تفاصيل مستحقات المتاجر والماليات' : 'Stores & Financials Breakdown',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                Expanded(
+                  child: Text(
+                    isArabic ? 'تفاصيل مستحقات المتاجر والماليات' : 'Stores & Financials Breakdown',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ),
               ],
             ),
@@ -3475,29 +2859,47 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               child: Divider(height: 1),
             ),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(
-                  isArabic ? 'إجمالي الطلب' : 'Grand Total',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                Expanded(
+                  child: Text(
+                    isArabic ? 'إجمالي الطلب' : 'Grand Total',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${grandTotal.toStringAsFixed(2)} EGP',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppColors.primary,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(
-                  isArabic ? 'إجمالي مستحقات المتاجر' : 'Total Stores Payout',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                Expanded(
+                  child: Text(
+                    isArabic ? 'إجمالي مستحقات المتاجر' : 'Total Stores Payout',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${totalNetPayout.toStringAsFixed(2)} EGP',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.success),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.success,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
@@ -3548,21 +2950,26 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             child: Divider(height: 1),
           ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(
-                isArabic ? 'صافي مستحقات المتجر' : 'Net Store Payout',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+              Expanded(
+                child: Text(
+                  isArabic ? 'صافي مستحقات المتجر' : 'Net Store Payout',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '${netPayout.toStringAsFixed(2)} EGP',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
                   color: AppColors.success,
+                  fontFeatures: [FontFeature.tabularFigures()],
                 ),
               ),
             ],
@@ -3585,14 +2992,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   color: isContracted ? AppColors.primary : AppColors.warning,
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  isContracted
-                      ? (isArabic ? 'تتم التسوية في محفظة المتجر الرقمية' : 'Settled to store digital wallet')
-                      : (isArabic ? 'تحصيل نقدي من الكابتن عند الاستلام' : 'Collect cash from driver upon pickup'),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isContracted ? AppColors.primary : AppColors.warning,
+                Flexible(
+                  child: Text(
+                    isContracted
+                        ? (isArabic ? 'تتم التسوية في محفظة المتجر الرقمية' : 'Settled to store digital wallet')
+                        : (isArabic ? 'تحصيل نقدي من الكابتن عند الاستلام' : 'Collect cash from driver upon pickup'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isContracted ? AppColors.primary : AppColors.warning,
+                    ),
                   ),
                 ),
               ],
@@ -3605,24 +3014,29 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   Widget _buildPriceRow(String label, double? value, {bool isDiscount = false}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface,
+            ),
           ),
         ),
+        const SizedBox(width: 8),
         Text(
-          value == null 
-              ? '---' 
+          value == null
+              ? '---'
               : '${value > 0 && isDiscount ? '-' : ''}${value.abs().toStringAsFixed(2)} EGP',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.bold,
+            fontFeatures: const [FontFeature.tabularFigures()],
             color:
                 isDiscount
                     ? AppColors.error
