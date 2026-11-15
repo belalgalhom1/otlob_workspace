@@ -32,18 +32,12 @@ export class PrismaService
       .filter((model) => model.fields.some((f) => f.name === 'deletedAt'))
       .map((model) => model.name);
 
-    const client = this;
-
     const extended = this.$extends({
       query: {
         $allModels: {
           async findUnique({ model, args, query }) {
             if (modelsWithSoftDelete.includes(model)) {
               args.where = { ...args.where, deletedAt: null };
-              // Prisma requires findFirst instead of findUnique when querying on non-unique fields
-              const modelDelegate =
-                model.charAt(0).toLowerCase() + model.slice(1);
-              return (client as any)[modelDelegate].findFirst(args);
             }
             return query(args);
           },
