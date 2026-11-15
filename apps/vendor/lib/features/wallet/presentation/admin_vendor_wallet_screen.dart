@@ -186,9 +186,9 @@ class _AdminVendorWalletScreenState
     final async = ref.watch(adminVendorWalletProvider(_args));
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.colorScheme.surface,
         surfaceTintColor: Colors.transparent,
         title: Text(
           '${_isArabic ? 'محفظة' : 'Wallet'}'

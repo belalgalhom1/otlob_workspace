@@ -90,7 +90,7 @@ class WalletDashboardScreen extends ConsumerWidget {
 
     if (!showAdminTabs) {
       return Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.colorScheme.surface,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -108,7 +108,7 @@ class WalletDashboardScreen extends ConsumerWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.colorScheme.surface,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

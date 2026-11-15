@@ -19,6 +19,7 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
 
     return StatisticsScreen(
       config: StatisticsConfig(
+        backgroundColor: Theme.of(context).colorScheme.surface,
         titleAr: 'الإحصائيات المالية',
         titleEn: 'Finance Statistics',
         chartTitleAr: 'اتجاه الإيرادات',

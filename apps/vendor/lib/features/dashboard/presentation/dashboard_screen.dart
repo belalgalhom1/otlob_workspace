@@ -261,7 +261,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       },
       child: LayoutBuilder(
         builder: (context, constraints) {
-          bool isMobile = constraints.maxWidth < 1100;
+          final isMobile = constraints.maxWidth < 1100;
+          final isPhone = constraints.maxWidth < 600;
+          final isCompactPhone = constraints.maxWidth < 390;
 
           return Scaffold(
             key: _scaffoldKey,
@@ -276,62 +278,98 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       children: [
                         Padding(
                           padding: EdgeInsets.symmetric(
-                            horizontal: isMobile ? 12.0 : 24.0,
+                            horizontal: isPhone
+                                ? 12.0
+                                : (isMobile ? 16.0 : 24.0),
                             vertical: 24.0,
                           ),
                           child: Row(
                             children: [
                               if (isMobile)
                                 IconButton(
+                                  visualDensity: isPhone
+                                      ? VisualDensity.compact
+                                      : VisualDensity.standard,
+                                  padding: EdgeInsets.all(isPhone ? 6 : 8),
+                                  constraints: isPhone
+                                      ? const BoxConstraints(
+                                          minWidth: 36,
+                                          minHeight: 36,
+                                        )
+                                      : null,
+                                  style: isPhone
+                                      ? IconButton.styleFrom(
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        )
+                                      : null,
                                   icon: Icon(
                                     LucideIcons.menu,
+                                    size: isCompactPhone ? 20 : 22,
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurface,
                                   ),
                                   onPressed: () {
-                                  FocusManager.instance.primaryFocus?.unfocus();
-                                  _scaffoldKey.currentState?.openDrawer();
-                                },
+                                    FocusManager.instance.primaryFocus?.unfocus();
+                                    _scaffoldKey.currentState?.openDrawer();
+                                  },
                                 ),
-                              if (isMobile) const SizedBox(width: 8),
+                              if (isMobile) SizedBox(width: isPhone ? 6 : 8),
                               Expanded(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: AlignmentDirectional.centerStart,
-                                  child: Text(
-                                    _getMenuTitle(context, _selectedIndex),
-                                    style: TextStyle(
-                                      fontSize: isMobile ? 20 : 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface,
-                                    ),
+                                child: Text(
+                                  _getMenuTitle(context, _selectedIndex),
+                                  maxLines: 2,
+                                  softWrap: true,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: isCompactPhone
+                                        ? 17
+                                        : (isPhone
+                                              ? 18
+                                              : (isMobile ? 22 : 28)),
+                                    height: 1.2,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                 ),
                               ),
 
-                              if (!isMobile) const SizedBox(width: 16),
-                              if (isMobile) const SizedBox(width: 4),
+                              SizedBox(
+                                width: isPhone ? 10 : (isMobile ? 12 : 16),
+                              ),
                               _buildHeaderAction(
                                 LucideIcons.messageSquare,
                                 onTap: () => setState(() => _selectedIndex = 6),
                                 isMobile: isMobile,
+                                isPhone: isPhone,
+                                isCompactPhone: isCompactPhone,
                                 badgeCount: inboxCounts.chatUnread,
                               ),
-                              SizedBox(width: isMobile ? 4 : 8),
+                              SizedBox(width: isPhone ? 4 : (isMobile ? 6 : 8)),
                               _buildHeaderAction(
                                 LucideIcons.bell,
                                 onTap: () =>
                                     setState(() => _selectedIndex = 17),
                                 isMobile: isMobile,
+                                isPhone: isPhone,
+                                isCompactPhone: isCompactPhone,
                                 badgeCount: inboxCounts.notificationsUnread,
                               ),
-                              SizedBox(width: isMobile ? 4 : 8),
-                              _buildThemeToggle(isMobile: isMobile),
-                              SizedBox(width: isMobile ? 4 : 8),
-                              _buildLanguageToggle(isMobile: isMobile),
+                              SizedBox(width: isPhone ? 4 : (isMobile ? 6 : 8)),
+                              _buildThemeToggle(
+                                isMobile: isMobile,
+                                isPhone: isPhone,
+                                isCompactPhone: isCompactPhone,
+                              ),
+                              SizedBox(width: isPhone ? 4 : (isMobile ? 6 : 8)),
+                              _buildLanguageToggle(
+                                isMobile: isMobile,
+                                isPhone: isPhone,
+                                isCompactPhone: isCompactPhone,
+                              ),
                             ],
                           ),
                         ),
@@ -2281,9 +2319,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     IconData icon, {
     VoidCallback? onTap,
     bool isMobile = false,
+    bool isPhone = false,
+    bool isCompactPhone = false,
     int badgeCount = 0,
   }) {
-    final double btnSize = isMobile ? 38.0 : 42.0;
+    final double btnSize = isCompactPhone
+        ? 34.0
+        : (isPhone ? 36.0 : (isMobile ? 38.0 : 42.0));
+    final badgeText = badgeCount > 99 ? '99+' : '$badgeCount';
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -2308,12 +2351,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Badge(
             isLabelVisible: badgeCount > 0,
             label: Text(
-              '$badgeCount',
-              style: const TextStyle(fontSize: 10, color: Colors.white),
+              badgeText,
+              style: TextStyle(
+                fontSize: isPhone ? 9 : 10,
+                color: Colors.white,
+              ),
             ),
             child: Icon(
               icon,
-              size: 18,
+              size: isCompactPhone ? 16 : (isPhone ? 17 : 18),
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
@@ -2322,8 +2368,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildThemeToggle({bool isMobile = false}) {
-    final double btnSize = isMobile ? 38.0 : 42.0;
+  Widget _buildThemeToggle({
+    bool isMobile = false,
+    bool isPhone = false,
+    bool isCompactPhone = false,
+  }) {
+    final double btnSize = isCompactPhone
+        ? 34.0
+        : (isPhone ? 36.0 : (isMobile ? 38.0 : 42.0));
     return Consumer(
       builder: (context, ref, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2350,7 +2402,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               child: Icon(
                 isDark ? LucideIcons.sun : LucideIcons.moon,
-                size: 18,
+                size: isCompactPhone ? 16 : (isPhone ? 17 : 18),
                 color: Colors.amber,
               ),
             ),
@@ -2360,8 +2412,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildLanguageToggle({bool isMobile = false}) {
-    final double btnHeight = isMobile ? 38.0 : 42.0;
+  Widget _buildLanguageToggle({
+    bool isMobile = false,
+    bool isPhone = false,
+    bool isCompactPhone = false,
+  }) {
+    final double btnHeight = isCompactPhone
+        ? 34.0
+        : (isPhone ? 36.0 : (isMobile ? 38.0 : 42.0));
     return Consumer(
       builder: (context, ref, child) {
         final locale = ref.watch(localeProvider);
@@ -2378,7 +2436,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               height: btnHeight,
               constraints: BoxConstraints(minWidth: btnHeight),
               padding: EdgeInsets.symmetric(
-                horizontal: isMobile ? 8 : 12,
+                horizontal: isCompactPhone
+                    ? 6
+                    : (isPhone ? 7 : (isMobile ? 8 : 12)),
               ),
               alignment: Alignment.center,
               decoration: BoxDecoration(
@@ -2406,7 +2466,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     isArabic ? 'EN' : 'عربي',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 12,
+                      fontSize: isCompactPhone ? 11.5 : 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
