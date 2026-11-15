@@ -4,9 +4,7 @@ name: App Builds
 on:
   push:
     branches:
-      - main
-      - master
-      - develop
+      - '**'
     paths-ignore:
       - 'backend/**'
   pull_request:
@@ -204,7 +202,7 @@ jobs:
   release:
     name:  release
     needs: build-android-apps
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
