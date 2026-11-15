@@ -439,7 +439,7 @@ jobs:
             echo
             echo "**Branch:** $GITHUB_REF_NAME"
             echo
-            echo "**Commit:** $GITHUB_SHA"
+            echo "**Commit:** [View comment](${{ github.event.head_commit.url }})" >> "$NOTES_FILE"
             echo
             echo "**Updated apps:**"
 
