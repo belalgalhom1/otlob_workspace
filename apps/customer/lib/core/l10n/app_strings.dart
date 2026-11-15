@@ -125,6 +125,8 @@ class AppStrings {
   String get login => 'app.login'.tr(context: _context);
   String get or => 'app.or'.tr(context: _context);
   String get continueWithGoogle => 'app.continueWithGoogle'.tr(context: _context);
+  String get continueWithApple => 'app.continueWithApple'.tr(context: _context);
+  String get appleSignInComingSoon => 'app.appleSignInComingSoon'.tr(context: _context);
   String get signUp => 'app.signUp'.tr(context: _context);
   String get createAccount => 'app.createAccount'.tr(context: _context);
   String get joinApp => 'app.joinApp'.tr(context: _context);

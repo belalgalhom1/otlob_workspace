@@ -8,6 +8,8 @@ import '../../../../core/router/route_paths.dart';
 import '../../../../core/l10n/app_strings.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
 
+enum _AuthSubmissionMethod { email, google }
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -21,6 +23,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _saveInfo = true;
+  _AuthSubmissionMethod? _submittingMethod;
   Map<String, String>? _savedProfile;
 
   @override
@@ -47,18 +50,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  void _submit() async {
-    if (_formKey.currentState!.validate()) {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
-      
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    setState(() => _submittingMethod = _AuthSubmissionMethod.email);
+    try {
       final result = await ref
           .read(loginControllerProvider.notifier)
           .login(
             email: email,
             password: password,
           );
-      
+
       if (result && context.mounted) {
         if (_saveInfo) {
           // If login was successful, save info without letting optional Keychain cache errors block navigation.
@@ -75,18 +80,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (!mounted) return;
         _goAfterLogin();
       }
+    } finally {
+      if (mounted) {
+        setState(() => _submittingMethod = null);
+      }
     }
   }
 
   Future<void> _signInWithGoogle() async {
-    final result = await ref
-        .read(loginControllerProvider.notifier)
-        .signInWithGoogle();
+    setState(() => _submittingMethod = _AuthSubmissionMethod.google);
+    try {
+      final result = await ref
+          .read(loginControllerProvider.notifier)
+          .signInWithGoogle();
 
-    if (result && context.mounted) {
-      if (!mounted) return;
-      _goAfterLogin();
+      if (result && context.mounted) {
+        if (!mounted) return;
+        _goAfterLogin();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submittingMethod = null);
+      }
     }
+  }
+
+  void _onAppleSignInPressed(AppStrings s) {
+    // UI-only placeholder until Sign in with Apple authentication is enabled.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(s.appleSignInComingSoon)),
+      );
   }
 
   void _goAfterLogin() {
@@ -242,7 +267,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   height: 50,
                   child: ElevatedButton(
                     onPressed: loginState.isLoading ? null : _submit,
-                    child: loginState.isLoading
+                    child: loginState.isLoading &&
+                            _submittingMethod == _AuthSubmissionMethod.email
                         ? const CircularProgressIndicator(color: Colors.white)
                         : Text(s.login, style: const TextStyle(fontSize: 18)),
                   ),
@@ -268,52 +294,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  height: 50,
-                  child: OutlinedButton(
-                    onPressed:
-                        loginState.isLoading ? null : _signInWithGoogle,
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      side: BorderSide(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.2),
-                      ),
+                _buildSocialAuthButton(
+                  context: context,
+                  label: s.continueWithGoogle,
+                  isLoading: loginState.isLoading &&
+                      _submittingMethod == _AuthSubmissionMethod.google,
+                  onPressed: loginState.isLoading ? null : _signInWithGoogle,
+                  icon: const Text(
+                    'G',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF4285F4),
+                      height: 1.0,
                     ),
-                    child: loginState.isLoading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                'G',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF4285F4),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                s.continueWithGoogle,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildSocialAuthButton(
+                  context: context,
+                  label: s.continueWithApple,
+                  isLoading: false,
+                  onPressed: loginState.isLoading
+                      ? null
+                      : () => _onAppleSignInPressed(s),
+                  icon: Icon(
+                    Icons.apple,
+                    size: 24,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -341,6 +349,60 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSocialAuthButton({
+    required BuildContext context,
+    required Widget icon,
+    required String label,
+    required bool isLoading,
+    required VoidCallback? onPressed,
+  }) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return SizedBox(
+      height: 50,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          side: BorderSide(
+            color: onSurface.withValues(alpha: 0.2),
+          ),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Center(child: icon),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

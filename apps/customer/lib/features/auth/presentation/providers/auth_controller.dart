@@ -178,8 +178,7 @@ class AuthController extends _$AuthController {
     } catch (_) {}
   }
 
-  Future<void> signInWithGoogle() async {
-    state = AuthStatus.initial; // reset any prior error
+  Future<bool> signInWithGoogle() async {
     try {
       final idToken = await GoogleSignInService.getIdToken();
       _clearUserProviders();
@@ -199,19 +198,25 @@ class AuthController extends _$AuthController {
         await push.initialize();
         await push.subscribeToRoleTopics('CUSTOMER');
       } catch (_) {}
-    } on Exception catch (e) {
+      return true;
+    } catch (e) {
       final msg = e.toString();
       if (msg.contains('google.sign_in.no_token')) {
         // User cancelled — stay on login, no error shown
-        state = AuthStatus.unauthenticated;
-        return;
+        if (state != AuthStatus.authenticated) {
+          state = AuthStatus.unauthenticated;
+        }
+        return false;
       }
       if (msg.contains('404') || msg.contains('PROFILE_NOT_FOUND')) {
         try {
           await ref.read(sharedAuthRepositoryProvider).logout();
         } catch (_) {}
         state = AuthStatus.unauthenticated;
-        return;
+        return false;
+      }
+      if (state == AuthStatus.initial) {
+        state = AuthStatus.unauthenticated;
       }
       // Re-throw so the UI can show a snackbar
       rethrow;
