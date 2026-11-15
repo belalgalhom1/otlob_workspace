@@ -278,7 +278,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       children: [
                         SafeArea(
                           bottom: false,
-                          left: isMobile,
+                          left: isMobile || Localizations.localeOf(context).languageCode == 'ar',
+                          right: isMobile || Localizations.localeOf(context).languageCode != 'ar',
                           child: Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: isPhone
@@ -388,7 +389,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         Expanded(
                           child: SafeArea(
                             top: false,
-                            left: isMobile,
+                            left: isMobile || Localizations.localeOf(context).languageCode == 'ar',
+                            right: isMobile || Localizations.localeOf(context).languageCode != 'ar',
                             child: _buildIndexedStack(isMobile),
                           ),
                         ),

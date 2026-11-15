@@ -99,7 +99,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: Center(
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              padding: const EdgeInsets.fromLTRB(
+                24.0,
+                16.0 + kToolbarHeight,
+                24.0,
+                16.0,
+              ),
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(

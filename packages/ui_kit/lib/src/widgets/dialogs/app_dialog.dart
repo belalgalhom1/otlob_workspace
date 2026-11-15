@@ -1,10 +1,102 @@
 import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/app_colors.dart';
 import '../dialog_scaffold.dart';
+
+/// Per-application visual tokens for dialogs and legal surfaces so each app
+/// (Customer, Driver, Vendor Admin) retains its authentic visual identity.
+@immutable
+class AppDialogTheme extends ThemeExtension<AppDialogTheme> {
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final Color? subtleSurfaceColor;
+  final Color? sectionCardColor;
+  final Color? accentColor;
+  final Color? onAccentColor;
+  final Color? badgeBackgroundColor;
+  final Color? badgeForegroundColor;
+  final double? dialogRadius;
+  final double? cardRadius;
+  final double? buttonRadius;
+  final double? buttonMinHeight;
+  final bool? showHeaderDivider;
+
+  const AppDialogTheme({
+    this.backgroundColor,
+    this.borderColor,
+    this.subtleSurfaceColor,
+    this.sectionCardColor,
+    this.accentColor,
+    this.onAccentColor,
+    this.badgeBackgroundColor,
+    this.badgeForegroundColor,
+    this.dialogRadius,
+    this.cardRadius,
+    this.buttonRadius,
+    this.buttonMinHeight,
+    this.showHeaderDivider,
+  });
+
+  @override
+  AppDialogTheme copyWith({
+    Color? backgroundColor,
+    Color? borderColor,
+    Color? subtleSurfaceColor,
+    Color? sectionCardColor,
+    Color? accentColor,
+    Color? onAccentColor,
+    Color? badgeBackgroundColor,
+    Color? badgeForegroundColor,
+    double? dialogRadius,
+    double? cardRadius,
+    double? buttonRadius,
+    double? buttonMinHeight,
+    bool? showHeaderDivider,
+  }) {
+    return AppDialogTheme(
+      backgroundColor: backgroundColor ?? this.backgroundColor,
+      borderColor: borderColor ?? this.borderColor,
+      subtleSurfaceColor: subtleSurfaceColor ?? this.subtleSurfaceColor,
+      sectionCardColor: sectionCardColor ?? this.sectionCardColor,
+      accentColor: accentColor ?? this.accentColor,
+      onAccentColor: onAccentColor ?? this.onAccentColor,
+      badgeBackgroundColor: badgeBackgroundColor ?? this.badgeBackgroundColor,
+      badgeForegroundColor: badgeForegroundColor ?? this.badgeForegroundColor,
+      dialogRadius: dialogRadius ?? this.dialogRadius,
+      cardRadius: cardRadius ?? this.cardRadius,
+      buttonRadius: buttonRadius ?? this.buttonRadius,
+      buttonMinHeight: buttonMinHeight ?? this.buttonMinHeight,
+      showHeaderDivider: showHeaderDivider ?? this.showHeaderDivider,
+    );
+  }
+
+  @override
+  AppDialogTheme lerp(covariant AppDialogTheme? other, double t) {
+    if (other is! AppDialogTheme) return this;
+    return AppDialogTheme(
+      backgroundColor: Color.lerp(backgroundColor, other.backgroundColor, t),
+      borderColor: Color.lerp(borderColor, other.borderColor, t),
+      subtleSurfaceColor:
+          Color.lerp(subtleSurfaceColor, other.subtleSurfaceColor, t),
+      sectionCardColor: Color.lerp(sectionCardColor, other.sectionCardColor, t),
+      accentColor: Color.lerp(accentColor, other.accentColor, t),
+      onAccentColor: Color.lerp(onAccentColor, other.onAccentColor, t),
+      badgeBackgroundColor:
+          Color.lerp(badgeBackgroundColor, other.badgeBackgroundColor, t),
+      badgeForegroundColor:
+          Color.lerp(badgeForegroundColor, other.badgeForegroundColor, t),
+      dialogRadius: lerpDouble(dialogRadius, other.dialogRadius, t),
+      cardRadius: lerpDouble(cardRadius, other.cardRadius, t),
+      buttonRadius: lerpDouble(buttonRadius, other.buttonRadius, t),
+      buttonMinHeight: lerpDouble(buttonMinHeight, other.buttonMinHeight, t),
+      showHeaderDivider: t < 0.5 ? showHeaderDivider : other.showHeaderDivider,
+    );
+  }
+}
 
 /// Shared visual tokens and helpers for dialogs across the Otlob suite.
 class AppDialogStyles {
@@ -13,19 +105,38 @@ class AppDialogStyles {
   static bool isMobile(BuildContext context) =>
       MediaQuery.sizeOf(context).width < 600;
 
+  static AppDialogTheme? themeOf(BuildContext context) =>
+      Theme.of(context).extension<AppDialogTheme>();
+
   static Color backgroundColor(BuildContext context) {
+    final ext = themeOf(context);
+    if (ext?.backgroundColor != null) return ext!.backgroundColor!;
     final theme = Theme.of(context);
+    if (theme.dialogTheme.backgroundColor != null) {
+      return theme.dialogTheme.backgroundColor!;
+    }
     return theme.brightness == Brightness.dark
         ? theme.colorScheme.surface
         : Colors.white;
   }
 
   static Color borderColor(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ext = themeOf(context);
+    if (ext?.borderColor != null) return ext!.borderColor!;
+    final theme = Theme.of(context);
+    final shape = theme.dialogTheme.shape;
+    if (shape is RoundedRectangleBorder &&
+        shape.side != BorderSide.none &&
+        shape.side.color.a > 0) {
+      return shape.side.color;
+    }
+    final isDark = theme.brightness == Brightness.dark;
     return isDark ? AppColors.borderDark : AppColors.borderLight;
   }
 
   static Color subtleSurfaceColor(BuildContext context) {
+    final ext = themeOf(context);
+    if (ext?.subtleSurfaceColor != null) return ext!.subtleSurfaceColor!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return isDark
         ? AppColors.backgroundDark.withValues(alpha: 0.6)
@@ -33,27 +144,57 @@ class AppDialogStyles {
   }
 
   static Color sectionCardColor(BuildContext context) {
+    final ext = themeOf(context);
+    if (ext?.sectionCardColor != null) return ext!.sectionCardColor!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return isDark
         ? AppColors.backgroundDark.withValues(alpha: 0.45)
         : AppColors.surfaceLight;
   }
 
+  static Color accentColor(BuildContext context) {
+    final ext = themeOf(context);
+    if (ext?.accentColor != null) return ext!.accentColor!;
+    return Theme.of(context).colorScheme.primary;
+  }
+
+  static double dialogRadius(BuildContext context) =>
+      themeOf(context)?.dialogRadius ?? 18.0;
+
+  static double cardRadius(BuildContext context) =>
+      themeOf(context)?.cardRadius ?? 14.0;
+
+  static double buttonRadius(BuildContext context) =>
+      themeOf(context)?.buttonRadius ?? 12.0;
+
+  static double buttonMinHeight(BuildContext context) =>
+      themeOf(context)?.buttonMinHeight ?? 48.0;
+
   static Color dropdownColor(BuildContext context) => backgroundColor(context);
 
   /// Returns an accessible foreground color for [background] so labels/icons on
   /// bright brand surfaces (such as [AppColors.primary]) never render white-on-yellow.
-  static Color foregroundFor(Color background) {
-    return ThemeData.estimateBrightnessForColor(background) == Brightness.light
-        ? AppColors.onPrimary
-        : Colors.white;
+  static Color foregroundFor(Color background, {BuildContext? context}) {
+    if (ThemeData.estimateBrightnessForColor(background) == Brightness.light) {
+      if (context != null) {
+        final onAccent = themeOf(context)?.onAccentColor;
+        if (onAccent != null) return onAccent;
+      }
+      return AppColors.onPrimary;
+    }
+    return Colors.white;
   }
 
   static EdgeInsets dialogInsetPadding(BuildContext context) {
     final mobile = isMobile(context);
-    return EdgeInsets.symmetric(
-      horizontal: mobile ? 12 : 24,
-      vertical: mobile ? 14 : 24,
+    final pad = MediaQuery.paddingOf(context);
+    final minH = mobile ? 12.0 : 24.0;
+    final minV = mobile ? 14.0 : 24.0;
+    return EdgeInsets.fromLTRB(
+      math.max(minH, pad.left + 8.0),
+      math.max(minV, pad.top + 8.0),
+      math.max(minH, pad.right + 8.0),
+      math.max(minV, pad.bottom + 8.0),
     );
   }
 
@@ -433,6 +574,11 @@ class AppDialogHeader extends StatelessWidget {
   final Color? titleColor;
   final String? subtitle;
   final Widget? subtitleWidget;
+  final Widget? badge;
+  final Color? iconBackgroundColor;
+  final Color? iconForegroundColor;
+  final Color? iconBorderColor;
+  final double? iconRadius;
   final List<Widget> actions;
   final VoidCallback? onClose;
   final bool showCloseButton;
@@ -448,6 +594,11 @@ class AppDialogHeader extends StatelessWidget {
     this.titleColor,
     this.subtitle,
     this.subtitleWidget,
+    this.badge,
+    this.iconBackgroundColor,
+    this.iconForegroundColor,
+    this.iconBorderColor,
+    this.iconRadius,
     this.actions = const [],
     this.onClose,
     this.showCloseButton = true,
@@ -462,7 +613,12 @@ class AppDialogHeader extends StatelessWidget {
     final isMobile = AppDialogStyles.isMobile(context);
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final horizontalPad = isMobile ? 16.0 : 24.0;
-    final accent = accentColor ?? AppColors.primary;
+    final accent = accentColor ?? AppDialogStyles.accentColor(context);
+    final effectiveIconBg =
+        iconBackgroundColor ?? accent.withValues(alpha: 0.12);
+    final effectiveIconFg = iconForegroundColor ?? accent;
+    final effectiveIconBorder =
+        iconBorderColor ?? accent.withValues(alpha: 0.25);
 
     return Padding(
       padding: padding ??
@@ -478,11 +634,13 @@ class AppDialogHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: accent.withValues(alpha: 0.25)),
+              color: effectiveIconBg,
+              borderRadius: BorderRadius.circular(iconRadius ?? 10),
+              border: effectiveIconBorder == Colors.transparent
+                  ? null
+                  : Border.all(color: effectiveIconBorder),
             ),
-            child: Icon(icon, color: accent, size: 20),
+            child: Icon(icon, color: effectiveIconFg, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -490,15 +648,34 @@ class AppDialogHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16.5,
-                    color: titleColor ?? theme.colorScheme.onSurface,
+                if (badge != null)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16.5,
+                          color: titleColor ?? theme.colorScheme.onSurface,
+                        ),
+                        softWrap: true,
+                      ),
+                      badge!,
+                    ],
+                  )
+                else
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16.5,
+                      color: titleColor ?? theme.colorScheme.onSurface,
+                    ),
+                    softWrap: true,
                   ),
-                  softWrap: true,
-                ),
                 if (subtitleWidget != null) ...[
                   const SizedBox(height: 3),
                   subtitleWidget!,
@@ -570,6 +747,8 @@ class AppDialogFooter extends StatelessWidget {
     final isMobile = AppDialogStyles.isMobile(context);
     final dialogBorder = AppDialogStyles.borderColor(context);
     final horizontalPad = isMobile ? 16.0 : 24.0;
+    final btnRadius = AppDialogStyles.buttonRadius(context);
+    final btnMinHeight = AppDialogStyles.buttonMinHeight(context);
 
     final hasCancel = cancelLabel != null && cancelLabel!.isNotEmpty;
     final hasConfirm = confirmLabel != null && confirmLabel!.isNotEmpty;
@@ -580,17 +759,20 @@ class AppDialogFooter extends StatelessWidget {
                 ? null
                 : (onCancel ?? () => Navigator.of(context).pop(false)),
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(100, 46),
+              minimumSize: Size(isMobile ? 0 : 100, btnMinHeight),
               foregroundColor: theme.colorScheme.onSurface,
               side: BorderSide(color: dialogBorder, width: 1.2),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(btnRadius),
               ),
-              padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 18),
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 12 : 18,
+                vertical: 10,
+              ),
             ),
             child: Text(
               cancelLabel!,
-              maxLines: 2,
+              maxLines: 3,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w600),
@@ -601,30 +783,33 @@ class AppDialogFooter extends StatelessWidget {
     Widget? confirmButton;
     if (hasConfirm) {
       final bg = confirmBackgroundColor ??
-          (isDestructive ? AppColors.error : AppColors.primary);
-      final fg = confirmForegroundColor ?? AppDialogStyles.foregroundFor(bg);
+          (isDestructive
+              ? AppColors.error
+              : AppDialogStyles.accentColor(context));
+      final fg = confirmForegroundColor ??
+          AppDialogStyles.foregroundFor(bg, context: context);
       final displayText =
           (isLoading && loadingLabel != null) ? loadingLabel! : confirmLabel!;
 
       final buttonStyle = ElevatedButton.styleFrom(
-        minimumSize: Size(isMobile ? 0 : 140, 46),
+        minimumSize: Size(isMobile ? 0 : 140, btnMinHeight),
         backgroundColor: bg,
         foregroundColor: fg,
         disabledBackgroundColor: bg.withValues(alpha: isLoading ? 0.65 : 0.45),
         disabledForegroundColor: fg.withValues(alpha: isLoading ? 0.9 : 0.6),
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(btnRadius),
         ),
         padding: EdgeInsets.symmetric(
           horizontal: isMobile ? 14 : 20,
-          vertical: 8,
+          vertical: 10,
         ),
       );
 
       final labelWidget = Text(
         displayText,
-        maxLines: 2,
+        maxLines: 3,
         textAlign: TextAlign.center,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontWeight: FontWeight.bold),
@@ -661,12 +846,33 @@ class AppDialogFooter extends StatelessWidget {
     Widget actionRow;
     if (isMobile) {
       if (cancelButton != null && confirmButton != null) {
-        actionRow = Row(
-          children: [
-            Expanded(flex: 2, child: cancelButton),
-            const SizedBox(width: 12),
-            Expanded(flex: 3, child: confirmButton),
-          ],
+        actionRow = LayoutBuilder(
+          builder: (context, constraints) {
+            final scaledFont = MediaQuery.textScalerOf(context).scale(14.0);
+            final stackVertically =
+                constraints.maxWidth < 290 || scaledFont > 17.5;
+            if (stackVertically) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  confirmButton!,
+                  const SizedBox(height: 10),
+                  cancelButton,
+                ],
+              );
+            }
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 2, child: cancelButton),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 3, child: confirmButton!),
+                ],
+              ),
+            );
+          },
         );
       } else if (confirmButton != null) {
         actionRow = SizedBox(width: double.infinity, child: confirmButton);
@@ -681,10 +887,10 @@ class AppDialogFooter extends StatelessWidget {
         children: [
           Expanded(child: leading!),
           const SizedBox(width: 12),
-          if (cancelButton != null) cancelButton,
+          ?cancelButton,
           if (cancelButton != null && confirmButton != null)
             const SizedBox(width: 12),
-          if (confirmButton != null) confirmButton,
+          ?confirmButton,
         ],
       );
     } else {
@@ -791,7 +997,8 @@ class AppDialog extends StatelessWidget {
       surfaceTintColor: Colors.transparent,
       insetPadding: AppDialogStyles.dialogInsetPadding(context),
       shape: RoundedRectangleBorder(
-        borderRadius: borderRadius ?? BorderRadius.circular(18),
+        borderRadius: borderRadius ??
+            BorderRadius.circular(AppDialogStyles.dialogRadius(context)),
         side: BorderSide(color: dialogBorder),
       ),
       clipBehavior: Clip.antiAlias,
@@ -917,14 +1124,17 @@ class AppConfirmDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final effectiveAccent =
-        accentColor ?? (isDestructive ? AppColors.error : AppColors.primary);
+    final effectiveAccent = accentColor ??
+        (isDestructive
+            ? AppColors.error
+            : AppDialogStyles.accentColor(context));
     final effectiveIcon =
         icon ?? (isDestructive ? LucideIcons.alertTriangle : LucideIcons.helpCircle);
 
     return AppDialog(
       maxWidth: maxWidth,
       useDialogScaffold: useDialogScaffold,
+      showDividers: AppDialogStyles.themeOf(context)?.showHeaderDivider ?? true,
       canPop: !isLoading,
       header: AppDialogHeader(
         icon: effectiveIcon,

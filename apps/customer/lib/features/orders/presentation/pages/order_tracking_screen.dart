@@ -1191,11 +1191,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
                       return Marker(
                         point: point,
-                        width: 96,
-                        height: 58,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                        width: 112,
+                        height: 66,
+                        child: MediaQuery.withClampedTextScaling(
+                          maxScaleFactor: 1.15,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
@@ -1267,9 +1269,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                       ),
                                     ),
                                   ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }).toList(),
@@ -1281,58 +1284,61 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                     markers: [
                       Marker(
                         point: destPos,
-                        width: 84,
-                        height: 56,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                                border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
-                              ),
-                              child: Text(
-                                s.isArabic ? 'موقع التوصيل' : 'Delivery Address',
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black87,
+                        width: 100,
+                        height: 64,
+                        child: MediaQuery.withClampedTextScaling(
+                          maxScaleFactor: 1.15,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.2),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                  border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
+                                child: Text(
+                                  s.isArabic ? 'موقع التوصيل' : 'Delivery Address',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : Colors.black87,
                                   ),
-                                ],
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.home_rounded,
-                                color: Colors.white,
-                                size: 16,
+                              const SizedBox(height: 2),
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEF4444),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.home_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],

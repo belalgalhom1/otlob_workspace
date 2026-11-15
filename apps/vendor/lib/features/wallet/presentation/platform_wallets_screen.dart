@@ -163,12 +163,14 @@ class PlatformWalletsScreen extends ConsumerWidget {
                                   color: theme.colorScheme.onSurface,
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  wallet['number'] ?? '',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: theme.colorScheme.onSurface,
-                                    letterSpacing: 0.5,
+                                Expanded(
+                                  child: Text(
+                                    wallet['number'] ?? '',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: theme.colorScheme.onSurface,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                 ),
                               ],

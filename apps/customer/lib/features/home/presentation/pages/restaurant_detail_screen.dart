@@ -542,7 +542,8 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsetsDirectional.only(end: 12),
               width: 85,
-              height: 115,
+              constraints: const BoxConstraints(minHeight: 115),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? AppColors.primary : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
                 borderRadius: BorderRadius.circular(16),
@@ -597,7 +598,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                         color: isSelected ? Colors.black : (isDark ? Colors.white : Colors.black87), 
                         fontWeight: FontWeight.w900, 
                         fontSize: 9.5,
-                        letterSpacing: -0.3,
+                        letterSpacing: Directionality.of(context) == TextDirection.rtl ? null : -0.3,
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 2,
@@ -1129,16 +1130,19 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              getDayName(day),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                                color: isToday 
-                                    ? AppColors.primary 
-                                    : (isDark ? Colors.white70 : Colors.black87),
+                            Flexible(
+                              child: Text(
+                                getDayName(day),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                                  color: isToday 
+                                      ? AppColors.primary 
+                                      : (isDark ? Colors.white70 : Colors.black87),
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             isClosed
                                 ? Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1155,14 +1159,17 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                                       ),
                                     ),
                                   )
-                                : Text(
-                                    '${formatTimeTo12Hour(openTime, isAr)} - ${formatTimeTo12Hour(closeTime, isAr)}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                                      color: isToday 
-                                          ? AppColors.primary 
-                                          : (isDark ? Colors.white70 : Colors.black87),
+                                : Flexible(
+                                    child: Text(
+                                      '${formatTimeTo12Hour(openTime, isAr)} - ${formatTimeTo12Hour(closeTime, isAr)}',
+                                      textAlign: TextAlign.end,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                                        color: isToday 
+                                            ? AppColors.primary 
+                                            : (isDark ? Colors.white70 : Colors.black87),
+                                      ),
                                     ),
                                   ),
                           ],

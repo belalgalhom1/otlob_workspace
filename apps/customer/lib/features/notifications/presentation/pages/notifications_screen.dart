@@ -107,7 +107,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     : ListView.builder(
                         controller: _scrollController,
                         physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          8,
+                          16,
+                          16 + MediaQuery.paddingOf(context).bottom,
+                        ),
                         itemCount: state.notifications.length + (state.hasMore ? 1 : 0),
                         itemBuilder: (context, index) {
                           if (index == state.notifications.length) {
@@ -167,8 +172,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       key: Key(id),
       direction: DismissDirection.endToStart,
       background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        alignment: AlignmentDirectional.centerEnd,
+        padding: const EdgeInsetsDirectional.only(end: 20),
         decoration: BoxDecoration(
           color: Colors.red.shade400,
           borderRadius: BorderRadius.circular(16),
@@ -255,7 +260,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         ),
                         if (!isRead)
                           Container(
-                            margin: const EdgeInsets.only(left: 8, top: 4),
+                            margin: const EdgeInsetsDirectional.only(start: 8, top: 4),
                             width: 8,
                             height: 8,
                             decoration: const BoxDecoration(

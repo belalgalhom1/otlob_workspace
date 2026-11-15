@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../theme/app_colors.dart';
+import '../app_adaptive_chevron.dart';
 
 /// Pinned order banner displayed at the top of an order chat screen,
 /// providing live context on order status, total, and direct phone call fallback.
@@ -70,22 +71,30 @@ class OrderContextBar extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          '#$orderNumber',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: colorScheme.onSurface,
+                        Flexible(
+                          child: Text(
+                            '#$orderNumber',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: colorScheme.onSurface,
+                            ),
                           ),
                         ),
                         if (totalAmount != null && totalAmount!.isNotEmpty) ...[
                           const SizedBox(width: 8),
-                          Text(
-                            totalAmount!,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          Flexible(
+                            child: Text(
+                              totalAmount!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
                             ),
                           ),
                         ],
@@ -104,12 +113,16 @@ class OrderContextBar extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 5),
-                        Text(
-                          statusLabel,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: activeColor,
+                        Expanded(
+                          child: Text(
+                            statusLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: activeColor,
+                            ),
                           ),
                         ),
                       ],
@@ -131,8 +144,7 @@ class OrderContextBar extends StatelessWidget {
               ],
 
               if (onTap != null)
-                Icon(
-                  LucideIcons.chevronRight,
+                AppAdaptiveChevron(
                   size: 16,
                   color: colorScheme.onSurface.withValues(alpha: 0.4),
                 ),

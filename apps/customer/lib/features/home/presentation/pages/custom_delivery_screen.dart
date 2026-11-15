@@ -495,16 +495,21 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.stars_rounded, color: Color(0xFFFFB300), size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              isAr ? 'استخدام ${coinState.currentBalance} عملة' : 'Use ${coinState.currentBalance} Coins',
-                              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 15),
-                            ),
-                          ],
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.stars_rounded, color: Color(0xFFFFB300), size: 18),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  isAr ? 'استخدام ${coinState.currentBalance} عملة' : 'Use ${coinState.currentBalance} Coins',
+                                  style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 15),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Switch(
                           value: _useCoins,
                           activeThumbColor: AppColors.primary,
@@ -528,8 +533,22 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(s.total, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
-                      Text('${finalTotal.toStringAsFixed(0)} ${s.egp}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: AppColors.primary)),
+                      Expanded(
+                        child: Text(s.total, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          '${finalTotal.toStringAsFixed(0)} ${s.egp}',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 24,
+                            color: AppColors.primary,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -981,8 +1000,22 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   Widget _priceRow(String label, String amount, bool isDark) => Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween, 
     children: [
-      Text(label, style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600, fontSize: 15)), 
-      Text(amount, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: isDark ? Colors.white : Colors.black87))
+      Expanded(
+        child: Text(label, style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600, fontSize: 15)),
+      ),
+      const SizedBox(width: 12),
+      Flexible(
+        child: Text(
+          amount,
+          textAlign: TextAlign.end,
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
+            color: isDark ? Colors.white : Colors.black87,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ),
     ]
   );
 }

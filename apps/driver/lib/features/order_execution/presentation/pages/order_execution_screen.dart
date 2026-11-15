@@ -739,81 +739,84 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         markers.add(
           Marker(
             point: LatLng(stopLat, stopLng),
-            width: isMultiple ? 100 : 40,
-            height: isMultiple ? 56 : 40,
-            child: GestureDetector(
-              onTap: () {
-                setState(() => _currentStopIndex = i);
-                if (_isMapReady) {
-                  _mapController.move(LatLng(stopLat, stopLng), 15);
-                }
-              },
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: isCollected
-                              ? AppColors.success
-                              : (isSelected ? AppColors.primary : const Color(0xFF1E293B)),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected ? Colors.white : Colors.transparent,
-                            width: 2,
+            width: isMultiple ? 116 : 44,
+            height: isMultiple ? 66 : 44,
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.15,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => _currentStopIndex = i);
+                  if (_isMapReady) {
+                    _mapController.move(LatLng(stopLat, stopLng), 15);
+                  }
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: isCollected
+                                ? AppColors.success
+                                : (isSelected ? AppColors.primary : const Color(0xFF1E293B)),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? Colors.white : Colors.transparent,
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.35),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          isCollected ? LucideIcons.check : LucideIcons.store,
-                          color: isCollected || !isSelected ? Colors.white : Colors.black,
-                          size: 16,
-                        ),
-                      ),
-                      if (isMultiple)
-                        Positioned(
-                          top: -2,
-                          right: -2,
-                          child: CircleAvatar(
-                            radius: 7,
-                            backgroundColor: isCollected ? Colors.green.shade800 : Colors.black,
-                            child: Text(
-                              '${i + 1}',
-                              style: const TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
-                            ),
+                          child: Icon(
+                            isCollected ? LucideIcons.check : LucideIcons.store,
+                            color: isCollected || !isSelected ? Colors.white : Colors.black,
+                            size: 16,
                           ),
                         ),
-                    ],
-                  ),
-                  if (isMultiple)
-                    Container(
-                      margin: const EdgeInsets.only(top: 2),
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : Colors.black87,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        stopName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: isSelected ? Colors.black : Colors.white,
-                          fontSize: 8.5,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
+                        if (isMultiple)
+                          Positioned(
+                            top: -2,
+                            right: -2,
+                            child: CircleAvatar(
+                              radius: 7,
+                              backgroundColor: isCollected ? Colors.green.shade800 : Colors.black,
+                              child: Text(
+                                '${i + 1}',
+                                style: const TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                    if (isMultiple)
+                      Container(
+                        margin: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary : Colors.black87,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          stopName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isSelected ? Colors.black : Colors.white,
+                            fontSize: 8.5,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -877,7 +880,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         if (_roadSpeedLimit != null)
           Positioned(
             top: 16,
-            left: 16,
+            left: 16 + MediaQuery.paddingOf(context).left,
             child: SpeedLimitSign(
               speedLimit: _roadSpeedLimit!.speed,
               unit: _roadSpeedLimit!.unit,
@@ -890,7 +893,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         // Floating Center Map Button
         Positioned(
           top: 16,
-          right: 16,
+          right: 16 + MediaQuery.paddingOf(context).right,
           child: FloatingActionButton(
             heroTag: 'driver_center_map_fab',
             backgroundColor: Theme.of(context).colorScheme.surface,
@@ -909,350 +912,366 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           bottom: 0,
           left: 0,
           right: 0,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, -5)),
-              ],
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.58,
             ),
-            padding: EdgeInsets.fromLTRB(
-              20.0,
-              18.0,
-              20.0,
-              18.0 + MediaQuery.of(context).padding.bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 1. Multi-Stop Waypoint Bar (when multiple pickup stops exist)
-                if (pickupStops.length > 1 && !isDelivering) ...[
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (int i = 0; i < pickupStops.length; i++) ...[
-                          _buildStopChip(
-                            index: i,
-                            totalStops: pickupStops.length,
-                            stop: pickupStops[i],
-                            isActive: _currentStopIndex == i,
-                            isCollected: _collectedStopIndices.contains(i),
-                            isAr: isAr,
-                            onTap: () {
-                              setState(() => _currentStopIndex = i);
-                              final sLat = pickupStops[i]['lat'] as double;
-                              final sLng = pickupStops[i]['lng'] as double;
-                              if (sLat != 0 && sLng != 0 && _isMapReady) {
-                                _mapController.move(LatLng(sLat, sLng), 15);
-                              }
-                            },
-                          ),
-                          if (i < pickupStops.length - 1)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              child: Icon(
-                                isAr ? LucideIcons.chevronLeft : LucideIcons.chevronRight,
-                                size: 14,
-                                color: Theme.of(context).dividerColor,
-                              ),
-                            ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, -5)),
                 ],
-
-                // 2. Active Header
-                Row(
+              ),
+              padding: EdgeInsets.fromLTRB(
+                20.0,
+                18.0,
+                20.0,
+                18.0 + MediaQuery.paddingOf(context).bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        (status == 'PICKED_UP' || status == 'PENDING_PAYMENT') ? LucideIcons.user : LucideIcons.store,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  status == 'PENDING_PAYMENT'
-                                      ? (isAr ? 'بانتظار الدفع من العميل' : 'Waiting for Customer Payment')
-                                      : (status == 'PICKED_UP')
-                                          ? l10n.navigatingToCustomer
-                                          : (pickupStops.length > 1
-                                              ? (isAr ? 'المحطة ${_currentStopIndex + 1} من ${pickupStops.length} (استلام)' : 'Stop ${_currentStopIndex + 1} of ${pickupStops.length} (Pickup)')
-                                              : (isCustomOrRide
-                                                  ? (isAr ? 'التوجه إلى موقع الاستلام' : 'Navigating to Pickup')
-                                                  : l10n.navigatingToVendor)),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                    // 1. Multi-Stop Waypoint Bar (when multiple pickup stops exist)
+                    if (pickupStops.length > 1 && !isDelivering) ...[
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (int i = 0; i < pickupStops.length; i++) ...[
+                              _buildStopChip(
+                                index: i,
+                                totalStops: pickupStops.length,
+                                stop: pickupStops[i],
+                                isActive: _currentStopIndex == i,
+                                isCollected: _collectedStopIndices.contains(i),
+                                isAr: isAr,
+                                onTap: () {
+                                  setState(() => _currentStopIndex = i);
+                                  final sLat = pickupStops[i]['lat'] as double;
+                                  final sLng = pickupStops[i]['lng'] as double;
+                                  if (sLat != 0 && sLng != 0 && _isMapReady) {
+                                    _mapController.move(LatLng(sLat, sLng), 15);
+                                  }
+                                },
                               ),
-                              if (order['isStacked'] == true) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(8),
+                              if (i < pickupStops.length - 1)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                                  child: Icon(
+                                    isAr ? LucideIcons.chevronLeft : LucideIcons.chevronRight,
+                                    size: 14,
+                                    color: Theme.of(context).dividerColor,
                                   ),
-                                  child: Text(
-                                    isAr ? 'مجمع في المسار' : 'Batch',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    // 2. Active Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            (status == 'PICKED_UP' || status == 'PENDING_PAYMENT') ? LucideIcons.user : LucideIcons.store,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      status == 'PENDING_PAYMENT'
+                                          ? (isAr ? 'بانتظار الدفع من العميل' : 'Waiting for Customer Payment')
+                                          : (status == 'PICKED_UP')
+                                              ? l10n.navigatingToCustomer
+                                              : (pickupStops.length > 1
+                                                  ? (isAr ? 'المحطة ${_currentStopIndex + 1} من ${pickupStops.length} (استلام)' : 'Stop ${_currentStopIndex + 1} of ${pickupStops.length} (Pickup)')
+                                                  : (isCustomOrRide
+                                                      ? (isAr ? 'التوجه إلى موقع الاستلام' : 'Navigating to Pickup')
+                                                      : l10n.navigatingToVendor)),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  if (order['isStacked'] == true) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        isAr ? 'مجمع في المسار' : 'Batch',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
+                                    ? ((order['customer'] is Map ? order['customer']['name'] : null) ?? l10n.customerFallback)
+                                    : (currentStop != null
+                                        ? currentStop['name']
+                                        : (isCustomOrRide
+                                            ? (order['pickupAddress']?.toString() ?? (isAr ? 'موقع الاستلام' : 'Pickup Location'))
+                                            : ((order['vendor'] is Map ? order['vendor']['name'] ?? order['vendor']['storeName'] : null) ?? l10n.vendorFallback))),
+                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (!isDelivering && currentStop != null && (currentStop['address'] as String).isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  currentStop['address'],
+                                  style: TextStyle(fontSize: 11.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
-                                ? ((order['customer'] is Map ? order['customer']['name'] : null) ?? l10n.customerFallback)
-                                : (currentStop != null
-                                    ? currentStop['name']
-                                    : (isCustomOrRide
-                                        ? (order['pickupAddress']?.toString() ?? (isAr ? 'موقع الاستلام' : 'Pickup Location'))
-                                        : ((order['vendor'] is Map ? order['vendor']['name'] ?? order['vendor']['storeName'] : null) ?? l10n.vendorFallback))),
-                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (!isDelivering && currentStop != null && (currentStop['address'] as String).isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              currentStop['address'],
-                              style: TextStyle(fontSize: 11.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // 3. Store Payment Instruction Banner (Specific to current stop when picking up)
-                if (!isDelivering && currentStop != null) ...[
-                  Builder(builder: (context) {
-                    final bool isContracted = currentStop['isContracted'] == true;
-                    final double cashToPay =
-                        (currentStop['cashToPay'] as num?)?.toDouble() ?? 0.0;
-                    final bool noCashAtStore = cashToPay <= 0;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: noCashAtStore
-                            ? AppColors.success.withValues(alpha: 0.1)
-                            : AppColors.warning.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: noCashAtStore
-                              ? AppColors.success.withValues(alpha: 0.4)
-                              : AppColors.warning.withValues(alpha: 0.6),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            noCashAtStore ? LucideIcons.badgeCheck : LucideIcons.banknote,
-                            size: 16,
-                            color: noCashAtStore ? AppColors.success : AppColors.warning,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              noCashAtStore
-                                  ? (isAr
-                                      ? 'لا تدفع كاش في هذا المتجر (0 $currency)'
-                                      : 'Do not pay cash at this store (0 $currency)')
-                                  : isContracted
-                                      ? (isAr
-                                          ? 'متجر شريك: ادفع صافي الفاتورة كاش: ${cashToPay.toStringAsFixed(2)} $currency'
-                                          : 'Partner Store: Pay net cash at pickup: ${cashToPay.toStringAsFixed(2)} $currency')
-                                      : (isAr
-                                          ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPay.toStringAsFixed(2)} $currency'
-                                          : 'Uncontracted: Pay store in cash: ${cashToPay.toStringAsFixed(2)} $currency'),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: noCashAtStore ? AppColors.success : AppColors.warning,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-
-                // 4. Action Row (Maps Navigation, Call, Details, Chat)
-                Row(
-                  children: [
-                    // Navigation with Google Maps
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          LatLng? destination;
-                          if (isDelivering) {
-                            if (customerLat != 0.0 && customerLng != 0.0) {
-                              destination = LatLng(customerLat, customerLng);
-                            }
-                          } else if (currentStop != null) {
-                            final sLat =
-                                (currentStop['lat'] as num?)?.toDouble() ?? 0.0;
-                            final sLng =
-                                (currentStop['lng'] as num?)?.toDouble() ?? 0.0;
-                            if (sLat != 0.0 && sLng != 0.0) {
-                              destination = LatLng(sLat, sLng);
-                            }
-                          }
-                          destination ??= targetLocation;
-
-                          if (destination == null ||
-                              destination.latitude == 0.0 ||
-                              destination.longitude == 0.0) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  isAr
-                                      ? 'إحداثيات الموقع غير متوفرة'
-                                      : 'Location coordinates are not available',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          _launchMapsNavigation(
-                            destination.latitude,
-                            destination.longitude,
-                          );
-                        },
-                        icon: const Icon(LucideIcons.navigation, size: 16),
-                        label: Text(isAr ? 'خرائط' : 'Maps'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.blue,
-                          side: const BorderSide(color: Colors.blue),
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Phone Call
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          if (isDelivering) {
-                            final cust = order['customer'] is Map ? order['customer'] : {};
-                            _callPhone(context, (cust['phone'] ?? cust['user']?['phone'])?.toString());
-                          } else if (currentStop != null) {
-                            _callPhone(context, currentStop['phone'] as String?);
-                          }
-                        },
-                        icon: const Icon(LucideIcons.phone, size: 16),
-                        label: Text(isAr ? 'اتصال' : 'Call'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // View Details
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          OrderDetailsBottomSheet.show(context, order);
-                        },
-                        icon: const Icon(LucideIcons.fileText, size: 16),
-                        label: Text(isAr ? 'التفاصيل' : 'Details'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Theme.of(context).colorScheme.onSurface,
-                          side: BorderSide(color: Theme.of(context).dividerColor),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Chat
-                    IconButton(
-                      onPressed: () => context.push('/chat/${order['id']}'),
-                      icon: const Icon(LucideIcons.messageCircle, color: AppColors.primary),
-                      tooltip: l10n.messageButton,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (!isDelivering && currentStop != null && (currentStop['items'] as List).isNotEmpty) ...[
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isAr ? 'أصناف هذه المحطة (${(currentStop['items'] as List).length}):' : 'Items at this stop (${(currentStop['items'] as List).length}):',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: [
-                            for (final item in (currentStop['items'] as List))
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  '${item['quantity'] ?? 1}x ${item['productName'] ?? item['name'] ?? 'Item'}',
-                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                          ],
                         ),
                       ],
                     ),
-                  ),
-                ],
-                _buildPickupPhotoWidget(context, status, l10n, order, pickupStops),
-                _buildDeliveryPhotoWidget(context, status, l10n, order),
-                _buildActionButton(context, status, isCashOnDelivery, isMobileWallet, targetLocation, l10n, order, pickupStops),
-              ],
+                    const SizedBox(height: 14),
+
+                    // 3. Store Payment Instruction Banner (Specific to current stop when picking up)
+                    if (!isDelivering && currentStop != null) ...[
+                      Builder(builder: (context) {
+                        final bool isContracted = currentStop['isContracted'] == true;
+                        final double cashToPay =
+                            (currentStop['cashToPay'] as num?)?.toDouble() ?? 0.0;
+                        final bool noCashAtStore = cashToPay <= 0;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: noCashAtStore
+                                ? AppColors.success.withValues(alpha: 0.1)
+                                : AppColors.warning.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: noCashAtStore
+                                  ? AppColors.success.withValues(alpha: 0.4)
+                                  : AppColors.warning.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                noCashAtStore ? LucideIcons.badgeCheck : LucideIcons.banknote,
+                                size: 16,
+                                color: noCashAtStore ? AppColors.success : AppColors.warning,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  noCashAtStore
+                                      ? (isAr
+                                          ? 'لا تدفع كاش في هذا المتجر (0 $currency)'
+                                          : 'Do not pay cash at this store (0 $currency)')
+                                      : isContracted
+                                          ? (isAr
+                                              ? 'متجر شريك: ادفع صافي الفاتورة كاش: ${cashToPay.toStringAsFixed(2)} $currency'
+                                              : 'Partner Store: Pay net cash at pickup: ${cashToPay.toStringAsFixed(2)} $currency')
+                                          : (isAr
+                                              ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPay.toStringAsFixed(2)} $currency'
+                                              : 'Uncontracted: Pay store in cash: ${cashToPay.toStringAsFixed(2)} $currency'),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: noCashAtStore ? AppColors.success : AppColors.warning,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+
+                    // 4. Action Row (Maps Navigation, Call, Details, Chat)
+                    Row(
+                      children: [
+                        // Navigation with Google Maps
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              LatLng? destination;
+                              if (isDelivering) {
+                                if (customerLat != 0.0 && customerLng != 0.0) {
+                                  destination = LatLng(customerLat, customerLng);
+                                }
+                              } else if (currentStop != null) {
+                                final sLat =
+                                    (currentStop['lat'] as num?)?.toDouble() ?? 0.0;
+                                final sLng =
+                                    (currentStop['lng'] as num?)?.toDouble() ?? 0.0;
+                                if (sLat != 0.0 && sLng != 0.0) {
+                                  destination = LatLng(sLat, sLng);
+                                }
+                              }
+                              destination ??= targetLocation;
+
+                              if (destination == null ||
+                                  destination.latitude == 0.0 ||
+                                  destination.longitude == 0.0) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isAr
+                                          ? 'إحداثيات الموقع غير متوفرة'
+                                          : 'Location coordinates are not available',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              _launchMapsNavigation(
+                                destination.latitude,
+                                destination.longitude,
+                              );
+                            },
+                            icon: const Icon(LucideIcons.navigation, size: 16),
+                            label: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(isAr ? 'خرائط' : 'Maps', maxLines: 1),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.blue,
+                              side: const BorderSide(color: Colors.blue),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Phone Call
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              if (isDelivering) {
+                                final cust = order['customer'] is Map ? order['customer'] : {};
+                                _callPhone(context, (cust['phone'] ?? cust['user']?['phone'])?.toString());
+                              } else if (currentStop != null) {
+                                _callPhone(context, currentStop['phone'] as String?);
+                              }
+                            },
+                            icon: const Icon(LucideIcons.phone, size: 16),
+                            label: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(isAr ? 'اتصال' : 'Call', maxLines: 1),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // View Details
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              OrderDetailsBottomSheet.show(context, order);
+                            },
+                            icon: const Icon(LucideIcons.fileText, size: 16),
+                            label: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(isAr ? 'التفاصيل' : 'Details', maxLines: 1),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Theme.of(context).colorScheme.onSurface,
+                              side: BorderSide(color: Theme.of(context).dividerColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Chat
+                        IconButton(
+                          onPressed: () => context.push('/chat/${order['id']}'),
+                          icon: const Icon(LucideIcons.messageCircle, color: AppColors.primary),
+                          tooltip: l10n.messageButton,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (!isDelivering && currentStop != null && (currentStop['items'] as List).isNotEmpty) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isAr ? 'أصناف هذه المحطة (${(currentStop['items'] as List).length}):' : 'Items at this stop (${(currentStop['items'] as List).length}):',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                for (final item in (currentStop['items'] as List))
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${item['quantity'] ?? 1}x ${item['productName'] ?? item['name'] ?? 'Item'}',
+                                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    _buildPickupPhotoWidget(context, status, l10n, order, pickupStops),
+                    _buildDeliveryPhotoWidget(context, status, l10n, order),
+                    _buildActionButton(context, status, isCashOnDelivery, isMobileWallet, targetLocation, l10n, order, pickupStops),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

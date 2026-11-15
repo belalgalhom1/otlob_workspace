@@ -364,8 +364,8 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
           ),
         ),
         Positioned(
-          bottom: 100, // Moved up to make room for Done button
-          right: 16,
+          bottom: 100 + MediaQuery.paddingOf(context).bottom, // Moved up to make room for Done button
+          right: 16 + MediaQuery.paddingOf(context).right,
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -396,11 +396,11 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
           ),
         ),
         Positioned(
-          bottom: 24,
-          left: 24,
-          right: 24,
-          child: SizedBox(
-            height: 56,
+          bottom: 24 + MediaQuery.paddingOf(context).bottom,
+          left: 24 + MediaQuery.paddingOf(context).left,
+          right: 24 + MediaQuery.paddingOf(context).right,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
             child: ElevatedButton(
               onPressed: _polygonPoints.length >= 3
                   ? () {
@@ -430,7 +430,12 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
       child: Center(
         child: Container(
           width: 600, // Limits width on desktop/tablet, takes full width on mobile
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.paddingOf(context).bottom,
+          ),
           child: Form(
             key: _formKey,
             child: Column(
@@ -483,9 +488,11 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
                 const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: double.infinity,
+                    minHeight: 56,
+                  ),
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _saveZone,
                     style: ElevatedButton.styleFrom(

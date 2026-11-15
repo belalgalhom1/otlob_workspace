@@ -223,9 +223,11 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                 physics: const AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics(),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  8,
+                  16,
+                  16 + MediaQuery.paddingOf(context).bottom,
                 ),
                 itemCount:
                     convos.length +

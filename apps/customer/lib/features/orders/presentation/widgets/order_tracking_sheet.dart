@@ -88,7 +88,7 @@ class OrderTrackingSheetOverlay extends StatefulWidget {
 }
 
 class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
-  static const double _minExtent = 0.16;
+  static const double _minExtent = 0.20;
   static const double _compactExtent = 0.34;
   static const double _urgentExtent = 0.45;
   static const double _expandedExtent = 0.74;
@@ -96,6 +96,7 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
 
   late final DraggableScrollableController _sheetController;
   late final ValueNotifier<double> _extentNotifier;
+  double? _lastReportedBodyHeight;
 
   bool get _hasUrgentAction =>
       widget.assistPromptWidget != null || widget.pendingPaymentWidget != null;
@@ -173,6 +174,15 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bodyHeight = constraints.maxHeight;
+        if (_lastReportedBodyHeight != bodyHeight) {
+          _lastReportedBodyHeight = bodyHeight;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            widget.onSheetHeightChanged?.call(
+              _extentNotifier.value * bodyHeight,
+            );
+          });
+        }
 
         return Stack(
           children: [

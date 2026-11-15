@@ -2024,7 +2024,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                         fontSize: 11,
                         color: AppColors.primary.withValues(alpha: 0.8),
                         fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
+                        letterSpacing:
+                            Localizations.localeOf(context).languageCode == 'ar'
+                            ? null
+                            : 0.5,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2482,7 +2485,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                       : (Theme.of(context).brightness == Brightness.dark
                           ? Colors.white
                           : AppColors.textPrimary),
-                  letterSpacing: 0.5,
+                  letterSpacing: Localizations.localeOf(context).languageCode == 'ar' ? null : 0.5,
                 ),
               ),
             ),
@@ -2526,11 +2529,11 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                     color: isMe 
                         ? null 
                         : (Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceDark : AppColors.surface),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(isMe ? 18 : 4),
-                      bottomRight: Radius.circular(isMe ? 4 : 18),
+                    borderRadius: BorderRadiusDirectional.only(
+                      topStart: const Radius.circular(18),
+                      topEnd: const Radius.circular(18),
+                      bottomStart: Radius.circular(isMe ? 18 : 4),
+                      bottomEnd: Radius.circular(isMe ? 4 : 18),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -3153,26 +3156,28 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                               ),
                             ),
                           ),
-                    IconButton(
-                      icon: const Icon(
-                        LucideIcons.camera,
-                        size: 18,
+                    if (!_isRecording) ...[
+                      IconButton(
+                        icon: const Icon(
+                          LucideIcons.camera,
+                          size: 18,
+                        ),
+                        onPressed: _takePhotoDirectly,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Take Photo',
                       ),
-                      onPressed: _takePhotoDirectly,
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      constraints: const BoxConstraints(),
-                      tooltip: 'Take Photo',
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        LucideIcons.paperclip,
-                        size: 18,
+                      IconButton(
+                        icon: const Icon(
+                          LucideIcons.paperclip,
+                          size: 18,
+                        ),
+                        onPressed: _pickDocument,
+                        padding: const EdgeInsetsDirectional.only(end: 8),
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Attach Media',
                       ),
-                      onPressed: _pickDocument,
-                      padding: const EdgeInsetsDirectional.only(end: 8),
-                      constraints: const BoxConstraints(),
-                      tooltip: 'Attach Media',
-                    ),
+                    ],
                   ],
                 ),
               ),

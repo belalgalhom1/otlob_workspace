@@ -11,29 +11,52 @@ class CustomersScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            _buildQuickStat(
-              context,
-              AppLocalizations.of(context)!.totalCustomers,
-              '1,240',
-              LucideIcons.users,
-            ),
-            const SizedBox(width: 24),
-            _buildQuickStat(
-              context,
-              AppLocalizations.of(context)!.activeThisMonth,
-              '850',
-              LucideIcons.trendingUp,
-            ),
-            const SizedBox(width: 24),
-            _buildQuickStat(
-              context,
-              AppLocalizations.of(context)!.banned,
-              '12',
-              LucideIcons.userX,
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cards = [
+              _buildQuickStat(
+                context,
+                AppLocalizations.of(context)!.totalCustomers,
+                '1,240',
+                LucideIcons.users,
+                expandInRow: constraints.maxWidth >= 600,
+              ),
+              _buildQuickStat(
+                context,
+                AppLocalizations.of(context)!.activeThisMonth,
+                '850',
+                LucideIcons.trendingUp,
+                expandInRow: constraints.maxWidth >= 600,
+              ),
+              _buildQuickStat(
+                context,
+                AppLocalizations.of(context)!.banned,
+                '12',
+                LucideIcons.userX,
+                expandInRow: constraints.maxWidth >= 600,
+              ),
+            ];
+            if (constraints.maxWidth < 600) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < cards.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 12),
+                    cards[i],
+                  ],
+                ],
+              );
+            }
+            return Row(
+              children: [
+                cards[0],
+                const SizedBox(width: 24),
+                cards[1],
+                const SizedBox(width: 24),
+                cards[2],
+              ],
+            );
+          },
         ),
         const SizedBox(height: 32),
         Container(
@@ -65,20 +88,21 @@ class CustomersScreen extends StatelessWidget {
     BuildContext context,
     String title,
     String value,
-    IconData icon,
-  ) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.primary, size: 24),
-            const SizedBox(width: 16),
-            Column(
+    IconData icon, {
+    bool expandInRow = true,
+  }) {
+    final card = Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.primary, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -99,10 +123,11 @@ class CustomersScreen extends StatelessWidget {
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+    return expandInRow ? Expanded(child: card) : card;
   }
 
   Widget _buildCustomerTable(BuildContext context) {

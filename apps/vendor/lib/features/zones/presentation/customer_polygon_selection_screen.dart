@@ -352,9 +352,9 @@ class _CustomerPolygonSelectionScreenState extends ConsumerState<CustomerPolygon
             ),
           ),
           Positioned(
-            bottom: 32,
-            left: 16,
-            right: 16,
+            bottom: 24 + MediaQuery.paddingOf(context).bottom,
+            left: 16 + MediaQuery.paddingOf(context).left,
+            right: 16 + MediaQuery.paddingOf(context).right,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -398,7 +398,13 @@ class _CustomerPolygonSelectionScreenState extends ConsumerState<CustomerPolygon
                           icon: _isLoading 
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
                             : const Icon(LucideIcons.search),
-                          label: Text(AppLocalizations.of(context)!.findCustomers),
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              AppLocalizations.of(context)!.findCustomers,
+                              maxLines: 1,
+                            ),
+                          ),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(

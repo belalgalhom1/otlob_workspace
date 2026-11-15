@@ -321,9 +321,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       child: Stack(
         children: [
-          Positioned(
-            left: 16,
-            top: MediaQuery.of(context).padding.top + 8,
+          PositionedDirectional(
+            start: 16,
+            top: MediaQuery.paddingOf(context).top + 8,
             child: IconButton(
               icon: const Icon(
                 Icons.arrow_back_ios_new_rounded,
@@ -449,11 +449,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: 18),
                 Text(
                   profileState.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 26,
-                    letterSpacing: 0.5,
+                    letterSpacing: AppStrings.of(context).isArabic ? null : 0.5,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -586,8 +586,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           color: Colors.grey.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
-        child: const Icon(
-          Icons.chevron_right_rounded,
+        child: const AppAdaptiveChevron(
           color: Colors.grey,
           size: 20,
         ),

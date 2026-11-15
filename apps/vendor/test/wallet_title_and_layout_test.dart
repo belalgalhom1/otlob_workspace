@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:vendor/features/customers/presentation/customers_screen.dart';
+import 'package:vendor/features/legal/presentation/legal_documents_provider.dart';
+import 'package:vendor/features/legal/presentation/legal_documents_screen.dart';
 import 'package:vendor/features/legal/presentation/terms_acceptance_gate_screen.dart';
+import 'package:vendor/features/wallet/presentation/vendor_product_sales_provider.dart';
+import 'package:vendor/features/wallet/presentation/vendor_product_sales_screen.dart';
 import 'package:vendor/features/wallet/presentation/wallet_dashboard_screen.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 
@@ -176,4 +181,139 @@ void main() {
       expect(scrollRect.bottom, lessThanOrEqualTo(600.0 - 34.0));
     },
   );
+
+  for (final locale in const [Locale('en'), Locale('ar')]) {
+    for (final viewport in const [
+      Size(280, 640),
+      Size(320, 640),
+      Size(360, 640),
+      Size(800, 900),
+    ]) {
+      testWidgets(
+        'VendorProductSalesScreen handles ${viewport.width.toInt()}x${viewport.height.toInt()} at 1.3x scale without overflow or infinite width crash (${locale.languageCode})',
+        (tester) async {
+          await _pumpVendorWidget(
+            tester,
+            locale: locale,
+            viewport: viewport,
+            padding: const EdgeInsets.only(top: 47, bottom: 34),
+            textScaler: const TextScaler.linear(1.3),
+            overrides: [
+              vendorProductSalesProvider.overrideWith(
+                (ref, args) async => {
+                  'products': [
+                    {
+                      'productId': 'p1',
+                      'productName':
+                          'Double Crispy Fried Chicken Meal Family Box Large',
+                      'productNameAr':
+                          'وجبة دجاج مقرمش عائلي حجم كبير جداً مع إضافات',
+                      'quantitySold': 42,
+                      'ordersCount': 18,
+                      'grossRevenue': 6450.75,
+                      'commission': 645.08,
+                      'netRevenue': 5805.67,
+                    },
+                  ],
+                  'totals': {
+                    'productCount': 1,
+                    'quantitySold': 42,
+                    'ordersCount': 18,
+                    'grossRevenue': 6450.75,
+                    'commission': 645.08,
+                    'netRevenue': 5805.67,
+                  },
+                  'page': 1,
+                  'totalPages': 1,
+                },
+              ),
+            ],
+            child: const VendorProductSalesScreen(
+              vendorId: 'v1',
+              vendorName: 'Ultra Long Gourmet Store Branch Name',
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(find.byType(SafeArea), findsWidgets);
+        },
+      );
+    }
+
+    testWidgets(
+      'LegalDocumentsScreen tabs render without overflow at 320x640 and 1.3x scale (${locale.languageCode})',
+      (tester) async {
+        await _pumpVendorWidget(
+          tester,
+          locale: locale,
+          viewport: const Size(320, 640),
+          padding: const EdgeInsets.only(top: 47, bottom: 34),
+          textScaler: const TextScaler.linear(1.3),
+          overrides: [
+            legalDocumentsProvider.overrideWith(
+              () => _FakeLegalDocumentsNotifier(),
+            ),
+          ],
+          child: const Scaffold(
+            body: SafeArea(child: LegalDocumentsScreen()),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(TabBar), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'CustomersScreen quick-stats stack cleanly at 320x640 and 1.3x scale (${locale.languageCode})',
+      (tester) async {
+        await _pumpVendorWidget(
+          tester,
+          locale: locale,
+          viewport: const Size(320, 640),
+          padding: const EdgeInsets.only(top: 47, bottom: 34),
+          textScaler: const TextScaler.linear(1.3),
+          child: const Scaffold(
+            body: SafeArea(
+              child: SingleChildScrollView(child: CustomersScreen()),
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('1,240'), findsOneWidget);
+        expect(find.text('850'), findsOneWidget);
+      },
+    );
+  }
+}
+
+class _FakeLegalDocumentsNotifier extends LegalDocumentsNotifier {
+  @override
+  LegalDocumentsState build() => const LegalDocumentsState(
+        isLoading: false,
+        termsDocuments: [
+          {
+            'id': 't1',
+            'type': 'TERMS_OF_USE',
+            'title': 'Vendor Terms v2.1 Extended',
+            'titleAr': 'شروط الاستخدام للتجار الإصدار 2.1',
+            'version': '2.1',
+            'isActive': true,
+          },
+        ],
+        privacyDocuments: [
+          {
+            'id': 'p1',
+            'type': 'PRIVACY_POLICY',
+            'title': 'Privacy Policy v1.4',
+            'titleAr': 'سياسة الخصوصية الإصدار 1.4',
+            'version': '1.4',
+            'isActive': true,
+          },
+        ],
+      );
+
+  @override
+  Future<void> fetchAllDocuments() async {}
 }

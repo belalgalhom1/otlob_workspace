@@ -117,19 +117,21 @@ class ChatBubbleWidget extends StatelessWidget {
     }
 
     Widget bubble = Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isMe
+          ? AlignmentDirectional.centerEnd
+          : AlignmentDirectional.centerStart,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
         decoration: BoxDecoration(
           gradient: isMe ? defaultGradient : null,
           color: isMe ? null : colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(20),
-            topRight: const Radius.circular(20),
-            bottomLeft: Radius.circular(isMe ? 20 : 4),
-            bottomRight: Radius.circular(isMe ? 4 : 20),
+          borderRadius: BorderRadiusDirectional.only(
+            topStart: const Radius.circular(20),
+            topEnd: const Radius.circular(20),
+            bottomStart: Radius.circular(isMe ? 20 : 4),
+            bottomEnd: Radius.circular(isMe ? 4 : 20),
           ),
           boxShadow: [
             BoxShadow(
@@ -144,7 +146,7 @@ class ChatBubbleWidget extends StatelessWidget {
           children: [
             if (!isMe && senderName != null)
               Padding(
-                padding: const EdgeInsets.only(bottom: 4, left: 4),
+                padding: const EdgeInsetsDirectional.only(bottom: 4, start: 4),
                 child: Text(
                   _formatSenderBadge(context),
                   style: TextStyle(
@@ -282,9 +284,9 @@ class ChatBubbleWidget extends StatelessWidget {
           return false;
         },
         background: Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           child: Padding(
-            padding: const EdgeInsets.only(left: 16),
+            padding: const EdgeInsetsDirectional.only(start: 16),
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
@@ -1328,9 +1330,9 @@ class VideoPreviewWidget extends StatelessWidget {
 
               // 3. Duration Badge in Lower Right
               if (durSec != null && durSec > 0)
-                Positioned(
+                PositionedDirectional(
                   bottom: 8,
-                  right: 8,
+                  end: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
@@ -1402,20 +1404,24 @@ class FullScreenImageViewer extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 12,
-            right: 16,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black.withValues(alpha: 0.5),
-                  border: Border.all(color: Colors.white30, width: 1),
+          Align(
+            alignment: AlignmentDirectional.topEnd,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(top: 12, end: 16),
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withValues(alpha: 0.5),
+                      border: Border.all(color: Colors.white30, width: 1),
+                    ),
+                    child: const Icon(LucideIcons.x, color: Colors.white, size: 20),
+                  ),
                 ),
-                child: const Icon(LucideIcons.x, color: Colors.white, size: 20),
               ),
             ),
           ),

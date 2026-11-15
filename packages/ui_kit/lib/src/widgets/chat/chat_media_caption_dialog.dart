@@ -91,7 +91,6 @@ class _ChatMediaCaptionDialogState extends State<ChatMediaCaptionDialog> {
   @override
   Widget build(BuildContext context) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final file = File(widget.filePath);
 
     return Scaffold(
@@ -109,18 +108,22 @@ class _ChatMediaCaptionDialogState extends State<ChatMediaCaptionDialog> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    widget.isVideo
-                        ? (isAr ? 'معاينة الفيديو' : 'Preview Video')
-                        : (isAr ? 'معاينة الصورة' : 'Preview Photo'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      widget.isVideo
+                          ? (isAr ? 'معاينة الفيديو' : 'Preview Video')
+                          : (isAr ? 'معاينة الصورة' : 'Preview Photo'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  if (_fileSizeBytes > 0)
+                  if (_fileSizeBytes > 0) ...[
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -150,6 +153,7 @@ class _ChatMediaCaptionDialogState extends State<ChatMediaCaptionDialog> {
                         ],
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -190,7 +194,7 @@ class _ChatMediaCaptionDialogState extends State<ChatMediaCaptionDialog> {
 
             // Caption Input Bar
             Container(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomInset),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.7),
                 border: const Border(

@@ -85,15 +85,19 @@ class ChatMediaPickerSheet extends StatelessWidget {
           // Title
           Row(
             children: [
-              Text(
-                isAr ? 'مشاركة وسائط' : 'Share Media',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: textCol,
+              Expanded(
+                child: Text(
+                  isAr ? 'مشاركة وسائط' : 'Share Media',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: textCol,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(LucideIcons.x, size: 20),
                 color: subtitleCol,

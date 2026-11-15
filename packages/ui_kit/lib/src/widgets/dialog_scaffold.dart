@@ -10,6 +10,7 @@ class DialogScaffold extends StatelessWidget {
     return ScaffoldMessenger(
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
         body: Builder(
           builder: (context) => child,
         ),

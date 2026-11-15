@@ -296,7 +296,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
     return ListView.builder(
       controller: controller,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        16 + MediaQuery.paddingOf(context).bottom,
+      ),
       itemCount: orders.length + (isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == orders.length) {
@@ -515,22 +520,29 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _walletProviderName(walletMap, s),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        Text(
-                          (wallet['number'] ?? wallet['walletNumber'] ?? '')
-                              .toString(),
-                          style: const TextStyle(
-                              fontSize: 15, color: Colors.black87),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _walletProviderName(walletMap, s),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          Text(
+                            (wallet['number'] ?? wallet['walletNumber'] ?? '')
+                                .toString(),
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white
+                                  : Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 12),
                     OutlinedButton.icon(
                       onPressed: () {
                         final walletNum =
@@ -991,20 +1003,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      s.subtotal,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white38 : Colors.grey.shade600,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Text(
+                        s.subtotal,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white38 : Colors.grey.shade600,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       '${subtotal.toStringAsFixed(2)} ${s.egp}',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white70 : Colors.black87,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],
@@ -1014,26 +1030,33 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        s.deliveryFee,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white38 : Colors.grey.shade600,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          s.deliveryFee,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                      Text(
-                        rawDeliveryFee == null 
-                            ? (s.isArabic ? 'تحدد بعد قبول الكابتن' : 'Determined after driver match')
-                            : (deliveryFee == 0
-                                ? (s.isArabic ? 'مجاني' : 'Free')
-                                : '${deliveryFee.toStringAsFixed(2)} ${s.egp}'),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: rawDeliveryFee == null 
-                              ? AppColors.primary 
-                              : (deliveryFee == 0 ? AppColors.success : (isDark ? Colors.white70 : Colors.black87)),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          rawDeliveryFee == null 
+                              ? (s.isArabic ? 'تحدد بعد قبول الكابتن' : 'Determined after driver match')
+                              : (deliveryFee == 0
+                                  ? (s.isArabic ? 'مجاني' : 'Free')
+                                  : '${deliveryFee.toStringAsFixed(2)} ${s.egp}'),
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: rawDeliveryFee == null 
+                                ? AppColors.primary 
+                                : (deliveryFee == 0 ? AppColors.success : (isDark ? Colors.white70 : Colors.black87)),
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
                     ],
@@ -1044,20 +1067,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        s.isArabic ? 'رسوم الخدمة' : 'Service Fee',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white38 : Colors.grey.shade600,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          s.isArabic ? 'رسوم الخدمة' : 'Service Fee',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${serviceFee.toStringAsFixed(2)} ${s.egp}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white70 : Colors.black87,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ],
@@ -1068,20 +1095,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        s.isArabic ? 'الضرائب والرسوم' : 'Taxes & Fees',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white38 : Colors.grey.shade600,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          s.isArabic ? 'الضرائب والرسوم' : 'Taxes & Fees',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${tax.toStringAsFixed(2)} ${s.egp}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white70 : Colors.black87,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ],
@@ -1092,20 +1123,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        s.isArabic ? 'الخصم' : 'Discount',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.success,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          s.isArabic ? 'الخصم' : 'Discount',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.success,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '-${discount.toStringAsFixed(0)} ${s.egp}',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: AppColors.success,
+                          fontFeatures: [FontFeature.tabularFigures()],
                         ),
                       ),
                     ],
@@ -1120,27 +1155,30 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    areFeesFinalized ? s.total : (s.isArabic ? 'المجموع المستحق حالياً' : 'Current Subtotal'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                  if (!areFeesFinalized)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      s.isArabic ? '(غير شامل التوصيل)' : '(Excl. delivery)',
+                      areFeesFinalized ? s.total : (s.isArabic ? 'المجموع المستحق حالياً' : 'Current Subtotal'),
                       style: TextStyle(
-                        fontSize: 10,
-                        color: isDark ? Colors.white38 : Colors.grey.shade500,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: isDark ? Colors.white70 : Colors.black54,
                       ),
                     ),
-                ],
+                    if (!areFeesFinalized)
+                      Text(
+                        s.isArabic ? '(غير شامل التوصيل)' : '(Excl. delivery)',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isDark ? Colors.white38 : Colors.grey.shade500,
+                        ),
+                      ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 rawTotal == null 
                     ? '---' 
@@ -1149,6 +1187,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   fontWeight: FontWeight.w900,
                   fontSize: 20,
                   color: AppColors.primary,
+                  fontFeatures: [FontFeature.tabularFigures()],
                 ),
               ),
             ],

@@ -42,7 +42,7 @@ class SpeedLimitSign extends StatelessWidget {
 
     return Container(
       width: size,
-      height: size + (size * 0.28), // slightly taller for unit badge
+      constraints: BoxConstraints(minHeight: size + (size * 0.28)),
       decoration: showElevation
           ? BoxDecoration(
               borderRadius: BorderRadius.circular(size / 2),

@@ -223,10 +223,13 @@ class _TermsAcceptanceGateScreenState
 
     final version = _document?['version']?.toString() ?? '1.0';
 
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: TermsAcceptanceDialog(
+            variant: TermsDialogVariant.customer,
           title: title,
           subtitle: isAr
               ? 'يرجى مراجعة شروط الاستخدام والموافقة عليها للمتابعة'

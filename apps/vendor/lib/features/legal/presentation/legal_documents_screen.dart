@@ -40,31 +40,57 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     final isDark = theme.brightness == Brightness.dark;
     final state = ref.watch(legalDocumentsProvider);
 
+    final contentBody = state.isLoading &&
+            state.termsDocuments.isEmpty &&
+            state.privacyDocuments.isEmpty
+        ? const Center(child: CircularProgressIndicator())
+        : TabBarView(
+            controller: _tabController,
+            children: [
+              _buildDocumentTabList(
+                context,
+                type: 'TERMS_OF_USE',
+                docs: state.termsDocuments,
+                isArabic: isArabic,
+              ),
+              _buildDocumentTabList(
+                context,
+                type: 'PRIVACY_POLICY',
+                docs: state.privacyDocuments,
+                isArabic: isArabic,
+              ),
+            ],
+          );
+
     return Container(
       color: Colors.transparent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Top Screen Header & Action Bar
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: isDark ? theme.colorScheme.surface : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: theme.dividerColor.withValues(alpha: 0.1),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+      child: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Top Screen Header & Action Bar
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.md,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark ? theme.colorScheme.surface : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: theme.dividerColor.withValues(alpha: 0.1),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isCompact = constraints.maxWidth < 650;
@@ -173,122 +199,128 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                 color: theme.dividerColor.withValues(alpha: 0.08),
               ),
             ),
-            child: TabBar(
-              controller: _tabController,
-              indicator: BoxDecoration(
-                color: isDark
-                    ? theme.colorScheme.surfaceContainerHighest
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              indicatorSize: TabBarIndicatorSize.tab,
-              dividerColor: Colors.transparent,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-              labelStyle: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-              tabs: [
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(LucideIcons.scrollText, size: 16),
-                      const SizedBox(width: 8),
-                      Text(isArabic ? 'شروط الاستخدام' : 'Terms of Use'),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${state.termsDocuments.length}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
+            child: Builder(
+              builder: (context) {
+                final scaledTabFont = MediaQuery.textScalerOf(context).scale(13);
+                final tabHeight = (scaledTabFont * 1.9 + 20).clamp(46.0, 64.0);
+                final accentTextColor = isDark
+                    ? AppColors.primary
+                    : const Color(0xFFB45309);
+
+                return TabBar(
+                  controller: _tabController,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  indicator: BoxDecoration(
+                    color: isDark
+                        ? theme.colorScheme.surfaceContainerHighest
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
                       ),
                     ],
                   ),
-                ),
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(LucideIcons.shieldCheck, size: 16),
-                      const SizedBox(width: 8),
-                      Text(isArabic ? 'سياسة الخصوصية' : 'Privacy Policy'),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${state.privacyDocuments.length}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  labelColor: accentTextColor,
+                  unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
                   ),
-                ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                  tabs: [
+                    Tab(
+                      height: tabHeight,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(LucideIcons.scrollText, size: 16),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              isArabic ? 'شروط الاستخدام' : 'Terms of Use',
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${state.termsDocuments.length}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: accentTextColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Tab(
+                      height: tabHeight,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(LucideIcons.shieldCheck, size: 16),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              isArabic ? 'سياسة الخصوصية' : 'Privacy Policy',
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${state.privacyDocuments.length}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: accentTextColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+                const SizedBox(height: AppSpacing.md),
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Content body
-          Expanded(
-            child: state.isLoading &&
-                    state.termsDocuments.isEmpty &&
-                    state.privacyDocuments.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildDocumentTabList(
-                        context,
-                        type: 'TERMS_OF_USE',
-                        docs: state.termsDocuments,
-                        isArabic: isArabic,
-                      ),
-                      _buildDocumentTabList(
-                        context,
-                        type: 'PRIVACY_POLICY',
-                        docs: state.privacyDocuments,
-                        isArabic: isArabic,
-                      ),
-                    ],
-                  ),
-          ),
         ],
+        body: contentBody,
       ),
     );
   }
@@ -307,10 +339,12 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
         );
 
     if (docs.isEmpty) {
-      return Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 480),
-          padding: const EdgeInsets.all(AppSpacing.xxl),
+      return SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 480),
+            padding: const EdgeInsets.all(AppSpacing.xl),
           decoration: BoxDecoration(
             color: isDark ? theme.colorScheme.surface : Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -387,6 +421,7 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
             ],
           ),
         ),
+        ),
       );
     }
 
@@ -402,10 +437,13 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
         // Section Title: Version History
         Row(
           children: [
-            Text(
-              isArabic ? 'سجل الإصدارات' : 'Version History',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+            Flexible(
+              child: Text(
+                isArabic ? 'سجل الإصدارات' : 'Version History',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                softWrap: true,
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -531,13 +569,16 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                                 color: Colors.white,
                               ),
                               const SizedBox(width: 4),
-                              Text(
-                                isArabic
-                                    ? 'الإصدار النشط المنشور'
-                                    : 'Active Enforced Version',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                              Flexible(
+                                child: Text(
+                                  isArabic
+                                      ? 'الإصدار النشط المنشور'
+                                      : 'Active Enforced Version',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  softWrap: true,
                                 ),
                               ),
                             ],
@@ -611,43 +652,51 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                     color: theme.dividerColor.withValues(alpha: 0.1),
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Icon(
-                      LucideIcons.users,
-                      size: 15,
-                      color: AppColors.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$count ${isArabic ? 'موافقات مسجلة' : 'Accepted Users'}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (formattedDate.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '•',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurfaceVariant,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.users,
+                          size: 15,
+                          color: isDark
+                              ? AppColors.primary
+                              : const Color(0xFFB45309),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        LucideIcons.calendar,
-                        size: 13,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        formattedDate,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            '$count ${isArabic ? 'موافقات مسجلة' : 'Accepted Users'}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                            softWrap: true,
+                          ),
                         ),
+                      ],
+                    ),
+                    if (formattedDate.isNotEmpty)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            LucideIcons.calendar,
+                            size: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            formattedDate,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
                   ],
                 ),
               ),
@@ -767,15 +816,18 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                           : Colors.amber.shade800,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      isPublished
-                          ? (isArabic ? 'منشور ونشط' : 'Published & Active')
-                          : (isArabic ? 'مسودة' : 'Draft'),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: isPublished
-                            ? const Color(0xFF10B981)
-                            : Colors.amber.shade900,
-                        fontWeight: FontWeight.bold,
+                    Flexible(
+                      child: Text(
+                        isPublished
+                            ? (isArabic ? 'منشور ونشط' : 'Published & Active')
+                            : (isArabic ? 'مسودة' : 'Draft'),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: isPublished
+                              ? const Color(0xFF10B981)
+                              : Colors.amber.shade900,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        softWrap: true,
                       ),
                     ),
                   ],
@@ -836,11 +888,14 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      '$count ${isArabic ? 'موافقات' : 'acceptances'}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: Text(
+                        '$count ${isArabic ? 'موافقات' : 'acceptances'}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        softWrap: true,
                       ),
                     ),
                   ],
@@ -1136,6 +1191,7 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                 version: version,
                 content: content,
                 isArabic: showArabic,
+                padding: EdgeInsets.zero,
                 onLanguageToggle: () {
                   setDialogState(() => showArabic = !showArabic);
                 },

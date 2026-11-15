@@ -587,7 +587,11 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft),
+          icon: Icon(
+            l10n.localeName == 'ar'
+                ? LucideIcons.arrowRight
+                : LucideIcons.arrowLeft,
+          ),
           onPressed: () => context.pop(),
         ),
         title: Text(l10n.orderChat),
@@ -787,9 +791,9 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     final bottomPadding = viewInsetsBottom > 0 ? 8.0 : (MediaQuery.of(context).padding.bottom + 8.0);
 
     return Container(
-      padding: EdgeInsets.only(
-        left: 8,
-        right: 16,
+      padding: EdgeInsetsDirectional.only(
+        start: 8,
+        end: 16,
         top: 8,
         bottom: bottomPadding,
       ),

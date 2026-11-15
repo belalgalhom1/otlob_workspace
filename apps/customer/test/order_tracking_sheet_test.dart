@@ -125,6 +125,7 @@ void main() {
     VoidCallback? onRateOrder,
     Widget? assistPromptWidget,
     Widget? pendingPaymentWidget,
+    ValueChanged<double>? onSheetHeightChanged,
   }) async {
     tester.view.physicalSize = viewport;
     tester.view.devicePixelRatio = 1.0;
@@ -184,6 +185,7 @@ void main() {
                 onRateOrder: onRateOrder,
                 assistPromptWidget: assistPromptWidget,
                 pendingPaymentWidget: pendingPaymentWidget,
+                onSheetHeightChanged: onSheetHeightChanged,
               ),
             ],
           ),
@@ -364,6 +366,26 @@ void main() {
         expect(find.text('متجر 2'), findsOneWidget);
         expect(find.text('الفرع: فرع هاها'), findsOneWidget);
         expect(find.text('تحديثات الطلب'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'reports initial collapsed height via onSheetHeightChanged on first frame',
+      (tester) async {
+        final reportedHeights = <double>[];
+        await pumpTrackingHarness(
+          tester,
+          viewport: const Size(360, 640),
+          locale: const Locale('en'),
+          themeMode: ThemeMode.dark,
+          textScale: 1.3,
+          onSheetHeightChanged: reportedHeights.add,
+        );
+
+        expect(reportedHeights, isNotEmpty);
+        expect(reportedHeights.last, greaterThan(100.0));
+        expect(reportedHeights.last, lessThan(640.0 * 0.5));
         expect(tester.takeException(), isNull);
       },
     );

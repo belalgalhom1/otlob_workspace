@@ -125,7 +125,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -348,6 +350,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

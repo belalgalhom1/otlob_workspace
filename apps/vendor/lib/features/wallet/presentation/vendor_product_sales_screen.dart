@@ -200,69 +200,72 @@ class _VendorProductSalesScreenState
             ),
         ],
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  LucideIcons.alertTriangle,
-                  color: AppColors.error,
-                  size: 48,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _isArabic
-                      ? 'تعذر تحميل تقرير المبيعات'
-                      : 'Could not load the sales report',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _negativeTextColor(theme),
-                    fontWeight: FontWeight.bold,
+      body: SafeArea(
+        top: false,
+        child: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    LucideIcons.alertTriangle,
+                    color: AppColors.error,
+                    size: 48,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  ErrorUtils.translate(context, err),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  const SizedBox(height: 12),
+                  Text(
+                    _isArabic
+                        ? 'تعذر تحميل تقرير المبيعات'
+                        : 'Could not load the sales report',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _negativeTextColor(theme),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () =>
-                      ref.invalidate(vendorProductSalesProvider(args)),
-                  icon: const Icon(LucideIcons.refreshCw, size: 16),
-                  label: Text(_isArabic ? 'إعادة المحاولة' : 'Retry'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
+                  const SizedBox(height: 8),
+                  Text(
+                    ErrorUtils.translate(context, err),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () =>
+                        ref.invalidate(vendorProductSalesProvider(args)),
+                    icon: const Icon(LucideIcons.refreshCw, size: 16),
+                    label: Text(_isArabic ? 'إعادة المحاولة' : 'Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.onPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        data: (data) {
-          final products = data['products'] is List
-              ? data['products'] as List<dynamic>
-              : const <dynamic>[];
-          final totals = data['totals'] is Map
-              ? data['totals'] as Map<String, dynamic>
-              : const <String, dynamic>{};
-          final totalPages = (data['totalPages'] as num?)?.toInt() ?? 0;
-          final currentPage = (data['page'] as num?)?.toInt() ?? _page;
+          data: (data) {
+            final products = data['products'] is List
+                ? data['products'] as List<dynamic>
+                : const <dynamic>[];
+            final totals = data['totals'] is Map
+                ? data['totals'] as Map<String, dynamic>
+                : const <String, dynamic>{};
+            final totalPages = (data['totalPages'] as num?)?.toInt() ?? 0;
+            final currentPage = (data['page'] as num?)?.toInt() ?? _page;
 
-          return RefreshIndicator(
-            onRefresh: () async =>
-                ref.invalidate(vendorProductSalesProvider(args)),
-            child: ListView(
-              padding: EdgeInsets.all(isMobile ? 16 : 24),
+            return RefreshIndicator(
+              onRefresh: () async =>
+                  ref.invalidate(vendorProductSalesProvider(args)),
+              child: ListView(
+                padding: EdgeInsets.all(isMobile ? 16 : 24),
               children: [
                 _filters(context, theme),
                 const SizedBox(height: 16),
@@ -339,7 +342,8 @@ class _VendorProductSalesScreenState
               ],
             ),
           );
-        },
+          },
+        ),
       ),
     );
   }
@@ -757,9 +761,23 @@ class _VendorProductSalesScreenState
         double.tryParse(product['netRevenue']?.toString() ?? '0') ?? 0;
     final borderColor = _borderColor(theme);
 
-    Widget metricCol(String label, String value, Color valueColor) {
+    Widget metricCol(
+      String label,
+      String value,
+      Color valueColor, {
+      double? maxWidth,
+    }) {
+      final figure = _scaledFigure(
+        value,
+        TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.bold,
+          color: valueColor,
+        ),
+      );
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
@@ -771,17 +789,16 @@ class _VendorProductSalesScreenState
             ),
           ),
           const SizedBox(height: 3),
-          SizedBox(
-            width: double.infinity,
-            child: _scaledFigure(
-              value,
-              TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.bold,
-                color: valueColor,
-              ),
+          if (maxWidth != null)
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: figure,
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: figure,
             ),
-          ),
         ],
       );
     }
@@ -864,13 +881,20 @@ class _VendorProductSalesScreenState
                       grossLabel,
                       gross,
                       theme.colorScheme.onSurface,
+                      maxWidth: constraints.maxWidth,
                     ),
                     metricCol(
                       commissionLabel,
                       '-$commission',
                       _negativeTextColor(theme),
+                      maxWidth: constraints.maxWidth,
                     ),
-                    metricCol(netLabel, net, netColor),
+                    metricCol(
+                      netLabel,
+                      net,
+                      netColor,
+                      maxWidth: constraints.maxWidth,
+                    ),
                   ],
                 );
               }

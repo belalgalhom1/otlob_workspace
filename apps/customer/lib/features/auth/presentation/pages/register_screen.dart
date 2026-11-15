@@ -399,8 +399,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onPressed: () {
                     context.go(RoutePaths.login);
                   },
-                  child: RichText(
-                    text: TextSpan(
+                  child: Text.rich(
+                    TextSpan(
                       text: s.alreadyHaveAccount,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
@@ -415,6 +415,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                       ],
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],

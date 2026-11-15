@@ -238,11 +238,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => setState(() => _saveInfo = !_saveInfo),
-                      child: Text(
-                        s.rememberMe,
-                        style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8)),
+                    Flexible(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _saveInfo = !_saveInfo),
+                        child: Text(
+                          s.rememberMe,
+                          style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8)),
+                        ),
                       ),
                     ),
                   ],
@@ -250,7 +252,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 const SizedBox(height: 8),
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: TextButton(
                     onPressed: () => context.push(RoutePaths.forgotPassword),
                     child: Text(
@@ -331,8 +333,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 24),
                 TextButton(
                   onPressed: () => context.go(RoutePaths.register),
-                  child: RichText(
-                    text: TextSpan(
+                  child: Text.rich(
+                    TextSpan(
                       text: s.dontHaveAccount,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
@@ -347,6 +349,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ],
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],

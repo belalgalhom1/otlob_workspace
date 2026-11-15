@@ -89,35 +89,80 @@ class _LegalDocumentViewerPageState
       }
     }
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final accentText =
+        isDark ? const Color(0xFFFBBB2B) : const Color(0xFFB45309);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           widget.type == 'TERMS_OF_USE'
               ? (_showArabic ? 'شروط الاستخدام' : 'Terms of Use')
               : (_showArabic ? 'سياسة الخصوصية' : 'Privacy Policy'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.languages, size: 20),
-            tooltip: _showArabic ? 'English' : 'عربي',
-            onPressed: () {
-              setState(() => _showArabic = !_showArabic);
-            },
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 8),
+            child: Tooltip(
+              message: _showArabic ? 'English' : 'عربي',
+              child: InkWell(
+                onTap: () => setState(() => _showArabic = !_showArabic),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 34, minWidth: 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF1E1E1E)
+                        : const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF333333)
+                          : const Color(0xFFEEEEEE),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(LucideIcons.languages, size: 15, color: accentText),
+                      const SizedBox(width: 5),
+                      Text(
+                        _showArabic ? 'EN' : 'عربي',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      body: LegalDocumentView(
-        title: title,
-        version: version,
-        lastUpdated: formattedDate,
-        content: content,
-        isArabic: _showArabic,
-        isLoading: _isLoading,
-        error: _error,
-        onRetry: _fetchDocument,
-        onLanguageToggle: () {
-          setState(() => _showArabic = !_showArabic);
-        },
+      body: SafeArea(
+        top: false,
+        child: LegalDocumentView(
+          title: title,
+          version: version,
+          lastUpdated: formattedDate,
+          content: content,
+          isArabic: _showArabic,
+          isLoading: _isLoading,
+          error: _error,
+          onRetry: _fetchDocument,
+          onLanguageToggle: () {
+            setState(() => _showArabic = !_showArabic);
+          },
+        ),
       ),
     );
   }

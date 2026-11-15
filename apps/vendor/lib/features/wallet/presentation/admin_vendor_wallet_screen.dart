@@ -198,62 +198,65 @@ class _AdminVendorWalletScreenState
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  LucideIcons.alertTriangle,
-                  color: AppColors.error,
-                  size: 48,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  ErrorUtils.translate(context, err),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: _negativeTextColor(theme)),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () =>
-                      ref.invalidate(adminVendorWalletProvider(_args)),
-                  icon: const Icon(LucideIcons.refreshCw, size: 16),
-                  label: Text(_isArabic ? 'إعادة المحاولة' : 'Retry'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.onPrimary,
+      body: SafeArea(
+        top: false,
+        child: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    LucideIcons.alertTriangle,
+                    color: AppColors.error,
+                    size: 48,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Text(
+                    ErrorUtils.translate(context, err),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: _negativeTextColor(theme)),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () =>
+                        ref.invalidate(adminVendorWalletProvider(_args)),
+                    icon: const Icon(LucideIcons.refreshCw, size: 16),
+                    label: Text(_isArabic ? 'إعادة المحاولة' : 'Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.onPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        data: (data) {
-          final balanceData = data['balance'] is Map
-              ? data['balance'] as Map<String, dynamic>
-              : <String, dynamic>{};
-          final balance =
-              double.tryParse(
-                (balanceData['walletBalance'] ?? balanceData['balance'] ?? '0')
-                    .toString(),
-              ) ??
-              0;
-          final summary = data['summary'] is Map
-              ? data['summary'] as Map<String, dynamic>
-              : <String, dynamic>{};
-          final transactions = data['transactions'] as List;
-          final currentPage = (data['page'] as num?)?.toInt() ?? _page;
-          final totalPages = (data['totalPages'] as num?)?.toInt() ?? 1;
+          data: (data) {
+            final balanceData = data['balance'] is Map
+                ? data['balance'] as Map<String, dynamic>
+                : <String, dynamic>{};
+            final balance =
+                double.tryParse(
+                  (balanceData['walletBalance'] ?? balanceData['balance'] ?? '0')
+                      .toString(),
+                ) ??
+                0;
+            final summary = data['summary'] is Map
+                ? data['summary'] as Map<String, dynamic>
+                : <String, dynamic>{};
+            final transactions = data['transactions'] as List;
+            final currentPage = (data['page'] as num?)?.toInt() ?? _page;
+            final totalPages = (data['totalPages'] as num?)?.toInt() ?? 1;
 
-          return RefreshIndicator(
-            onRefresh: () async =>
-                ref.invalidate(adminVendorWalletProvider(_args)),
-            child: ListView(
-              padding: EdgeInsets.all(isMobile ? 16 : 24),
+            return RefreshIndicator(
+              onRefresh: () async =>
+                  ref.invalidate(adminVendorWalletProvider(_args)),
+              child: ListView(
+                padding: EdgeInsets.all(isMobile ? 16 : 24),
               children: [
                 _balanceCard(context, theme, balance, isMobile),
                 const SizedBox(height: 16),
@@ -311,7 +314,8 @@ class _AdminVendorWalletScreenState
               ],
             ),
           );
-        },
+          },
+        ),
       ),
     );
   }

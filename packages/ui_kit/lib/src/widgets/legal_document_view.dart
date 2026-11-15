@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
-import 'primary_button.dart';
+import 'dialogs/app_dialog.dart';
 
 class LegalDocumentView extends StatelessWidget {
   final String title;
@@ -18,6 +17,7 @@ class LegalDocumentView extends StatelessWidget {
   final String? error;
   final VoidCallback? onRetry;
   final String? retryLabel;
+  final EdgeInsetsGeometry? padding;
 
   const LegalDocumentView({
     super.key,
@@ -33,19 +33,35 @@ class LegalDocumentView extends StatelessWidget {
     this.error,
     this.onRetry,
     this.retryLabel,
+    this.padding,
   });
+
+  Color _readableAccent(BuildContext context, Color accent) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (isDark) return accent;
+    final badgeFg = AppDialogStyles.themeOf(context)?.badgeForegroundColor;
+    if (badgeFg != null) return badgeFg;
+    return ThemeData.estimateBrightnessForColor(accent) == Brightness.light
+        ? const Color(0xFFB45309)
+        : accent;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final accent = AppDialogStyles.accentColor(context);
+    final readableAccent = _readableAccent(context, accent);
+    final dialogBg = AppDialogStyles.backgroundColor(context);
+    final border = AppDialogStyles.borderColor(context);
+    final btnRadius = AppDialogStyles.buttonRadius(context);
+    final btnMinHeight = AppDialogStyles.buttonMinHeight(context);
 
     if (isLoading) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(),
+            CircularProgressIndicator(color: accent),
             const SizedBox(height: AppSpacing.md),
             Text(
               isArabic ? 'جاري تحميل الوثيقة...' : 'Loading document...',
@@ -59,16 +75,24 @@ class LegalDocumentView extends StatelessWidget {
     }
 
     if (error != null) {
+      final btnFg = AppDialogStyles.foregroundFor(accent, context: context);
       return Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                LucideIcons.fileWarning,
-                size: 54,
-                color: theme.colorScheme.error,
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppDialogStyles.cardRadius(context)),
+                ),
+                child: Icon(
+                  LucideIcons.fileWarning,
+                  size: 40,
+                  color: theme.colorScheme.error,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
@@ -80,9 +104,26 @@ class LegalDocumentView extends StatelessWidget {
               ),
               if (onRetry != null) ...[
                 const SizedBox(height: AppSpacing.lg),
-                PrimaryButton(
-                  text: retryLabel ?? (isArabic ? 'إعادة المحاولة' : 'Retry'),
-                  onPressed: onRetry!,
+                ElevatedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(LucideIcons.refreshCw, size: 17),
+                  label: Text(
+                    retryLabel ?? (isArabic ? 'إعادة المحاولة' : 'Retry'),
+                    textAlign: TextAlign.center,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: btnFg,
+                    minimumSize: Size(140, btnMinHeight),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(btnRadius),
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -92,130 +133,189 @@ class LegalDocumentView extends StatelessWidget {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: padding ??
+          const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
+          ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showHeader) ...[
             // Header card with metadata and language toggle
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: isDark ? theme.colorScheme.surface : Colors.white,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                border: Border.all(
-                  color: theme.dividerColor.withValues(alpha: 0.12),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+            Builder(
+              builder: (context) {
+                final versionChip = Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
                   ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // Version Chip
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: AppSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          LucideIcons.gitBranch,
-                          size: 13,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'v$version',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                  decoration: BoxDecoration(
+                    color: AppDialogStyles.themeOf(context)
+                            ?.badgeBackgroundColor ??
+                        accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(
+                      color: accent.withValues(alpha: 0.3),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  if (lastUpdated != null && lastUpdated!.isNotEmpty)
-                    Expanded(
-                      child: Text(
-                        lastUpdated!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        softWrap: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.gitBranch,
+                        size: 13,
+                        color: readableAccent,
                       ),
-                    )
-                  else
-                    const Spacer(),
-                  if (onLanguageToggle != null) ...[
-                    InkWell(
-                      onTap: onLanguageToggle,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: 6,
+                      const SizedBox(width: 4),
+                      Text(
+                        'v$version',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: readableAccent,
+                          fontWeight: FontWeight.bold,
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.25),
+                      ),
+                    ],
+                  ),
+                );
+
+                final langButton = onLanguageToggle == null
+                    ? null
+                    : InkWell(
+                        onTap: onLanguageToggle,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 36),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              LucideIcons.languages,
-                              size: 14,
-                              color: AppColors.primary,
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(
+                              color: accent.withValues(alpha: 0.28),
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              isArabic ? 'English' : 'عربي',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                LucideIcons.languages,
+                                size: 14,
+                                color: readableAccent,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                isArabic ? 'English' : 'عربي',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: readableAccent,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      );
+
+                final shareButton = onShare == null
+                    ? null
+                    : IconButton(
+                        icon: const Icon(LucideIcons.share2, size: 18),
+                        onPressed: onShare,
+                        visualDensity: VisualDensity.compact,
+                        tooltip: isArabic ? 'مشاركة' : 'Share',
+                      );
+
+                final hasUpdated =
+                    lastUpdated != null && lastUpdated!.isNotEmpty;
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: dialogBg,
+                    borderRadius: BorderRadius.circular(
+                      AppDialogStyles.cardRadius(context),
                     ),
-                  ],
-                  if (onShare != null) ...[
-                    const SizedBox(width: AppSpacing.xs),
-                    IconButton(
-                      icon: const Icon(LucideIcons.share2, size: 18),
-                      onPressed: onShare,
-                      visualDensity: VisualDensity.compact,
-                      tooltip: isArabic ? 'مشاركة' : 'Share',
-                    ),
-                  ],
-                ],
-              ),
+                    border: Border.all(color: border),
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 330;
+                      if (compact) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Wrap(
+                              spacing: AppSpacing.sm,
+                              runSpacing: AppSpacing.xs,
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                versionChip,
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ?langButton,
+                                    ?shareButton,
+                                  ],
+                                ),
+                              ],
+                            ),
+                            if (hasUpdated) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                lastUpdated!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                softWrap: true,
+                              ),
+                            ],
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: AppSpacing.sm,
+                              runSpacing: AppSpacing.xs,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                versionChip,
+                                if (hasUpdated)
+                                  Text(
+                                    lastUpdated!,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    softWrap: true,
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (langButton != null) ...[
+                            const SizedBox(width: AppSpacing.sm),
+                            langButton,
+                          ],
+                          if (shareButton != null) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            shareButton,
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                );
+              },
             ),
             const SizedBox(height: AppSpacing.lg),
 
@@ -230,23 +330,36 @@ class LegalDocumentView extends StatelessWidget {
               textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
             ),
             const SizedBox(height: AppSpacing.md),
-            Divider(color: theme.dividerColor.withValues(alpha: 0.15)),
+            Divider(height: 1, color: border),
             const SizedBox(height: AppSpacing.md),
           ],
 
           // Content body
           Directionality(
             textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-            child: _buildFormattedContent(context, content),
+            child: _buildFormattedContent(
+              context,
+              content,
+              accent: accent,
+              readableAccent: readableAccent,
+            ),
           ),
-          const SizedBox(height: AppSpacing.xxl),
+          const SizedBox(height: AppSpacing.xl),
         ],
       ),
     );
   }
 
-  Widget _buildFormattedContent(BuildContext context, String rawText) {
+  Widget _buildFormattedContent(
+    BuildContext context,
+    String rawText, {
+    required Color accent,
+    required Color readableAccent,
+  }) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final boldSpanColor =
+        isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E);
     final lines = rawText.split('\n');
     final widgets = <Widget>[];
 
@@ -266,9 +379,9 @@ class LegalDocumentView extends StatelessWidget {
                 line.substring(4),
                 theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.primaryVariant,
+                  color: readableAccent,
                 ),
-                AppColors.primary,
+                boldSpanColor,
               ),
             ),
           ),
@@ -284,7 +397,7 @@ class LegalDocumentView extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.onSurface,
                 ),
-                AppColors.primary,
+                boldSpanColor,
               ),
             ),
           ),
@@ -300,7 +413,7 @@ class LegalDocumentView extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.onSurface,
                 ),
-                AppColors.primary,
+                boldSpanColor,
               ),
             ),
           ),
@@ -312,14 +425,14 @@ class LegalDocumentView extends StatelessWidget {
             margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
+              color: accent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(AppRadius.md),
               border: Border(
                 left: isArabic
                     ? BorderSide.none
-                    : const BorderSide(color: AppColors.primary, width: 3.5),
+                    : BorderSide(color: accent, width: 3.5),
                 right: isArabic
-                    ? const BorderSide(color: AppColors.primary, width: 3.5)
+                    ? BorderSide(color: accent, width: 3.5)
                     : BorderSide.none,
               ),
             ),
@@ -331,7 +444,7 @@ class LegalDocumentView extends StatelessWidget {
                   color: theme.colorScheme.onSurface,
                   fontStyle: FontStyle.italic,
                 ),
-                AppColors.primary,
+                boldSpanColor,
               ),
             ),
           ),
@@ -348,9 +461,9 @@ class LegalDocumentView extends StatelessWidget {
                   child: Container(
                     width: 6,
                     height: 6,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primary,
+                      color: readableAccent,
                     ),
                   ),
                 ),
@@ -363,7 +476,7 @@ class LegalDocumentView extends StatelessWidget {
                         height: 1.65,
                         color: theme.colorScheme.onSurface,
                       ),
-                      AppColors.primary,
+                      boldSpanColor,
                     ),
                   ),
                 ),
@@ -387,7 +500,7 @@ class LegalDocumentView extends StatelessWidget {
                     prefix,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
+                      color: readableAccent,
                       height: 1.65,
                     ),
                   ),
@@ -400,7 +513,7 @@ class LegalDocumentView extends StatelessWidget {
                           height: 1.65,
                           color: theme.colorScheme.onSurface,
                         ),
-                        AppColors.primary,
+                        boldSpanColor,
                       ),
                     ),
                   ),
@@ -419,7 +532,7 @@ class LegalDocumentView extends StatelessWidget {
                     height: 1.65,
                     color: theme.colorScheme.onSurface,
                   ),
-                  AppColors.primary,
+                  boldSpanColor,
                 ),
               ),
             ),

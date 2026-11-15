@@ -73,7 +73,12 @@ class _IdentityScreenState extends ConsumerState<IdentityScreen> {
           final fullName = (data['name'] ?? user['name'] ?? '').toString();
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: EdgeInsets.fromLTRB(
+              24.0,
+              24.0,
+              24.0,
+              24.0 + MediaQuery.paddingOf(context).bottom,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

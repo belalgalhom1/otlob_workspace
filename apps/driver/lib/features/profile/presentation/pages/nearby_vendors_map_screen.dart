@@ -259,9 +259,9 @@ class _NearbyVendorsMapScreenState
           children: [
             _buildMap(position, vendors, demand),
             Positioned(
-              top: 12,
-              left: 12,
-              right: 12,
+              top: 12 + MediaQuery.paddingOf(context).top,
+              left: 12 + MediaQuery.paddingOf(context).left,
+              right: 12 + MediaQuery.paddingOf(context).right,
               child: _HeaderCard(
                 isArabic: _isArabic,
                 isDark: isDark,
@@ -324,8 +324,8 @@ class _NearbyVendorsMapScreenState
                 ),
               ),
             Positioned(
-              right: 12,
-              bottom: 20,
+              right: 12 + MediaQuery.paddingOf(context).right,
+              bottom: 20 + MediaQuery.paddingOf(context).bottom,
               child: Column(
                 children: [
                   if (vendors.isNotEmpty)
@@ -419,13 +419,16 @@ class _NearbyVendorsMapScreenState
                   _asDouble(vendor['lat']),
                   _asDouble(vendor['lng']),
                 ),
-                width: 96,
-                height: 72,
-                child: _VendorMarker(
-                  vendor: vendor,
-                  level: demand?.levelOf(vendor) ?? _DemandLevel.normal,
-                  isArabic: _isArabic,
-                  onTap: () => _showVendorSheet(vendor, demand),
+                width: 104,
+                height: 82,
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: 1.15,
+                  child: _VendorMarker(
+                    vendor: vendor,
+                    level: demand?.levelOf(vendor) ?? _DemandLevel.normal,
+                    isArabic: _isArabic,
+                    onTap: () => _showVendorSheet(vendor, demand),
+                  ),
                 ),
               ),
           ],

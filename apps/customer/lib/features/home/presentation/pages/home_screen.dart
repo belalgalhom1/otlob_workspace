@@ -229,11 +229,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const Icon(Icons.near_me_rounded,
                           color: AppColors.primary, size: 14),
                       const SizedBox(width: 4),
-                      Text(s.deliverTo,
+                      Flexible(
+                        child: Text(
+                          s.deliverTo,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              color: isDark ? Colors.white70 : Colors.grey.shade800,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500)),
+                            color: isDark ? Colors.white70 : Colors.grey.shade800,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                     ]),
                     const SizedBox(height: 2),
                     Row(children: [
@@ -810,23 +817,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   if (linkedVendor != null) ...[
                                     Text(
                                       (linkedVendor['name'] ?? '').toString().toUpperCase(),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w900,
-                                        letterSpacing: 1.2,
-                                        shadows: [Shadow(blurRadius: 10, color: Colors.black)],
+                                        letterSpacing: Directionality.of(context) == TextDirection.rtl ? null : 1.2,
+                                        shadows: const [Shadow(blurRadius: 10, color: Colors.black)],
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                   ],
                                   Text(title,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w900,
                                           fontSize: 22,
-                                          letterSpacing: -0.5,
-                                          shadows: [Shadow(blurRadius: 12, color: Colors.black54)])),
+                                          letterSpacing: Directionality.of(context) == TextDirection.rtl ? null : -0.5,
+                                          shadows: const [Shadow(blurRadius: 12, color: Colors.black54)])),
                                   if (description.isNotEmpty) ...[
                                     const SizedBox(height: 4),
                                     Text(description,
@@ -894,21 +901,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(label,
-            style: TextStyle(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87)),
-        GestureDetector(
-          onTap: () => context.push('/all-vendors', extra: _selectedType),
-          child: Text(s.seeAll,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => context.push('/all-vendors', extra: _selectedType),
+            child: Text(
+              s.seeAll,
               style: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14)),
-        ),
-      ]),
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1019,13 +1040,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, LucideIcons.home, LucideIcons.home, s.navHome, true),
-              _buildNavItem(1, LucideIcons.messageSquare, LucideIcons.messageSquare, s.navChat, false),
-              _buildNavItem(2, LucideIcons.shoppingCart, LucideIcons.shoppingCart, s.cart, false),
-              _buildNavItem(3, LucideIcons.shoppingBag, LucideIcons.shoppingBag, s.navOrders, false),
-              _buildNavItem(4, LucideIcons.user, LucideIcons.user, s.navProfile, false),
+              Expanded(child: _buildNavItem(0, LucideIcons.home, LucideIcons.home, s.navHome, true)),
+              Expanded(child: _buildNavItem(1, LucideIcons.messageSquare, LucideIcons.messageSquare, s.navChat, false)),
+              Expanded(child: _buildNavItem(2, LucideIcons.shoppingCart, LucideIcons.shoppingCart, s.cart, false)),
+              Expanded(child: _buildNavItem(3, LucideIcons.shoppingBag, LucideIcons.shoppingBag, s.navOrders, false)),
+              Expanded(child: _buildNavItem(4, LucideIcons.user, LucideIcons.user, s.navProfile, false)),
             ],
           ),
         ),
@@ -1034,6 +1054,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildNavItem(int index, dynamic activeIcon, dynamic inactiveIcon, String label, bool isSelected) {
+    final s = AppStrings.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final color = isSelected
         ? AppColors.primary
@@ -1061,12 +1082,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             : Icon(isSelected ? activeIcon as IconData : inactiveIcon as IconData, color: color, size: 24),
           const SizedBox(height: 4),
           Text(
-            label, 
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: color, 
               fontSize: 11, 
               fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-              letterSpacing: -0.2,
+              letterSpacing: s.isArabic ? null : -0.2,
             ),
           ),
         ],

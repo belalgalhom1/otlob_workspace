@@ -72,7 +72,9 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
     if (cartState.totalItems == 0) return const SizedBox.shrink();
 
     final s = AppStrings.of(context);
-    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final mediaPadding = MediaQuery.paddingOf(context);
+    final topInset = mediaPadding.top;
+    final bottomInset = mediaPadding.bottom;
 
     double totalCartPrice = 0;
     for (final vendorItems in cartState.vendorBaskets.values) {
@@ -87,6 +89,7 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
           final maxWidth = constraints.maxWidth;
           final maxHeight = constraints.maxHeight;
 
+          final minY = _margin + topInset;
           final maxX = (maxWidth - _cartWidth - _margin)
               .clamp(_margin, double.infinity);
           final maxY = (maxHeight -
@@ -94,7 +97,7 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
                   _margin -
                   bottomInset -
                   _bottomClearance)
-              .clamp(_margin, double.infinity);
+              .clamp(minY, double.infinity);
 
           if (!_isInitialized) {
             _offset = Offset(maxX, maxY);
@@ -105,7 +108,7 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
           // if the layout changed while it was parked at a previous position.
           _offset = Offset(
             _offset.dx.clamp(_margin, maxX),
-            _offset.dy.clamp(_margin, maxY),
+            _offset.dy.clamp(minY, maxY),
           );
           final effectiveOffset = _offset;
 
@@ -210,10 +213,13 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
                           onTap: () => context.push('/cart'),
                           borderRadius: BorderRadius.circular(30),
                           child: Container(
-                            width: _cartWidth,
-                            height: _cartHeight,
+                            constraints: const BoxConstraints(
+                              minWidth: _cartWidth,
+                              maxWidth: 260,
+                              minHeight: _cartHeight,
+                            ),
                             padding:
-                                const EdgeInsets.symmetric(horizontal: 16),
+                                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
                               color: AppColors.primary,
                               borderRadius: BorderRadius.circular(30),
@@ -227,9 +233,11 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
                               ],
                             ),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(
@@ -254,12 +262,18 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
                                         color: Colors.black, size: 20),
                                   ],
                                 ),
-                                Text(
-                                  '${totalCartPrice.toStringAsFixed(2)} ${s.egp}',
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 16,
+                                const SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    '${totalCartPrice.toStringAsFixed(2)} ${s.egp}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 16,
+                                      fontFeatures: [FontFeature.tabularFigures()],
+                                    ),
                                   ),
                                 ),
                               ],

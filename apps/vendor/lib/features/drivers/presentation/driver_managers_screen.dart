@@ -199,12 +199,15 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
             const SizedBox(width: 8),
           ],
         ),
-        body: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 16 : 24,
-            vertical: 12,
+        body: SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 24,
+              vertical: 12,
+            ),
+            child: contentWidget,
           ),
-          child: contentWidget,
         ),
       );
     }

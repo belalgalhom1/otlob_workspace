@@ -117,7 +117,12 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                   builder: (context) {
                     final groups = _groupPools(filtered)..sort(_compareGroups);
                     return ListView.separated(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        16,
+                        16,
+                        16 + MediaQuery.paddingOf(context).bottom,
+                      ),
                       itemCount: groups.length,
                       separatorBuilder: (context, index) =>
                           const SizedBox(height: 16),

@@ -566,7 +566,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                         fontWeight: FontWeight.w800,
                         fontSize: 16.5,
                         color: theme.colorScheme.onSurface,
-                        letterSpacing: -0.3,
+                        letterSpacing: isArabic ? null : -0.3,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -724,7 +724,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
               color: isDark ? const Color(0xFFFCD34D) : const Color(0xFFB45309),
               fontSize: 10,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
+              letterSpacing: isArabic ? null : 0.2,
             ),
           ),
         ],
@@ -794,8 +794,8 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              SizedBox(
-                height: 28, // Guarantees identical baseline across all rows
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 28), // Preserves uniform minimum height while growing with TextScaler
                 child: Text(
                   action.label,
                   textAlign: TextAlign.center,
@@ -1078,7 +1078,9 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
               color: color,
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
+              letterSpacing: Localizations.localeOf(context).languageCode == 'ar'
+                  ? null
+                  : 0.2,
             ),
           ),
         ],

@@ -221,6 +221,7 @@ class _TermsAcceptanceGateScreenState
       body: SafeArea(
         child: Center(
           child: TermsAcceptanceDialog(
+            variant: TermsDialogVariant.vendor,
           title: title.toString(),
           subtitle: isAr
               ? 'يرجى مراجعة شروط الاستخدام والموافقة عليها للمتابعة'

@@ -725,7 +725,12 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                   ref.invalidate(driverShiftsProvider);
                 },
                 child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    16 + MediaQuery.paddingOf(context).bottom,
+                  ),
                   itemCount: groups.length,
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 16),
@@ -1140,13 +1145,17 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
               ).colorScheme.onSurface.withValues(alpha: 0.6),
             ),
             const SizedBox(width: 4),
-            Text(
-              zoneName,
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.8),
+            Flexible(
+              child: Text(
+                zoneName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.8),
+                ),
               ),
             ),
           ],

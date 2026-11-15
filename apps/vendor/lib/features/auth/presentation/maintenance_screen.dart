@@ -21,7 +21,7 @@ class MaintenancePage extends ConsumerWidget {
         Positioned(
           left: 0,
           right: 0,
-          bottom: 32,
+          bottom: 32 + MediaQuery.paddingOf(context).bottom,
           child: Center(
             child: TextButton(
               onPressed: () => context.go('/login'),

@@ -965,16 +965,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.stars_rounded, color: Color(0xFFFFB300), size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              s.isArabic ? 'استخدام ${coinState.currentBalance} عملة' : 'Use ${coinState.currentBalance} Coins',
-                              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13),
-                            ),
-                          ],
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.stars_rounded, color: Color(0xFFFFB300), size: 18),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  s.isArabic ? 'استخدام ${coinState.currentBalance} عملة' : 'Use ${coinState.currentBalance} Coins',
+                                  style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Switch(
                           value: _useCoins,
                           activeThumbColor: AppColors.primary,
@@ -1024,32 +1029,40 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   const Divider(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            s.isArabic ? 'المجموع الإجمالي' : 'Total',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              s.isArabic ? 'المجموع الإجمالي' : 'Total',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                          Text(
-                            s.isArabic ? '(شامل جميع الرسوم)' : '(Including all fees)',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark ? Colors.white38 : Colors.grey.shade600,
+                            Text(
+                              s.isArabic ? '(شامل جميع الرسوم)' : '(Including all fees)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.white38 : Colors.grey.shade600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      Text(
-                        '${finalTotal.toStringAsFixed(0)} ${s.egp}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                          color: AppColors.primary,
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          '${finalTotal.toStringAsFixed(0)} ${s.egp}',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                            color: AppColors.primary,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
                     ],
@@ -1269,9 +1282,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-        Text(val,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        Expanded(
+          child: Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            val,
+            textAlign: TextAlign.end,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
       ]),
     );
   }

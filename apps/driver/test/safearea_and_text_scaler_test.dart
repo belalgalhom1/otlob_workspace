@@ -1,7 +1,13 @@
 import 'package:data/data.dart';
+import 'package:driver/core/providers/app_preferences_provider.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
+import 'package:driver/features/auth/presentation/auth_provider.dart';
+import 'package:driver/features/auth/presentation/pages/login_screen.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/legal/presentation/pages/terms_acceptance_gate_screen.dart';
+import 'package:driver/features/order_execution/presentation/widgets/order_details_bottom_sheet.dart';
+import 'package:driver/features/orders/presentation/driver_orders_history_provider.dart';
+import 'package:driver/features/orders/presentation/pages/deliveries_history_screen.dart';
 import 'package:driver/features/profile/presentation/pages/suspended_screen.dart';
 import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
 import 'package:driver/features/wallet/presentation/wallet_provider.dart';
@@ -41,13 +47,50 @@ class _FailingLegalDocsRepo extends Fake
   }
 }
 
+class _FakeDriverAuth extends Auth {
+  @override
+  AsyncValue<bool> build() => const AsyncValue.data(false);
+}
+
+class _FakeDriverPreferences extends AppPreferences {
+  final Locale locale;
+  _FakeDriverPreferences(this.locale);
+
+  @override
+  AppPreferencesState build() =>
+      AppPreferencesState(themeMode: ThemeMode.light, locale: locale);
+}
+
+class _FakeDriverOrdersHistory extends DriverOrdersHistory {
+  final DriverOrdersHistoryState initialState;
+  _FakeDriverOrdersHistory(this.initialState);
+
+  @override
+  DriverOrdersHistoryState build() => initialState;
+
+  @override
+  Future<void> fetchDeliveries({bool isRefresh = false}) async {}
+
+  @override
+  Future<void> loadMore() async {}
+}
+
+class _FakeDriverOrdersRepository extends Fake
+    implements DriverOrdersRepository {
+  @override
+  Future<dynamic> getMyAssistRequests() async => const <dynamic>[];
+}
+
 Future<void> _pumpDriverWidget(
   WidgetTester tester, {
   required Locale locale,
   required Widget child,
+  Size viewport = const Size(360, 640),
+  EdgeInsets padding = const EdgeInsets.only(top: 47, bottom: 34),
+  TextScaler textScaler = const TextScaler.linear(1.3),
   List<dynamic> overrides = const [],
 }) async {
-  tester.view.physicalSize = const Size(360, 640);
+  tester.view.physicalSize = viewport;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(() {
     tester.view.resetPhysicalSize();
@@ -62,10 +105,10 @@ Future<void> _pumpDriverWidget(
         supportedLocales: AppLocalizations.supportedLocales,
         locale: locale,
         home: MediaQuery(
-          data: const MediaQueryData(
-            size: Size(360, 640),
-            padding: EdgeInsets.only(top: 47, bottom: 34),
-            textScaler: TextScaler.linear(1.3),
+          data: MediaQueryData(
+            size: viewport,
+            padding: padding,
+            textScaler: textScaler,
           ),
           child: AppWindowConstraintGuard(child: child),
         ),
@@ -162,4 +205,169 @@ void main() {
       expect(scrollRect.bottom, lessThanOrEqualTo(640.0 - 34.0));
     },
   );
+
+  for (final locale in const [Locale('en'), Locale('ar')]) {
+    for (final entry in const [
+      (viewport: Size(320, 568), scale: 0.85),
+      (viewport: Size(360, 640), scale: 1.3),
+    ]) {
+      testWidgets(
+        'Driver LoginScreen respects extendBodyBehindAppBar SafeArea at ${entry.viewport.width.toInt()}x${entry.viewport.height.toInt()} & ${entry.scale}x (${locale.languageCode})',
+        (tester) async {
+          await _pumpDriverWidget(
+            tester,
+            locale: locale,
+            viewport: entry.viewport,
+            padding: const EdgeInsets.only(top: 59, bottom: 34),
+            textScaler: TextScaler.linear(entry.scale),
+            overrides: [
+              authProvider.overrideWith(() => _FakeDriverAuth()),
+              appPreferencesProvider.overrideWith(
+                () => _FakeDriverPreferences(locale),
+              ),
+            ],
+            child: const LoginScreen(),
+          );
+
+          expect(tester.takeException(), isNull);
+          final scrollFinder = find.byType(SingleChildScrollView);
+          expect(scrollFinder, findsOneWidget);
+        },
+      );
+    }
+
+    testWidgets(
+      'DeliveriesHistoryScreen handles narrow 320px width, 1.3x scale, and bottom SafeArea (${locale.languageCode})',
+      (tester) async {
+        await _pumpDriverWidget(
+          tester,
+          locale: locale,
+          viewport: const Size(320, 640),
+          padding: const EdgeInsets.only(top: 47, bottom: 34),
+          textScaler: const TextScaler.linear(1.3),
+          overrides: [
+            configurationProvider.overrideWith(() => _FakeConfiguration()),
+            driverOrdersHistoryProvider.overrideWith(
+              () => _FakeDriverOrdersHistory(
+                DriverOrdersHistoryState(
+                  isLoading: false,
+                  orders: [
+                    {
+                      'id': 'ord-hist-1',
+                      'orderNumber': 'ORD-2026-MULTI-88421',
+                      'type': 'RIDE',
+                      'deliveryFee': 185.50,
+                      'createdAt': '2026-11-15T18:30:00Z',
+                      'vendor': {
+                        'storeName': 'Ultra Long Multi-Store Gourmet Super Market Branch',
+                        'storeNameAr': 'سوبر ماركت ومتاجر متعددة فاخرة الفرع الرئيسي',
+                      },
+                      'deliveryAddress':
+                          'Apartment 14B, Building 27, Extended Boulevard District, Cairo',
+                    },
+                  ],
+                ),
+              ),
+            ),
+          ],
+          child: const DeliveriesHistoryScreen(),
+        );
+
+        expect(tester.takeException(), isNull);
+        final listView = tester.widget<ListView>(find.byType(ListView));
+        expect(listView.padding?.resolve(TextDirection.ltr).bottom, 50.0);
+      },
+    );
+
+    testWidgets(
+      'OrderDetailsBottomSheet renders multi-store cash, earnings, and pickup statuses on 320px at 1.3x (${locale.languageCode})',
+      (tester) async {
+        await _pumpDriverWidget(
+          tester,
+          locale: locale,
+          viewport: const Size(320, 640),
+          padding: const EdgeInsets.only(top: 47, bottom: 34),
+          textScaler: const TextScaler.linear(1.3),
+          overrides: [
+            configurationProvider.overrideWith(() => _FakeConfiguration()),
+            driverOrdersRepositoryProvider.overrideWithValue(
+              _FakeDriverOrdersRepository(),
+            ),
+          ],
+          child: Scaffold(
+            body: OrderDetailsBottomSheet(
+              order: {
+                'id': 'ord-det-1',
+                'orderNumber': 'ORD-99812',
+                'status': 'ON_THE_WAY',
+                'paymentMethod': 'CASH_ON_DELIVERY',
+                'total': 540.0,
+                'subtotal': 460.0,
+                'deliveryFee': 80.0,
+                'driverEarnings': 56.0,
+                'customer': {'name': 'Omar Khaled', 'phone': '+201001234567'},
+                'deliveryAddress': 'Building 9, District 5, New Cairo',
+                'items': [
+                  {
+                    'quantity': 2,
+                    'price': 230.0,
+                    'product': {
+                      'name': 'Family Feast Combo Box',
+                      'nameAr': 'صندوق وليمة عائلية',
+                    },
+                  },
+                ],
+                'financials': {
+                  'isPrepaid': false,
+                  'cashToCollect': 540.0,
+                  'cashToPayStore': 414.0,
+                  'deliveryFee': 80.0,
+                  'driverEarnings': 56.0,
+                  'storePayments': [
+                    {
+                      'vendorName': 'Al-Madina Bakery & Sweets Main Branch',
+                      'isContracted': true,
+                      'cashToPay': 210.0,
+                    },
+                    {
+                      'vendorName': 'Fresh Market Roastery Central Store',
+                      'isContracted': false,
+                      'cashToPay': 204.0,
+                    },
+                  ],
+                },
+                'vendorFulfillments': [
+                  {
+                    'status': 'READY_FOR_PICKUP',
+                    'vendor': {
+                      'storeName': 'Al-Madina Bakery & Sweets',
+                      'storeNameAr': 'مخبز وحلويات المدينة',
+                    },
+                    'vendorBranch': {
+                      'name': 'Main Branch Downtown',
+                      'nameAr': 'الفرع الرئيسي وسط البلد',
+                    },
+                  },
+                  {
+                    'status': 'PREPARING',
+                    'vendor': {
+                      'storeName': 'Fresh Market Roastery',
+                      'storeNameAr': 'محمصة السوق الطازج',
+                    },
+                    'vendorBranch': {
+                      'name': 'Central Store',
+                      'nameAr': 'المتجر المركزي',
+                    },
+                  },
+                ],
+              },
+            ),
+          ),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(OrderDetailsBottomSheet), findsOneWidget);
+      },
+    );
+  }
 }

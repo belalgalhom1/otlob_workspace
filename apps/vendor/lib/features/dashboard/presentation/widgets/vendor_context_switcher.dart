@@ -28,6 +28,7 @@ class VendorContextSwitcher extends ConsumerWidget {
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               isExpanded: isMobile,
+              itemHeight: null,
               value: activeVendorId,
               icon: isMobile ? const Icon(LucideIcons.chevronDown, size: 16) : const SizedBox.shrink(),
               hint: isMobile 

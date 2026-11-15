@@ -405,36 +405,57 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Icon(
-                    LucideIcons.user,
-                    size: 14,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    ticket['creator']?['name'] ?? l10n.unknown,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          LucideIcons.user,
+                          size: 14,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            ticket['creator']?['name'] ?? l10n.unknown,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const Spacer(),
-                  Icon(
-                    LucideIcons.layers,
-                    size: 14,
-                    color: Colors.purple.withValues(alpha: 0.6),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _translateCategory(category, l10n),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.purple,
-                      fontWeight: FontWeight.w500,
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.layers,
+                          size: 14,
+                          color: Colors.purple.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            _translateCategory(category, l10n),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.purple,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

@@ -108,7 +108,10 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                         fontSize: isMobile ? 24 : 32,
                         fontWeight: FontWeight.w900,
                         color: Theme.of(context).colorScheme.onSurface,
-                        letterSpacing: -1,
+                        letterSpacing:
+                            Localizations.localeOf(context).languageCode == 'ar'
+                            ? null
+                            : -1,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -439,14 +442,13 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
                     children: [
                       _buildBadge(type.toUpperCase(), AppColors.primary),
-                      if (isOffer && variantName != null && variantName.toString().isNotEmpty) ...[
-                        const SizedBox(width: 8),
+                      if (isOffer && variantName != null && variantName.toString().isNotEmpty)
                         _buildBadge(variantName.toString().toUpperCase(), Colors.purple),
-                      ],
-                      const SizedBox(width: 8),
                       _buildBadge(
                         isActive ? 'ACTIVE' : 'INACTIVE',
                         isActive ? AppColors.success : AppColors.error,
@@ -554,7 +556,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
           color: Theme.of(context).colorScheme.onSurface,
           fontSize: 10,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.5,
+          letterSpacing: Localizations.localeOf(context).languageCode == 'ar' ? null : 0.5,
         ),
       ),
     );

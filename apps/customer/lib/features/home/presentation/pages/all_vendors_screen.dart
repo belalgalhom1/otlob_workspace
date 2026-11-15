@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ui_kit/ui_kit.dart' hide AppColors;
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -123,7 +124,9 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                           );
                         }
                         return SliverPadding(
-                          padding: const EdgeInsets.only(bottom: 32),
+                          padding: EdgeInsets.only(
+                            bottom: 32 + MediaQuery.paddingOf(context).bottom,
+                          ),
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
                               (context, index) => _buildDiscoveryResultCard(s, results[index], isDark),
@@ -145,7 +148,12 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        32 + MediaQuery.paddingOf(context).bottom,
+                      ),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) => Padding(
@@ -252,7 +260,14 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text(v['deliveryTime'] ?? '30 mins', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                            Flexible(
+                              child: Text(
+                                v['deliveryTime'] ?? '30 mins',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                              ),
+                            ),
                             const SizedBox(width: 4),
                             const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
                             const SizedBox(width: 2),
@@ -266,7 +281,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                  const AppAdaptiveChevron(color: Colors.grey, size: 22),
                 ],
               ),
             ),
@@ -275,7 +290,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
           // Horizontal Product List
           if (products.isNotEmpty)
             SizedBox(
-              height: 195,
+              height: 195 * MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.3),
               child: ListView.builder(
                 padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
                 scrollDirection: Axis.horizontal,

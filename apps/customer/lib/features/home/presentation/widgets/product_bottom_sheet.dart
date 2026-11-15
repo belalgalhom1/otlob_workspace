@@ -547,7 +547,10 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                         ),
                                       ),
                                       const SizedBox(height: 2),
-                                      Row(
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
                                         children: [
                                           Text(
                                             '${effectiveVPrice.toStringAsFixed(effectiveVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
@@ -558,7 +561,6 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                             ),
                                           ),
                                           if (hasVDiscount) ...[
-                                            const SizedBox(width: 8),
                                             Text(
                                               '${originalVPrice.toStringAsFixed(originalVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
                                               style: TextStyle(
@@ -567,7 +569,6 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                                 decoration: TextDecoration.lineThrough,
                                               ),
                                             ),
-                                            const SizedBox(width: 6),
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                               decoration: BoxDecoration(

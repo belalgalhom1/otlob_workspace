@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:ui_kit/ui_kit.dart' show AppDialog;
+import 'package:ui_kit/ui_kit.dart' show AppAdaptiveChevron, AppDialog;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/network/network_providers.dart';
 import '../providers/support_ticket_provider.dart';
@@ -625,7 +625,12 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
 
     return ListView(
       key: const ValueKey('sub-category'),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        4,
+        20,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
       children: [
         if (_selectedOrder != null) _buildSelectedOrderSummary(_selectedOrder!, isAr, isDark),
         _buildStepHeader(
@@ -756,8 +761,7 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
             ),
             if (trailing != null) ...[const SizedBox(width: 8), trailing],
             const SizedBox(width: 4),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 13, color: Colors.grey.shade400),
+            const AppAdaptiveChevron(size: 16, color: Colors.grey),
           ],
         ),
       ),

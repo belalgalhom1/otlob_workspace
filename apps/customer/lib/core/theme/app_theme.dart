@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:ui_kit/ui_kit.dart' show AppDialogTheme;
 import 'app_colors.dart';
 import 'app_typography.dart';
 import 'app_spacing.dart';
@@ -27,8 +28,31 @@ class AppTheme {
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.textPrimaryLight,
+        onSurfaceVariant: AppColors.textSecondaryLight,
+        outline: AppColors.borderLight,
+        outlineVariant: AppColors.borderLight,
         onError: Colors.white,
       ),
+
+      dividerColor: AppColors.borderLight,
+
+      extensions: [
+        AppDialogTheme(
+          backgroundColor: Colors.white,
+          borderColor: AppColors.borderLight,
+          subtleSurfaceColor: AppColors.surfaceLight,
+          sectionCardColor: AppColors.surfaceLight,
+          accentColor: AppColors.primary,
+          onAccentColor: Colors.black,
+          badgeBackgroundColor: AppColors.primary.withValues(alpha: 0.14),
+          badgeForegroundColor: const Color(0xFFB45309),
+          dialogRadius: 22,
+          cardRadius: AppRadius.md,
+          buttonRadius: AppRadius.md,
+          buttonMinHeight: 50,
+          showHeaderDivider: false,
+        ),
+      ],
 
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.surfaceLight,
@@ -116,8 +140,31 @@ class AppTheme {
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.textPrimaryDark,
+        onSurfaceVariant: AppColors.textSecondaryDark,
+        outline: AppColors.borderDark,
+        outlineVariant: AppColors.borderDark,
         onError: Colors.white,
       ),
+
+      dividerColor: AppColors.borderDark,
+
+      extensions: [
+        AppDialogTheme(
+          backgroundColor: AppColors.surfaceDark,
+          borderColor: AppColors.borderDark,
+          subtleSurfaceColor: AppColors.backgroundDark,
+          sectionCardColor: AppColors.fieldDark,
+          accentColor: AppColors.primary,
+          onAccentColor: Colors.black,
+          badgeBackgroundColor: AppColors.primary.withValues(alpha: 0.2),
+          badgeForegroundColor: AppColors.primary,
+          dialogRadius: 22,
+          cardRadius: AppRadius.md,
+          buttonRadius: AppRadius.md,
+          buttonMinHeight: 50,
+          showHeaderDivider: false,
+        ),
+      ],
 
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.backgroundDark,
@@ -193,8 +240,47 @@ class AppTheme {
       headlineMedium: AppTypography.headlineMedium.copyWith(
         color: primaryColor,
       ),
-      labelLarge: AppTypography.labelLarge.copyWith(color: primaryColor),
+      titleLarge: TextStyle(
+        fontFamily: AppTypography.fontFamily,
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        color: primaryColor,
+      ),
+      titleMedium: TextStyle(
+        fontFamily: AppTypography.fontFamily,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: primaryColor,
+      ),
+      titleSmall: TextStyle(
+        fontFamily: AppTypography.fontFamily,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: primaryColor,
+      ),
+      bodyLarge: AppTypography.bodyMedium.copyWith(
+        fontSize: 15,
+        color: primaryColor,
+      ),
       bodyMedium: AppTypography.bodyMedium.copyWith(color: secondaryColor),
+      bodySmall: TextStyle(
+        fontFamily: AppTypography.fontFamily,
+        fontSize: 12.5,
+        color: secondaryColor,
+      ),
+      labelLarge: AppTypography.labelLarge.copyWith(color: primaryColor),
+      labelMedium: TextStyle(
+        fontFamily: AppTypography.fontFamily,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: primaryColor,
+      ),
+      labelSmall: TextStyle(
+        fontFamily: AppTypography.fontFamily,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+        color: secondaryColor,
+      ),
     );
   }
 

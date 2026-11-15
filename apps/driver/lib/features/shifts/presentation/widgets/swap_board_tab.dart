@@ -41,7 +41,12 @@ class SwapBoardTab extends ConsumerWidget {
             ref.invalidate(swapBoardProvider);
           },
           child: ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              16 + MediaQuery.paddingOf(context).bottom,
+            ),
             itemCount: swaps.length,
             separatorBuilder: (context, index) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
@@ -102,10 +107,13 @@ class SwapBoardTab extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                zoneName,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+              Expanded(
+                child: Text(
+                  zoneName,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface),
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
@@ -128,9 +136,11 @@ class SwapBoardTab extends ConsumerWidget {
             children: [
               Icon(LucideIcons.user, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
               const SizedBox(width: 8),
-              Text(
-                driverName,
-                style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+              Expanded(
+                child: Text(
+                  driverName,
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                ),
               ),
             ],
           ),

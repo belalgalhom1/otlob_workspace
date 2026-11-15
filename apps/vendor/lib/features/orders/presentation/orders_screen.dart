@@ -816,11 +816,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           const SizedBox(width: 8),
           Text(
             isArabic ? 'مباشر' : 'LIVE',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.success,
               fontWeight: FontWeight.bold,
               fontSize: 12,
-              letterSpacing: 1.1,
+              letterSpacing: isArabic ? null : 1.1,
             ),
           ),
         ],
@@ -1120,8 +1120,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   GestureDetector(
                                     onLongPress: () {
@@ -1149,16 +1151,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: _buildStatusChip(
-                                      context,
-                                      status,
-                                      isArabic,
-                                    ),
+                                  _buildStatusChip(
+                                    context,
+                                    status,
+                                    isArabic,
                                   ),
-                                  if (isMultiVendor && multiVendorStoresText != null) ...[
-                                    const SizedBox(width: 8),
+                                  if (isMultiVendor && multiVendorStoresText != null)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
@@ -1187,9 +1185,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ] else if (branchName != null && branchName.toString().isNotEmpty) ...[
-                                    const SizedBox(width: 8),
+                                    )
+                                  else if (branchName != null && branchName.toString().isNotEmpty)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
@@ -1219,7 +1216,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                         ],
                                       ),
                                     ),
-                                  ],
                                 ],
                               ),
                             ),
@@ -1710,9 +1706,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    bName.toString().isNotEmpty ? '$sName (${bName.toString()})' : sName.toString(),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  Flexible(
+                    child: Text(
+                      bName.toString().isNotEmpty ? '$sName (${bName.toString()})' : sName.toString(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
                   ),
                   const SizedBox(width: 6),
                   Container(
@@ -3626,12 +3626,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   }
                 },
                 icon: Icon(icon, size: 16, color: Colors.white),
-                label: Text(mainButtonText),
+                label: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(mainButtonText, maxLines: 1),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   foregroundColor: Colors.white,
                   shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -3652,11 +3655,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 fulfillmentId: myFulfillmentId,
               ),
               icon: const Icon(LucideIcons.xCircle, size: 16),
-              label: Text(isArabic ? 'إلغاء' : 'Cancel'),
+              label: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(isArabic ? 'إلغاء' : 'Cancel', maxLines: 1),
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
                 side: const BorderSide(color: AppColors.error),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

@@ -414,9 +414,11 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
                         children: [
                           const Icon(LucideIcons.checkCheck, color: AppColors.success, size: 16),
                           const SizedBox(width: 8),
-                          Text(
-                            isAr ? 'يمتلك كافة الصلاحيات بشكل كامل' : 'Has Full Unrestricted Access',
-                            style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 13),
+                          Flexible(
+                            child: Text(
+                              isAr ? 'يمتلك كافة الصلاحيات بشكل كامل' : 'Has Full Unrestricted Access',
+                              style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
                           ),
                         ],
                       ),

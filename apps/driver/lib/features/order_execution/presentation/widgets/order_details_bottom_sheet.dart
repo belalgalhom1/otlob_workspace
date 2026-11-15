@@ -100,17 +100,22 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      order['orderNumber']?.toString() ?? '#${(order['id'] ?? '').toString().substring(0, 8)}',
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        order['orderNumber']?.toString() ?? '#${(order['id'] ?? '').toString().substring(0, 8)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -261,33 +266,33 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  alignment: WrapAlignment.spaceBetween,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
-                                    Flexible(
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: isPickedUp
-                                              ? AppColors.success.withValues(alpha: 0.15)
-                                              : AppColors.primary.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          l10n.localeName == 'ar'
-                                              ? 'المحطة ${i + 1} من ${fulfillments.length}${isPickedUp ? ' (تم الاستلام ✓)' : ''}'
-                                              : 'Stop ${i + 1} of ${fulfillments.length}${isPickedUp ? ' (Picked Up ✓)' : ''}',
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: isPickedUp ? AppColors.success : AppColors.primary,
-                                          ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isPickedUp
+                                            ? AppColors.success.withValues(alpha: 0.15)
+                                            : AppColors.primary.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        l10n.localeName == 'ar'
+                                            ? 'المحطة ${i + 1} من ${fulfillments.length}${isPickedUp ? ' (تم الاستلام ✓)' : ''}'
+                                            : 'Stop ${i + 1} of ${fulfillments.length}${isPickedUp ? ' (Picked Up ✓)' : ''}',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: isPickedUp ? AppColors.success : AppColors.primary,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
@@ -310,6 +315,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                           color: cashToPay <= 0 ? AppColors.success : AppColors.warning,
+                                          fontFeatures: const [FontFeature.tabularFigures()],
                                         ),
                                       ),
                                     ),
@@ -447,8 +453,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            const Icon(
-                              LucideIcons.chevronRight,
+                            const AppAdaptiveChevron(
                               size: 18,
                               color: AppColors.primary,
                             ),
@@ -747,14 +752,19 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                                           ),
                                         ),
-                                        Text(
-                                          payAmt <= 0
-                                              ? (isAr ? '0 $currency (لا تدفع كاش)' : '0 $currency (No Cash)')
-                                              : '${payAmt.toStringAsFixed(2)} $currency',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: payAmt <= 0 ? AppColors.success : AppColors.warning,
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            payAmt <= 0
+                                                ? (isAr ? '0 $currency (لا تدفع كاش)' : '0 $currency (No Cash)')
+                                                : '${payAmt.toStringAsFixed(2)} $currency',
+                                            textAlign: TextAlign.end,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: payAmt <= 0 ? AppColors.success : AppColors.warning,
+                                              fontFeatures: const [FontFeature.tabularFigures()],
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -766,18 +776,25 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    isAr ? 'إجمالي المطلوب دفعه للمتاجر:' : 'Total Cash to Stores:',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  Expanded(
+                                    child: Text(
+                                      isAr ? 'إجمالي المطلوب دفعه للمتاجر:' : 'Total Cash to Stores:',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
                                   ),
-                                  Text(
-                                    cashToPayStore <= 0
-                                        ? (isAr ? '0 $currency (لا تدفع كاش)' : '0 $currency')
-                                        : '${cashToPayStore.toStringAsFixed(2)} $currency',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: cashToPayStore <= 0 ? AppColors.success : AppColors.warning,
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      cashToPayStore <= 0
+                                          ? (isAr ? '0 $currency (لا تدفع كاش)' : '0 $currency')
+                                          : '${cashToPayStore.toStringAsFixed(2)} $currency',
+                                      textAlign: TextAlign.end,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: cashToPayStore <= 0 ? AppColors.success : AppColors.warning,
+                                        fontFeatures: const [FontFeature.tabularFigures()],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -864,22 +881,31 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  const Icon(LucideIcons.bike, size: 18, color: AppColors.primary),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    isAr ? 'أرباحك الصافية من هذا التوصيل' : 'Your Net Delivery Earnings',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    const Icon(LucideIcons.bike, size: 18, color: AppColors.primary),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        isAr ? 'أرباحك الصافية من هذا التوصيل' : 'Your Net Delivery Earnings',
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              Text(
-                                '${driverEarnings.toStringAsFixed(2)} $currency',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.success,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  '${driverEarnings.toStringAsFixed(2)} $currency',
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.success,
+                                    fontFeatures: [FontFeature.tabularFigures()],
+                                  ),
                                 ),
                               ),
                             ],
@@ -889,19 +915,26 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  isAr ? 'إجمالي رسوم التوصيل (العميل)' : 'Total Delivery Fee (Customer)',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                Expanded(
+                                  child: Text(
+                                    isAr ? 'إجمالي رسوم التوصيل (العميل)' : 'Total Delivery Fee (Customer)',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                    ),
                                   ),
                                 ),
-                                Text(
-                                  '${deliveryFee.toStringAsFixed(2)} $currency',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    '${deliveryFee.toStringAsFixed(2)} $currency',
+                                    textAlign: TextAlign.end,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                      fontFeatures: const [FontFeature.tabularFigures()],
+                                    ),
                                   ),
                                 ),
                               ],
@@ -942,9 +975,11 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                         children: [
                           const Icon(LucideIcons.store, size: 18, color: AppColors.primary),
                           const SizedBox(width: 8),
-                          Text(
-                            l10n.localeName == 'ar' ? 'محطات الاستلام من المتاجر' : 'Store Pickup Stops',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          Expanded(
+                            child: Text(
+                              l10n.localeName == 'ar' ? 'محطات الاستلام من المتاجر' : 'Store Pickup Stops',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
                           ),
                         ],
                       ),
@@ -962,8 +997,13 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('• $displayName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                              Text(fStatus, style: TextStyle(fontSize: 11, color: fStatus == 'READY_FOR_PICKUP' ? AppColors.success : Colors.orange, fontWeight: FontWeight.bold)),
+                              Expanded(
+                                child: Text('• $displayName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(fStatus, style: TextStyle(fontSize: 11, color: fStatus == 'READY_FOR_PICKUP' ? AppColors.success : Colors.orange, fontWeight: FontWeight.bold)),
+                              ),
                             ],
                           ),
                         );

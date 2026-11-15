@@ -97,27 +97,66 @@ class _LegalDocumentViewerPageState
               : (_showArabic ? 'سياسة الخصوصية' : 'Privacy Policy'),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.languages, size: 20),
-            tooltip: _showArabic ? 'English' : 'عربي',
-            onPressed: () {
-              setState(() => _showArabic = !_showArabic);
-            },
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 8),
+            child: Tooltip(
+              message: _showArabic ? 'English' : 'عربي',
+              child: InkWell(
+                onTap: () => setState(() => _showArabic = !_showArabic),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 34, minWidth: 44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppDialogStyles.subtleSurfaceColor(context),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppDialogStyles.borderColor(context),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.languages,
+                        size: 15,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.primary
+                            : const Color(0xFFB45309),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        _showArabic ? 'EN' : 'عربي',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      body: LegalDocumentView(
-        title: title,
-        version: version,
-        lastUpdated: formattedDate,
-        content: content,
-        isArabic: _showArabic,
-        isLoading: _isLoading,
-        error: _error,
-        onRetry: _fetchDocument,
-        onLanguageToggle: () {
-          setState(() => _showArabic = !_showArabic);
-        },
+      body: SafeArea(
+        top: false,
+        child: LegalDocumentView(
+          title: title,
+          version: version,
+          lastUpdated: formattedDate,
+          content: content,
+          isArabic: _showArabic,
+          isLoading: _isLoading,
+          error: _error,
+          onRetry: _fetchDocument,
+          onLanguageToggle: () {
+            setState(() => _showArabic = !_showArabic);
+          },
+        ),
       ),
     );
   }

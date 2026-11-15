@@ -119,7 +119,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       )
                     : ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          8,
+                          16,
+                          16 + MediaQuery.paddingOf(context).bottom,
+                        ),
                         itemCount: state.notifications.length + (state.hasMore ? 1 : 0),
                         itemBuilder: (context, index) {
                           if (index == state.notifications.length) {

@@ -61,12 +61,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         title: Text(l10n.appTitle),
         actions: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: InkWell(
               onTap: () => ref.read(appPreferencesProvider.notifier).toggleTheme(),
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(10),
@@ -83,7 +83,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
+            padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 8.0),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -93,7 +93,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               },
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(10),
@@ -895,16 +895,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        onBreak
-                            ? (isAr ? 'أنت في فترة استراحة' : 'You are on break')
-                            : (hasPending
-                                ? (isAr ? 'طلب استراحة قيد الانتظار' : 'Break request pending')
-                                : (isAr ? 'إدارة استراحات السائق' : 'Driver Breaks')),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: onBreak ? (Theme.of(context).brightness == Brightness.dark ? Colors.amber.shade300 : Colors.amber.shade900) : null,
+                      Flexible(
+                        child: Text(
+                          onBreak
+                              ? (isAr ? 'أنت في فترة استراحة' : 'You are on break')
+                              : (hasPending
+                                  ? (isAr ? 'طلب استراحة قيد الانتظار' : 'Break request pending')
+                                  : (isAr ? 'إدارة استراحات السائق' : 'Driver Breaks')),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: onBreak ? (Theme.of(context).brightness == Brightness.dark ? Colors.amber.shade300 : Colors.amber.shade900) : null,
+                          ),
                         ),
                       ),
                       if (hasPending && !onBreak) ...[

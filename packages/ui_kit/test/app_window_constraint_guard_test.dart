@@ -1,7 +1,23 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
+
+class _ArMaterialLocalizationsDelegate
+    extends LocalizationsDelegate<MaterialLocalizations> {
+  const _ArMaterialLocalizationsDelegate();
+
+  @override
+  bool isSupported(Locale locale) => locale.languageCode == 'ar';
+
+  @override
+  Future<MaterialLocalizations> load(Locale locale) =>
+      SynchronousFuture<MaterialLocalizations>(const DefaultMaterialLocalizations());
+
+  @override
+  bool shouldReload(_ArMaterialLocalizationsDelegate old) => false;
+}
 
 void main() {
   group('AppWindowConstraintGuard', () {
@@ -230,5 +246,221 @@ void main() {
         expect(listHeight, greaterThan(42.0));
       },
     );
+
+    for (final textDirection in TextDirection.values) {
+      testWidgets(
+        'SpeedLimitSign expands vertically without clipping at 1.3x scale (${textDirection.name})',
+        (tester) async {
+          const baseSize = 54.0;
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MediaQuery(
+                data: const MediaQueryData(
+                  size: Size(320, 568),
+                  textScaler: TextScaler.linear(1.3),
+                ),
+                child: Directionality(
+                  textDirection: textDirection,
+                  child: const Scaffold(
+                    body: Center(
+                      child: SpeedLimitSign(
+                        speedLimit: 120,
+                        currentSpeed: 135,
+                        unit: 'كم/س',
+                        size: baseSize,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          final signSize = tester.getSize(find.byType(SpeedLimitSign));
+          expect(signSize.width, greaterThanOrEqualTo(baseSize));
+          expect(
+            signSize.height,
+            greaterThanOrEqualTo(baseSize + (baseSize * 0.28)),
+          );
+        },
+      );
+
+      testWidgets(
+        'OrderContextBar adapts chevron and avoids overflow on 320px at 1.3x scale (${textDirection.name})',
+        (tester) async {
+          final isRtl = textDirection == TextDirection.rtl;
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MediaQuery(
+                data: const MediaQueryData(
+                  size: Size(320, 568),
+                  textScaler: TextScaler.linear(1.3),
+                ),
+                child: Directionality(
+                  textDirection: textDirection,
+                  child: Scaffold(
+                    body: SizedBox(
+                      width: 320,
+                      child: OrderContextBar(
+                        orderNumber: 'ORD-2026-EXTENDED-998877',
+                        statusLabel: isRtl
+                            ? 'جاري التوصيل للعميل الآن'
+                            : 'Out for Delivery Now',
+                        totalAmount: isRtl ? '١٢٥٠.٠٠ ج.م' : '1,250.00 EGP',
+                        onTap: () {},
+                        onCall: () {},
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(
+            find.byIcon(
+              isRtl ? LucideIcons.chevronLeft : LucideIcons.chevronRight,
+            ),
+            findsOneWidget,
+          );
+        },
+      );
+
+      testWidgets(
+        'ChatBubbleWidget renders cleanly on 320px at 1.3x scale (${textDirection.name})',
+        (tester) async {
+          final isRtl = textDirection == TextDirection.rtl;
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MediaQuery(
+                data: const MediaQueryData(
+                  size: Size(320, 568),
+                  textScaler: TextScaler.linear(1.3),
+                ),
+                child: Directionality(
+                  textDirection: textDirection,
+                  child: Scaffold(
+                    body: SizedBox(
+                      width: 320,
+                      child: ListView(
+                        children: [
+                          ChatBubbleWidget(
+                            isMe: true,
+                            senderName: isRtl ? 'العميل أحمد' : 'Customer Ahmed',
+                            content: isRtl
+                                ? 'مرحباً، يرجى الاتصال عند الوصول إلى مدخل المبنى الرئيسي'
+                                : 'Hello, please call upon arriving at the main building gate',
+                            type: 'text',
+                            time: '10:30 AM',
+                            isRead: true,
+                            uploadingText: isRtl ? 'جاري الرفع' : 'Uploading',
+                            fileAttachmentText: isRtl ? 'مرفق' : 'Attachment',
+                          ),
+                          ChatBubbleWidget(
+                            isMe: false,
+                            senderName: isRtl ? 'السائق كريم' : 'Driver Kareem',
+                            content: isRtl
+                                ? 'تمام في الطريق إليك الآن'
+                                : 'Got it, heading your way now',
+                            type: 'text',
+                            time: '10:31 AM',
+                            uploadingText: isRtl ? 'جاري الرفع' : 'Uploading',
+                            fileAttachmentText: isRtl ? 'مرفق' : 'Attachment',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          expect(tester.takeException(), isNull);
+          expect(find.byType(ChatBubbleWidget), findsNWidgets(2));
+        },
+      );
+
+      testWidgets(
+        'StatisticsScreen respects SafeArea and 1.3x scale on 360x640 (${textDirection.name})',
+        (tester) async {
+          final isRtl = textDirection == TextDirection.rtl;
+          tester.view.physicalSize = const Size(360, 640);
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(() {
+            tester.view.resetPhysicalSize();
+            tester.view.resetDevicePixelRatio();
+          });
+
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MediaQuery(
+                data: const MediaQueryData(
+                  size: Size(360, 640),
+                  padding: EdgeInsets.only(top: 47, bottom: 34),
+                  textScaler: TextScaler.linear(1.3),
+                ),
+                child: Builder(
+                  builder: (context) => Directionality(
+                    textDirection: textDirection,
+                    child: Localizations.override(
+                      context: context,
+                      locale: Locale(isRtl ? 'ar' : 'en'),
+                      delegates: isRtl
+                          ? const [_ArMaterialLocalizationsDelegate()]
+                          : null,
+                      child: StatisticsScreen(
+                        config: StatisticsConfig(
+                          titleAr: 'إحصائيات الأرباح المتقدمة',
+                          titleEn: 'Advanced Earnings Statistics',
+                          chartTitleAr: 'صافي الدخل اليومي',
+                          chartTitleEn: 'Daily Net Earnings',
+                          tooltipSuffix: isRtl ? 'ج.م' : 'EGP',
+                          filenamePrefix: 'earnings',
+                          fetch: (period, {from, to}) async => [
+                            {
+                              'period': 'Nov 15',
+                              'startDate': '2026-11-15T00:00:00Z',
+                              'endDate': '2026-11-15T23:59:59Z',
+                              'amount': 420.50,
+                            },
+                          ],
+                          amount: (row) =>
+                              StatisticsFormat.numOf(row['amount']),
+                          summary: [
+                            StatisticSummaryItem(
+                              labelAr: 'الإجمالي',
+                              labelEn: 'Total',
+                              icon: LucideIcons.wallet,
+                              value: (rows) => '${rows.length}',
+                            ),
+                          ],
+                          exportColumns: const [],
+                          rowDetails: (row) => ['Nov 15'],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull);
+          final bodySafeAreaFinder = find.descendant(
+            of: find.byType(StatisticsScreen),
+            matching: find.byWidgetPredicate(
+              (w) => w is SafeArea && !w.top && w.bottom,
+            ),
+          );
+          expect(bodySafeAreaFinder, findsOneWidget);
+          final safeAreaBottom = tester.getRect(bodySafeAreaFinder).bottom;
+          expect(safeAreaBottom, lessThanOrEqualTo(640.0));
+        },
+      );
+    }
   });
 }

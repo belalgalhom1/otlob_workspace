@@ -60,7 +60,12 @@ class AddressesScreen extends ConsumerWidget {
             child: addresses.isEmpty
                 ? _buildEmptyState(context)
                 : ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      16,
+                      16,
+                      96 + MediaQuery.paddingOf(context).bottom,
+                    ),
                     itemCount: addresses.length,
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 12),
