@@ -333,6 +333,18 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         .read(ordersProvider.notifier)
         .fetchOrderDetails(widget.orderId);
     if (mounted && order != null) {
+      MvDebugLogger.setAppTag('CUSTOMER');
+      MvDebugLogger.log(
+        'STEP_3_CUSTOMER_TRACKING_INIT',
+        'Order loaded in OrderTrackingScreen (${order['orderNumber'] ?? widget.orderId})',
+        data: {
+          'orderId': widget.orderId,
+          'orderNumber': order['orderNumber'],
+          'status': order['status'],
+          'fulfillmentsCount': (order['vendorFulfillments'] as List?)?.length ?? 0,
+          'groupsCount': (order['deliveryGroups'] as List?)?.length ?? 0,
+        },
+      );
       setState(() {
         _orderDetails = order;
         _orderStatus = order['status'] ?? 'LOOKING_FOR_DRIVER';
@@ -380,6 +392,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           .onEvent(SocketEvent.orderFulfillmentUpdated.eventName)
           .listen((data) {
         if (data != null && data['orderId'] == widget.orderId && mounted) {
+          MvDebugLogger.log(
+            'STEP_3_CUSTOMER_SOCKET_FULFILLMENT',
+            'Fulfillment updated on customer tracking screen',
+            data: data is Map ? Map<String, dynamic>.from(data) : {'raw': data},
+          );
           setState(() {
             if (_orderDetails != null) {
               final fulfillments = _orderDetails!['vendorFulfillments'];
@@ -507,6 +524,18 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         .read(ordersProvider.notifier)
         .fetchOrderDetails(widget.orderId);
     if (mounted && order != null) {
+      MvDebugLogger.setAppTag('CUSTOMER');
+      MvDebugLogger.log(
+        'STEP_3_CUSTOMER_TRACKING_INIT',
+        'Order loaded in OrderTrackingScreen (${order['orderNumber'] ?? widget.orderId})',
+        data: {
+          'orderId': widget.orderId,
+          'orderNumber': order['orderNumber'],
+          'status': order['status'],
+          'fulfillmentsCount': (order['vendorFulfillments'] as List?)?.length ?? 0,
+          'groupsCount': (order['deliveryGroups'] as List?)?.length ?? 0,
+        },
+      );
       setState(() {
         _orderDetails = order;
       });
@@ -1165,6 +1194,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/home'),
         ),
+        actions: const [
+          MvDebugLogIconButton(appTag: 'CUSTOMER'),
+        ],
       ),
       body: Stack(
         children: [
