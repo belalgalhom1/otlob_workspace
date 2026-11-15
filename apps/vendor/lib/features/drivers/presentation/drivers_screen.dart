@@ -24,6 +24,7 @@ import 'driver_statistics_screen.dart';
 import 'all_drivers_statistics_screen.dart';
 import '../../zones/presentation/zone_provider.dart';
 import 'widgets/driver_map_details_card.dart';
+import 'widgets/driver_vehicle_icon.dart';
 import 'widgets/active_order_details_dialog.dart';
 
 class DriversScreen extends ConsumerStatefulWidget {
@@ -650,24 +651,24 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
 
       final remoteVehicleType = (data?['vehicleType'] ?? data?['vehicle_type'])?.toString().toUpperCase().trim();
       final remotePlate = (data?['vehiclePlate'] ?? data?['vehicle_plate'])?.toString().trim();
-      if ((remoteVehicleType != null && remoteVehicleType.isNotEmpty) ||
-          (remotePlate != null && remotePlate.isNotEmpty)) {
-        _selectedDriver = _selectedDriver?.copyWith(
-          vehicleType: (remoteVehicleType != null && remoteVehicleType.isNotEmpty)
-              ? remoteVehicleType
-              : _selectedDriver?.vehicleType,
-          vehiclePlate: (remotePlate != null && remotePlate.isNotEmpty)
-              ? remotePlate
-              : _selectedDriver?.vehiclePlate,
-        );
-      }
+      final resolvedDriver = ((remoteVehicleType != null && remoteVehicleType.isNotEmpty) ||
+              (remotePlate != null && remotePlate.isNotEmpty))
+          ? driver.copyWith(
+              vehicleType: (remoteVehicleType != null && remoteVehicleType.isNotEmpty)
+                  ? remoteVehicleType
+                  : driver.vehicleType,
+              vehiclePlate: (remotePlate != null && remotePlate.isNotEmpty)
+                  ? remotePlate
+                  : driver.vehiclePlate,
+            )
+          : driver;
 
       // Resolve active order
       String? orderIdToFetch = (activeOrderId != null && activeOrderId.isNotEmpty) ? activeOrderId : null;
       if (orderIdToFetch == null) {
         try {
           final res = await ref.read(adminOrdersRepositoryProvider).ordersFindAll(
-            driverId: driver.id,
+            driverId: resolvedDriver.id,
             limit: 6,
           );
           final list = (res is Map)
@@ -704,7 +705,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
           if (orderRes is Map) {
             final inner = orderRes['data'];
             fullOrder = inner is Map ? Map<String, dynamic>.from(inner) : Map<String, dynamic>.from(orderRes);
-            pickup = _resolveDriverPickup(fullOrder, driver.id) ??
+            pickup = _resolveDriverPickup(fullOrder, resolvedDriver.id) ??
                 _extractCoordinates(fullOrder['pickupLocation']) ??
                 _extractCoordinates(fullOrder['vendorBranch']?['location']) ??
                 _extractCoordinates(fullOrder['vendor']?['location']);
@@ -716,7 +717,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
       if (!mounted) return;
 
       setState(() {
-        _selectedDriver = driver;
+        _selectedDriver = resolvedDriver;
         _selectedDriverLocation = driverLocation;
         _selectedDriverIsLive = isLive;
         _selectedDriverOrder = fullOrder;
@@ -727,13 +728,13 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
 
       _driverPollTimer?.cancel();
       _driverPollTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
-        if (!mounted || _selectedDriver?.id != driver.id) return;
+        if (!mounted || _selectedDriver?.id != resolvedDriver.id) return;
         try {
           final locRes = await ref
               .read(adminDriversRepositoryProvider)
-              .getDriverLocation(driverId: driver.id);
+              .getDriverLocation(driverId: resolvedDriver.id);
           final locMap = (locRes is Map) ? locRes : null;
-          if (locMap != null && mounted && _selectedDriver?.id == driver.id) {
+          if (locMap != null && mounted && _selectedDriver?.id == resolvedDriver.id) {
             final lLat = (locMap['latitude'] as num?)?.toDouble() ??
                 (locMap['lat'] as num?)?.toDouble();
             final lLng = (locMap['longitude'] as num?)?.toDouble() ??
@@ -760,7 +761,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
 
       if (isCompactScreen && _mobileViewMode == 0) {
         _showDriverLocationBottomSheet(
-          driver: driver,
+          driver: resolvedDriver,
           location: driverLocation,
           isLive: isLive,
           activeOrder: fullOrder,
@@ -949,17 +950,22 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                                   // Driver vehicle marker
                                   Marker(
                                     point: curLoc,
-                                    width: 72,
-                                    height: 72,
-                                    child: RepaintBoundary(
-                                      child: InDriveVehicleMarker(
-                                        size: 48,
-                                        heading: _currentDriverHeading,
-                                        isMoving: _isDriverMoving,
-                                        vehicleType: driver.vehicleType ?? 'MOTORCYCLE',
-                                        plateNumber: driver.vehiclePlate,
-                                        label: driver.name,
-                                        color: isLive ? AppColors.success : AppColors.primary,
+                                    width: 96,
+                                    height: 88,
+                                    child: Center(
+                                      child: RepaintBoundary(
+                                        child: InDriveVehicleMarker(
+                                          size: 48,
+                                          heading: _currentDriverHeading,
+                                          isMoving: _isDriverMoving,
+                                          vehicleType: (driver.vehicleType != null &&
+                                                  driver.vehicleType!.trim().isNotEmpty)
+                                              ? driver.vehicleType!.trim()
+                                              : 'MOTORCYCLE',
+                                          plateNumber: driver.vehiclePlate,
+                                          label: driver.name,
+                                          color: isLive ? AppColors.success : AppColors.primary,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1681,7 +1687,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                 if ((driver.vehiclePlate != null && driver.vehiclePlate!.isNotEmpty) ||
                     (driver.vehicleType != null && driver.vehicleType!.isNotEmpty))
                   _buildTagPill(
-                    icon: _getVehicleIcon(driver.vehicleType),
+                    icon: driverVehicleIcon(driver.vehicleType),
                     label: '${driver.vehicleType ?? ""} ${driver.vehiclePlate ?? ""}'.trim(),
                     color: Colors.blueGrey,
                   ),
@@ -2037,33 +2043,35 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
             if (d.location != null && d.location!.length >= 2) {
               final lat = d.location![1];
               final lng = d.location![0];
-              final vehicleIcon = _getVehicleIcon(d.vehicleType);
-              final statusColor = _getStatusColor(context, d.status);
+              final vehicleType =
+                  (d.vehicleType != null && d.vehicleType!.trim().isNotEmpty)
+                      ? d.vehicleType!.trim()
+                      : 'MOTORCYCLE';
+              final statusColor = d.status == 'OFFLINE'
+                  ? const Color(0xFF64748B)
+                  : _getStatusColor(context, d.status);
+              final isActiveDriver =
+                  d.status == 'ONLINE' || d.status == 'ON_DELIVERY';
               markers.add(
                 Marker(
                   point: LatLng(lat, lng),
-                  width: 44,
-                  height: 44,
+                  width: 96,
+                  height: 88,
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => _locateDriver(d),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Icon(
-                          vehicleIcon,
-                          size: 20,
-                          color: Colors.white,
+                    child: Center(
+                      child: RepaintBoundary(
+                        child: InDriveVehicleMarker(
+                          size: 48,
+                          heading: 0.0,
+                          isMoving: false,
+                          showHeadlightGlow: isActiveDriver,
+                          showRadarPulse: isActiveDriver,
+                          vehicleType: vehicleType,
+                          plateNumber: d.vehiclePlate,
+                          label: d.name.isNotEmpty ? d.name : d.vehiclePlate,
+                          color: statusColor,
                         ),
                       ),
                     ),
@@ -2075,20 +2083,26 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
 
           // Selected Driver: Smooth Animated InDrive Vehicle Marker
           if (_selectedDriver != null && curDriverPos != null) {
+            final selectedVehicleType = (_selectedDriver?.vehicleType != null &&
+                    _selectedDriver!.vehicleType!.trim().isNotEmpty)
+                ? _selectedDriver!.vehicleType!.trim()
+                : 'MOTORCYCLE';
             markers.add(
               Marker(
                 point: curDriverPos,
-                width: 80,
-                height: 80,
-                child: RepaintBoundary(
-                  child: InDriveVehicleMarker(
-                    size: 54,
-                    heading: _currentDriverHeading,
-                    isMoving: _isDriverMoving,
-                    vehicleType: _selectedDriver?.vehicleType ?? 'MOTORCYCLE',
-                    plateNumber: _selectedDriver?.vehiclePlate,
-                    label: _selectedDriver?.name,
-                    color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
+                width: 104,
+                height: 92,
+                child: Center(
+                  child: RepaintBoundary(
+                    child: InDriveVehicleMarker(
+                      size: 54,
+                      heading: _currentDriverHeading,
+                      isMoving: _isDriverMoving,
+                      vehicleType: selectedVehicleType,
+                      plateNumber: _selectedDriver?.vehiclePlate,
+                      label: _selectedDriver?.name,
+                      color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
+                    ),
                   ),
                 ),
               ),
@@ -2446,22 +2460,6 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
         return l10n.suspended;
       default:
         return status;
-    }
-  }
-
-  IconData _getVehicleIcon(String? vehicleType) {
-    switch ((vehicleType ?? '').toUpperCase().trim()) {
-      case 'CAR':
-        return LucideIcons.car;
-      case 'BICYCLE':
-        return LucideIcons.bike;
-      case 'VAN':
-      case 'TRUCK':
-        return LucideIcons.truck;
-      case 'MOTOR_TRICYCLE':
-      case 'MOTORCYCLE':
-      default:
-        return LucideIcons.bike;
     }
   }
 

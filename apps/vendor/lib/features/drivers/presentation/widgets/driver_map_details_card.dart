@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import '../../data/driver_models.dart';
+import 'driver_vehicle_icon.dart';
 
 class DriverMapDetailsCard extends StatelessWidget {
   final DriverProfile driver;
@@ -343,8 +344,8 @@ class DriverMapDetailsCard extends StatelessWidget {
                               (driver.vehicleType != null && driver.vehicleType!.isNotEmpty)) ...[
                             const SizedBox(width: 6),
                             Icon(
-                              _getVehicleIcon(driver.vehicleType),
-                              size: 13,
+                              driverVehicleIcon(driver.vehicleType),
+                              size: 14,
                               color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                             ),
                             const SizedBox(width: 3),
@@ -977,21 +978,5 @@ class DriverMapDetailsCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  IconData _getVehicleIcon(String? vehicleType) {
-    switch ((vehicleType ?? '').toUpperCase().trim()) {
-      case 'CAR':
-        return LucideIcons.car;
-      case 'BICYCLE':
-        return LucideIcons.bike;
-      case 'VAN':
-      case 'TRUCK':
-        return LucideIcons.truck;
-      case 'MOTOR_TRICYCLE':
-      case 'MOTORCYCLE':
-      default:
-        return LucideIcons.bike;
-    }
   }
 }

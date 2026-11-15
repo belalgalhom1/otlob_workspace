@@ -74,16 +74,24 @@ class _AllDriversStatisticsScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black;
+    final textColor = theme.colorScheme.onSurface;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
     final async = ref.watch(allManagedDriversStatsProvider(_query));
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: theme.colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
         title: Text(
           _isArabic ? 'إحصائيات كل السائقين' : 'All Drivers Statistics',
-          style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 17,
+            color: textColor,
+          ),
         ),
         actions: [
           IconButton(
@@ -143,6 +151,7 @@ class _AllDriversStatisticsScreenState
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(0, 34),
                     padding: const EdgeInsets.symmetric(horizontal: 10),
+                    side: BorderSide(color: borderColor),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -167,22 +176,26 @@ class _AllDriversStatisticsScreenState
                               '${DateFormat('yyyy-MM-dd').format(_customRange!.start)}'
                               ' - '
                               '${DateFormat('yyyy-MM-dd').format(_customRange!.end)}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
+                                color: isDark
+                                    ? AppColors.primary
+                                    : const Color(0xFF92400E),
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           InkWell(
                             onTap: () => setState(() => _customRange = null),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
                               child: Icon(
                                 LucideIcons.x,
                                 size: 14,
-                                color: AppColors.primary,
+                                color: isDark
+                                    ? AppColors.primary
+                                    : const Color(0xFF92400E),
                               ),
                             ),
                           ),
@@ -194,7 +207,7 @@ class _AllDriversStatisticsScreenState
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: borderColor),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -312,6 +325,9 @@ class _AllDriversStatisticsScreenState
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 4,
+                  ),
+                  side: BorderSide(
+                    color: isDark ? AppColors.borderDark : AppColors.borderLight,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -562,29 +578,39 @@ class _PeriodChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary
-              : (isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.black.withValues(alpha: 0.04)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: selected
-                ? const Color(0xFF0F172A)
-                : (isDark ? Colors.white : Colors.black87),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary : theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppColors.primary : borderColor,
+            ),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: selected
+                    ? AppColors.onPrimary
+                    : theme.colorScheme.onSurface,
+              ),
+            ),
           ),
         ),
       ),
@@ -805,8 +831,12 @@ class _DriverStatCard extends StatelessWidget {
       _ => Colors.grey,
     };
 
+    final theme = Theme.of(context);
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final earningsColor = isDark ? AppColors.success : const Color(0xFF047857);
+
     return Material(
-      color: isDark ? const Color(0xFF252525) : Colors.white,
+      color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -815,11 +845,7 @@ class _DriverStatCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.black.withValues(alpha: 0.06),
-            ),
+            border: Border.all(color: borderColor),
           ),
           child: Column(
             children: [
@@ -833,7 +859,7 @@ class _DriverStatCard extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: rank <= 3
-                            ? AppColors.primary
+                            ? (isDark ? AppColors.primary : const Color(0xFF92400E))
                             : textColor.withValues(alpha: 0.35),
                       ),
                     ),
@@ -891,6 +917,8 @@ class _DriverStatCard extends StatelessWidget {
                           isArabic
                               ? '$orders طلب · $acceptance% قبول'
                               : '$orders orders · $acceptance% acceptance',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 11.5,
                             color: textColor.withValues(alpha: 0.55),
@@ -904,8 +932,8 @@ class _DriverStatCard extends StatelessWidget {
                     children: [
                       Text(
                         earnings.toStringAsFixed(2),
-                        style: const TextStyle(
-                          color: Colors.green,
+                        style: TextStyle(
+                          color: earningsColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
@@ -966,23 +994,25 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chipColor = isDark ? AppColors.primary : const Color(0xFF92400E);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
+        color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(7),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 11, color: AppColors.primary),
+          Icon(icon, size: 11, color: chipColor),
           const SizedBox(width: 4),
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w600,
-              color: AppColors.primary,
+              color: chipColor,
             ),
           ),
         ],

@@ -611,36 +611,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ) : null,
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 18),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    s.customDeliveryBannerTitle,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 22,
-                      letterSpacing: s.isArabic ? null : -0.5,
-                      shadows: const [Shadow(blurRadius: 12, color: Colors.black54)],
-                    ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        s.customDeliveryBannerTitle,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
+                          letterSpacing: s.isArabic ? null : -0.5,
+                          shadows: const [Shadow(blurRadius: 12, color: Colors.black54)],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        s.customDeliveryBannerSub,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          shadows: [Shadow(blurRadius: 8, color: Colors.black26)],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    s.customDeliveryBannerSub,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                      shadows: [Shadow(blurRadius: 8, color: Colors.black26)]
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: ConstrainedBox(

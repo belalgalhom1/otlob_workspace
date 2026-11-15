@@ -164,6 +164,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                           ),
                         )
                       : ListView.separated(
+                          padding: const EdgeInsets.only(bottom: 24),
                           itemCount: filteredManagers.length,
                           separatorBuilder: (_, index) => const SizedBox(height: 16),
                           itemBuilder: (ctx, idx) {
@@ -180,6 +181,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
         backgroundColor: theme.colorScheme.surface,
         appBar: AppBar(
           backgroundColor: theme.colorScheme.surface,
+          surfaceTintColor: Colors.transparent,
           elevation: 0,
           title: Text(
             _isAr ? 'مسؤولو السائقين' : 'Driver Managers',
@@ -224,13 +226,17 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
         : null;
 
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final secondaryTextColor = theme.colorScheme.onSurface.withValues(alpha: 0.68);
 
     return Card(
+      margin: EdgeInsets.zero,
       elevation: 0,
-      color: isDark ? const Color(0xFF262626) : Colors.white,
+      color: theme.colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+        side: BorderSide(color: borderColor),
       ),
       child: Padding(
         padding: EdgeInsets.all(isMobile ? 16 : 20),
@@ -328,21 +334,22 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.black.withValues(alpha: 0.02),
-                  borderRadius: BorderRadius.circular(8),
+                  color: theme.colorScheme.onSurface.withValues(alpha: isDark ? 0.04 : 0.025),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: borderColor.withValues(alpha: 0.6)),
                 ),
                 child: Column(
                   children: [
                     if (email.isNotEmpty)
                       Row(
                         children: [
-                          const Icon(LucideIcons.mail, size: 14, color: _neutral400),
+                          Icon(LucideIcons.mail, size: 14, color: secondaryTextColor),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               email,
                               style: TextStyle(
-                                color: isDark ? Colors.white70 : _neutral500,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                                 fontSize: 13,
                               ),
                               maxLines: 1,
@@ -355,7 +362,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                     if (phone.isNotEmpty)
                       Row(
                         children: [
-                          const Icon(LucideIcons.phone, size: 14, color: _neutral400),
+                          Icon(LucideIcons.phone, size: 14, color: secondaryTextColor),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Directionality(
@@ -365,7 +372,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                                 child: Text(
                                   phone,
                                   style: TextStyle(
-                                    color: isDark ? Colors.white70 : _neutral500,
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                                     fontSize: 13,
                                   ),
                                   maxLines: 1,
@@ -387,9 +394,9 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8F9FA),
+                color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+                border: Border.all(color: borderColor),
               ),
               child: Row(
                 children: [
@@ -408,7 +415,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                       children: [
                         Text(
                           _isAr ? 'محفظة عمولة مسؤول السائقين' : 'Driver Manager Commission Wallet',
-                          style: const TextStyle(fontSize: 12, color: _neutral500),
+                          style: TextStyle(fontSize: 12, color: secondaryTextColor),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -429,7 +436,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
             ),
 
             const SizedBox(height: 14),
-            const Divider(height: 1),
+            Divider(height: 1, color: borderColor),
             const SizedBox(height: 14),
 
             // 4. Drivers List Preview / Chips
@@ -468,7 +475,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(
                   _isAr ? 'لم يتم تعيين أي سائقين لهذا المدير بعد.' : 'No drivers assigned to this manager yet.',
-                  style: const TextStyle(color: _neutral500, fontSize: 13, fontStyle: FontStyle.italic),
+                  style: TextStyle(color: secondaryTextColor, fontSize: 13, fontStyle: FontStyle.italic),
                 ),
               )
             else
@@ -513,6 +520,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                   icon: const Icon(LucideIcons.userPlus, size: 16),
                   label: Text(_isAr ? 'تعيين / تعديل السائقين' : 'Assign / Edit Drivers'),
                   style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: borderColor),
                     minimumSize: isMobile ? const Size(double.infinity, 44) : null,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -529,6 +537,8 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
         title: Text(_isAr ? 'إلغاء تعيين السائق' : 'Unassign Driver'),
         content: Text(
           _isAr
@@ -695,8 +705,12 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
     }).toList();
 
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final secondaryTextColor = theme.colorScheme.onSurface.withValues(alpha: 0.68);
 
     return Dialog(
+      backgroundColor: theme.colorScheme.surface,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: 24),
       child: ConstrainedBox(
@@ -730,7 +744,7 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
                           _isAr
                               ? 'حدد السائقين الذين يتبعون هذا المدير للحصول على العمولات وإدارة الحسابات'
                               : 'Select drivers under this manager to route commissions and management',
-                          style: const TextStyle(color: _neutral500, fontSize: 13),
+                          style: TextStyle(color: secondaryTextColor, fontSize: 13),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -744,16 +758,16 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Divider(height: 1),
+              Divider(height: 1, color: borderColor),
               const SizedBox(height: 16),
 
               // Manage All Drivers Switch
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF3F4F6),
+                  color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+                  border: Border.all(color: borderColor),
                 ),
                 child: SwitchListTile(
                   value: _manageAllDrivers,
@@ -768,7 +782,7 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
                     _isAr
                         ? 'عند التفعيل، سيتم ربط جميع سائقي المنصة بهذا المدير دون الحاجة لتحديدهم يدوياً'
                         : 'When enabled, this manager oversees all drivers across the platform',
-                    style: const TextStyle(fontSize: 12, color: _neutral500),
+                    style: TextStyle(fontSize: 12, color: secondaryTextColor),
                   ),
                 ),
               ),
@@ -857,7 +871,7 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
                                           fontSize: 12,
                                           color: otherManager != null && !isCurrentManager
                                               ? Colors.orange
-                                              : _neutral500,
+                                              : secondaryTextColor,
                                         ),
                                       ),
                                       controlAffinity: ListTileControlAffinity.leading,
@@ -869,7 +883,7 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
                 const Spacer(),
 
               const SizedBox(height: 16),
-              const Divider(height: 1),
+              Divider(height: 1, color: borderColor),
               const SizedBox(height: 16),
 
               // Actions

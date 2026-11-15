@@ -140,7 +140,11 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.only(
+        top: isMobile ? 8.0 : 12.0,
+        bottom: isMobile ? 24.0 : 32.0,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 860),

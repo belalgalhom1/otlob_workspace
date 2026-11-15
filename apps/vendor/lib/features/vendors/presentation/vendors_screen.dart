@@ -17,6 +17,7 @@ import 'package:vendor/features/wallet/presentation/vendor_product_sales_screen.
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import '../../../l10n/l10n_error_helper.dart';
 
 class VendorsScreen extends ConsumerStatefulWidget {
@@ -342,7 +343,16 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
     final bool canAdd = widget.userRole != 'VENDOR_MEMBER';
     final bool stackButtons = width < 420;
 
-    final searchField = _buildSearchInput(context);
+    final searchField = DashboardSearchBar(
+      controller: _searchController,
+      hintText: AppLocalizations.of(context)!.search,
+      onChanged: (value) {
+        ref.read(vendorProvider.notifier).fetchVendors(search: value);
+      },
+      onClear: () {
+        ref.read(vendorProvider.notifier).fetchVendors();
+      },
+    );
     final addButton = canAdd ? _buildAddMerchantButton(context) : null;
 
     if (stackButtons && addButton != null) {
@@ -369,71 +379,6 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
     );
   }
 
-  Widget _buildSearchInput(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (value) {
-          ref.read(vendorProvider.notifier).fetchVendors(search: value);
-          setState(() {});
-        },
-        textAlignVertical: TextAlignVertical.center,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: theme.colorScheme.onSurface,
-        ),
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          hintText: AppLocalizations.of(context)!.search,
-          hintStyle: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
-          ),
-          prefixIcon: Icon(
-            LucideIcons.search,
-            size: 18,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-          ),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(LucideIcons.x, size: 16),
-                  onPressed: () {
-                    _searchController.clear();
-                    ref.read(vendorProvider.notifier).fetchVendors();
-                    setState(() {});
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-        ),
-      ),
-    );
-  }
-
   Widget _buildAddMerchantButton(BuildContext context) {
     return ElevatedButton.icon(
       onPressed: () => _openAddVendorDialog(context),
@@ -449,7 +394,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        minimumSize: const Size(0, 48),
+        minimumSize: const Size(0, 50),
         padding: const EdgeInsets.symmetric(horizontal: 18),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),

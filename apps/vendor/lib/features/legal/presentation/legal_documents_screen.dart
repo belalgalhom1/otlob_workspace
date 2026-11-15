@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:data/data.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 import 'legal_documents_provider.dart';
 
 class LegalDocumentsScreen extends ConsumerStatefulWidget {
@@ -1007,245 +1008,27 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
 
   Future<void> _openCreateDialog(BuildContext context) async {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final formKey = GlobalKey<FormState>();
+    final initialType =
+        _tabController.index == 0 ? 'TERMS_OF_USE' : 'PRIVACY_POLICY';
 
-    String type = _tabController.index == 0 ? 'TERMS_OF_USE' : 'PRIVACY_POLICY';
-    final titleController = TextEditingController(
-      text: type == 'TERMS_OF_USE'
-          ? 'Terms of Use & Service Agreement'
-          : 'Privacy Policy & Data Protection',
-    );
-    final titleArController = TextEditingController(
-      text: type == 'TERMS_OF_USE'
-          ? 'شروط الاستخدام واتفاقية الخدمة'
-          : 'سياسة الخصوصية وحماية البيانات',
-    );
-    final versionController = TextEditingController(text: '1.1');
-    final contentController = TextEditingController();
-    final contentArController = TextEditingController();
-
-    await showDialog<void>(
+    final saved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final isDark = theme.brightness == Brightness.dark;
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            return DialogScaffold(
-              child: Dialog(
-                backgroundColor:
-                    isDark ? theme.colorScheme.surface : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Form(
-                    key: formKey,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  LucideIcons.filePlus2,
-                                  color: AppColors.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Expanded(
-                                child: Text(
-                                  isArabic
-                                      ? 'إنشاء مسودة إصدار جديد'
-                                      : 'New Version Draft',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(LucideIcons.x, size: 20),
-                                onPressed: () => Navigator.pop(ctx),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-
-                          // Document Type Selector
-                          DropdownButtonFormField<String>(
-                            initialValue: type,
-                            decoration: InputDecoration(
-                              labelText: isArabic
-                                  ? 'نوع الوثيقة'
-                                  : 'Document Type',
-                              prefixIcon: const Icon(LucideIcons.fileType),
-                            ),
-                            items: [
-                              DropdownMenuItem(
-                                value: 'TERMS_OF_USE',
-                                child: Text(
-                                  isArabic
-                                      ? 'شروط الاستخدام (Terms of Use)'
-                                      : 'Terms of Use',
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: 'PRIVACY_POLICY',
-                                child: Text(
-                                  isArabic
-                                      ? 'سياسة الخصوصية (Privacy Policy)'
-                                      : 'Privacy Policy',
-                                ),
-                              ),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) {
-                                setDialogState(() => type = val);
-                              }
-                            },
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-
-                          // Version string
-                          TextFormField(
-                            controller: versionController,
-                            decoration: InputDecoration(
-                              labelText: isArabic
-                                  ? 'رقم الإصدار (مثال: 1.1)'
-                                  : 'Version (e.g. 1.1)',
-                              prefixIcon: const Icon(LucideIcons.gitBranch),
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? (isArabic
-                                    ? 'رقم الإصدار مطلوب'
-                                    : 'Version is required')
-                                : null,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-
-                          // Title English
-                          TextFormField(
-                            controller: titleController,
-                            decoration: const InputDecoration(
-                              labelText: 'Title (English)',
-                              prefixIcon: Icon(LucideIcons.heading),
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Title in English is required'
-                                : null,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-
-                          // Title Arabic
-                          TextFormField(
-                            controller: titleArController,
-                            textDirection: TextDirection.rtl,
-                            decoration: const InputDecoration(
-                              labelText: 'العنوان (باللغة العربية)',
-                              prefixIcon: Icon(LucideIcons.heading),
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'العنوان باللغة العربية مطلوب'
-                                : null,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-
-                          // Content English
-                          TextFormField(
-                            controller: contentController,
-                            maxLines: 7,
-                            decoration: const InputDecoration(
-                              labelText:
-                                  'Content (English - Markdown supported)',
-                              alignLabelWithHint: true,
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Content is required'
-                                : null,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-
-                          // Content Arabic
-                          TextFormField(
-                            controller: contentArController,
-                            textDirection: TextDirection.rtl,
-                            maxLines: 7,
-                            decoration: const InputDecoration(
-                              labelText: 'المحتوى (باللغة العربية - يدعم التنسيق)',
-                              alignLabelWithHint: true,
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'المحتوى باللغة العربية مطلوب'
-                                : null,
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              OutlinedButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                style: OutlinedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: Text(isArabic ? 'إلغاء' : 'Cancel'),
-                              ),
-                              const SizedBox(width: AppSpacing.md),
-                              PrimaryButton(
-                                text: isArabic ? 'حفظ المسودة' : 'Save Draft',
-                                onPressed: () async {
-                                  if (!formKey.currentState!.validate()) return;
-                                  Navigator.pop(ctx);
-                                  final ok = await ref
-                                      .read(legalDocumentsProvider.notifier)
-                                      .createDocument(
-                                        type: type,
-                                        title: titleController.text,
-                                        titleAr: titleArController.text,
-                                        content: contentController.text,
-                                        contentAr: contentArController.text,
-                                        version: versionController.text,
-                                      );
-                                  if (context.mounted && ok) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          isArabic
-                                              ? 'تم حفظ المسودة بنجاح'
-                                              : 'Draft created successfully',
-                                        ),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+      builder: (_) => _LegalDocumentFormDialog(initialType: initialType),
     );
+
+    if (saved == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic
+                ? 'تم حفظ المسودة بنجاح'
+                : 'Draft created successfully',
+          ),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   Future<void> _openEditDialog(
@@ -1253,180 +1036,51 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
     String id,
     bool isArabic,
   ) async {
-    final formKey = GlobalKey<FormState>();
-    final notifier = ref.read(legalDocumentsProvider.notifier);
     final repo = ref.read(adminLegalDocumentsRepositoryProvider);
-
-    final doc = await repo.getDocumentById(id);
-    if (doc == null || !context.mounted) return;
-
-    final titleController = TextEditingController(text: doc['title'] ?? '');
-    final titleArController = TextEditingController(text: doc['titleAr'] ?? '');
-    final versionController = TextEditingController(text: doc['version'] ?? '');
-    final contentController = TextEditingController(text: doc['content'] ?? '');
-    final contentArController =
-        TextEditingController(text: doc['contentAr'] ?? '');
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final isDark = theme.brightness == Brightness.dark;
-        return DialogScaffold(
-          child: Dialog(
-            backgroundColor: isDark ? theme.colorScheme.surface : Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 720),
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              LucideIcons.fileEdit,
-                              color: AppColors.primary,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: Text(
-                              isArabic
-                                  ? 'تعديل الوثيقة القانونية'
-                                  : 'Edit Legal Document',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(LucideIcons.x, size: 20),
-                            onPressed: () => Navigator.pop(ctx),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: versionController,
-                        decoration: InputDecoration(
-                          labelText: isArabic ? 'رقم الإصدار' : 'Version',
-                          prefixIcon: const Icon(LucideIcons.gitBranch),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? (isArabic
-                                ? 'رقم الإصدار مطلوب'
-                                : 'Version is required')
-                            : null,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: titleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Title (English)',
-                          prefixIcon: Icon(LucideIcons.heading),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Title in English is required'
-                            : null,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: titleArController,
-                        textDirection: TextDirection.rtl,
-                        decoration: const InputDecoration(
-                          labelText: 'العنوان (باللغة العربية)',
-                          prefixIcon: Icon(LucideIcons.heading),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'العنوان باللغة العربية مطلوب'
-                            : null,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: contentController,
-                        maxLines: 7,
-                        decoration: const InputDecoration(
-                          labelText: 'Content (English)',
-                          alignLabelWithHint: true,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: contentArController,
-                        textDirection: TextDirection.rtl,
-                        maxLines: 7,
-                        decoration: const InputDecoration(
-                          labelText: 'المحتوى (باللغة العربية)',
-                          alignLabelWithHint: true,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            style: OutlinedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          PrimaryButton(
-                            text: isArabic ? 'حفظ التعديلات' : 'Save Changes',
-                            onPressed: () async {
-                              if (!formKey.currentState!.validate()) return;
-                              Navigator.pop(ctx);
-                              final ok = await notifier.updateDocument(
-                                id,
-                                title: titleController.text,
-                                titleAr: titleArController.text,
-                                content: contentController.text,
-                                contentAr: contentArController.text,
-                                version: versionController.text,
-                              );
-                              if (context.mounted && ok) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      isArabic
-                                          ? 'تم تحديث الوثيقة بنجاح'
-                                          : 'Document updated successfully',
-                                    ),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+    Map<String, dynamic>? doc;
+    try {
+      doc = await repo.getDocumentById(id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorUtils.translate(context, e)),
+            backgroundColor: AppColors.error,
           ),
         );
-      },
+      }
+      return;
+    }
+
+    if (doc == null || !context.mounted) return;
+    final loadedDoc = doc;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _LegalDocumentFormDialog(
+        documentId: id,
+        initialType: loadedDoc['type']?.toString() ?? 'TERMS_OF_USE',
+        initialVersion: loadedDoc['version']?.toString() ?? '',
+        initialTitle: loadedDoc['title']?.toString() ?? '',
+        initialTitleAr: loadedDoc['titleAr']?.toString() ?? '',
+        initialContent: loadedDoc['content']?.toString() ?? '',
+        initialContentAr: loadedDoc['contentAr']?.toString() ?? '',
+      ),
     );
+
+    if (saved == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic
+                ? 'تم تحديث الوثيقة بنجاح'
+                : 'Document updated successfully',
+          ),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
   }
 
   Future<void> _openPreviewDialog(
@@ -1560,8 +1214,16 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
           child: Dialog(
             backgroundColor:
                 isDark ? theme.colorScheme.surface : Colors.white,
+            surfaceTintColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 24,
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: isDark ? AppColors.borderDark : AppColors.borderLight,
+              ),
             ),
             child: Container(
               constraints: const BoxConstraints(maxWidth: 520),
@@ -1571,33 +1233,38 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                LucideIcons.barChart2,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
                             ),
-                            child: const Icon(
-                              LucideIcons.barChart2,
-                              color: AppColors.primary,
-                              size: 20,
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                isArabic
+                                    ? 'إحصائيات موافقات المستخدمين'
+                                    : 'Acceptance Metrics',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                softWrap: true,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text(
-                            isArabic
-                                ? 'إحصائيات موافقات المستخدمين'
-                                : 'Acceptance Metrics',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: AppSpacing.xs),
                       IconButton(
                         icon: const Icon(LucideIcons.x, size: 20),
                         onPressed: () => Navigator.pop(ctx),
@@ -1851,5 +1518,788 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
         );
       }
     }
+  }
+}
+
+class _LegalDocumentFormDialog extends ConsumerStatefulWidget {
+  final String initialType;
+  final String? documentId;
+  final String? initialVersion;
+  final String? initialTitle;
+  final String? initialTitleAr;
+  final String? initialContent;
+  final String? initialContentAr;
+
+  const _LegalDocumentFormDialog({
+    required this.initialType,
+    this.documentId,
+    this.initialVersion,
+    this.initialTitle,
+    this.initialTitleAr,
+    this.initialContent,
+    this.initialContentAr,
+  });
+
+  @override
+  ConsumerState<_LegalDocumentFormDialog> createState() =>
+      _LegalDocumentFormDialogState();
+}
+
+class _LegalDocumentFormDialogState
+    extends ConsumerState<_LegalDocumentFormDialog> {
+  static const _defaultTitleEnTerms = 'Terms of Use & Service Agreement';
+  static const _defaultTitleEnPrivacy = 'Privacy Policy & Data Protection';
+  static const _defaultTitleArTerms = 'شروط الاستخدام واتفاقية الخدمة';
+  static const _defaultTitleArPrivacy = 'سياسة الخصوصية وحماية البيانات';
+
+  final _formKey = GlobalKey<FormState>();
+  late String _type;
+  late final TextEditingController _versionController;
+  late final TextEditingController _titleController;
+  late final TextEditingController _titleArController;
+  late final TextEditingController _contentController;
+  late final TextEditingController _contentArController;
+
+  bool _isSaving = false;
+  String? _submitError;
+
+  bool get _isEdit => widget.documentId != null;
+
+  static String _defaultTitleEn(String type) =>
+      type == 'TERMS_OF_USE' ? _defaultTitleEnTerms : _defaultTitleEnPrivacy;
+
+  static String _defaultTitleAr(String type) =>
+      type == 'TERMS_OF_USE' ? _defaultTitleArTerms : _defaultTitleArPrivacy;
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.initialType;
+    _versionController = TextEditingController(
+      text: widget.initialVersion ?? '1.1',
+    );
+    _titleController = TextEditingController(
+      text: widget.initialTitle ?? _defaultTitleEn(_type),
+    );
+    _titleArController = TextEditingController(
+      text: widget.initialTitleAr ?? _defaultTitleAr(_type),
+    );
+    _contentController = TextEditingController(
+      text: widget.initialContent ?? '',
+    );
+    _contentArController = TextEditingController(
+      text: widget.initialContentAr ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _versionController.dispose();
+    _titleController.dispose();
+    _titleArController.dispose();
+    _contentController.dispose();
+    _contentArController.dispose();
+    super.dispose();
+  }
+
+  void _onTypeChanged(String? val) {
+    if (val == null || val == _type) return;
+    final previousType = _type;
+    setState(() {
+      _type = val;
+      if (!_isEdit) {
+        final currentEn = _titleController.text.trim();
+        if (currentEn.isEmpty || currentEn == _defaultTitleEn(previousType)) {
+          _titleController.text = _defaultTitleEn(val);
+        }
+        final currentAr = _titleArController.text.trim();
+        if (currentAr.isEmpty || currentAr == _defaultTitleAr(previousType)) {
+          _titleArController.text = _defaultTitleAr(val);
+        }
+      }
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() {
+      _isSaving = true;
+      _submitError = null;
+    });
+
+    final repo = ref.read(adminLegalDocumentsRepositoryProvider);
+    try {
+      if (_isEdit) {
+        await repo.updateDocument(
+          widget.documentId!,
+          title: _titleController.text.trim(),
+          titleAr: _titleArController.text.trim(),
+          content: _contentController.text.trim(),
+          contentAr: _contentArController.text.trim(),
+          version: _versionController.text.trim(),
+        );
+      } else {
+        await repo.createDocument(
+          type: _type,
+          title: _titleController.text.trim(),
+          titleAr: _titleArController.text.trim(),
+          content: _contentController.text.trim(),
+          contentAr: _contentArController.text.trim(),
+          version: _versionController.text.trim(),
+        );
+      }
+
+      try {
+        await ref.read(legalDocumentsProvider.notifier).fetchAllDocuments();
+      } catch (_) {}
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _submitError = ErrorUtils.translate(context, e);
+      });
+    }
+  }
+
+  InputDecoration _inputDecoration(
+    BuildContext context, {
+    required String hintText,
+    IconData? icon,
+    bool isMultiline = false,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final fillColor = isDark
+        ? AppColors.backgroundDark.withValues(alpha: 0.6)
+        : AppColors.surfaceLight;
+    final borderColor = isDark
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.16)
+        : AppColors.borderLight;
+    final radius = BorderRadius.circular(12);
+
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: theme.textTheme.bodyMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+        fontSize: 13.5,
+      ),
+      prefixIcon: icon != null
+          ? Icon(
+              icon,
+              size: 17,
+              color: theme.colorScheme.onSurfaceVariant,
+            )
+          : null,
+      prefixIconConstraints: const BoxConstraints(minWidth: 42, minHeight: 42),
+      filled: true,
+      fillColor: fillColor,
+      isDense: true,
+      contentPadding: isMultiline
+          ? const EdgeInsets.all(14)
+          : const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      errorMaxLines: 2,
+      border: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: borderColor, width: 1.2),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: borderColor, width: 1.2),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: const BorderSide(color: AppColors.error, width: 1.4),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: const BorderSide(color: AppColors.error, width: 1.8),
+      ),
+    );
+  }
+
+  Widget _buildBadgePill(
+    BuildContext context,
+    String text, {
+    Color? accentColor,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final color = accentColor;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color != null
+            ? color.withValues(alpha: 0.12)
+            : (isDark
+                ? theme.colorScheme.onSurface.withValues(alpha: 0.08)
+                : const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: color != null
+              ? color.withValues(alpha: 0.28)
+              : theme.colorScheme.onSurface.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: color ?? theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(
+    BuildContext context, {
+    required String label,
+    bool isRequired = false,
+    String? languageTag,
+    String? formatTag,
+  }) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          if (isRequired)
+            const Text(
+              '*',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
+                fontSize: 13.5,
+              ),
+            ),
+          if (languageTag != null)
+            _buildBadgePill(context, languageTag, accentColor: AppColors.primary),
+          if (formatTag != null) _buildBadgePill(context, formatTag),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final mediaSize = MediaQuery.sizeOf(context);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final isMobile = mediaSize.width < 600;
+
+    final dialogBg = isDark ? theme.colorScheme.surface : Colors.white;
+    final dialogBorder =
+        isDark ? AppColors.borderDark : AppColors.borderLight;
+    final horizontalPad = isMobile ? 16.0 : 24.0;
+    final availableHeight = (mediaSize.height - viewInsets.bottom - (isMobile ? 28.0 : 48.0))
+        .clamp(280.0, 760.0);
+
+    final typeLabel = _type == 'TERMS_OF_USE'
+        ? (isArabic ? 'شروط الاستخدام' : 'Terms of Use')
+        : (isArabic ? 'سياسة الخصوصية' : 'Privacy Policy');
+
+    final typeDropdownField = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildFieldLabel(
+          context,
+          label: isArabic ? 'نوع الوثيقة' : 'Document Type',
+          isRequired: true,
+        ),
+        DropdownButtonFormField<String>(
+          initialValue: _type,
+          isExpanded: true,
+          dropdownColor: dialogBg,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontSize: 14,
+            color: theme.colorScheme.onSurface,
+          ),
+          decoration: _inputDecoration(
+            context,
+            hintText: isArabic ? 'اختر نوع الوثيقة' : 'Select document type',
+            icon: LucideIcons.fileType,
+          ),
+          items: [
+            DropdownMenuItem(
+              value: 'TERMS_OF_USE',
+              child: Text(
+                isArabic
+                    ? 'شروط الاستخدام (Terms of Use)'
+                    : 'Terms of Use',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'PRIVACY_POLICY',
+              child: Text(
+                isArabic
+                    ? 'سياسة الخصوصية (Privacy Policy)'
+                    : 'Privacy Policy',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+          onChanged: _isSaving ? null : _onTypeChanged,
+        ),
+      ],
+    );
+
+    final versionField = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildFieldLabel(
+          context,
+          label: isArabic ? 'رقم الإصدار' : 'Version',
+          isRequired: true,
+        ),
+        TextFormField(
+          controller: _versionController,
+          enabled: !_isSaving,
+          textDirection: TextDirection.ltr,
+          textInputAction: TextInputAction.next,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: _inputDecoration(
+            context,
+            hintText: isArabic ? 'مثال: 1.1' : 'e.g. 1.1',
+            icon: LucideIcons.gitBranch,
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty)
+              ? (isArabic ? 'رقم الإصدار مطلوب' : 'Version is required')
+              : null,
+        ),
+      ],
+    );
+
+    final cancelButton = OutlinedButton(
+      onPressed: _isSaving ? null : () => Navigator.of(context).pop(false),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(100, 46),
+        foregroundColor: theme.colorScheme.onSurface,
+        side: BorderSide(color: dialogBorder, width: 1.2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+      ),
+      child: Text(
+        isArabic ? 'إلغاء' : 'Cancel',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+
+    final saveButton = ElevatedButton.icon(
+      onPressed: _isSaving ? null : _submit,
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(150, 46),
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
+        disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
+        disabledForegroundColor: AppColors.onPrimary,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+      ),
+      icon: _isSaving
+          ? const SizedBox(
+              width: 17,
+              height: 17,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.onPrimary),
+              ),
+            )
+          : const Icon(LucideIcons.save, size: 17),
+      label: Text(
+        _isSaving
+            ? (isArabic ? 'جارٍ الحفظ...' : 'Saving...')
+            : (_isEdit
+                ? (isArabic ? 'حفظ التعديلات' : 'Save Changes')
+                : (isArabic ? 'حفظ المسودة' : 'Save Draft')),
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+    );
+
+    return DialogScaffold(
+      child: Dialog(
+        backgroundColor: dialogBg,
+        surfaceTintColor: Colors.transparent,
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 12 : 24,
+          vertical: isMobile ? 14 : 24,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: dialogBorder),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 740,
+            maxHeight: availableHeight,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Pinned Header
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPad,
+                  16,
+                  isMobile ? 10 : 16,
+                  14,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Icon(
+                        _isEdit ? LucideIcons.fileEdit : LucideIcons.filePlus2,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isEdit
+                                ? (isArabic
+                                    ? 'تعديل الوثيقة القانونية'
+                                    : 'Edit Legal Document')
+                                : (isArabic
+                                    ? 'إنشاء مسودة إصدار جديد'
+                                    : 'New Version Draft'),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16.5,
+                            ),
+                            softWrap: true,
+                          ),
+                          const SizedBox(height: 3),
+                          _isEdit
+                              ? Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    _buildBadgePill(
+                                      context,
+                                      typeLabel,
+                                      accentColor: AppColors.primary,
+                                    ),
+                                    Text(
+                                      isArabic
+                                          ? 'تحديث بيانات ونص الوثيقة'
+                                          : 'Update policy details & content',
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  isArabic
+                                      ? 'إعداد بيانات الإصدار والمحتوى باللغتين'
+                                      : 'Configure version metadata and bilingual policy text',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                  softWrap: true,
+                                ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: isArabic ? 'إغلاق' : 'Close',
+                      icon: const Icon(LucideIcons.x, size: 20),
+                      onPressed: _isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(false),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, thickness: 1, color: dialogBorder),
+
+              // Scrollable Form Body
+              Flexible(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalPad,
+                    vertical: isMobile ? 16 : 20,
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_submitError != null &&
+                            _submitError!.trim().isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.error.withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 1),
+                                  child: Icon(
+                                    LucideIcons.alertCircle,
+                                    color: AppColors.error,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _submitError!,
+                                    style:
+                                        theme.textTheme.bodySmall?.copyWith(
+                                      color: AppColors.error,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Metadata Row
+                        if (_isEdit)
+                          versionField
+                        else if (isMobile) ...[
+                          typeDropdownField,
+                          const SizedBox(height: 14),
+                          versionField,
+                        ] else
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 3, child: typeDropdownField),
+                              const SizedBox(width: 14),
+                              Expanded(flex: 2, child: versionField),
+                            ],
+                          ),
+                        const SizedBox(height: 16),
+
+                        // Title (English)
+                        _buildFieldLabel(
+                          context,
+                          label: isArabic ? 'العنوان' : 'Title',
+                          isRequired: true,
+                          languageTag: 'EN',
+                        ),
+                        TextFormField(
+                          controller: _titleController,
+                          enabled: !_isSaving,
+                          textDirection: TextDirection.ltr,
+                          textInputAction: TextInputAction.next,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 14,
+                          ),
+                          decoration: _inputDecoration(
+                            context,
+                            hintText: 'e.g. Terms of Use & Service Agreement',
+                            icon: LucideIcons.heading,
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? (isArabic
+                                  ? 'العنوان بالإنجليزية مطلوب'
+                                  : 'Title in English is required')
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Title (Arabic)
+                        _buildFieldLabel(
+                          context,
+                          label: isArabic ? 'العنوان' : 'Title',
+                          isRequired: true,
+                          languageTag: 'عربي',
+                        ),
+                        TextFormField(
+                          controller: _titleArController,
+                          enabled: !_isSaving,
+                          textDirection: TextDirection.rtl,
+                          textInputAction: TextInputAction.next,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 14,
+                          ),
+                          decoration: _inputDecoration(
+                            context,
+                            hintText: 'مثال: شروط الاستخدام واتفاقية الخدمة',
+                            icon: LucideIcons.heading,
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? (isArabic
+                                  ? 'العنوان باللغة العربية مطلوب'
+                                  : 'Arabic title is required')
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Content (English)
+                        _buildFieldLabel(
+                          context,
+                          label: isArabic ? 'محتوى الوثيقة' : 'Document Content',
+                          isRequired: !_isEdit,
+                          languageTag: 'EN',
+                          formatTag: 'Markdown',
+                        ),
+                        TextFormField(
+                          controller: _contentController,
+                          enabled: !_isSaving,
+                          textDirection: TextDirection.ltr,
+                          textAlignVertical: TextAlignVertical.top,
+                          keyboardType: TextInputType.multiline,
+                          minLines: isMobile ? 4 : 6,
+                          maxLines: 10,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 13.5,
+                            height: 1.5,
+                          ),
+                          decoration: _inputDecoration(
+                            context,
+                            hintText: isArabic
+                                ? 'اكتب النص القانوني بالإنجليزية (يدعم # العناوين و **النص العريض**)...'
+                                : 'Write policy terms in English (supports # headings, **bold**, lists)...',
+                            isMultiline: true,
+                          ),
+                          validator: _isEdit
+                              ? null
+                              : (v) => (v == null || v.trim().isEmpty)
+                                  ? (isArabic
+                                      ? 'المحتوى بالإنجليزية مطلوب'
+                                      : 'English content is required')
+                                  : null,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Content (Arabic)
+                        _buildFieldLabel(
+                          context,
+                          label: isArabic ? 'محتوى الوثيقة' : 'Document Content',
+                          isRequired: !_isEdit,
+                          languageTag: 'عربي',
+                          formatTag: 'Markdown',
+                        ),
+                        TextFormField(
+                          controller: _contentArController,
+                          enabled: !_isSaving,
+                          textDirection: TextDirection.rtl,
+                          textAlignVertical: TextAlignVertical.top,
+                          keyboardType: TextInputType.multiline,
+                          minLines: isMobile ? 4 : 6,
+                          maxLines: 10,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 13.5,
+                            height: 1.6,
+                          ),
+                          decoration: _inputDecoration(
+                            context,
+                            hintText: isArabic
+                                ? 'اكتب النص القانوني باللغة العربية (يدعم # العناوين و **التنسيق**)...'
+                                : 'Write policy terms in Arabic (supports # headings, **bold**, lists)...',
+                            isMultiline: true,
+                          ),
+                          validator: _isEdit
+                              ? null
+                              : (v) => (v == null || v.trim().isEmpty)
+                                  ? (isArabic
+                                      ? 'المحتوى باللغة العربية مطلوب'
+                                      : 'Arabic content is required')
+                                  : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              Divider(height: 1, thickness: 1, color: dialogBorder),
+
+              // Pinned Footer
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPad,
+                  14,
+                  horizontalPad,
+                  16,
+                ),
+                child: isMobile
+                    ? Row(
+                        children: [
+                          Expanded(child: cancelButton),
+                          const SizedBox(width: 12),
+                          Expanded(flex: 2, child: saveButton),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          cancelButton,
+                          const SizedBox(width: 12),
+                          saveButton,
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

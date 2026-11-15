@@ -7,6 +7,7 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import '../../data/driver_models.dart';
 import '../../data/driver_providers.dart';
 import '../../../../core/utils/error_utils.dart';
+import 'driver_vehicle_icon.dart';
 
 class DriverFormDialog extends ConsumerStatefulWidget {
   final DriverProfile? driver;
@@ -328,7 +329,10 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
                 _buildField(l10n.password, LucideIcons.lock, _passwordController, null, true),
               _buildField(l10n.nationalId, LucideIcons.creditCard, _nationalIdController),
               _buildField(l10n.licenseNumber, LucideIcons.fileText, _licenseNumberController),
-              _buildVehicleTypeDropdown(l10n.vehicleType, LucideIcons.car),
+              _buildVehicleTypeDropdown(
+                l10n.vehicleType,
+                driverVehicleIcon(_selectedVehicleType),
+              ),
               _buildField(l10n.vehiclePlate, LucideIcons.hash, _vehiclePlateController),
               _buildDriverManagerDropdown(),
               SwitchListTile(

@@ -181,6 +181,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     children: [
                       TabBar(
                         isScrollable: true,
+                        tabAlignment: TabAlignment.start,
                         labelColor: AppColors.primary,
                         indicatorColor: AppColors.primary,
                         tabs: [
