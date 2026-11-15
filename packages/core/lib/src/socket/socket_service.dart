@@ -5,7 +5,6 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import '../debug/mv_debug_logger.dart';
 import '../providers/core_providers.dart';
 import 'socket_events.dart';
 
@@ -112,15 +111,6 @@ class CoreSocketService with WidgetsBindingObserver {
       }
 
       _socket?.on(event.eventName, (data) {
-        if (event != SocketEvent.driverLocation) {
-          MvDebugLogger.log(
-            'WS_IN',
-            'Socket event received: ${event.eventName}',
-            data: data is Map
-                ? Map<String, dynamic>.from(data)
-                : {'payload': data},
-          );
-        }
         if (!_controllers[event]!.isClosed) {
           _controllers[event]!.add(data);
         }
@@ -129,7 +119,6 @@ class CoreSocketService with WidgetsBindingObserver {
 
     _socket?.onConnect((_) {
       debugPrint('✅ Core Socket connected');
-      MvDebugLogger.log('WS_STATE', 'Core Socket connected');
       if (!_connectController.isClosed) {
         _connectController.add(null);
       }
@@ -137,11 +126,6 @@ class CoreSocketService with WidgetsBindingObserver {
     
     _socket?.onConnectError((err) async {
       debugPrint('❌ Core Socket Connect Error: $err');
-      MvDebugLogger.log(
-        'WS_STATE',
-        'Core Socket connect error',
-        data: {'error': err?.toString()},
-      );
       final errorStr = err.toString().toLowerCase();
       if (errorStr.contains('unauthorized') || errorStr.contains('expired') || errorStr.contains('auth')) {
         

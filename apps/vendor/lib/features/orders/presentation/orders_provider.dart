@@ -195,18 +195,6 @@ class OrdersNotifier extends _$OrdersNotifier {
     }
 
     final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
-    MvDebugLogger.setAppTag('VENDOR');
-    MvDebugLogger.log(
-      'STEP_4_VENDOR_UPDATE_STATUS',
-      'Vendor/Admin updating order/fulfillment status to $nextStatus',
-      data: {
-        'orderId': orderId,
-        'nextStatus': nextStatus,
-        'fulfillmentId': fulfillmentId,
-        'estimatedPrepTime': estimatedPrepTime,
-        'role': role,
-      },
-    );
     if (role == 'VENDOR_MEMBER') {
        await ref.read(vendorOrdersRepositoryProvider).ordersUpdate(
          orderId: orderId,
@@ -275,12 +263,6 @@ class OrdersNotifier extends _$OrdersNotifier {
     }
 
     final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
-    MvDebugLogger.setAppTag('VENDOR');
-    MvDebugLogger.log(
-      'STEP_4_VENDOR_ACCEPT_FULFILLMENT',
-      'Accepting vendor fulfillment $fulfillmentId',
-      data: {'fulfillmentId': fulfillmentId, 'role': role},
-    );
     if (role == 'VENDOR_MEMBER') {
       await ref.read(vendorOrdersRepositoryProvider).acceptFulfillment(fulfillmentId);
     } else {
@@ -297,17 +279,6 @@ class OrdersNotifier extends _$OrdersNotifier {
     }
 
     final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
-    MvDebugLogger.setAppTag('VENDOR');
-    MvDebugLogger.log(
-      'STEP_4_VENDOR_REJECT_FULFILLMENT',
-      'Rejecting vendor fulfillment $fulfillmentId ($code)',
-      data: {
-        'fulfillmentId': fulfillmentId,
-        'code': code,
-        'reason': reason,
-        'role': role,
-      },
-    );
     if (role == 'VENDOR_MEMBER') {
       await ref.read(vendorOrdersRepositoryProvider).rejectFulfillment(fulfillmentId, reason: reason, code: code);
     } else {

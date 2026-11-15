@@ -16,7 +16,6 @@ import {
   allocateOrderCashCollection,
   computeIsMultiVendorOrder,
 } from '../../common/orders/order-financials.helper';
-import { mvDebugTrace } from '../../common/orders/mv-debug-trace.logger';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { QUEUES, STATS_JOBS } from '../../infrastructure/queue/queues.constants';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
@@ -187,25 +186,6 @@ export class OrderSettlementService {
     if (!applied) {
       return;
     }
-
-    mvDebugTrace(
-      'STEP_9_ORDER_SETTLED',
-      `Order ${payload.orderNumber} (${payload.orderId}) settled`,
-      {
-        orderId: payload.orderId,
-        orderNumber: payload.orderNumber,
-        grandTotal: payload.grandTotal,
-        subtotal: payload.subtotal,
-        deliveryFee: payload.deliveryFee,
-        serviceFee: payload.serviceFee,
-        driverBonusFee: payload.driverBonusFee,
-        commission: plan.commission,
-        driverEarnings: plan.driverEarnings,
-        totalAssistEarnings: plan.totalAssistEarnings,
-        platformRevenue: plan.platformRevenue,
-        primaryPayouts: plan.primaryPayouts,
-      },
-    );
 
     await this.enqueueSettlementStats(payload, plan, periods);
     this.emitPostCommitEffects(payload, plan, statusEffects);

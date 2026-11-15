@@ -27,7 +27,6 @@ import {
   DriverErrors,
   OrderErrors,
 } from '../../../common/constants/response.constants';
-import { mvDebugTrace } from '../../../common/orders/mv-debug-trace.logger';
 
 /**
  * Manages per-vendor fulfillment transitions (`PREPARING`, `READY_FOR_PICKUP`,
@@ -399,18 +398,6 @@ export class FulfillmentTransitionService {
       if (claimed.count === 0) {
         throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
       }
-
-      mvDebugTrace(
-        'STEP_7_DRIVER_PICKED_UP_STOP',
-        `Driver ${driver.id} picked up fulfillment stop ${fulfillmentId} on order ${orderId}`,
-        {
-          orderId,
-          fulfillmentId,
-          driverId: driver.id,
-          deliveryGroupId: groupItem?.deliveryGroupId ?? null,
-          pickupImageUrl: imageUrl,
-        },
-      );
 
       if (groupItem) {
         const remaining = await this.prisma.orderDeliveryGroupItem.findMany({

@@ -150,22 +150,7 @@ class OrderExecution extends _$OrderExecution {
       final path = fulfillmentId != null && fulfillmentId.isNotEmpty
           ? '/orders/driver/$orderId/fulfillment/$fulfillmentId/pickup'
           : '/orders/driver/$orderId/pickup';
-      MvDebugLogger.setAppTag('DRIVER');
-      MvDebugLogger.log(
-        'STEP_5_DRIVER_STOP_PICKUP_START',
-        'Driver confirming pickup stop (orderId=$orderId, fulfillmentId=$fulfillmentId)',
-        data: {
-          'orderId': orderId,
-          'fulfillmentId': fulfillmentId,
-          'path': path,
-        },
-      );
       await dio.post(path, data: formData);
-      MvDebugLogger.log(
-        'STEP_5_DRIVER_STOP_PICKUP_DONE',
-        'Driver pickup stop confirmed (orderId=$orderId, fulfillmentId=$fulfillmentId)',
-        data: {'orderId': orderId, 'fulfillmentId': fulfillmentId},
-      );
       await _fetchActiveOrder();
     } catch (e, st) {
       if (prev.hasValue) {
@@ -196,24 +181,7 @@ class OrderExecution extends _$OrderExecution {
       final query = resolvedGroupId != null && resolvedGroupId.isNotEmpty
           ? '?deliveryGroupId=$resolvedGroupId'
           : '';
-      MvDebugLogger.setAppTag('DRIVER');
-      MvDebugLogger.log(
-        'STEP_6_DRIVER_DELIVERY_START',
-        'Driver confirming customer delivery (orderId=$orderId, deliveryGroupId=$resolvedGroupId)',
-        data: {
-          'orderId': orderId,
-          'deliveryGroupId': resolvedGroupId,
-        },
-      );
       await dio.post('/orders/driver/$orderId/delivery$query', data: formData);
-      MvDebugLogger.log(
-        'STEP_6_DRIVER_DELIVERY_DONE',
-        'Driver customer delivery confirmed (orderId=$orderId, deliveryGroupId=$resolvedGroupId)',
-        data: {
-          'orderId': orderId,
-          'deliveryGroupId': resolvedGroupId,
-        },
-      );
       _selectedOrderId = null;
       await _fetchActiveOrder();
       if (ref.mounted) {

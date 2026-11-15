@@ -29,7 +29,6 @@ import { OrderErrors } from '../../common/constants/response.constants';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { EVENTS } from '../../common/events/event-names';
 import { OrderCreatedEvent } from '../../common/events';
-import { mvDebugTrace } from '../../common/orders/mv-debug-trace.logger';
 
 export interface PlaceMultiVendorOrderDto {
   /** 2+ vendors; a single vendor should use the existing POST /orders. */
@@ -572,40 +571,6 @@ export class OrdersMultiVendorService {
       this.logger.log(
         `Multi-vendor order placed: ${created.orderNumber} (${plan.portions.length} portions, ${plan.grouping.groups.length} groups, ${vendorUserIds.length} vendor users) by user ${actor.sub}`,
       );
-      mvDebugTrace(
-        'STEP_2_ORDER_CREATED',
-        `Multi-vendor order placed: ${created.orderNumber} (${created.id})`,
-        {
-          orderId: created.id,
-          orderNumber: created.orderNumber,
-          customerId: plan.customerId,
-          actorUserId: actor.sub,
-          vendorIds,
-          portionsCount: plan.portions.length,
-          groupsCount: plan.grouping.groups.length,
-          subtotal: plan.subtotal,
-          deliveryFee: plan.deliveryFee,
-          serviceFee: plan.serviceFee,
-          driverBonusFee: plan.driverBonusFee,
-          driverBonusPaidByCustomer: plan.driverBonusPaidByCustomer,
-          tax: plan.tax,
-          discount: plan.discount,
-          grandTotal: plan.grandTotal,
-          upfrontAmount: plan.upfrontAmount,
-          groups: plan.grouping.groups.map((g, idx) => ({
-            sequence: g.sequence,
-            farthestToCustomerKm: g.farthestToCustomerKm,
-            extraVendorCount: g.extraVendorCount,
-            splitReason: g.splitReason,
-            fee: plan.groupFees[idx],
-            stops: g.stops.map((s, sIdx) => ({
-              stopSequence: sIdx + 1,
-              vendorId: s.vendorId,
-              vendorBranchId: s.vendorBranchId,
-            })),
-          })),
-        },
-      );
 
       // Carts for all vendors are cleared best-effort after emitting ORDER_CREATED,
       // matching the single-vendor checkout flow without blocking notifications.
@@ -877,48 +842,6 @@ export class OrdersMultiVendorService {
         grandTotal * (Number(settings.highValueUpfrontRate ?? 0) / 100),
       );
     }
-
-    mvDebugTrace(
-      'STEP_1_PLAN_BUILT',
-      `Multi-vendor plan computed for customer=${customer.id} (${portions.length} portions, ${grouping.groups.length} groups)`,
-      {
-        customerId: customer.id,
-        zoneId: zone.id,
-        vendorIds,
-        portions: portions.map((p) => ({
-          vendorId: p.vendorId,
-          vendorBranchId: p.vendorBranchId,
-          subtotal: p.subtotal,
-          itemsCount: p.items.length,
-          commissionRate: p.commissionRate,
-          isContracted: p.isContracted,
-        })),
-        groups: grouping.groups.map((g, i) => ({
-          sequence: g.sequence,
-          farthestToCustomerKm: g.farthestToCustomerKm,
-          extraVendorCount: g.extraVendorCount,
-          splitReason: g.splitReason,
-          groupFee: groupFees[i],
-          stops: g.stops.map((s, idx) => ({
-            stopSequence: idx + 1,
-            vendorId: s.vendorId,
-            vendorBranchId: s.vendorBranchId,
-            lat: s.lat,
-            lng: s.lng,
-          })),
-        })),
-        subtotal,
-        deliveryFee,
-        serviceFee,
-        driverBonusFee,
-        driverBonusPaidByCustomer: Boolean(settings.driverBonusPaidByCustomer),
-        tax,
-        discount,
-        coinsUsed,
-        grandTotal,
-        upfrontAmount,
-      },
-    );
 
     return {
       customerId: customer.id,

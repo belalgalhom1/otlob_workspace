@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:dio/dio.dart';
-import 'package:core/core.dart' show MvDebugLogger, MvDebugLogIconButton;
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -126,19 +125,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _isEstimating = true;
       if (force) _estimateError = null;
     });
-    MvDebugLogger.setAppTag('CUSTOMER');
-    MvDebugLogger.log(
-      'STEP_1_CHECKOUT_ESTIMATE_START',
-      'Starting checkout fee estimate (isMultiVendor=$isMultiVendor)',
-      data: {
-        'isMultiVendor': isMultiVendor,
-        'vendorIds': vendorIds,
-        'paymentMethod': normalizedPaymentMethod,
-        'coords': coords,
-        'coinsToUse': coinsToUse,
-        'itemsCount': vendorCartItems.length,
-      },
-    );
     try {
       final result = isMultiVendor
           ? await ref.read(ordersProvider.notifier).estimateMultiVendorOrder(
@@ -155,11 +141,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               location: coords,
               coinsToUse: coinsToUse,
             );
-      MvDebugLogger.log(
-        'STEP_1_CHECKOUT_ESTIMATE_RESULT',
-        'Checkout fee estimate received',
-        data: result != null ? Map<String, dynamic>.from(result) : {'result': null},
-      );
       if (mounted) {
         setState(() {
           _estimate = result;
@@ -176,11 +157,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           message = data['message'].toString();
         }
       }
-      MvDebugLogger.log(
-        'STEP_1_CHECKOUT_ESTIMATE_ERROR',
-        'Checkout fee estimate failed',
-        data: {'error': message ?? e.toString(), 'vendorIds': vendorIds},
-      );
       if (mounted) {
         final resolvedError = message ?? e.toString();
         setState(() {
@@ -282,23 +258,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         : 'CASH_ON_DELIVERY';
     final address = selectedAddress['address'] ?? s.locationName;
     final ordersNotifier = ref.read(ordersProvider.notifier);
-    final idempotencyKey = _clientOrderKeyForCheckout();
-
-    MvDebugLogger.setAppTag('CUSTOMER');
-    MvDebugLogger.log(
-      'STEP_2_PLACE_ORDER_START',
-      'Submitting order from Checkout (isMultiVendor=$isMultiVendor)',
-      data: {
-        'isMultiVendor': isMultiVendor,
-        'vendorIds': vendorIds,
-        'paymentMethod': paymentMethod,
-        'address': address,
-        'coords': coords,
-        'coinsToUse': coinsToUse,
-        'idempotencyKey': idempotencyKey,
-        'itemsCount': vendorItems.length,
-      },
-    );
 
     final (errorMsg, orderId) = isMultiVendor
         ? await ordersNotifier.placeMultiVendorOrder(
@@ -308,7 +267,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             location: coords,
             specialRequest: specialRequest,
             coinsToUse: coinsToUse,
-            idempotencyKey: idempotencyKey,
+            idempotencyKey: _clientOrderKeyForCheckout(),
           )
         : await ordersNotifier.placeOrder(
             vendorId: vendorIds.first,
@@ -318,23 +277,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             location: coords,
             specialRequest: specialRequest,
             coinsToUse: coinsToUse,
-            idempotencyKey: idempotencyKey,
+            idempotencyKey: _clientOrderKeyForCheckout(),
           );
-
-    MvDebugLogger.log(
-      errorMsg == null && orderId != null
-          ? 'STEP_2_PLACE_ORDER_SUCCESS'
-          : 'STEP_2_PLACE_ORDER_ERROR',
-      errorMsg == null && orderId != null
-          ? 'Order placed successfully: orderId=$orderId'
-          : 'Order placement failed: $errorMsg',
-      data: {
-        'isMultiVendor': isMultiVendor,
-        'vendorIds': vendorIds,
-        'orderId': orderId,
-        'error': errorMsg,
-      },
-    );
 
     if (!mounted) return;
 
@@ -605,9 +549,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ),
         leading: IconButton(
             icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
-        actions: const [
-          MvDebugLogIconButton(appTag: 'CUSTOMER'),
-        ],
       ),
       body: _isProcessing
           ? const Center(

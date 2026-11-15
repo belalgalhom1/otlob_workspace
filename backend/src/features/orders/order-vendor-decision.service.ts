@@ -31,7 +31,6 @@ import { OrderRejectionRecomputor } from './helpers/order-rejection-recomputor';
 import { OrderCancellationService } from './transitions/order-cancellation.service';
 import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
 import { DeliveryGroupTransitionService } from './transitions/delivery-group-transition.service';
-import { mvDebugTrace } from '../../common/orders/mv-debug-trace.logger';
 
 export interface RejectFulfillmentDto {
   /** Machine-readable reason code (enum on the client, stable for analytics). */
@@ -124,17 +123,6 @@ export class OrderVendorDecisionService {
 
     this.logger.log(
       `Fulfillment ${fulfillmentId} for order ${fulfillment.orderId} ACCEPTED by ${actor.sub}`,
-    );
-    mvDebugTrace(
-      'STEP_3_VENDOR_ACCEPTED',
-      `Vendor accepted fulfillment ${fulfillmentId} on order ${fulfillment.orderId}`,
-      {
-        orderId: fulfillment.orderId,
-        fulfillmentId,
-        vendorId: fulfillment.vendorId,
-        vendorBranchId: fulfillment.vendorBranchId,
-        actorUserId: actor.sub,
-      },
     );
 
     await this.maybeAdvanceToDispatch(fulfillment.orderId);
@@ -323,23 +311,6 @@ export class OrderVendorDecisionService {
 
     this.logger.log(
       `Fulfillment ${fulfillmentId} for order ${fulfillment.orderId} REJECTED by ${actorSub} (${dto.code})`,
-    );
-    mvDebugTrace(
-      'STEP_3_VENDOR_REJECTED',
-      `Vendor rejected fulfillment ${fulfillmentId} on order ${fulfillment.orderId} (${dto.code})`,
-      {
-        orderId: fulfillment.orderId,
-        orderNumber: order.orderNumber,
-        fulfillmentId,
-        vendorId: fulfillment.vendorId,
-        code: dto.code,
-        reason,
-        refundAmount,
-        deliveryFeeDelta: result.deliveryFeeDelta,
-        serviceFeeDelta,
-        ridingGroupId: result.ridingGroupId,
-        actorUserId: actorSub,
-      },
     );
 
     const allRejected = await this.recomputeOrderStatus(fulfillment.orderId);
@@ -786,17 +757,6 @@ export class OrderVendorDecisionService {
         'All vendor portions decided — searching for drivers',
         undefined,
         order.status,
-      );
-      mvDebugTrace(
-        'STEP_4_ALL_VENDORS_DECIDED_ADVANCE_DISPATCH',
-        `All vendor portions decided for ${updated.orderNumber} (${orderId}) -> LOOKING_FOR_DRIVER`,
-        {
-          orderId,
-          orderNumber: updated.orderNumber,
-          previousStatus: order.status,
-          newStatus: OrderStatus.LOOKING_FOR_DRIVER,
-          portions: portions.map((p) => p.status),
-        },
       );
 
       const vendorIds = Array.from(
