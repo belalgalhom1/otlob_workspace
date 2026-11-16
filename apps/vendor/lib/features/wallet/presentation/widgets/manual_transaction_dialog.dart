@@ -171,7 +171,7 @@ class _ManualTransactionDialogState
                     value: t,
                     child: Text(
                       getTranslatedType(t),
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                     ),
                   ),
                 )

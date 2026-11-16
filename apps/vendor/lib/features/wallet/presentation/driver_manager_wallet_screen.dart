@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:data/providers.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:vendor/core/utils/error_utils.dart';
+import '../data/wallet_localization.dart';
 
 class DriverManagerWalletScreen extends ConsumerStatefulWidget {
   const DriverManagerWalletScreen({super.key});
@@ -93,41 +94,23 @@ class _DriverManagerWalletScreenState
     String text,
     TextStyle style, {
     AlignmentDirectional alignment = AlignmentDirectional.centerStart,
+    bool includeCurrency = true,
   }) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
+    return WalletLocalization.buildMoneyText(
+      text,
+      style,
+      isArabic: _isAr,
+      includeCurrency: includeCurrency,
       alignment: alignment,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: Text(
-          text,
-          maxLines: 1,
-          style: style.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ),
     );
   }
 
   String _formatDate(dynamic dateStr) {
-    if (dateStr == null) return '';
-    final dt = DateTime.tryParse(dateStr.toString())?.toLocal();
-    if (dt == null) return dateStr.toString();
-    return DateFormat('yyyy-MM-dd HH:mm').format(dt);
+    return WalletLocalization.formatDateTime(dateStr, isArabic: _isAr);
   }
 
   String _typeLabel(String type) {
-    switch (type) {
-      case 'COMMISSION_EARNED':
-        return _isAr ? 'عمولة إدارة طلب' : 'Order Commission';
-      case 'PENALTY_DEDUCTION':
-        return _isAr ? 'خصم جزاءات' : 'Penalty Deduction';
-      case 'MANUAL_ADJUSTMENT':
-        return _isAr ? 'تسوية يدوية' : 'Manual Adjustment';
-      default:
-        return type.replaceAll('_', ' ');
-    }
+    return WalletLocalization.typeLabel(type, isArabic: _isAr);
   }
 
   @override
@@ -241,8 +224,7 @@ class _DriverManagerWalletScreenState
                               _isAr
                                   ? 'محفظة مسؤول السائقين'
                                   : 'Driver Manager Wallet',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              softWrap: true,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
@@ -276,6 +258,7 @@ class _DriverManagerWalletScreenState
                           fontWeight: FontWeight.w900,
                           fontSize: isMobile ? 32 : 38,
                         ),
+                        includeCurrency: false,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -291,9 +274,9 @@ class _DriverManagerWalletScreenState
                           color: Colors.white.withValues(alpha: 0.22),
                         ),
                       ),
-                      child: const Text(
-                        'EGP',
-                        style: TextStyle(
+                      child: Text(
+                        WalletLocalization.currency(_isAr),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -324,8 +307,7 @@ class _DriverManagerWalletScreenState
               Expanded(
                 child: Text(
                   _isAr ? 'سجل المعاملات' : 'Transaction History',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -388,8 +370,17 @@ class _DriverManagerWalletScreenState
                   : double.tryParse(tx['balanceAfter']?.toString() ?? '0') ??
                         0.0;
               final type = tx['type']?.toString() ?? 'TRANSACTION';
-              final desc = tx['description']?.toString() ?? '';
-              final orderId = tx['orderId']?.toString();
+              final desc = WalletLocalization.localizeDescription(
+                tx,
+                isArabic: _isAr,
+              );
+              final orderNumber = WalletLocalization.extractOrderNumber(tx);
+              final rawOrderId = tx['orderId']?.toString();
+              final orderBadge = orderNumber.isNotEmpty
+                  ? '#$orderNumber'
+                  : (rawOrderId != null && rawOrderId.isNotEmpty
+                        ? '#${rawOrderId.substring(0, rawOrderId.length > 8 ? 8 : rawOrderId.length).toUpperCase()}'
+                        : '');
               final createdAt = tx['createdAt'];
               final iconBgColor = isCredit ? AppColors.success : AppColors.error;
               final amountColor = isCredit
@@ -405,117 +396,151 @@ class _DriverManagerWalletScreenState
                   border: Border.all(color: borderColor),
                 ),
                 child: LayoutBuilder(
-                  builder: (context, constraints) => Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: iconBgColor.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
+                  builder: (context, constraints) {
+                    final scaledFont = MediaQuery.textScalerOf(context).scale(14);
+                    final stackHeader =
+                        constraints.maxWidth < 290 || scaledFont > 19.0;
+
+                    final titleWrap = Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          _typeLabel(type),
+                          softWrap: true,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
-                        child: Icon(
-                          isCredit
-                              ? LucideIcons.arrowDownLeft
-                              : LucideIcons.arrowUpRight,
-                          color: amountColor,
-                          size: 18,
+                        if (orderBadge.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              orderBadge,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: _amberTextColor(theme),
+                                fontWeight: FontWeight.w700,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+
+                    final moneyCol = Column(
+                      crossAxisAlignment: stackHeader
+                          ? CrossAxisAlignment.start
+                          : CrossAxisAlignment.end,
+                      children: [
+                        _scaledMoneyText(
+                          '${isCredit ? '+' : '-'}${_moneyFmt.format(amountNum.abs())}',
+                          TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: amountColor,
+                          ),
+                          alignment: stackHeader
+                              ? AlignmentDirectional.centerStart
+                              : AlignmentDirectional.centerEnd,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
+                        if (hasBalanceAfter) ...[
+                          const SizedBox(height: 3),
+                          _scaledMoneyText(
+                            '${_isAr ? 'الرصيد:' : 'Bal:'} ${balanceAfter < 0 ? '-' : ''}${_moneyFmt.format(balanceAfter.abs())}',
+                            TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.65,
+                              ),
+                            ),
+                            includeCurrency: false,
+                            alignment: stackHeader
+                                ? AlignmentDirectional.centerStart
+                                : AlignmentDirectional.centerEnd,
+                          ),
+                        ],
+                      ],
+                    );
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              desc.isNotEmpty ? desc : _typeLabel(type),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: iconBgColor.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
                               ),
-                            ),
-                            const SizedBox(height: 5),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Text(
-                                  _formatDate(createdAt),
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.55),
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                                ),
-                                if (orderId != null && orderId.isNotEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.14,
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '#${orderId.substring(0, orderId.length > 8 ? 8 : orderId.length).toUpperCase()}',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: _amberTextColor(theme),
-                                        fontWeight: FontWeight.w700,
-                                        fontFeatures: const [
-                                          FontFeature.tabularFigures(),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth * 0.42,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            _scaledMoneyText(
-                              '${isCredit ? '+' : '-'}${_moneyFmt.format(amountNum.abs())} EGP',
-                              TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                              child: Icon(
+                                isCredit
+                                    ? LucideIcons.arrowDownLeft
+                                    : LucideIcons.arrowUpRight,
                                 color: amountColor,
+                                size: 18,
                               ),
-                              alignment: AlignmentDirectional.centerEnd,
                             ),
-                            if (hasBalanceAfter) ...[
-                              const SizedBox(height: 3),
-                              _scaledMoneyText(
-                                '${_isAr ? 'الرصيد: ' : 'Bal: '}${balanceAfter < 0 ? '-' : ''}${_moneyFmt.format(balanceAfter.abs())}',
-                                TextStyle(
-                                  fontSize: 11,
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.55,
-                                  ),
+                            const SizedBox(width: 12),
+                            Expanded(child: titleWrap),
+                            if (!stackHeader) ...[
+                              const SizedBox(width: 12),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxWidth: constraints.maxWidth * 0.42,
                                 ),
-                                alignment: AlignmentDirectional.centerEnd,
+                                child: moneyCol,
                               ),
                             ],
                           ],
                         ),
-                      ),
-                    ],
-                  ),
+                        if (stackHeader) ...[
+                          const SizedBox(height: 8),
+                          moneyCol,
+                        ],
+                        if (desc.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            desc,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.72,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatDate(createdAt),
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.58,
+                            ),
+                            fontFeatures: const [
+                              FontFeature.tabularFigures(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               );
             }),

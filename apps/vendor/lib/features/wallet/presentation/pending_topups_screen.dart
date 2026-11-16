@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import '../data/wallet_localization.dart';
 import '../data/wallet_providers.dart';
 import '../data/wallet_models.dart';
 
@@ -160,12 +160,10 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                 itemCount: filtered.length,
                 itemBuilder: (context, index) {
                   final topUp = filtered[index] as WalletTopUpRequest;
-            String dateStr = '';
-            try {
-              dateStr = DateFormat('dd MMM yyyy – hh:mm a').format(topUp.createdAt.toLocal());
-            } catch (_) {
-              dateStr = topUp.createdAt.toString().split('.')[0];
-            }
+            final dateStr = WalletLocalization.formatDateTime(
+              topUp.createdAt,
+              isArabic: isAr,
+            );
 
             return Container(
               margin: const EdgeInsets.only(bottom: 14),
@@ -222,14 +220,14 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                                     color: theme.colorScheme.onSurface,
                                   ),
                                   const SizedBox(width: 4),
-                                   Expanded(
-                                     child: Text(
-                                       '${l10n.driverId}: ${topUp.driverName ?? topUp.driverId}',
+                                  Expanded(
+                                    child: Text(
+                                      '${l10n.driverId}: ${topUp.driverName ?? topUp.driverId}',
+                                      softWrap: true,
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: theme.colorScheme.onSurface,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ],

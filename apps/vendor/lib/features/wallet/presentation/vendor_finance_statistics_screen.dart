@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
 
+import '../data/wallet_localization.dart';
 import 'vendor_finance_statistics_provider.dart';
 
 class VendorFinanceStatisticsScreen extends ConsumerWidget {
@@ -14,6 +15,7 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     bool isArabic() =>
         Localizations.localeOf(context).languageCode == 'ar';
+    String cur() => WalletLocalization.currency(isArabic());
     final moneyFmt = NumberFormat('#,##0.00', 'en_US');
     final intFmt = NumberFormat('#,##0', 'en_US');
 
@@ -24,7 +26,7 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
         titleEn: 'Finance Statistics',
         chartTitleAr: 'اتجاه الإيرادات',
         chartTitleEn: 'Revenue Trend',
-        tooltipSuffix: 'EGP',
+        tooltipSuffix: cur(),
         filenamePrefix: 'vendor_finance_statistics',
         fetch: (period, {from, to}) => ref.read(
             vendorFinanceStatsProvider((
@@ -40,7 +42,7 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
             labelEn: 'Total Revenue',
             icon: Icons.trending_up,
             value: (rows) =>
-                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalRevenue'])))} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalRevenue'])))} ${cur()}',
           ),
           StatisticSummaryItem(
             labelAr: 'إجمالي الطلبات',
@@ -58,21 +60,21 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
             labelEn: 'Total Commission',
             icon: Icons.account_balance_wallet_outlined,
             value: (rows) =>
-                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalCommission'])))} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalCommission'])))} ${cur()}',
           ),
           StatisticSummaryItem(
             labelAr: 'إجمالي الضريبة',
             labelEn: 'Total Tax',
             icon: Icons.receipt_long_outlined,
             value: (rows) =>
-                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalTax'])))} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalTax'])))} ${cur()}',
           ),
           StatisticSummaryItem(
             labelAr: 'صافي الربح',
             labelEn: 'Net Profit',
             icon: Icons.savings_outlined,
             value: (rows) =>
-                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalRevenue']) - StatisticsFormat.numOf(r['totalCommission'])))} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalRevenue']) - StatisticsFormat.numOf(r['totalCommission'])))} ${cur()}',
           ),
         ],
         exportColumns: [
@@ -125,8 +127,12 @@ class VendorFinanceStatisticsScreen extends ConsumerWidget {
           final tax = moneyFmt.format(StatisticsFormat.numOf(row['totalTax']));
           return [
             isArabic() ? '$orders طلب' : '$orders orders',
-            isArabic() ? 'عمولة $commission EGP' : 'Commission $commission EGP',
-            isArabic() ? 'ضريبة $tax EGP' : 'Tax $tax EGP',
+            isArabic()
+                ? 'عمولة $commission ${cur()}'
+                : 'Commission $commission ${cur()}',
+            isArabic()
+                ? 'ضريبة $tax ${cur()}'
+                : 'Tax $tax ${cur()}',
           ];
         },
       ),

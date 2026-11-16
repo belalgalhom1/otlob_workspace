@@ -431,5 +431,131 @@ Please review our **key service terms** before continuing to use the platform.
         expect(versionText.style?.color, const Color(0xFFB45309));
       },
     );
+
+    testWidgets(
+      'LegalDocumentView enforces Directionality from isArabic and keeps padding insets inside tight container',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrapWithMedia(
+            theme: _mockCustomerTheme(Brightness.light),
+            locale: const Locale('en'),
+            size: const Size(320, 568),
+            textScaler: const TextScaler.linear(1.4),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Container(
+                key: const Key('preview-frame'),
+                width: double.infinity,
+                height: 320,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: const LegalDocumentView(
+                  title: 'شروط الاستخدام',
+                  version: '1.0',
+                  content: sampleMarkdownAr,
+                  isArabic: true,
+                  showHeader: false,
+                  padding: EdgeInsets.all(20),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        final frameRect = tester.getRect(find.byKey(const Key('preview-frame')));
+        final bodyTextFinder = find.textContaining('الشروط الأساسية للخدمة');
+        expect(bodyTextFinder, findsOneWidget);
+        final bodyRect = tester.getRect(bodyTextFinder);
+        expect(bodyRect.left, greaterThanOrEqualTo(frameRect.left + 18));
+        expect(bodyRect.right, lessThanOrEqualTo(frameRect.right - 18));
+
+        final dir = tester.widget<Directionality>(
+          find
+              .ancestor(
+                of: bodyTextFinder,
+                matching: find.byType(Directionality),
+              )
+              .first,
+        );
+        expect(dir.textDirection, TextDirection.rtl);
+      },
+    );
+
+    testWidgets(
+      'TermsAcceptanceDialog and AppDialogFooter wrap long button labels without ellipsis truncation',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrapWithMedia(
+            theme: _mockCustomerTheme(Brightness.dark),
+            locale: const Locale('ar'),
+            size: const Size(320, 568),
+            textScaler: const TextScaler.linear(1.6),
+            child: TermsAcceptanceDialog(
+              variant: TermsDialogVariant.vendor,
+              title: 'اتفاقية شروط الاستخدام',
+              subtitle: 'يرجى المراجعة قبل المتابعة',
+              version: '2.0',
+              content: sampleMarkdownAr,
+              isArabic: true,
+              acceptCheckboxLabel: 'أقر بقراءة الشروط والأحكام والموافقة عليها',
+              acceptButtonLabel: 'أوافق على جميع الشروط والأحكام وأرغب بالمتابعة',
+              declineButtonLabel: 'رفض الشروط وتسجيل الخروج الآن',
+              onAccept: () {},
+              onDecline: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        final acceptWidget = tester.widget<Text>(
+          find.text('أوافق على جميع الشروط والأحكام وأرغب بالمتابعة'),
+        );
+        final declineWidget = tester.widget<Text>(
+          find.text('رفض الشروط وتسجيل الخروج الآن'),
+        );
+        expect(acceptWidget.overflow, isNot(TextOverflow.ellipsis));
+        expect(declineWidget.overflow, isNot(TextOverflow.ellipsis));
+        expect(acceptWidget.softWrap, isTrue);
+        expect(declineWidget.softWrap, isTrue);
+
+        await tester.pumpWidget(
+          _wrapWithMedia(
+            theme: _mockCustomerTheme(Brightness.dark),
+            locale: const Locale('ar'),
+            size: const Size(320, 568),
+            textScaler: const TextScaler.linear(1.6),
+            child: AppDialog(
+              header: const AppDialogHeader(
+                icon: Icons.description_outlined,
+                title: 'معاينة المستند',
+              ),
+              body: const Text('محتوى قصير'),
+              footer: AppDialogFooter(
+                cancelLabel: 'إلغاء العملية والعودة للشاشة السابقة',
+                confirmLabel: 'تأكيد وحفظ التغييرات الجديدة',
+                onCancel: () {},
+                onConfirm: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        final cancelWidget = tester.widget<Text>(
+          find.text('إلغاء العملية والعودة للشاشة السابقة'),
+        );
+        final confirmWidget = tester.widget<Text>(
+          find.text('تأكيد وحفظ التغييرات الجديدة'),
+        );
+        expect(cancelWidget.overflow, isNot(TextOverflow.ellipsis));
+        expect(confirmWidget.overflow, isNot(TextOverflow.ellipsis));
+      },
+    );
   });
 }

@@ -127,14 +127,16 @@ class PlatformWalletsScreen extends ConsumerWidget {
                                   child: Text(
                                     () {
                                       final type = (wallet['type'] ?? '').toString().toUpperCase();
-                                      if (type.contains('VODAFONE')) return l10n.mobileWallet;
+                                      if (type.contains('VODAFONE') || type.contains('MOBILE')) {
+                                        return l10n.mobileWallet;
+                                      }
                                       if (type.contains('INSTAPAY')) return l10n.instaPay;
                                       return wallet['type']?.toString() ?? '';
                                     }(),
+                                    softWrap: true,
                                     style: theme.textTheme.titleMedium?.copyWith(
                                       fontWeight: FontWeight.bold,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 Container(

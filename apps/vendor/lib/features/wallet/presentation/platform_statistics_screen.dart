@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
 
+import '../data/wallet_localization.dart';
 import 'platform_statistics_provider.dart';
 
 class PlatformStatisticsScreen extends ConsumerWidget {
@@ -12,6 +13,7 @@ class PlatformStatisticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     bool isArabic() =>
         Localizations.localeOf(context).languageCode == 'ar';
+    String cur() => WalletLocalization.currency(isArabic());
     final moneyFmt = NumberFormat('#,##0.00', 'en_US');
     final intFmt = NumberFormat('#,##0', 'en_US');
 
@@ -22,7 +24,7 @@ class PlatformStatisticsScreen extends ConsumerWidget {
         titleEn: 'Platform Statistics',
         chartTitleAr: 'اتجاه أرباح المنصة',
         chartTitleEn: 'Admin Revenue Trend',
-        tooltipSuffix: 'EGP',
+        tooltipSuffix: cur(),
         filenamePrefix: 'platform_statistics',
         fetch: (period, {from, to}) => ref.read(
             platformStatisticsProvider((
@@ -48,14 +50,14 @@ class PlatformStatisticsScreen extends ConsumerWidget {
             labelEn: 'Total Admin Revenue',
             icon: Icons.trending_up,
             value: (rows) =>
-                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalAdminRevenue'])))} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalAdminRevenue'])))} ${cur()}',
           ),
           StatisticSummaryItem(
             labelAr: 'إجمالي رسوم التوصيل',
             labelEn: 'Total Delivery Fees',
             icon: Icons.local_shipping_outlined,
             value: (rows) =>
-                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalDeliveryFees'])))} EGP',
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalDeliveryFees'])))} ${cur()}',
           ),
         ],
         exportColumns: [

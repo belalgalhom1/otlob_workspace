@@ -744,9 +744,8 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
             ),
             child: Text(
               widget.declineButtonLabel!,
-              maxLines: 2,
               textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: theme.colorScheme.onSurface,
@@ -782,9 +781,8 @@ class _TermsAcceptanceDialogState extends State<TermsAcceptanceDialog> {
             )
           : Text(
               widget.acceptButtonLabel,
-              maxLines: 2,
               textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: v.onAccent,

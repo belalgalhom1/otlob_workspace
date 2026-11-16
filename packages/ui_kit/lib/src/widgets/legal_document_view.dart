@@ -138,9 +138,11 @@ class LegalDocumentView extends StatelessWidget {
             horizontal: AppSpacing.lg,
             vertical: AppSpacing.md,
           ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: Directionality(
+        textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           if (showHeader) ...[
             // Header card with metadata and language toggle
             Builder(
@@ -345,7 +347,8 @@ class LegalDocumentView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -542,7 +545,7 @@ class LegalDocumentView extends StatelessWidget {
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: widgets,
     );
   }

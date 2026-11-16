@@ -324,4 +324,81 @@ void main() {
       expect(tabEx, isNull, reason: tabEx?.toString());
     },
   );
+
+  testWidgets(
+    'Vendor LegalDocumentsScreen Arabic Preview dialog removes duplicate header, keeps insets inside AppDialog, and toggles language cleanly at 320x640 @ 1.4x',
+    (tester) async {
+      await _pumpVendorPage(
+        tester,
+        locale: const Locale('ar'),
+        viewport: const Size(320, 640),
+        padding: const EdgeInsets.only(top: 47, bottom: 34),
+        textScaler: const TextScaler.linear(1.4),
+        theme: AppTheme.darkTheme,
+        extraOverrides: [
+          data_providers.adminLegalDocumentsRepositoryProvider
+              .overrideWithValue(_FakeAdminLegalRepo()),
+          legalDocumentsProvider.overrideWith(_FakeLegalDocsNotifier.new),
+        ],
+        child: const Scaffold(
+          body: SafeArea(child: LegalDocumentsScreen()),
+        ),
+      );
+
+      await tester.drag(
+        find.byType(NestedScrollView),
+        const Offset(0, -450),
+      );
+      await tester.pumpAndSettle();
+
+      final previewBtn = find.text('معاينة');
+      expect(previewBtn, findsWidgets);
+      await tester.ensureVisible(previewBtn.first);
+      await tester.pumpAndSettle();
+      await tester.tap(previewBtn.first);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(AppDialog), findsOneWidget);
+
+      final viewWidget = tester.widget<LegalDocumentView>(
+        find.byType(LegalDocumentView),
+      );
+      expect(viewWidget.showHeader, isFalse);
+      expect(viewWidget.isArabic, isTrue);
+
+      // Exactly 1 v2.1 version badge inside AppDialogHeader, and 0 inside LegalDocumentView.
+      expect(
+        find.descendant(
+          of: find.byType(AppDialog),
+          matching: find.text('v2.1'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(LegalDocumentView),
+          matching: find.text('v2.1'),
+        ),
+        findsNothing,
+      );
+
+      // Verify body text is properly inset inside the Dialog bounds
+      final dialogRect = tester.getRect(find.byType(Dialog));
+      final bodyTextFinder = find.textContaining('محتوى شروط المنصة');
+      expect(bodyTextFinder, findsOneWidget);
+      final bodyRect = tester.getRect(bodyTextFinder);
+      expect(bodyRect.left, greaterThanOrEqualTo(dialogRect.left + 20));
+      expect(bodyRect.right, lessThanOrEqualTo(dialogRect.right - 20));
+
+      // Switch to English via the header language toggle button
+      await tester.tap(find.text('English'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('Platform terms content'), findsOneWidget);
+
+      await tester.tap(find.text('إغلاق').last);
+      await tester.pumpAndSettle();
+    },
+  );
 }

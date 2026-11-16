@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import '../data/wallet_localization.dart';
 import 'vendor_wallet_provider.dart';
 import 'vendor_finance_statistics_screen.dart';
 import 'vendor_product_sales_screen.dart';
@@ -53,40 +54,19 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     String text,
     TextStyle style, {
     AlignmentDirectional alignment = AlignmentDirectional.centerStart,
+    bool includeCurrency = true,
   }) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
+    return WalletLocalization.buildMoneyText(
+      text,
+      style,
+      isArabic: _isArabic,
+      includeCurrency: includeCurrency,
       alignment: alignment,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: Text(
-          text,
-          maxLines: 1,
-          style: style.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ),
     );
   }
 
   String _typeLabel(String type) {
-    switch (type) {
-      case 'ORDER_REVENUE':
-        return _isArabic ? 'إيراد طلب' : 'Order Revenue';
-      case 'COMMISSION_DEDUCTION':
-        return _isArabic ? 'خصم عمولة' : 'Commission';
-      case 'CASH_COLLECTED':
-        return _isArabic ? 'تحصيل نقدي' : 'Cash Collected';
-      case 'PAYOUT':
-        return _isArabic ? 'مدفوعات' : 'Payout';
-      case 'REFUND':
-        return _isArabic ? 'استرداد' : 'Refund';
-      case 'ADJUSTMENT':
-        return _isArabic ? 'تسوية' : 'Adjustment';
-      default:
-        return type.replaceAll('_', ' ');
-    }
+    return WalletLocalization.typeLabel(type, isArabic: _isArabic);
   }
 
   @override
@@ -357,13 +337,13 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
           value: selectedType,
           isExpanded: true,
           isDense: true,
+          itemHeight: null,
           items: [
             DropdownMenuItem<String>(
               value: null,
               child: Text(
                 _isArabic ? 'كل الأنواع' : 'All types',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                softWrap: true,
               ),
             ),
             ..._transactionTypes.map(
@@ -371,8 +351,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                 value: type,
                 child: Text(
                   _typeLabel(type),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                 ),
               ),
             ),
@@ -398,13 +377,13 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
               : null,
           isExpanded: true,
           isDense: true,
+          itemHeight: null,
           items: [
             DropdownMenuItem<String>(
               value: null,
               child: Text(
                 _isArabic ? 'كل الفروع' : 'All branches',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                softWrap: true,
               ),
             ),
             ...branches.whereType<Map>().map((b) {
@@ -416,8 +395,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                 value: id,
                 child: Text(
                   name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                 ),
               );
             }),
@@ -536,62 +514,90 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _summaryCard(
-                  theme,
-                  label: _isArabic ? 'إجمالي الداخل' : 'Total credits',
-                  value: '+${_moneyFmt.format(credits)} EGP',
-                  color: _positiveTextColor(theme),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final scaledFont = MediaQuery.textScalerOf(context).scale(14);
+            final singleColumn = constraints.maxWidth < 300 || scaledFont > 19;
+            final creditsCard = _summaryCard(
+              theme,
+              label: _isArabic ? 'إجمالي الداخل' : 'Total credits',
+              value: '+${_moneyFmt.format(credits)}',
+              includeCurrency: true,
+              color: _positiveTextColor(theme),
+            );
+            final debitsCard = _summaryCard(
+              theme,
+              label: _isArabic ? 'إجمالي الخارج' : 'Total debits',
+              value: '-${_moneyFmt.format(debits.abs())}',
+              includeCurrency: true,
+              color: _negativeTextColor(theme),
+            );
+            final netCard = _summaryCard(
+              theme,
+              label: _isArabic ? 'صافي التغير' : 'Net change',
+              value:
+                  '${net > 0 ? '+' : net < 0 ? '-' : ''}${_moneyFmt.format(net.abs())}',
+              includeCurrency: true,
+              color: net >= 0
+                  ? _positiveTextColor(theme)
+                  : _negativeTextColor(theme),
+            );
+            final countCard = _summaryCard(
+              theme,
+              label: _isArabic ? 'عدد المعاملات' : 'Transactions',
+              value: _intFmt.format(count),
+              includeCurrency: false,
+              color: _amberTextColor(theme),
+            );
+
+            if (singleColumn) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  creditsCard,
+                  const SizedBox(height: 12),
+                  debitsCard,
+                  const SizedBox(height: 12),
+                  netCard,
+                  const SizedBox(height: 12),
+                  countCard,
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: creditsCard),
+                      const SizedBox(width: 12),
+                      Expanded(child: debitsCard),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _summaryCard(
-                  theme,
-                  label: _isArabic ? 'إجمالي الخارج' : 'Total debits',
-                  value: '-${_moneyFmt.format(debits.abs())} EGP',
-                  color: _negativeTextColor(theme),
+                const SizedBox(height: 12),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: netCard),
+                      const SizedBox(width: 12),
+                      Expanded(child: countCard),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _summaryCard(
-                  theme,
-                  label: _isArabic ? 'صافي التغير' : 'Net change',
-                  value:
-                      '${net > 0 ? '+' : net < 0 ? '-' : ''}${_moneyFmt.format(net.abs())} EGP',
-                  color: net >= 0
-                      ? _positiveTextColor(theme)
-                      : _negativeTextColor(theme),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _summaryCard(
-                  theme,
-                  label: _isArabic ? 'عدد المعاملات' : 'Transactions',
-                  value: _intFmt.format(count),
-                  color: _amberTextColor(theme),
-                ),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
         ),
         if (hasByType) ...[
           const SizedBox(height: 16),
           Text(
             _isArabic ? 'تفصيل حسب النوع' : 'Breakdown by type',
+            softWrap: true,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
@@ -621,7 +627,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                         : _positiveTextColor(theme);
                     return _typeChip(
                       _typeLabel(entry['type']?.toString() ?? ''),
-                      '$sign${_moneyFmt.format(total.abs())} EGP',
+                      '$sign${_moneyFmt.format(total.abs())}',
                       baseColor,
                       textColor,
                     );
@@ -638,6 +644,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     ThemeData theme, {
     required String label,
     required String value,
+    required bool includeCurrency,
     required Color color,
   }) {
     return Container(
@@ -653,24 +660,26 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
         children: [
           Text(
             label,
+            softWrap: true,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: _scaledMoneyText(
+            child: WalletLocalization.buildMoneyText(
               value,
               TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
+              isArabic: _isArabic,
+              includeCurrency: includeCurrency,
+              alignment: AlignmentDirectional.centerStart,
             ),
           ),
         ],
@@ -685,40 +694,36 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     Color textColor,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: baseColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: baseColor.withValues(alpha: 0.28)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Flexible(
-            child: Text(
-              '$label:',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: textColor,
-              ),
+          Text(
+            '$label:',
+            softWrap: true,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: textColor,
             ),
           ),
-          const SizedBox(width: 6),
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Text(
-              amountText,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+          WalletLocalization.buildMoneyText(
+            amountText,
+            TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
+              color: textColor,
             ),
+            isArabic: _isArabic,
+            includeCurrency: true,
+            alignment: AlignmentDirectional.centerStart,
           ),
         ],
       ),
@@ -731,7 +736,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     List<dynamic> transactions,
   ) async {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final dateFormat = DateFormat('yyyy-MM-dd hh:mm a');
+    final currency = WalletLocalization.currency(isArabic);
     final headers = [
       isArabic ? 'التاريخ' : 'Date',
       isArabic ? 'النوع' : 'Type',
@@ -742,17 +747,17 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     final rows = [
       for (final tx in transactions)
         [
-          () {
-            final dt = DateTime.tryParse(
-              tx['createdAt']?.toString() ?? '',
-            )?.toLocal();
-            return dt != null ? dateFormat.format(dt) : '';
-          }(),
+          WalletLocalization.formatDateTime(
+            tx['createdAt'],
+            isArabic: isArabic,
+          ),
           _typeLabel(tx['type']?.toString() ?? ''),
-          tx['description']?.toString() ?? '',
-          '${_moneyFmt.format(double.tryParse(tx['amount']?.toString() ?? '0') ?? 0)} EGP',
+          tx is Map
+              ? WalletLocalization.localizeDescription(tx, isArabic: isArabic)
+              : (tx['description']?.toString() ?? ''),
+          '${_moneyFmt.format(double.tryParse(tx['amount']?.toString() ?? '0') ?? 0)} $currency',
           tx['balanceAfter'] != null
-              ? '${_moneyFmt.format(double.tryParse(tx['balanceAfter'].toString()) ?? 0)} EGP'
+              ? '${_moneyFmt.format(double.tryParse(tx['balanceAfter'].toString()) ?? 0)} $currency'
               : '',
         ],
     ];
@@ -761,8 +766,8 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
       context,
       title: isArabic ? 'كشف حساب المعاملات المالية' : 'Financial Transactions',
       subtitle: isArabic
-          ? 'الرصيد المتاح: ${_moneyFmt.format(balance)} EGP'
-          : 'Available balance: ${_moneyFmt.format(balance)} EGP',
+          ? 'الرصيد المتاح: ${_moneyFmt.format(balance)} $currency'
+          : 'Available balance: ${_moneyFmt.format(balance)} $currency',
       headers: headers,
       rows: rows,
       filename: 'financial_transactions',
@@ -813,8 +818,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                   children: [
                     Text(
                       _isArabic ? 'الرصيد المتاح' : 'Available Balance',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(
                         color: AppColors.onPrimary,
                         fontSize: 15,
@@ -847,8 +851,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                         _isArabic
                             ? 'رصيدك متاح للسحب'
                             : 'Available for withdrawal',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
                         style: TextStyle(
                           color: AppColors.onPrimary.withValues(alpha: 0.78),
                           fontSize: 12,
@@ -872,6 +875,8 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                     fontSize: isMobile ? 32 : 38,
                     fontWeight: FontWeight.w900,
                   ),
+                  includeCurrency: false,
+                  alignment: AlignmentDirectional.centerStart,
                 ),
               ),
               const SizedBox(width: 10),
@@ -887,9 +892,9 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                     color: AppColors.onPrimary.withValues(alpha: 0.18),
                   ),
                 ),
-                child: const Text(
-                  'EGP',
-                  style: TextStyle(
+                child: Text(
+                  WalletLocalization.currency(_isArabic),
+                  style: const TextStyle(
                     color: AppColors.onPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -908,18 +913,22 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
     dynamic tx,
     ThemeData theme,
   ) {
-    final type = tx['type'] ?? 'UNKNOWN';
-    final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
-    final hasBalanceAfter = tx['balanceAfter'] != null;
+    final txMap = tx is Map ? tx : <String, dynamic>{};
+    final type = txMap['type'] ?? 'UNKNOWN';
+    final amount = double.tryParse(txMap['amount']?.toString() ?? '0') ?? 0.0;
+    final hasBalanceAfter = txMap['balanceAfter'] != null;
     final balanceAfter = hasBalanceAfter
-        ? (double.tryParse(tx['balanceAfter'].toString()) ?? 0.0)
+        ? (double.tryParse(txMap['balanceAfter'].toString()) ?? 0.0)
         : 0.0;
-    final date =
-        DateTime.tryParse(tx['createdAt']?.toString() ?? '')?.toLocal() ??
-        DateTime.now();
-    final description = tx['description'] as String? ?? '';
-    final orderObj = tx['order'] is Map ? tx['order'] as Map : null;
-    final orderNumber = orderObj?['orderNumber']?.toString() ?? '';
+    final localizedDescription = WalletLocalization.localizeDescription(
+      txMap,
+      isArabic: _isArabic,
+    );
+    final formattedDate = WalletLocalization.formatDateTime(
+      txMap['createdAt'] ?? DateTime.now(),
+      isArabic: _isArabic,
+    );
+    final orderNumber = WalletLocalization.extractOrderNumber(txMap);
 
     final isCredit = amount >= 0;
     final iconBgColor = isCredit ? AppColors.success : AppColors.error;
@@ -940,36 +949,36 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
         border: Border.all(color: _borderColor(theme)),
       ),
       child: LayoutBuilder(
-        builder: (context, constraints) => Row(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconBgColor.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: amountTextColor, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: iconBgColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: amountTextColor, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Flexible(
-                        child: Text(
-                          _typeLabel(type.toString()),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                      Text(
+                        _typeLabel(type.toString()),
+                        softWrap: true,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
                         ),
                       ),
-                      if (orderNumber.isNotEmpty) ...[
-                        const SizedBox(width: 6),
+                      if (orderNumber.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -979,81 +988,100 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                             color: AppColors.primary.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text(
-                            '#$orderNumber',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              color: _amberTextColor(theme),
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
+                          child: Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Text(
+                              '#$orderNumber',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: _amberTextColor(theme),
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
                             ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * 0.42,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _scaledMoneyText(
+                        '$sign${_moneyFmt.format(amount.abs())}',
+                        TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: amountTextColor,
+                          fontSize: 15,
+                        ),
+                        includeCurrency: true,
+                        alignment: AlignmentDirectional.centerEnd,
+                      ),
+                      if (hasBalanceAfter) ...[
+                        const SizedBox(height: 3),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _isArabic ? 'الرصيد: ' : 'Bal: ',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.55),
+                                ),
+                              ),
+                              _scaledMoneyText(
+                                '${balanceAfter < 0 ? '-' : ''}${_moneyFmt.format(balanceAfter.abs())}',
+                                TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.55),
+                                ),
+                                includeCurrency: true,
+                                alignment: AlignmentDirectional.centerEnd,
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ],
                   ),
-                  if (description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.65,
-                        ),
-                        fontSize: 12.5,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  Text(
-                    DateFormat('MMM dd, yyyy - hh:mm a').format(date),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.55,
-                      ),
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.42),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _scaledMoneyText(
-                    '$sign${_moneyFmt.format(amount.abs())} EGP',
-                    TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: amountTextColor,
-                      fontSize: 15,
-                    ),
-                    alignment: AlignmentDirectional.centerEnd,
-                  ),
-                  if (hasBalanceAfter) ...[
-                    const SizedBox(height: 3),
-                    _scaledMoneyText(
-                      '${_isArabic ? 'الرصيد: ' : 'Bal: '}${balanceAfter < 0 ? '-' : ''}${_moneyFmt.format(balanceAfter.abs())}',
-                      TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.55,
-                        ),
-                      ),
-                      alignment: AlignmentDirectional.centerEnd,
-                    ),
-                  ],
-                ],
+            if (localizedDescription.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                localizedDescription,
+                softWrap: true,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
-            ),
+            ],
+            if (formattedDate.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                formattedDate,
+                softWrap: true,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
           ],
         ),
       ),

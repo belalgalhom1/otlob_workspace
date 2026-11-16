@@ -772,9 +772,8 @@ class AppDialogFooter extends StatelessWidget {
             ),
             child: Text(
               cancelLabel!,
-              maxLines: 3,
               textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           )
@@ -809,9 +808,8 @@ class AppDialogFooter extends StatelessWidget {
 
       final labelWidget = Text(
         displayText,
-        maxLines: 3,
         textAlign: TextAlign.center,
-        overflow: TextOverflow.ellipsis,
+        softWrap: true,
         style: const TextStyle(fontWeight: FontWeight.bold),
       );
 

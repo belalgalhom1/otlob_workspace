@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import '../data/wallet_localization.dart';
 
 typedef AdminVendorWalletArgs = ({
   String vendorId,
@@ -129,40 +130,19 @@ class _AdminVendorWalletScreenState
     String text,
     TextStyle style, {
     AlignmentDirectional alignment = AlignmentDirectional.centerStart,
+    bool includeCurrency = true,
   }) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
+    return WalletLocalization.buildMoneyText(
+      text,
+      style,
+      isArabic: _isArabic,
+      includeCurrency: includeCurrency,
       alignment: alignment,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: Text(
-          text,
-          maxLines: 1,
-          style: style.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ),
     );
   }
 
   String _typeLabel(String type) {
-    switch (type) {
-      case 'ORDER_REVENUE':
-        return _isArabic ? 'إيراد طلب' : 'Order Revenue';
-      case 'COMMISSION_DEDUCTION':
-        return _isArabic ? 'خصم عمولة' : 'Commission';
-      case 'CASH_COLLECTED':
-        return _isArabic ? 'تحصيل نقدي' : 'Cash Collected';
-      case 'PAYOUT':
-        return _isArabic ? 'مدفوعات' : 'Payout';
-      case 'REFUND':
-        return _isArabic ? 'استرداد' : 'Refund';
-      case 'ADJUSTMENT':
-        return _isArabic ? 'تسوية' : 'Adjustment';
-      default:
-        return type.replaceAll('_', ' ');
-    }
+    return WalletLocalization.typeLabel(type, isArabic: _isArabic);
   }
 
   String? _dateParam(DateTime? date) {
@@ -193,8 +173,7 @@ class _AdminVendorWalletScreenState
         title: Text(
           '${_isArabic ? 'محفظة' : 'Wallet'}'
           '${widget.vendorName != null ? ' - ${widget.vendorName}' : ''}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          softWrap: true,
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
       ),
@@ -339,13 +318,13 @@ class _AdminVendorWalletScreenState
           value: _type,
           isExpanded: true,
           isDense: true,
+          itemHeight: null,
           items: [
             DropdownMenuItem<String>(
               value: null,
               child: Text(
                 _isArabic ? 'كل الأنواع' : 'All types',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                softWrap: true,
               ),
             ),
             ..._types.map(
@@ -353,8 +332,7 @@ class _AdminVendorWalletScreenState
                 value: type,
                 child: Text(
                   _typeLabel(type),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
                 ),
               ),
             ),
@@ -544,8 +522,7 @@ class _AdminVendorWalletScreenState
                   children: [
                     Text(
                       _isArabic ? 'الرصيد المتاح' : 'Available Balance',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(
                         color: AppColors.onPrimary,
                         fontSize: 15,
@@ -591,6 +568,7 @@ class _AdminVendorWalletScreenState
                     fontSize: isMobile ? 32 : 38,
                     fontWeight: FontWeight.w900,
                   ),
+                  includeCurrency: false,
                 ),
               ),
               const SizedBox(width: 10),
@@ -606,9 +584,9 @@ class _AdminVendorWalletScreenState
                     color: AppColors.onPrimary.withValues(alpha: 0.18),
                   ),
                 ),
-                child: const Text(
-                  'EGP',
-                  style: TextStyle(
+                child: Text(
+                  WalletLocalization.currency(_isArabic),
+                  style: const TextStyle(
                     color: AppColors.onPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -640,8 +618,14 @@ class _AdminVendorWalletScreenState
     final byType = summary['byType'];
     final hasByType = byType is List && byType.isNotEmpty;
 
-    Widget card(String label, String value, Color color) => Expanded(
-      child: Container(
+    Widget card(
+      String label,
+      String value,
+      Color color, {
+      bool isCount = false,
+      bool fullWidth = false,
+    }) {
+      final inner = Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
@@ -654,8 +638,7 @@ class _AdminVendorWalletScreenState
           children: [
             Text(
               label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              softWrap: true,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -672,97 +655,120 @@ class _AdminVendorWalletScreenState
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
+                includeCurrency: !isCount,
               ),
             ),
           ],
         ),
-      ),
-    );
+      );
+      return fullWidth ? inner : Expanded(child: inner);
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    final creditsLabel = _isArabic ? 'إجمالي الداخل' : 'Total credits';
+    final creditsVal = '+${_moneyFmt.format(credits)}';
+    final creditsColor = _positiveTextColor(theme);
+    final debitsLabel = _isArabic ? 'إجمالي الخارج' : 'Total debits';
+    final debitsVal = '-${_moneyFmt.format(debits.abs())}';
+    final debitsColor = _negativeTextColor(theme);
+    final netLabel = _isArabic ? 'صافي التغير' : 'Net change';
+    final netVal =
+        '${net > 0 ? '+' : net < 0 ? '-' : ''}${_moneyFmt.format(net.abs())}';
+    final netColor =
+        net >= 0 ? _positiveTextColor(theme) : _negativeTextColor(theme);
+    final countLabel = _isArabic ? 'عدد المعاملات' : 'Transactions';
+    final countVal = _intFmt.format(count);
+    final countColor = _amberTextColor(theme);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaledFont = MediaQuery.textScalerOf(context).scale(14);
+        final singleCol = constraints.maxWidth < 300 || scaledFont > 19.0;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (singleCol) ...[
+              card(creditsLabel, creditsVal, creditsColor, fullWidth: true),
+              const SizedBox(height: 10),
+              card(debitsLabel, debitsVal, debitsColor, fullWidth: true),
+              const SizedBox(height: 10),
+              card(netLabel, netVal, netColor, fullWidth: true),
+              const SizedBox(height: 10),
               card(
-                _isArabic ? 'إجمالي الداخل' : 'Total credits',
-                '+${_moneyFmt.format(credits)} EGP',
-                _positiveTextColor(theme),
+                countLabel,
+                countVal,
+                countColor,
+                isCount: true,
+                fullWidth: true,
               ),
-              const SizedBox(width: 12),
-              card(
-                _isArabic ? 'إجمالي الخارج' : 'Total debits',
-                '-${_moneyFmt.format(debits.abs())} EGP',
-                _negativeTextColor(theme),
+            ] else ...[
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    card(creditsLabel, creditsVal, creditsColor),
+                    const SizedBox(width: 12),
+                    card(debitsLabel, debitsVal, debitsColor),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    card(netLabel, netVal, netColor),
+                    const SizedBox(width: 12),
+                    card(countLabel, countVal, countColor, isCount: true),
+                  ],
+                ),
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              card(
-                _isArabic ? 'صافي التغير' : 'Net change',
-                '${net > 0 ? '+' : net < 0 ? '-' : ''}${_moneyFmt.format(net.abs())} EGP',
-                net >= 0
-                    ? _positiveTextColor(theme)
-                    : _negativeTextColor(theme),
+            if (hasByType) ...[
+              const SizedBox(height: 16),
+              Text(
+                _isArabic ? 'تفصيل حسب النوع' : 'Breakdown by type',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                ),
               ),
-              const SizedBox(width: 12),
-              card(
-                _isArabic ? 'عدد المعاملات' : 'Transactions',
-                _intFmt.format(count),
-                _amberTextColor(theme),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final entry in byType)
+                    if (entry is Map)
+                      () {
+                        final total =
+                            double.tryParse(entry['total']?.toString() ?? '0') ??
+                            0;
+                        final sign = total > 0
+                            ? '+'
+                            : total < 0
+                            ? '-'
+                            : '';
+                        final baseColor = total.isNegative
+                            ? AppColors.error
+                            : AppColors.success;
+                        final textColor = total.isNegative
+                            ? _negativeTextColor(theme)
+                            : _positiveTextColor(theme);
+                        return _typeChip(
+                          _typeLabel(entry['type']?.toString() ?? ''),
+                          '$sign${_moneyFmt.format(total.abs())}',
+                          baseColor,
+                          textColor,
+                        );
+                      }(),
+                ],
               ),
             ],
-          ),
-        ),
-        if (hasByType) ...[
-          const SizedBox(height: 16),
-          Text(
-            _isArabic ? 'تفصيل حسب النوع' : 'Breakdown by type',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final entry in byType)
-                if (entry is Map)
-                  () {
-                    final total =
-                        double.tryParse(entry['total']?.toString() ?? '0') ?? 0;
-                    final sign = total > 0
-                        ? '+'
-                        : total < 0
-                        ? '-'
-                        : '';
-                    final baseColor = total.isNegative
-                        ? AppColors.error
-                        : AppColors.success;
-                    final textColor = total.isNegative
-                        ? _negativeTextColor(theme)
-                        : _positiveTextColor(theme);
-                    return _typeChip(
-                      _typeLabel(entry['type']?.toString() ?? ''),
-                      '$sign${_moneyFmt.format(total.abs())} EGP',
-                      baseColor,
-                      textColor,
-                    );
-                  }(),
-            ],
-          ),
-        ],
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -779,34 +785,28 @@ class _AdminVendorWalletScreenState
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: baseColor.withValues(alpha: 0.28)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Flexible(
-            child: Text(
-              '$label:',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: textColor,
-              ),
+          Text(
+            '$label:',
+            softWrap: true,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: textColor,
             ),
           ),
-          const SizedBox(width: 6),
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Text(
-              amountText,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+          _scaledMoneyText(
+            amountText,
+            TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
+              color: textColor,
             ),
+            alignment: AlignmentDirectional.centerStart,
           ),
         ],
       ),
@@ -821,12 +821,15 @@ class _AdminVendorWalletScreenState
     final balanceAfter = hasBalanceAfter
         ? (double.tryParse(tx['balanceAfter'].toString()) ?? 0.0)
         : 0.0;
-    final date =
-        DateTime.tryParse(tx['createdAt']?.toString() ?? '')?.toLocal() ??
-        DateTime.now();
-    final description = tx['description']?.toString() ?? '';
-    final orderObj = tx['order'] is Map ? tx['order'] as Map : null;
-    final orderNumber = orderObj?['orderNumber']?.toString() ?? '';
+    final dateText = WalletLocalization.formatDateTime(
+      tx['createdAt'],
+      isArabic: _isArabic,
+    );
+    final description = WalletLocalization.localizeDescription(
+      tx,
+      isArabic: _isArabic,
+    );
+    final orderNumber = WalletLocalization.extractOrderNumber(tx);
 
     final isCredit = amount >= 0;
     final iconBgColor = isCredit ? AppColors.success : AppColors.error;
@@ -843,126 +846,141 @@ class _AdminVendorWalletScreenState
         border: Border.all(color: _borderColor(theme)),
       ),
       child: LayoutBuilder(
-        builder: (context, constraints) => Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconBgColor.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+        builder: (context, constraints) {
+          final scaledFont = MediaQuery.textScalerOf(context).scale(14);
+          final stackHeader = constraints.maxWidth < 290 || scaledFont > 19.0;
+
+          final titleWrap = Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                _typeLabel(type),
+                softWrap: true,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
-              child: Icon(
-                isCredit ? LucideIcons.arrowDownLeft : LucideIcons.arrowUpRight,
-                color: amountTextColor,
-                size: 18,
+              if (orderNumber.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '#$orderNumber',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: _amberTextColor(theme),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+            ],
+          );
+
+          final moneyCol = Column(
+            crossAxisAlignment:
+                stackHeader ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+            children: [
+              _scaledMoneyText(
+                '${isCredit ? '+' : '-'}${_moneyFmt.format(amount.abs())}',
+                TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: amountTextColor,
+                ),
+                alignment: stackHeader
+                    ? AlignmentDirectional.centerStart
+                    : AlignmentDirectional.centerEnd,
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
+              if (hasBalanceAfter) ...[
+                const SizedBox(height: 3),
+                _scaledMoneyText(
+                  '${_isArabic ? 'الرصيد:' : 'Bal:'} ${balanceAfter < 0 ? '-' : ''}${_moneyFmt.format(balanceAfter.abs())}',
+                  TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                  ),
+                  includeCurrency: false,
+                  alignment: stackHeader
+                      ? AlignmentDirectional.centerStart
+                      : AlignmentDirectional.centerEnd,
+                ),
+              ],
+            ],
+          );
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          _typeLabel(type),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      if (orderNumber.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '#$orderNumber',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              color: _amberTextColor(theme),
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.65,
-                        ),
-                      ),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: iconBgColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                  const SizedBox(height: 4),
-                  Text(
-                    DateFormat('MMM dd, yyyy - hh:mm a').format(date),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.55,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.42),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _scaledMoneyText(
-                    '${isCredit ? '+' : '-'}${_moneyFmt.format(amount.abs())} EGP',
-                    TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                    child: Icon(
+                      isCredit
+                          ? LucideIcons.arrowDownLeft
+                          : LucideIcons.arrowUpRight,
                       color: amountTextColor,
+                      size: 18,
                     ),
-                    alignment: AlignmentDirectional.centerEnd,
                   ),
-                  if (hasBalanceAfter) ...[
-                    const SizedBox(height: 3),
-                    _scaledMoneyText(
-                      '${_isArabic ? 'الرصيد: ' : 'Bal: '}${balanceAfter < 0 ? '-' : ''}${_moneyFmt.format(balanceAfter.abs())}',
-                      TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.55,
-                        ),
+                  const SizedBox(width: 12),
+                  Expanded(child: titleWrap),
+                  if (!stackHeader) ...[
+                    const SizedBox(width: 12),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * 0.42,
                       ),
-                      alignment: AlignmentDirectional.centerEnd,
+                      child: moneyCol,
                     ),
                   ],
                 ],
               ),
-            ),
-          ],
-        ),
+              if (stackHeader) ...[
+                const SizedBox(height: 8),
+                moneyCol,
+              ],
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                  ),
+                ),
+              ],
+              if (dateText.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  dateText,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }

@@ -19,6 +19,25 @@ class StatisticsScreen extends StatefulWidget {
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
   static const _periods = ['DAILY', 'WEEKLY', 'MONTHLY'];
+  static const _arMonths = [
+    'يناير',
+    'فبراير',
+    'مارس',
+    'أبريل',
+    'مايو',
+    'يونيو',
+    'يوليو',
+    'أغسطس',
+    'سبتمبر',
+    'أكتوبر',
+    'نوفمبر',
+    'ديسمبر',
+  ];
+
+  static String _formatShortDate(DateTime dt, bool isArabic) {
+    if (!isArabic) return DateFormat('MMM d', 'en_US').format(dt);
+    return '${dt.day} ${_arMonths[dt.month - 1]}';
+  }
 
   String _period = 'DAILY';
   DateTimeRange? _customRange;
@@ -308,14 +327,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 final chartRows = [...rows]..sort((a, b) =>
                     (_startDate(a) ?? fallbackEpoch)
                         .compareTo(_startDate(b) ?? fallbackEpoch));
-                final dateFormat = DateFormat('MMM d');
                 final chartValues = [
                   for (final r in chartRows) config.amount(r)
                 ];
                 final chartLabels = [
                   for (final r in chartRows)
                     _startDate(r) != null
-                        ? dateFormat.format(_startDate(r)!)
+                        ? _formatShortDate(_startDate(r)!, _isArabic)
                         : ''
                 ];
 
@@ -471,8 +489,7 @@ class _TrendCard extends StatelessWidget {
         children: [
           Text(
             title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 14,
@@ -585,22 +602,21 @@ class _SummaryCard extends StatelessWidget {
         builder: (context, constraints) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Flexible(
-                  child: Text(
-                    isArabic ? 'إجماليات الفترة' : 'Period Totals',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                Text(
+                  isArabic ? 'إجماليات الفترة' : 'Period Totals',
+                  softWrap: true,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
-                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -636,8 +652,7 @@ class _SummaryCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         isArabic ? item.labelAr : item.labelEn,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        softWrap: true,
                         style: const TextStyle(
                           color: Color(0xFFCBD5E1),
                           fontSize: 13,
@@ -693,7 +708,7 @@ class _StatRow extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = theme.colorScheme.onSurface;
-    final dateFormat = DateFormat('MMM dd, yyyy');
+    final dateFormat = DateFormat('MMM dd, yyyy', 'en_US');
 
     final start = config.amount(row);
     final details = config.rowDetails(row);
@@ -726,9 +741,9 @@ class _StatRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${_fmt(_parse(row['startDate']), dateFormat)}'
-                        ' - ${_fmt(_parse(row['endDate']), dateFormat)}',
-                        maxLines: 2,
+                        '${_fmt(_parse(row['startDate']), dateFormat, isArabic)}'
+                        ' - ${_fmt(_parse(row['endDate']), dateFormat, isArabic)}',
+                        softWrap: true,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -795,8 +810,10 @@ class _StatRow extends StatelessWidget {
     return DateTime.tryParse(raw.toString())?.toLocal();
   }
 
-  String _fmt(DateTime? dt, DateFormat format) {
-    return dt != null ? format.format(dt) : '';
+  String _fmt(DateTime? dt, DateFormat format, bool isArabic) {
+    if (dt == null) return '';
+    if (!isArabic) return format.format(dt);
+    return '${dt.day} ${_StatisticsScreenState._arMonths[dt.month - 1]} ${dt.year}';
   }
 
   Widget _statChip(BuildContext context, String text) {

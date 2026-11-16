@@ -322,10 +322,13 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                   ],
                                 ),
                                 const SizedBox(height: 10),
-                                _buildInfoRow(
+                                _buildVendorLogoRow(
                                   context,
-                                  LucideIcons.store,
-                                  bName.isNotEmpty ? '$vName ($bName)' : vName,
+                                  ref,
+                                  logoUrl: fVendor['logo']?.toString(),
+                                  storeLabel: bName.isNotEmpty
+                                      ? '$vName ($bName)'
+                                      : vName,
                                 ),
                                 if (address.isNotEmpty) ...[
                                   const SizedBox(height: 8),
@@ -346,7 +349,15 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                         }(),
                       ],
                     ] else ...[
-                      _buildInfoRow(context, LucideIcons.store, vendor['storeName'] ?? vendor['name'] ?? l10n.vendorFallback),
+                      _buildVendorLogoRow(
+                        context,
+                        ref,
+                        logoUrl: vendor['logo']?.toString(),
+                        storeLabel: (vendor['storeName'] ??
+                                vendor['name'] ??
+                                l10n.vendorFallback)
+                            .toString(),
+                      ),
                       () {
                         final Map? branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : null;
                         final String? branchName = branch == null
@@ -570,7 +581,13 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(LucideIcons.store, size: 16, color: AppColors.primary),
+                                    _buildVendorAvatar(
+                                      context,
+                                      ref,
+                                      fVendor['logo']?.toString(),
+                                      size: 26,
+                                      iconSize: 14,
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -1239,12 +1256,114 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
     }
   }
 
+  Widget _buildVendorAvatar(
+    BuildContext context,
+    WidgetRef ref,
+    String? rawLogo, {
+    double size = 34,
+    double iconSize = 17,
+  }) {
+    final resolved =
+        rawLogo != null && rawLogo.trim().isNotEmpty
+            ? _resolveMediaUrl(ref, rawLogo)
+            : '';
+
+    final fallback = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.14),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Icon(
+        LucideIcons.store,
+        size: iconSize,
+        color: AppColors.primary,
+      ),
+    );
+
+    if (resolved.isEmpty) return fallback;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.primary.withValues(alpha: 0.1),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.4),
+          width: 1.2,
+        ),
+      ),
+      child: ClipOval(
+        child: Image.network(
+          resolved,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => Icon(
+            LucideIcons.store,
+            size: iconSize,
+            color: AppColors.primary,
+          ),
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Center(
+              child: Icon(
+                LucideIcons.store,
+                size: iconSize,
+                color: AppColors.primary.withValues(alpha: 0.6),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVendorLogoRow(
+    BuildContext context,
+    WidgetRef ref, {
+    required String? logoUrl,
+    required String storeLabel,
+  }) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _buildVendorAvatar(context, ref, logoUrl),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            storeLabel,
+            softWrap: true,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   String _resolveMediaUrl(WidgetRef ref, String path) {
+    final trimmed = path.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
     final baseUrl = ref.read(dioProvider).options.baseUrl;
     final cleanBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
-    return '$cleanBaseUrl$path';
+    final cleanPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    return '$cleanBaseUrl$cleanPath';
   }
 
   void _viewPhoto(BuildContext context, WidgetRef ref, String url) {

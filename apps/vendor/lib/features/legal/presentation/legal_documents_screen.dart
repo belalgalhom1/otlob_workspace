@@ -1154,50 +1154,110 @@ class _LegalDocumentsScreenState extends ConsumerState<LegalDocumentsScreen>
       builder: (ctx) {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
-            final title = showArabic
-                ? (doc['titleAr'] ?? doc['title'] ?? '')
-                : (doc['title'] ?? doc['titleAr'] ?? '');
-            final content = showArabic
-                ? (doc['contentAr'] ?? doc['content'] ?? '')
-                : (doc['content'] ?? doc['contentAr'] ?? '');
+            final title = (showArabic
+                    ? (doc['titleAr'] ?? doc['title'] ?? '')
+                    : (doc['title'] ?? doc['titleAr'] ?? ''))
+                .toString();
+            final content = (showArabic
+                    ? (doc['contentAr'] ?? doc['content'] ?? '')
+                    : (doc['content'] ?? doc['contentAr'] ?? ''))
+                .toString();
             final version = doc['version']?.toString() ?? '1.0';
+            final isMobile = AppDialogStyles.isMobile(dialogCtx);
+            final theme = Theme.of(dialogCtx);
+            final isDark = theme.brightness == Brightness.dark;
+            final langAccent = isDark ? AppColors.primary : const Color(0xFFB45309);
+            final readerRadius = AppDialogStyles.cardRadius(dialogCtx);
 
             return AppDialog(
               maxWidth: 820,
               maxHeight: 740,
               scrollableBody: false,
               expandBody: true,
+              bodyPadding: EdgeInsets.fromLTRB(
+                isMobile ? 16 : 20,
+                12,
+                isMobile ? 16 : 20,
+                12,
+              ),
               header: AppDialogHeader(
                 icon: LucideIcons.fileText,
                 title: title,
                 subtitleWidget: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
+                  spacing: 8,
+                  runSpacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     AppBadgePill(
                       text: 'v$version',
                       accentColor: AppColors.primary,
                     ),
-                    AppBadgePill(
-                      text: showArabic ? 'عربي' : 'EN',
+                    InkWell(
+                      onTap: () {
+                        setDialogState(() => showArabic = !showArabic);
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 30),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppDialogStyles.subtleSurfaceColor(dialogCtx),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppDialogStyles.borderColor(dialogCtx),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.languages,
+                              size: 14,
+                              color: langAccent,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              showArabic ? 'English' : 'عربي',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 onClose: () => Navigator.pop(ctx),
               ),
-              body: LegalDocumentView(
-                title: title,
-                version: version,
-                content: content,
-                isArabic: showArabic,
-                padding: EdgeInsets.zero,
-                onLanguageToggle: () {
-                  setDialogState(() => showArabic = !showArabic);
-                },
+              body: Container(
+                decoration: BoxDecoration(
+                  color: AppDialogStyles.subtleSurfaceColor(dialogCtx),
+                  borderRadius: BorderRadius.circular(readerRadius),
+                  border: Border.all(
+                    color: AppDialogStyles.borderColor(dialogCtx),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(readerRadius),
+                  child: Scrollbar(
+                    child: LegalDocumentView(
+                      title: title,
+                      version: version,
+                      content: content,
+                      isArabic: showArabic,
+                      showHeader: false,
+                      padding: EdgeInsets.all(isMobile ? 16 : 20),
+                    ),
+                  ),
+                ),
               ),
               footer: AppDialogFooter(
-                confirmLabel: showArabic ? 'إغلاق' : 'Close',
+                confirmLabel: isArabic ? 'إغلاق' : 'Close',
                 onConfirm: () => Navigator.pop(ctx),
               ),
             );

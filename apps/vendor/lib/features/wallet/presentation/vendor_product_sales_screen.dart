@@ -5,6 +5,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import '../data/wallet_localization.dart';
 import 'vendor_product_sales_provider.dart';
 
 class VendorProductSalesScreen extends ConsumerStatefulWidget {
@@ -94,7 +95,11 @@ class _VendorProductSalesScreenState
 
   String _money(dynamic value) {
     final n = double.tryParse(value?.toString() ?? '0') ?? 0;
-    return '${n < 0 ? '-' : ''}${_moneyFmt.format(n.abs())} EGP';
+    return WalletLocalization.formatAmountWithCurrency(
+      n,
+      isArabic: _isArabic,
+      formatter: _moneyFmt,
+    );
   }
 
   int _int(dynamic value) {
@@ -138,8 +143,7 @@ class _VendorProductSalesScreenState
           surfaceTintColor: Colors.transparent,
           title: Text(
             _isArabic ? 'المنتجات المباعة' : 'Products Sold',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
           ),
         ),
         body: Center(
@@ -175,8 +179,7 @@ class _VendorProductSalesScreenState
         title: Text(
           '${_isArabic ? 'المنتجات المباعة' : 'Products Sold'}'
           '${widget.vendorName != null ? ' - ${widget.vendorName}' : ''}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          softWrap: true,
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         actions: [
@@ -273,15 +276,12 @@ class _VendorProductSalesScreenState
                 const SizedBox(height: 24),
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        _isArabic ? 'المنتجات' : 'Products',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    Text(
+                      _isArabic ? 'المنتجات' : 'Products',
+                      softWrap: true,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -455,14 +455,14 @@ class _VendorProductSalesScreenState
           value: _sortBy,
           isExpanded: true,
           isDense: true,
+          itemHeight: null,
           items: _sortOptions
               .map(
                 (key) => DropdownMenuItem<String>(
                   value: key,
                   child: Text(
                     _sortLabel(key),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                   ),
                 ),
               )
@@ -725,8 +725,7 @@ class _VendorProductSalesScreenState
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
                   fontWeight: FontWeight.w500,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                softWrap: true,
               ),
             ],
           ),
@@ -755,7 +754,11 @@ class _VendorProductSalesScreenState
     final gross = _money(product['grossRevenue']);
     final commissionVal =
         double.tryParse(product['commission']?.toString() ?? '0') ?? 0;
-    final commission = '${_moneyFmt.format(commissionVal.abs())} EGP';
+    final commission = WalletLocalization.formatAmountWithCurrency(
+      commissionVal.abs(),
+      isArabic: _isArabic,
+      formatter: _moneyFmt,
+    );
     final net = _money(product['netRevenue']);
     final netVal =
         double.tryParse(product['netRevenue']?.toString() ?? '0') ?? 0;
@@ -781,8 +784,7 @@ class _VendorProductSalesScreenState
         children: [
           Text(
             label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            softWrap: true,
             style: TextStyle(
               fontSize: 11,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
@@ -835,8 +837,7 @@ class _VendorProductSalesScreenState
                   children: [
                     Text(
                       name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
@@ -847,8 +848,7 @@ class _VendorProductSalesScreenState
                       _isArabic
                           ? '${_intFmt.format(quantity)} وحدة • ${_intFmt.format(orders)} طلب'
                           : '${_intFmt.format(quantity)} sold • ${_intFmt.format(orders)} orders',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.colorScheme.onSurface.withValues(
