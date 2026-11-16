@@ -40,11 +40,20 @@ class InboxCounts extends _$InboxCounts {
     final socket = ref.read(socketServiceProvider);
     final chatSub =
         socket.onEvent('chat.message').listen(_onRealtimeEvent);
+    final readSub =
+        socket.onEvent('chat.read').listen(_onRealtimeEvent);
+    final createdSub =
+        socket.onEvent('conversation.created').listen(_onRealtimeEvent);
+    final closedSub =
+        socket.onEvent('conversation.closed').listen(_onRealtimeEvent);
     final notifSub =
         socket.onEvent('notification.new').listen(_onRealtimeEvent);
 
     ref.onDispose(() {
       chatSub.cancel();
+      readSub.cancel();
+      createdSub.cancel();
+      closedSub.cancel();
       notifSub.cancel();
     });
 

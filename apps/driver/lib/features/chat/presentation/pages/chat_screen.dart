@@ -109,6 +109,17 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     _focusNode.addListener(_onFocusChange);
   }
 
+  @override
+  void didUpdateWidget(covariant OrderChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.orderId != widget.orderId) {
+      _hasPoppedForClosed = false;
+      _replyingTo = null;
+      _orderData = null;
+      _loadOrderDetails();
+    }
+  }
+
   Future<void> _loadOrderDetails() async {
     try {
       final repo = ref.read(driverOrdersRepositoryProvider);
@@ -609,7 +620,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
         children: [
           if (_orderData != null)
             OrderContextBar(
-              orderNumber: (_orderData!['orderNumber'] ?? widget.orderId.substring(0, 8)).toString(),
+              orderNumber: (_orderData!['orderNumber'] ?? (widget.orderId.length > 8 ? widget.orderId.substring(0, 8) : widget.orderId)).toString(),
               statusLabel: _formatStatusLabel(context, _orderData!['status']?.toString()),
               statusColor: _getStatusColor(_orderData!['status']?.toString()),
               totalAmount: _orderData!['totalAmount'] != null ? '${_orderData!['totalAmount']} EGP' : null,

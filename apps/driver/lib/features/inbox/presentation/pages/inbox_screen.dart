@@ -55,96 +55,124 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         elevation: 0,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       ),
-      body: RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: () async {
-          await ref.read(sharedInboxProvider.notifier).refresh();
-        },
-        child: inboxState.isLoading && inboxState.conversations.isEmpty
-            ? const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              )
-            : inboxState.error != null && inboxState.conversations.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline_rounded,
-                      color: Colors.red,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      ErrorUtils.translate(context, inboxState.error),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
+      body: SafeArea(
+        top: false,
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            await ref.read(sharedInboxProvider.notifier).refresh();
+          },
+          child: inboxState.isLoading && inboxState.conversations.isEmpty
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                )
+              : inboxState.error != null && inboxState.conversations.isEmpty
+              ? LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(24),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: (constraints.maxHeight - 48)
+                            .clamp(0.0, double.infinity),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () =>
-                          ref.read(sharedInboxProvider.notifier).refresh(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: Text(l10n.retry),
-                    ),
-                  ],
-                ),
-              )
-            : inboxState.conversations.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
-                      size: 100,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      l10n.inboxEmpty,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ListView.builder(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  8,
-                  16,
-                  16 + MediaQuery.paddingOf(context).bottom,
-                ),
-                itemCount:
-                    inboxState.conversations.length +
-                    (inboxState.hasMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == inboxState.conversations.length) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
                       child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: Colors.red,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              ErrorUtils.translate(context, inboxState.error),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => ref
+                                  .read(sharedInboxProvider.notifier)
+                                  .refresh(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: Text(l10n.retry),
+                            ),
+                          ],
                         ),
                       ),
-                    );
-                  }
-                  final convo = inboxState.conversations[index];
-                  return _buildConversationItem(context, convo, l10n);
-                },
-              ),
+                    ),
+                  ),
+                )
+              : inboxState.conversations.isEmpty
+              ? LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(24),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: (constraints.maxHeight - 48)
+                            .clamp(0.0, double.infinity),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.2),
+                              size: 84,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              l10n.inboxEmpty,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  itemCount:
+                      inboxState.conversations.length +
+                      (inboxState.hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == inboxState.conversations.length) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      );
+                    }
+                    final convo = inboxState.conversations[index];
+                    return _buildConversationItem(context, convo, l10n);
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -154,41 +182,46 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     Map<String, dynamic> convo,
     AppLocalizations l10n,
   ) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final id = convo['id']?.toString() ?? '';
-    final type = convo['type']?.toString() ?? 'UNKNOWN';
-    final unreadCount = convo['unreadCount'] as int? ?? 0;
+    final type = (convo['type']?.toString() ?? 'UNKNOWN').toUpperCase();
+    final unreadCount = (convo['unreadCount'] as num?)?.toInt() ?? 0;
     final lastMessage = convo['lastMessage'] as Map<String, dynamic>?;
 
-    String title = 'Conversation';
+    String title = isAr ? 'محادثة' : 'Conversation';
+    String typeLabel = isAr ? 'محادثة' : 'Chat';
     IconData icon = Icons.chat_rounded;
     Color iconColor = AppColors.primary;
 
     if (type == 'SUPPORT') {
-      title = 'Support'; // Will need l10n if driver has support chat
+      typeLabel = isAr ? 'تذكرة دعم فني' : 'Support Ticket';
+      title = convo['subject']?.toString() ?? (isAr ? 'الدعم الفني' : 'Support');
       icon = Icons.support_agent_rounded;
       iconColor = Colors.blue;
     } else if (type == 'ORDER') {
+      typeLabel = isAr ? 'محادثة طلب' : 'Order Conversation';
       final orderIdStr = convo['orderId']?.toString() ?? '';
       final orderNumStr =
           convo['order']?['orderNumber']?.toString() ??
           (orderIdStr.length > 8 ? orderIdStr.substring(0, 8) : orderIdStr);
-      title = 'Order #$orderNumStr';
+      title = isAr ? 'طلب #$orderNumStr' : 'Order #$orderNumStr';
       icon = Icons.receipt_long_rounded;
       iconColor = Colors.orange;
     } else if (type == 'VENDOR') {
-      title = convo['vendor']?['name'] ?? 'Store';
+      typeLabel = isAr ? 'محادثة متجر' : 'Store Conversation';
+      title = convo['vendor']?['name'] ?? (isAr ? 'متجر' : 'Store');
       icon = Icons.storefront_rounded;
       iconColor = Colors.green;
     }
 
-    String subtitle = 'No messages';
+    String subtitle = isAr ? 'لا توجد رسائل' : 'No messages';
     String timeStr = '';
 
     if (lastMessage != null) {
       final text = lastMessage['text'];
       subtitle = (text != null && text.toString().isNotEmpty)
           ? text.toString()
-          : 'Attachment';
+          : (isAr ? 'مرفق' : 'Attachment');
       final dateStr = lastMessage['createdAt'] as String?;
       if (dateStr != null) {
         try {
@@ -206,7 +239,9 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     }
 
     return InboxConversationTile(
+      key: ValueKey('driver_convo_$id'),
       title: title,
+      typeLabel: typeLabel,
       lastMessageContent: subtitle,
       timeStr: timeStr,
       unreadCount: unreadCount,
@@ -215,10 +250,12 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       isSupport: type == 'SUPPORT',
       onTap: () async {
         if (type == 'ORDER') {
-          await context.push('/chat/${convo['orderId']}');
+          await context.push('/chat/${convo['orderId'] ?? id}');
         } else {
-          // If we add support/vendor chat for drivers, we can push to a general chat screen
           await context.push('/chat/$id', extra: {'title': title});
+        }
+        if (mounted) {
+          ref.read(sharedInboxProvider.notifier).refresh();
         }
       },
     );

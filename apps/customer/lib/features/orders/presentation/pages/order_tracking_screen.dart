@@ -1425,14 +1425,27 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       );
       if (!context.mounted) return;
       if (conversation != null) {
-        final convoId = conversation['id'];
-        context.push(
+        final convoData = conversation is Map && conversation.containsKey('data')
+            ? conversation['data']
+            : conversation;
+        final convoId = convoData['id'] ?? widget.orderId;
+        final orderNum = _orderDetails?['orderNumber'] ??
+            convoData['order']?['orderNumber'] ??
+            (widget.orderId.length >= 8
+                ? widget.orderId.substring(0, 8)
+                : widget.orderId);
+        final title = s.isArabic ? 'طلب #$orderNum' : 'Order #$orderNum';
+        ref.read(sharedInboxProvider.notifier).refresh();
+        await context.push(
           '/chat/order/$convoId',
           extra: {
-            'title': s.isArabic ? 'طلب' : 'Order',
+            'title': title,
             'orderId': widget.orderId,
           },
         );
+        if (mounted) {
+          ref.read(sharedInboxProvider.notifier).refresh();
+        }
       }
     } catch (e) {
       if (context.mounted) {

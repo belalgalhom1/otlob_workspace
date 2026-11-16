@@ -104,6 +104,25 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     _focusNode.addListener(_onFocusChange);
   }
 
+  @override
+  void didUpdateWidget(covariant AdminChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.conversationId != widget.conversationId) {
+      setState(() {
+        _messages.clear();
+        _isLoading = true;
+        _hasMore = true;
+        _nextCursor = null;
+        _isLoadingMore = false;
+        _replyingTo = null;
+        _orderDetails = null;
+        _isOrderExpanded = false;
+      });
+      _loadMessages();
+      _loadTicketAndOrderDetails();
+    }
+  }
+
   Future<bool> _ensureRecorderInitialized() async {
     if (_isRecorderInitialized && _recorder != null) {
       return true;
@@ -3107,23 +3126,39 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                                     fontSize: 15,
                                   ),
                                 ),
-                                const Spacer(),
-                                TextButton.icon(
-                                  onPressed: _cancelRecording,
-                                  icon: const Icon(
-                                    LucideIcons.x,
-                                    size: 14,
-                                    color: AppColors.error,
-                                  ),
-                                  label: Text(
-                                    AppLocalizations.of(context)!.cancel,
-                                    style: const TextStyle(
-                                      color: AppColors.error,
-                                      fontSize: 12,
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: TextButton.icon(
+                                      onPressed: _cancelRecording,
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 4,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      icon: const Icon(
+                                        LucideIcons.x,
+                                        size: 14,
+                                        color: AppColors.error,
+                                      ),
+                                      label: Text(
+                                        AppLocalizations.of(context)!.cancel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: AppColors.error,
+                                          fontSize: 12,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                               ],
                             ),
                           )

@@ -86,6 +86,7 @@ class AppStrings {
   String get editProfile => 'app.editProfile'.tr(context: _context);
   String get myAddresses => 'app.myAddresses'.tr(context: _context);
   String get helpCenter => 'app.helpCenter'.tr(context: _context);
+  String get technicalSupport => 'app.technicalSupport'.tr(context: _context);
   String get aboutApp => 'app.aboutApp'.tr(context: _context);
   String get logout => 'app.logout'.tr(context: _context);
   String get language => 'app.language'.tr(context: _context);

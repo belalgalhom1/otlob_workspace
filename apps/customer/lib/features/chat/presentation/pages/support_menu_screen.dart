@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:data/providers.dart' hide inboxCountsProvider;
 import 'package:ui_kit/ui_kit.dart' show AppAdaptiveChevron, AppDialog;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/network/network_providers.dart';
+import '../providers/inbox_counts_provider.dart';
 import '../providers/support_ticket_provider.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
 
@@ -20,12 +23,14 @@ enum _SupportStep { category, orderPicker, subCategory }
 class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
   _SupportStep _step = _SupportStep.category;
 
-  String? _selectedCategory;       // Arabic category key
+  String? _selectedCategory; // Arabic category key
   Map<String, dynamic>? _selectedOrder; // Full order map selected by user
 
   List<Map<String, dynamic>> _orders = [];
   bool _loadingOrders = false;
-  bool _isCheckingActiveTicket = true;
+
+  List<Map<String, dynamic>> _tickets = [];
+  bool _loadingTickets = false;
 
   // ───────── Category / SubCategory data ─────────
 
@@ -57,28 +62,28 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
   };
 
   final Map<String, String> _categoryEnMapping = {
-    'مشكلة في التوصيل':         'Delivery Issue',
-    'مشكلة في متجر / محتويات الطلب':    'Vendor/Order Contents Issue',
-    'مشكلة في الدفع':           'Payment Issue',
+    'مشكلة في التوصيل': 'Delivery Issue',
+    'مشكلة في متجر / محتويات الطلب': 'Vendor/Order Contents Issue',
+    'مشكلة في الدفع': 'Payment Issue',
     'مشكلة في الحساب والتطبيق': 'Account/App Issue',
-    'طلب استرجاع/شكوى عامة':    'Return/Complaint',
-    'مش لاقي مشكلتي':           'Other',
+    'طلب استرجاع/شكوى عامة': 'Return/Complaint',
+    'مش لاقي مشكلتي': 'Other',
   };
 
   final Map<String, String> _subCategoryEnMapping = {
-    'تأخير في التوصيل':          'Delayed delivery',
-    'الكابتن مش بيرد':           'Courier not responding',
-    'الكابتن مش لاقي المكان':    'Courier lost',
-    'الطلب اتسلم لحد تاني':      'Order delivered to wrong person',
-    'شكوى على الكابتن':          'Courier complaint',
-    'الطلب ناقص أو غلط':        'Missing or wrong items',
-    'جودة المنتجات سيئة':          'Poor product quality',
+    'تأخير في التوصيل': 'Delayed delivery',
+    'الكابتن مش بيرد': 'Courier not responding',
+    'الكابتن مش لاقي المكان': 'Courier lost',
+    'الطلب اتسلم لحد تاني': 'Order delivered to wrong person',
+    'شكوى على الكابتن': 'Courier complaint',
+    'الطلب ناقص أو غلط': 'Missing or wrong items',
+    'جودة المنتجات سيئة': 'Poor product quality',
     'المتجر مغلق وهو ظاهر مفتوح': 'Store closed but showing open',
-    'السعر غلط':                 'Wrong price',
-    'دفع InstaPay':              'InstaPay Payment',
-    'دفع فودافون كاش':           'Vodafone Cash Payment',
-    'مشكلة حساب/دخول':          'Account/Login issue',
-    'طلب استرجاع':               'Return request',
+    'السعر غلط': 'Wrong price',
+    'دفع InstaPay': 'InstaPay Payment',
+    'دفع فودافون كاش': 'Vodafone Cash Payment',
+    'مشكلة حساب/دخول': 'Account/Login issue',
+    'طلب استرجاع': 'Return request',
   };
 
   // Categories that require an order to be selected
@@ -93,14 +98,11 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
   @override
   void initState() {
     super.initState();
-    _checkActiveTicket();
+    Future.microtask(_loadTickets);
   }
 
-  /// A ticket counts as "active" (chat should open) only when it is neither
-  /// CLOSED nor RESOLVED **and** it still has a conversation attached.
-  /// The backend removes the customer from the chat participants on resolve/close
-  /// and hides `conversationId` from the customer so they cannot re-enter the
-  /// resolved/closed thread and can open a new issue instead.
+  /// A ticket counts as "active" when it is neither CLOSED nor RESOLVED
+  /// and still has a conversation attached.
   bool _isTicketChatActive(dynamic t) {
     if (t is! Map) return false;
     final status = (t['status']?.toString() ?? '').toUpperCase();
@@ -112,23 +114,24 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     return true;
   }
 
-  Future<void> _checkActiveTicket() async {
+  Future<void> _loadTickets() async {
+    if (!mounted) return;
+    setState(() => _loadingTickets = true);
     try {
       final result = await ref.read(supportTicketProvider.notifier).getTickets();
-      final List<dynamic> tickets = result;
-      for (var t in tickets) {
-        if (_isTicketChatActive(t)) {
-          if (mounted) {
-            context.pushReplacement(
-              '/chat/direct/${(t as Map)['conversationId']}',
-              extra: {'title': (t)['subject']},
-            );
-          }
-          return;
-        }
-      }
-    } catch (_) {}
-    if (mounted) setState(() => _isCheckingActiveTicket = false);
+      if (!mounted) return;
+      setState(() {
+        _tickets = result
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _tickets = []);
+    } finally {
+      if (mounted) setState(() => _loadingTickets = false);
+    }
   }
 
   Future<void> _loadOrders() async {
@@ -174,9 +177,7 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     setState(() {
       _selectedOrder = order;
       final subList = _categoriesAr[_selectedCategory!] ?? [];
-      if (subList.isEmpty) {
-        // No sub-categories → create immediately
-      } else {
+      if (subList.isNotEmpty) {
         _step = _SupportStep.subCategory;
       }
     });
@@ -208,6 +209,46 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     });
   }
 
+  String _formatTicketNumber(dynamic rawNum) {
+    if (rawNum == null) return '';
+    return 'A${rawNum.toString().padLeft(5, '0')}';
+  }
+
+  String _buildTicketChatTitle(Map<String, dynamic> ticket, bool isAr) {
+    final numStr = _formatTicketNumber(ticket['ticketNumber']);
+    final subject = ticket['subject']?.toString().trim() ?? '';
+    if (numStr.isNotEmpty && subject.isNotEmpty) {
+      return '#$numStr • $subject';
+    }
+    if (subject.isNotEmpty) return subject;
+    if (numStr.isNotEmpty) {
+      return isAr ? 'تذكرة #$numStr' : 'Ticket #$numStr';
+    }
+    return isAr ? 'الدعم الفني' : 'Technical Support';
+  }
+
+  Future<void> _openTicketConversation(
+    Map<String, dynamic> ticket,
+    bool isAr,
+  ) async {
+    final convoId = ticket['conversationId']?.toString() ?? '';
+    if (convoId.isEmpty || convoId == 'null') return;
+    final title = _buildTicketChatTitle(ticket, isAr);
+    final orderId = (ticket['orderId'] ?? ticket['order']?['id'])?.toString();
+    await context.push(
+      '/chat/support/$convoId',
+      extra: {
+        'title': title,
+        if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
+      },
+    );
+    if (mounted) {
+      _loadTickets();
+      ref.read(sharedInboxProvider.notifier).refresh();
+      ref.read(inboxCountsProvider.notifier).refresh();
+    }
+  }
+
   // ───────── Ticket creation ─────────
 
   Future<void> _createTicket(String categoryAr, String? subAr) async {
@@ -215,21 +256,33 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
 
     String categoryEnum;
     switch (categoryAr) {
-      case 'مشكلة في التوصيل':          categoryEnum = 'DELIVERY'; break;
-      case 'مشكلة في متجر / محتويات الطلب':     categoryEnum = 'VENDOR';   break;
-      case 'مشكلة في الدفع':            categoryEnum = 'PAYMENT';  break;
-      case 'مشكلة في الحساب والتطبيق':  categoryEnum = 'ACCOUNT';  break;
-      case 'طلب استرجاع/شكوى عامة':     categoryEnum = 'VENDOR';   break;
-      default:                           categoryEnum = 'OTHER';
+      case 'مشكلة في التوصيل':
+        categoryEnum = 'DELIVERY';
+        break;
+      case 'مشكلة في متجر / محتويات الطلب':
+        categoryEnum = 'VENDOR';
+        break;
+      case 'مشكلة في الدفع':
+        categoryEnum = 'PAYMENT';
+        break;
+      case 'مشكلة في الحساب والتطبيق':
+        categoryEnum = 'ACCOUNT';
+        break;
+      case 'طلب استرجاع/شكوى عامة':
+        categoryEnum = 'VENDOR';
+        break;
+      default:
+        categoryEnum = 'OTHER';
     }
 
-    final subCategory = subAr != null ? (_subCategoryEnMapping[subAr] ?? subAr) : null;
+    final subCategory =
+        subAr != null ? (_subCategoryEnMapping[subAr] ?? subAr) : null;
     final subject = isAr
         ? (subAr ?? categoryAr)
         : (subCategory ?? _categoryEnMapping[categoryAr] ?? categoryAr);
 
     // Extract orderId & vendorId from the selected order
-    final orderId  = _selectedOrder?['id']?.toString();
+    final orderId = _selectedOrder?['id']?.toString();
     final vendorId = _selectedOrder?['vendorId']?.toString();
 
     showDialog(
@@ -254,7 +307,7 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
-                  isAr ? 'جاري فتح المحادثة...' : 'Opening support chat...',
+                  isAr ? 'جاري فتح تذكرة الدعم...' : 'Creating support ticket...',
                   style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -268,45 +321,59 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
 
     try {
       final tickets = await ref.read(supportTicketProvider.notifier).getTickets();
-      dynamic activeTicket;
-      try {
-        activeTicket = tickets.firstWhere((t) => _isTicketChatActive(t));
-      } catch (_) {
-        activeTicket = null;
-      }
-
-      if (activeTicket != null) {
-        if (mounted) {
-          Navigator.pop(context);
-          context.pushReplacement(
-            '/chat/direct/${activeTicket['conversationId']}',
-            extra: {'title': activeTicket['subject']},
-          );
+      for (final t in tickets) {
+        if (_isTicketChatActive(t) && t is Map) {
+          final existingId = t['id']?.toString();
+          if (existingId != null && existingId.isNotEmpty) {
+            await ref.read(supportTicketProvider.notifier).closeTicket(existingId);
+          }
         }
-        return;
       }
 
       final ticket = await ref.read(supportTicketProvider.notifier).createTicket(
-        subject: subject,
-        category: categoryEnum,
-        subCategory: subAr ?? subCategory,
-        orderId: orderId,
-        vendorId: vendorId,
-      );
+            subject: subject,
+            category: categoryEnum,
+            subCategory: subAr ?? subCategory,
+            orderId: orderId,
+            vendorId: vendorId,
+          );
 
+      // Ensure Conversations List and unread counts reflect the new ticket conversation
+      ref.read(sharedInboxProvider.notifier).refresh();
+      ref.read(inboxCountsProvider.notifier).refresh();
 
       if (mounted) {
         Navigator.pop(context);
-        context.pushReplacement(
-          '/chat/direct/${ticket['conversationId']}',
-          extra: {'title': subject},
+        final convoId = ticket['conversationId']?.toString() ?? '';
+        final chatTitle = _buildTicketChatTitle(
+          {...ticket, 'subject': ticket['subject'] ?? subject},
+          isAr,
         );
+        if (convoId.isNotEmpty && convoId != 'null') {
+          context.pushReplacement(
+            '/chat/support/$convoId',
+            extra: {
+              'title': chatTitle,
+              if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
+            },
+          );
+        } else {
+          await _loadTickets();
+          setState(() {
+            _step = _SupportStep.category;
+            _selectedCategory = null;
+            _selectedOrder = null;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ErrorUtils.translate(context, e)), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(ErrorUtils.translate(context, e)),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -316,12 +383,6 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isCheckingActiveTicket) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-      );
-    }
-
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -337,7 +398,13 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
               )
             : IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                onPressed: () => context.pop(),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
               ),
         title: Text(
           _stepTitle(isAr),
@@ -345,19 +412,21 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
         ),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          // Progress indicator
-          _buildStepProgress(),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (child, anim) =>
-                  FadeTransition(opacity: anim, child: child),
-              child: _buildStep(isAr, isDark),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            _buildStepProgress(),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) =>
+                    FadeTransition(opacity: anim, child: child),
+                child: _buildStep(isAr, isDark),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -374,11 +443,10 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
   }
 
   Widget _buildStepProgress() {
-    // Decide if we show 3 steps or 2 steps
-    final bool needsOrder = _selectedCategory == null || _orderRequiredCategories.contains(_selectedCategory);
+    final bool needsOrder = _selectedCategory == null ||
+        _orderRequiredCategories.contains(_selectedCategory);
     final int totalSteps = needsOrder ? 3 : 2;
 
-    // Map the current _SupportStep enum to a 0-based index
     final int currentIdx;
     switch (_step) {
       case _SupportStep.category:
@@ -397,29 +465,28 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
       child: Row(
         children: List.generate(totalSteps * 2 - 1, (i) {
           if (i.isOdd) {
-            // Line segment between dots
             final segIdx = i ~/ 2;
             final segDone = segIdx < currentIdx;
             return Expanded(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 height: 2,
-                color: segDone ? AppColors.primary : Colors.grey.withValues(alpha: 0.3),
+                color: segDone
+                    ? AppColors.primary
+                    : Colors.grey.withValues(alpha: 0.3),
               ),
             );
           }
 
           final dotIdx = i ~/ 2;
-          final isDoneOrCurrent = dotIdx <= currentIdx; // Completed or active step
+          final isDoneOrCurrent = dotIdx <= currentIdx;
 
           return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: isDoneOrCurrent
-                  ? AppColors.primary                      // Active/Done → filled primary
-                  : Colors.transparent,                 // Upcoming → empty
+              color: isDoneOrCurrent ? AppColors.primary : Colors.transparent,
               border: Border.all(
                 color: isDoneOrCurrent
                     ? AppColors.primary
@@ -437,8 +504,6 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     );
   }
 
-
-
   Widget _buildStep(bool isAr, bool isDark) {
     switch (_step) {
       case _SupportStep.category:
@@ -450,31 +515,498 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     }
   }
 
-  // ── Step 1: Category ──
+  // ── Step 1: Category + Active Ticket + Ticket History ──
 
   Widget _buildCategoryStep(bool isAr, bool isDark) {
-    return ListView(
-      key: const ValueKey('category'),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-      children: [
-        _buildStepHeader(
-          icon: LucideIcons.helpCircle,
-          title: isAr ? 'أهلاً! كيف يمكننا مساعدتك؟' : 'Hello! How can we help you?',
-          subtitle: isAr ? 'اختار نوع المشكلة للمتابعة' : 'Select your issue type to continue',
-        ),
-        ..._categoriesAr.keys.map((catAr) {
-          final catEn = _categoryEnMapping[catAr] ?? catAr;
-          return _buildTile(
-            title: isAr ? catAr : catEn,
-            icon: _getCategoryIcon(catAr),
-            onTap: () => _onCategoryTapped(catAr),
-            trailing: _orderRequiredCategories.contains(catAr)
-                ? _buildBadge(isAr ? 'يحتاج طلب' : 'Needs order', AppColors.primary)
-                : null,
-          );
-        }),
-      ],
+    final activeTickets =
+        _tickets.where((t) => _isTicketChatActive(t)).toList();
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _loadTickets,
+      child: ListView(
+        key: const ValueKey('category'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        children: [
+          if (activeTickets.isNotEmpty) ...[
+            _buildActiveTicketBanner(activeTickets.first, isAr, isDark),
+            const SizedBox(height: 20),
+          ],
+          _buildStepHeader(
+            icon: LucideIcons.helpCircle,
+            title: isAr
+                ? 'أهلاً! كيف يمكننا مساعدتك؟'
+                : 'Hello! How can we help you?',
+            subtitle: isAr
+                ? 'اختار نوع المشكلة لفتح تذكرة دعم جديدة'
+                : 'Select your issue type to open a support ticket',
+          ),
+          ..._categoriesAr.keys.map((catAr) {
+            final catEn = _categoryEnMapping[catAr] ?? catAr;
+            return _buildTile(
+              title: isAr ? catAr : catEn,
+              icon: _getCategoryIcon(catAr),
+              onTap: () => _onCategoryTapped(catAr),
+              trailing: _orderRequiredCategories.contains(catAr)
+                  ? _buildBadge(
+                      isAr ? 'يحتاج طلب' : 'Needs order',
+                      AppColors.primary,
+                    )
+                  : null,
+            );
+          }),
+          if (_loadingTickets && _tickets.isEmpty) ...[
+            const SizedBox(height: 16),
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+            ),
+          ] else if (_tickets.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    isAr ? 'تذاكر الدعم السابقة والحالية' : 'My Support Tickets',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${_tickets.length}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ..._tickets.map((t) => _buildTicketHistoryTile(t, isAr, isDark)),
+          ],
+        ],
+      ),
     );
+  }
+
+  Widget _buildActiveTicketBanner(
+    Map<String, dynamic> ticket,
+    bool isAr,
+    bool isDark,
+  ) {
+    final numStr = _formatTicketNumber(ticket['ticketNumber']);
+    final subject = ticket['subject']?.toString() ??
+        (isAr ? 'تذكرة دعم نشطة' : 'Active Support Ticket');
+    final status = (ticket['status']?.toString() ?? 'OPEN').toUpperCase();
+    final statusColor = _ticketStatusColor(status);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: isDark ? 0.14 : 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primary.withValues(alpha: 0.35),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.support_agent_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isAr
+                          ? 'تذكرة دعم نشطة ${numStr.isNotEmpty ? "#$numStr" : ""}'
+                          : 'Active Ticket ${numStr.isNotEmpty ? "#$numStr" : ""}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subject,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _buildBadge(_ticketStatusLabel(status, isAr), statusColor),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _openTicketConversation(ticket, isAr),
+                icon: const Icon(LucideIcons.messageSquare, size: 16),
+                label: Text(isAr ? 'فتح المحادثة' : 'Open Conversation'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _showTicketDetailsSheet(ticket, isAr, isDark),
+                icon: const Icon(LucideIcons.info, size: 16),
+                label: Text(isAr ? 'تفاصيل التذكرة' : 'Ticket Details'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(
+                    color: AppColors.primary.withValues(alpha: 0.5),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTicketHistoryTile(
+    Map<String, dynamic> ticket,
+    bool isAr,
+    bool isDark,
+  ) {
+    final numStr = _formatTicketNumber(ticket['ticketNumber']);
+    final subject = ticket['subject']?.toString() ??
+        (isAr ? 'تذكرة دعم' : 'Support Ticket');
+    final status = (ticket['status']?.toString() ?? 'OPEN').toUpperCase();
+    final isActive = _isTicketChatActive(ticket);
+    final statusColor = _ticketStatusColor(status);
+    final createdAtStr = ticket['createdAt']?.toString();
+    String dateLabel = '';
+    if (createdAtStr != null && createdAtStr.isNotEmpty) {
+      try {
+        dateLabel = DateFormat('yyyy/MM/dd • hh:mm a')
+            .format(DateTime.parse(createdAtStr).toLocal());
+      } catch (_) {}
+    }
+
+    return GestureDetector(
+      onTap: () => _showTicketDetailsSheet(ticket, isAr, isDark),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive
+                ? AppColors.primary.withValues(alpha: 0.35)
+                : Colors.grey.withValues(alpha: 0.15),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 6,
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.confirmation_number_outlined,
+                color: statusColor,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          numStr.isNotEmpty ? '#$numStr' : subject,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildBadge(_ticketStatusLabel(status, isAr), statusColor),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subject,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (dateLabel.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      dateLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTicketDetailsSheet(
+    Map<String, dynamic> ticket,
+    bool isAr,
+    bool isDark,
+  ) {
+    final numStr = _formatTicketNumber(ticket['ticketNumber']);
+    final subject = ticket['subject']?.toString() ?? '';
+    final category = ticket['category']?.toString() ?? '';
+    final subCategory = ticket['subCategory']?.toString() ?? '';
+    final status = (ticket['status']?.toString() ?? 'OPEN').toUpperCase();
+    final isActive = _isTicketChatActive(ticket);
+    final orderNum = ticket['order']?['orderNumber']?.toString();
+    final createdAtStr = ticket['createdAt']?.toString();
+    String dateLabel = '';
+    if (createdAtStr != null && createdAtStr.isNotEmpty) {
+      try {
+        dateLabel = DateFormat('yyyy/MM/dd • hh:mm a')
+            .format(DateTime.parse(createdAtStr).toLocal());
+      } catch (_) {}
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      numStr.isNotEmpty
+                          ? (isAr ? 'تذكرة #$numStr' : 'Ticket #$numStr')
+                          : (isAr ? 'تفاصيل التذكرة' : 'Ticket Details'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  _buildBadge(
+                    _ticketStatusLabel(status, isAr),
+                    _ticketStatusColor(status),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildDetailRow(
+                isAr ? 'الموضوع' : 'Subject',
+                subject,
+              ),
+              if (category.isNotEmpty)
+                _buildDetailRow(
+                  isAr ? 'التصنيف' : 'Category',
+                  category,
+                ),
+              if (subCategory.isNotEmpty && subCategory != subject)
+                _buildDetailRow(
+                  isAr ? 'التفاصيل' : 'Subcategory',
+                  subCategory,
+                ),
+              if (orderNum != null && orderNum.isNotEmpty)
+                _buildDetailRow(
+                  isAr ? 'رقم الطلب' : 'Order Number',
+                  '#$orderNum',
+                ),
+              if (dateLabel.isNotEmpty)
+                _buildDetailRow(
+                  isAr ? 'تاريخ الإنشاء' : 'Created At',
+                  dateLabel,
+                ),
+              const SizedBox(height: 20),
+              if (isActive)
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _openTicketConversation(ticket, isAr);
+                        },
+                        icon: const Icon(LucideIcons.messageSquare, size: 18),
+                        label: Text(
+                          isAr ? 'فتح المحادثة' : 'Open Conversation',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _ticketStatusLabel(String status, bool isAr) {
+    switch (status.toUpperCase()) {
+      case 'OPEN':
+        return isAr ? 'مفتوحة' : 'Open';
+      case 'IN_PROGRESS':
+        return isAr ? 'قيد المراجعة' : 'In Progress';
+      case 'WAITING_ON_USER':
+        return isAr ? 'بانتظار ردك' : 'Waiting on You';
+      case 'ESCALATED':
+        return isAr ? 'تم التصعيد' : 'Escalated';
+      case 'RESOLVED':
+        return isAr ? 'تم الحل' : 'Resolved';
+      case 'CLOSED':
+        return isAr ? 'مغلقة' : 'Closed';
+      default:
+        return status;
+    }
+  }
+
+  Color _ticketStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'OPEN':
+        return Colors.blue;
+      case 'IN_PROGRESS':
+      case 'WAITING_ON_USER':
+        return Colors.orange;
+      case 'ESCALATED':
+        return Colors.purple;
+      case 'RESOLVED':
+        return Colors.green;
+      case 'CLOSED':
+        return Colors.grey;
+      default:
+        return AppColors.primary;
+    }
   }
 
   // ── Step 2: Order picker ──
@@ -490,24 +1022,32 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     if (_orders.isEmpty) {
       return Center(
         key: const ValueKey('no-orders'),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(LucideIcons.shoppingBag, size: 64, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
-            Text(
-              isAr ? 'لا توجد طلبات سابقة' : 'No previous orders found',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isAr
-                  ? 'يجب أن تكون لديك طلبات سابقة لفتح تذكرة دعم'
-                  : 'You need previous orders to open a support ticket',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
-            ),
-          ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                LucideIcons.shoppingBag,
+                size: 64,
+                color: Colors.grey.shade300,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isAr ? 'لا توجد طلبات سابقة' : 'No previous orders found',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isAr
+                    ? 'يجب أن تكون لديك طلبات سابقة لفتح تذكرة دعم'
+                    : 'You need previous orders to open a support ticket',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -518,7 +1058,9 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
       children: [
         _buildStepHeader(
           icon: LucideIcons.receipt,
-          title: isAr ? 'اختار الطلب المتعلق بالمشكلة' : 'Select the related order',
+          title: isAr
+              ? 'اختار الطلب المتعلق بالمشكلة'
+              : 'Select the related order',
           subtitle: isAr
               ? 'سيتم إرسال التذكرة مع تفاصيل طلبك'
               : 'The ticket will be sent with your order details',
@@ -530,12 +1072,13 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
 
   Widget _buildOrderTile(Map<String, dynamic> order, bool isAr, bool isDark) {
     final items = (order['items'] as List<dynamic>?) ?? [];
-    final vendorName = order['vendorName']?.toString()
-        ?? order['vendor']?['storeName']?.toString()
-        ?? (isAr ? 'متجر' : 'Store');
+    final vendorName = order['vendorName']?.toString() ??
+        order['vendor']?['storeName']?.toString() ??
+        (isAr ? 'متجر' : 'Store');
     final status = order['status']?.toString() ?? '';
     final orderId = order['id']?.toString() ?? '';
-    final shortId = order['orderNumber'] ?? orderId.split('-').last.toUpperCase();
+    final shortId =
+        order['orderNumber'] ?? orderId.split('-').last.toUpperCase();
 
     final isSelected = _selectedOrder?['id'] == order['id'];
 
@@ -555,8 +1098,18 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
             width: 2,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.15), blurRadius: 12)]
-              : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)],
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    blurRadius: 12,
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                  ),
+                ],
         ),
         child: Row(
           children: [
@@ -582,6 +1135,8 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
                 children: [
                   Text(
                     vendorName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -591,11 +1146,14 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
                   const SizedBox(height: 3),
                   Text(
                     '${isAr ? 'طلب' : 'Order'} #$shortId • ${items.length} ${isAr ? 'عناصر' : 'items'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -625,14 +1183,10 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
 
     return ListView(
       key: const ValueKey('sub-category'),
-      padding: EdgeInsets.fromLTRB(
-        20,
-        4,
-        20,
-        24 + MediaQuery.paddingOf(context).bottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       children: [
-        if (_selectedOrder != null) _buildSelectedOrderSummary(_selectedOrder!, isAr, isDark),
+        if (_selectedOrder != null)
+          _buildSelectedOrderSummary(_selectedOrder!, isAr, isDark),
         _buildStepHeader(
           icon: LucideIcons.listChecks,
           title: isAr ? 'ما هي المشكلة تحديداً؟' : 'What is the specific issue?',
@@ -650,12 +1204,17 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     );
   }
 
-  Widget _buildSelectedOrderSummary(Map<String, dynamic> order, bool isAr, bool isDark) {
-    final vendorName = order['vendorName']?.toString()
-        ?? order['vendor']?['storeName']?.toString()
-        ?? (isAr ? 'متجر' : 'Store');
+  Widget _buildSelectedOrderSummary(
+    Map<String, dynamic> order,
+    bool isAr,
+    bool isDark,
+  ) {
+    final vendorName = order['vendorName']?.toString() ??
+        order['vendor']?['storeName']?.toString() ??
+        (isAr ? 'متجر' : 'Store');
     final orderId = order['id']?.toString() ?? '';
-    final shortId = order['orderNumber'] ?? orderId.split('-').last.toUpperCase();
+    final shortId =
+        order['orderNumber'] ?? orderId.split('-').last.toUpperCase();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -709,11 +1268,18 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                ),
               ],
             ),
           ),
@@ -738,7 +1304,10 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
           color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+            ),
           ],
         ),
         child: Row(
@@ -756,10 +1325,16 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
             ),
-            if (trailing != null) ...[const SizedBox(width: 8), trailing],
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              Flexible(fit: FlexFit.loose, child: trailing),
+            ],
             const SizedBox(width: 4),
             const AppAdaptiveChevron(size: 16, color: Colors.grey),
           ],
@@ -777,29 +1352,47 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
       ),
     );
   }
 
   IconData _getCategoryIcon(String categoryAr) {
     switch (categoryAr) {
-      case 'مشكلة في التوصيل':          return LucideIcons.truck;
-      case 'مشكلة في متجر / محتويات الطلب':     return LucideIcons.store;
-      case 'مشكلة في الدفع':            return LucideIcons.creditCard;
-      case 'مشكلة في الحساب والتطبيق':  return LucideIcons.user;
-      case 'طلب استرجاع/شكوى عامة':     return LucideIcons.messageSquare;
-      default:                           return LucideIcons.helpCircle;
+      case 'مشكلة في التوصيل':
+        return LucideIcons.truck;
+      case 'مشكلة في متجر / محتويات الطلب':
+        return LucideIcons.store;
+      case 'مشكلة في الدفع':
+        return LucideIcons.creditCard;
+      case 'مشكلة في الحساب والتطبيق':
+        return LucideIcons.user;
+      case 'طلب استرجاع/شكوى عامة':
+        return LucideIcons.messageSquare;
+      default:
+        return LucideIcons.helpCircle;
     }
   }
 
   Color _statusColor(String status) {
     switch (status.toUpperCase()) {
-      case 'DELIVERED':  return Colors.green;
-      case 'CANCELLED':  return Colors.red;
-      case 'PENDING':    return Colors.orange;
-      case 'PREPARING':  return Colors.blue;
-      default:           return AppColors.primary;
+      case 'DELIVERED':
+        return Colors.green;
+      case 'CANCELLED':
+        return Colors.red;
+      case 'PENDING':
+        return Colors.orange;
+      case 'PREPARING':
+        return Colors.blue;
+      default:
+        return AppColors.primary;
     }
   }
 }
+

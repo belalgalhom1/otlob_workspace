@@ -314,12 +314,18 @@ GoRouter appRouter(Ref ref) {
         path: '/chat/:type/:id',
         name: 'chat',
         builder: (context, state) {
-          final type = state.pathParameters['type'] ?? 'support';
+          final type = (state.pathParameters['type'] ?? 'support').toLowerCase();
           final id = state.pathParameters['id'] ?? '0';
-          final extra = state.extra as Map<String, dynamic>?;
-          final title = extra?['title'] as String? ?? (type == 'support' ? 'Support' : 'Vendor');
-          final orderId = extra?['orderId'] as String? ?? (type == 'order' ? id : null);
+          final extra = state.extra is Map
+              ? Map<String, dynamic>.from(state.extra as Map)
+              : null;
+          final title = extra?['title']?.toString() ??
+              (type == 'support'
+                  ? 'Support'
+                  : (type == 'order' ? 'Order' : 'Vendor'));
+          final orderId = extra?['orderId']?.toString();
           return ChatScreen(
+            key: ValueKey('chat_${type}_$id'),
             conversationId: id,
             type: type,
             title: title,

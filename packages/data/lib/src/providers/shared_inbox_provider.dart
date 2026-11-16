@@ -63,6 +63,9 @@ class SharedInbox extends _$SharedInbox {
     final readSub = socket
         .onEvent(SocketEvent.chatRead)
         .listen(_onRealtimeEvent);
+    final createdSub = socket
+        .onEvent(SocketEvent.conversationCreated)
+        .listen(_onRealtimeEvent);
     final closedSub = socket
         .onEvent(SocketEvent.conversationClosed)
         .listen(_onConversationClosed);
@@ -70,6 +73,7 @@ class SharedInbox extends _$SharedInbox {
     ref.onDispose(() {
       sub.cancel();
       readSub.cancel();
+      createdSub.cancel();
       closedSub.cancel();
     });
 
@@ -84,7 +88,7 @@ class SharedInbox extends _$SharedInbox {
     if (!ref.mounted) return;
     final tokenService = ref.read(tokenServiceProvider);
     if (!await tokenService.hasSession()) return;
-    // When a new message comes in, refresh the inbox
+    // When a new message or conversation event comes in, refresh the inbox
     _fetchConversations(1, true); // true = silent refresh
   }
 
@@ -125,6 +129,7 @@ class SharedInbox extends _$SharedInbox {
     }
 
     try {
+      final currentUserId = await tokenService.getUserId();
       if (!ref.mounted) return;
       final chatRepo = ref.read(sharedChatRepositoryProvider);
       final response = await chatRepo.getConversations(page: page, limit: 20);
@@ -137,7 +142,10 @@ class SharedInbox extends _$SharedInbox {
 
         // Handle direct response (ResponseParser already stripped { success, data })
         if (response is Map && response['conversations'] is List) {
-          convos = List<Map<String, dynamic>>.from(response['conversations']);
+          convos = (response['conversations'] as List)
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
           final currentPage = (response['page'] as num?)?.toInt() ?? page;
           final totalPages = (response['totalPages'] as num?)?.toInt() ?? 1;
           hasMore = currentPage < totalPages;
@@ -146,22 +154,120 @@ class SharedInbox extends _$SharedInbox {
         else if (response is Map && response['data'] != null) {
           final data = response['data'];
           if (data is Map && data['conversations'] is List) {
-            convos = List<Map<String, dynamic>>.from(data['conversations']);
+            convos = (data['conversations'] as List)
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
             final currentPage = (data['page'] as num?)?.toInt() ?? page;
             final totalPages = (data['totalPages'] as num?)?.toInt() ?? 1;
             hasMore = currentPage < totalPages;
           } else if (data is List) {
-            convos = List<Map<String, dynamic>>.from(data);
+            convos = data
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
             hasMore = convos.length == 20;
           }
         }
         // Handle plain list
         else if (response is List) {
-          convos = List<Map<String, dynamic>>.from(response);
+          convos = response
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
           hasMore = convos.length == 20;
         }
 
         if (!ref.mounted) return;
+
+        // Enrich SUPPORT conversations with ticket metadata (ticketNumber, subject, etc.)
+        final hasSupportConvos = convos.any(
+          (c) => (c['type']?.toString().toUpperCase() ?? '') == 'SUPPORT',
+        );
+        Map<String, Map<String, dynamic>> ticketByConvoId = {};
+        if (hasSupportConvos) {
+          try {
+            final ticketsRes =
+                await ref.read(sharedTicketsRepositoryProvider).getMyTickets();
+            List<dynamic> rawTickets = [];
+            if (ticketsRes is List) {
+              rawTickets = ticketsRes;
+            } else if (ticketsRes is Map) {
+              if (ticketsRes['tickets'] is List) {
+                rawTickets = ticketsRes['tickets'] as List;
+              } else if (ticketsRes['data'] is List) {
+                rawTickets = ticketsRes['data'] as List;
+              } else if (ticketsRes['data'] is Map &&
+                  ticketsRes['data']['tickets'] is List) {
+                rawTickets = ticketsRes['data']['tickets'] as List;
+              }
+            }
+            for (final t in rawTickets) {
+              if (t is Map) {
+                final cId = t['conversationId']?.toString();
+                if (cId != null && cId.isNotEmpty) {
+                  ticketByConvoId[cId] = Map<String, dynamic>.from(t);
+                }
+              }
+            }
+          } catch (_) {
+            // Non-fatal if tickets endpoint is unavailable for a role
+          }
+        }
+
+        if (!ref.mounted) return;
+
+        for (final c in convos) {
+          final convoId = c['id']?.toString();
+          if (convoId != null && ticketByConvoId.containsKey(convoId)) {
+            final ticket = ticketByConvoId[convoId]!;
+            c['ticketId'] ??= ticket['id'];
+            c['ticketNumber'] ??= ticket['ticketNumber'];
+            c['subject'] ??= ticket['subject'];
+            c['ticketStatus'] ??= ticket['status'];
+            c['ticketCategory'] ??= ticket['category'];
+            c['ticketSubCategory'] ??= ticket['subCategory'];
+            if (c['order'] == null && ticket['order'] != null) {
+              c['order'] = ticket['order'];
+            }
+            if (c['orderId'] == null && ticket['orderId'] != null) {
+              c['orderId'] = ticket['orderId'];
+            }
+            if (c['assignee'] == null && ticket['assignee'] != null) {
+              c['assignee'] = ticket['assignee'];
+            }
+          }
+
+          if (c['unreadCount'] == null) {
+            final lastMsg = c['lastMessage'];
+            if (lastMsg is Map) {
+              final senderId = lastMsg['senderId']?.toString();
+              final createdAtStr = lastMsg['createdAt']?.toString();
+              final myLastReadAtStr = c['myLastReadAt']?.toString();
+              if (senderId != null &&
+                  currentUserId != null &&
+                  senderId == currentUserId) {
+                c['unreadCount'] = 0;
+              } else if (createdAtStr != null) {
+                final msgTime = DateTime.tryParse(createdAtStr);
+                if (myLastReadAtStr == null || myLastReadAtStr.isEmpty) {
+                  c['unreadCount'] = msgTime != null ? 1 : 0;
+                } else {
+                  final readTime = DateTime.tryParse(myLastReadAtStr);
+                  c['unreadCount'] = (msgTime != null &&
+                          readTime != null &&
+                          msgTime.isAfter(readTime))
+                      ? 1
+                      : 0;
+                }
+              } else {
+                c['unreadCount'] = 0;
+              }
+            } else {
+              c['unreadCount'] = 0;
+            }
+          }
+        }
 
         if (page == 1) {
           _sortConversations(convos);
@@ -172,7 +278,16 @@ class SharedInbox extends _$SharedInbox {
             page: page,
           );
         } else {
-          final allConvos = [...state.conversations, ...convos];
+          final byId = <String, Map<String, dynamic>>{};
+          for (final existing in state.conversations) {
+            final k = existing['id']?.toString() ?? '';
+            if (k.isNotEmpty) byId[k] = existing;
+          }
+          for (final incoming in convos) {
+            final k = incoming['id']?.toString() ?? '';
+            if (k.isNotEmpty) byId[k] = incoming;
+          }
+          final allConvos = byId.values.toList();
           _sortConversations(allConvos);
           state = state.copyWith(
             conversations: allConvos,
@@ -195,14 +310,22 @@ class SharedInbox extends _$SharedInbox {
     }
   }
 
+  DateTime _extractConversationTime(Map<String, dynamic> c) {
+    final lastMsgTime = c['lastMessage'] is Map
+        ? c['lastMessage']['createdAt']
+        : null;
+    final raw = lastMsgTime ?? c['updatedAt'] ?? c['createdAt'];
+    if (raw != null) {
+      final parsed = DateTime.tryParse(raw.toString());
+      if (parsed != null) return parsed;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
   void _sortConversations(List<Map<String, dynamic>> convos) {
     convos.sort((a, b) {
-      final timeA = a['lastMessage']?['createdAt'] != null
-          ? DateTime.parse(a['lastMessage']['createdAt'])
-          : DateTime.fromMillisecondsSinceEpoch(0);
-      final timeB = b['lastMessage']?['createdAt'] != null
-          ? DateTime.parse(b['lastMessage']['createdAt'])
-          : DateTime.fromMillisecondsSinceEpoch(0);
+      final timeA = _extractConversationTime(a);
+      final timeB = _extractConversationTime(b);
       return timeB.compareTo(timeA); // newest first
     });
   }

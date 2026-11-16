@@ -351,5 +351,220 @@ void main() {
         },
       );
     }
+
+    testWidgets(
+      'AppStrings technicalSupport and helpCenter resolve to Technical Support (${locale.languageCode})',
+      (tester) async {
+        late String techSupportLabel;
+        late String helpCenterLabel;
+
+        await _pumpCustomerWidget(
+          tester,
+          locale: locale,
+          child: Scaffold(
+            body: Builder(
+              builder: (context) {
+                final s = AppStrings.of(context);
+                techSupportLabel = s.technicalSupport;
+                helpCenterLabel = s.helpCenter;
+                return Text(techSupportLabel);
+              },
+            ),
+          ),
+        );
+
+        final expected =
+            locale.languageCode == 'ar' ? 'الدعم الفني' : 'Technical Support';
+        expect(techSupportLabel, expected);
+        expect(helpCenterLabel, expected);
+      },
+    );
+
+    testWidgets(
+      'InboxScreen displays Support, Order, and Store conversations and opens each by unique conversationId (${locale.languageCode})',
+      (tester) async {
+        final sampleConvos = <Map<String, dynamic>>[
+          {
+            'id': 'convo-support-101',
+            'type': 'SUPPORT',
+            'ticketNumber': 12,
+            'subject': 'Delayed delivery',
+            'unreadCount': 2,
+            'assignee': {'name': 'Sara Support'},
+            'order': {'id': 'ord-999', 'orderNumber': '999'},
+            'lastMessage': {
+              'text': 'We are checking your order now.',
+              'createdAt': '2026-11-15T10:00:00.000Z',
+            },
+          },
+          {
+            'id': 'convo-order-202',
+            'type': 'ORDER',
+            'orderId': 'ord-999',
+            'order': {'id': 'ord-999', 'orderNumber': '999'},
+            'vendorName': 'Koshary El Tahrir',
+            'vendorNameAr': 'كشري التحرير',
+            'unreadCount': 0,
+            'participants': [
+              {'role': 'DRIVER', 'name': 'Captain Ahmed'},
+            ],
+            'lastMessage': {
+              'text': 'I have arrived outside.',
+              'createdAt': '2026-11-15T09:30:00.000Z',
+            },
+          },
+          {
+            'id': 'convo-vendor-303',
+            'type': 'VENDOR',
+            'vendorName': 'El Ezaby Pharmacy',
+            'vendorNameAr': 'صيدلية العزبي',
+            'unreadCount': 1,
+            'lastMessage': {
+              'text': 'Your prescription is ready.',
+              'createdAt': '2026-11-15T08:15:00.000Z',
+            },
+          },
+        ];
+
+        final openedRoutes = <String>[];
+        final router = GoRouter(
+          initialLocation: '/inbox',
+          routes: [
+            GoRoute(
+              path: '/inbox',
+              builder: (_, _) => const InboxScreen(),
+            ),
+            GoRoute(
+              path: '/chat/:type/:id',
+              builder: (context, state) {
+                final type = state.pathParameters['type']!;
+                final id = state.pathParameters['id']!;
+                openedRoutes.add('/chat/$type/$id');
+                return Scaffold(
+                  appBar: AppBar(
+                    leading: IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => context.pop(),
+                    ),
+                    title: Text('CHAT:$type:$id'),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+
+        SharedPreferences.setMockInitialValues({});
+        await EasyLocalization.ensureInitialized();
+        tester.view.physicalSize = const Size(360, 740);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          EasyLocalization(
+            supportedLocales: const [Locale('en'), Locale('ar')],
+            path: 'translations',
+            fallbackLocale: const Locale('en'),
+            startLocale: locale,
+            assetLoader: const _CatalogAssetLoader(),
+            child: ProviderScope(
+              overrides: [
+                data_providers.sharedInboxProvider.overrideWith(
+                  () => _FakePopulatedSharedInbox(sampleConvos),
+                ),
+                inboxCountsProvider.overrideWith(_FakeInboxCounts.new),
+              ],
+              child: Builder(
+                builder: (context) => MaterialApp.router(
+                  localizationsDelegates: context.localizationDelegates,
+                  supportedLocales: context.supportedLocales,
+                  locale: context.locale,
+                  routerConfig: router,
+                  builder: (ctx, child) => MediaQuery(
+                    data: const MediaQueryData(
+                      size: Size(360, 740),
+                      padding: EdgeInsets.only(top: 47, bottom: 34),
+                      textScaler: TextScaler.linear(1.3),
+                    ),
+                    child: AppWindowConstraintGuard(
+                      child: child ?? const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(InboxConversationTile), findsNWidgets(3));
+        // No New Support Ticket FAB on InboxScreen
+        expect(find.byType(FloatingActionButton), findsNothing);
+
+        // Tap the Support conversation -> opens /chat/support/convo-support-101
+        await tester.tap(find.byKey(const ValueKey('convo_convo-support-101')));
+        await tester.pumpAndSettle();
+        expect(find.text('CHAT:support:convo-support-101'), findsOneWidget);
+
+        await tester.tap(find.byIcon(Icons.arrow_back));
+        await tester.pumpAndSettle();
+
+        // Tap the Order conversation -> opens /chat/order/convo-order-202 (unique conversationId, not orderId)
+        await tester.tap(find.byKey(const ValueKey('convo_convo-order-202')));
+        await tester.pumpAndSettle();
+        expect(find.text('CHAT:order:convo-order-202'), findsOneWidget);
+
+        expect(openedRoutes, [
+          '/chat/support/convo-support-101',
+          '/chat/order/convo-order-202',
+        ]);
+      },
+    );
+
+    testWidgets(
+      'SupportMenuScreen displays active ticket and history without auto-redirect under SafeArea & 1.3x scale (${locale.languageCode})',
+      (tester) async {
+        final fakeTickets = <Map<String, dynamic>>[
+          {
+            'id': 't-1',
+            'ticketNumber': 7,
+            'subject': 'Missing or wrong items',
+            'category': 'VENDOR',
+            'status': 'OPEN',
+            'conversationId': 'convo-support-7',
+            'createdAt': '2026-11-15T10:00:00.000Z',
+          },
+          {
+            'id': 't-2',
+            'ticketNumber': 3,
+            'subject': 'Delayed delivery',
+            'category': 'DELIVERY',
+            'status': 'RESOLVED',
+            'createdAt': '2026-11-10T10:00:00.000Z',
+          },
+        ];
+
+        await _pumpCustomerWidget(
+          tester,
+          locale: locale,
+          viewport: const Size(360, 740),
+          overrides: [
+            supportTicketProvider.overrideWith(
+              () => _FakeSupportTicket(fakeTickets),
+            ),
+          ],
+          child: const SupportMenuScreen(),
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(SupportMenuScreen), findsOneWidget);
+        expect(find.textContaining('#A00007'), findsWidgets);
+      },
+    );
   }
 }

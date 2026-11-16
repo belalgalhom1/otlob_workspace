@@ -119,7 +119,10 @@ GoRouter appRouter(Ref ref) {
         path: '/chat/:orderId',
         builder: (context, state) {
           final orderId = state.pathParameters['orderId']!;
-          return OrderChatScreen(orderId: orderId);
+          return OrderChatScreen(
+            key: ValueKey('driver_chat_$orderId'),
+            orderId: orderId,
+          );
         },
       ),
       GoRoute(

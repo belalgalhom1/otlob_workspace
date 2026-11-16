@@ -33,22 +33,36 @@ class SharedChat extends _$SharedChat {
 
   @override
   Future<List<Message>> build(SharedChatArgs args) async {
+    _conversationId = null;
+    _earlyMessages.clear();
+    hasMore = true;
+    nextCursor = null;
+    isLoadingMore = false;
+
     final tokenService = ref.read(tokenServiceProvider);
     _currentUserId = await tokenService.getUserId();
 
     try {
       final chatRepo = ref.read(sharedChatRepositoryProvider);
+      final normalizedType = args.type.toLowerCase();
 
       dynamic conversation;
-      if (args.type == 'vendor') {
-        conversation = await chatRepo.createVendorConversation(args.id);
-      } else if (args.type == 'order') {
+      if (normalizedType == 'vendor') {
         try {
-          conversation = await chatRepo.createOrderConversation(args.id);
-        } catch (_) {
           conversation = await chatRepo.getConversation(args.id);
+        } catch (_) {
+          conversation = await chatRepo.createVendorConversation(args.id);
         }
-      } else if (args.type == 'support' && (args.id.isEmpty || args.id == '0')) {
+        conversation ??= await chatRepo.createVendorConversation(args.id);
+      } else if (normalizedType == 'order') {
+        try {
+          conversation = await chatRepo.getConversation(args.id);
+        } catch (_) {
+          conversation = await chatRepo.createOrderConversation(args.id);
+        }
+        conversation ??= await chatRepo.createOrderConversation(args.id);
+      } else if (normalizedType == 'support' &&
+          (args.id.isEmpty || args.id == '0')) {
         conversation = await chatRepo.createSupportConversation();
       } else {
         conversation = await chatRepo.getConversation(args.id);
@@ -58,7 +72,7 @@ class SharedChat extends _$SharedChat {
           conversation is Map && conversation.containsKey('data')
           ? conversation['data']
           : conversation;
-      _conversationId = conversationData['id'];
+      _conversationId = conversationData['id']?.toString() ?? args.id;
 
       final socket = ref.read(coreSocketServiceProvider);
       await socket.init();
@@ -107,6 +121,7 @@ class SharedChat extends _$SharedChat {
   }
 
   void _onSocketMessage(dynamic data) {
+    if (data is! Map) return;
     if (data['conversationId'] == _conversationId) {
       final content = data['text'] ?? '';
       bool isMe = data['senderId']?.toString() == _currentUserId?.toString();
@@ -138,6 +153,17 @@ class SharedChat extends _$SharedChat {
       );
 
       _addRealtimeMessage(newMessage);
+
+      if (!isMe && _conversationId != null && newMessage.id.isNotEmpty) {
+        Future.microtask(() async {
+          try {
+            if (!ref.mounted) return;
+            await ref
+                .read(sharedChatRepositoryProvider)
+                .markAsRead(_conversationId!, [newMessage.id]);
+          } catch (_) {}
+        });
+      }
     }
   }
 

@@ -1069,7 +1069,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           }
         }
         
-        if (index == 1) context.push('/support-menu');
+        if (index == 1) context.push('/inbox');
         if (index == 2) context.push('/cart');
         if (index == 3) context.push('/orders');
         if (index == 4) context.push('/profile');
@@ -1077,9 +1077,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          index == 1 
-            ? CustomChatIcon(size: 24, color: color)
-            : Icon(isSelected ? activeIcon as IconData : inactiveIcon as IconData, color: color, size: 24),
+          index == 1
+              ? Badge(
+                  isLabelVisible: ref.watch(inboxCountsProvider).chatUnread > 0,
+                  label: Text('${ref.watch(inboxCountsProvider).chatUnread}'),
+                  backgroundColor: Colors.red,
+                  textColor: Colors.white,
+                  child: CustomChatIcon(size: 24, color: color),
+                )
+              : Icon(isSelected ? activeIcon as IconData : inactiveIcon as IconData, color: color, size: 24),
           const SizedBox(height: 4),
           Text(
             label,

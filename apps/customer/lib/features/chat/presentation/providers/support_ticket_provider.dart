@@ -35,7 +35,7 @@ class SupportTicket extends _$SupportTicket {
         
       final response = await ticketsRepo.createTicket(builder.build());
       if (response is Map) {
-        if (response.containsKey('data')) {
+        if (response.containsKey('data') && response['data'] is Map) {
           return Map<String, dynamic>.from(response['data'] as Map);
         }
         return Map<String, dynamic>.from(response);
@@ -43,7 +43,38 @@ class SupportTicket extends _$SupportTicket {
       return {};
     } catch (e) {
       debugPrint('❌ SupportTicketProvider: Create error: $e');
-      return {};
+      rethrow;
+    }
+  }
+
+  Future<bool> closeTicket(String ticketId) async {
+    final ticketsRepo = ref.read(sharedTicketsRepositoryProvider);
+    try {
+      final dto = UpdateTicketDto(
+        (b) => b..status = UpdateTicketDtoStatusEnum.CLOSED,
+      );
+      await ticketsRepo.ticketsUpdate(id: ticketId, updateTicketDto: dto);
+      return true;
+    } catch (e) {
+      debugPrint('❌ SupportTicketProvider: Close ticket error: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getTicketById(String ticketId) async {
+    final ticketsRepo = ref.read(sharedTicketsRepositoryProvider);
+    try {
+      final response = await ticketsRepo.getTicket(ticketId);
+      if (response is Map) {
+        if (response.containsKey('data') && response['data'] is Map) {
+          return Map<String, dynamic>.from(response['data'] as Map);
+        }
+        return Map<String, dynamic>.from(response);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ SupportTicketProvider: Get ticket error: $e');
+      return null;
     }
   }
 
@@ -61,7 +92,9 @@ class SupportTicket extends _$SupportTicket {
         if (response.containsKey('data') && response['data'] is List) {
           return response['data'];
         }
-        if (response.containsKey('data') && response['data'] is Map && response['data']['tickets'] is List) {
+        if (response.containsKey('data') &&
+            response['data'] is Map &&
+            response['data']['tickets'] is List) {
           return response['data']['tickets'];
         }
       }

@@ -194,8 +194,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         _buildNavTile(
                           context: context,
-                          icon: Icons.help_outline_rounded,
-                          title: s.helpCenter,
+                          icon: Icons.support_agent_rounded,
+                          title: s.technicalSupport,
                           onTap: () => context.push('/support-menu'),
                         ),
                         _buildNavTile(

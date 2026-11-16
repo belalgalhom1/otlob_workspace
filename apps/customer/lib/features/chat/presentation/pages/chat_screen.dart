@@ -44,7 +44,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  late final SharedChatArgs _args;
+  SharedChatArgs get _args => SharedChatArgs(
+        id: widget.conversationId,
+        type: widget.type.toLowerCase(),
+      );
   FlutterSoundRecorder? _recorder;
   bool _isRecorderInitialized = false;
   bool _isRecording = false;
@@ -113,7 +116,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _args = SharedChatArgs(id: widget.conversationId, type: widget.type);
     _loadOrderDetails();
     _controller.addListener(() {
       if (mounted) setState(() {});
@@ -121,8 +123,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _focusNode.addListener(_onFocusChange);
   }
 
+  @override
+  void didUpdateWidget(covariant ChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.conversationId != widget.conversationId ||
+        oldWidget.type != widget.type ||
+        oldWidget.orderId != widget.orderId) {
+      _hasPoppedForClosed = false;
+      _replyingTo = null;
+      _orderData = null;
+      _loadOrderDetails();
+    }
+  }
+
   Future<void> _loadOrderDetails() async {
-    final effectiveOrderId = widget.orderId ?? (widget.type.toLowerCase() == 'order' ? widget.conversationId : null);
+    String? effectiveOrderId = widget.orderId;
+    if ((effectiveOrderId == null || effectiveOrderId.isEmpty) &&
+        widget.type.toLowerCase() == 'order') {
+      try {
+        final convoRes = await ref
+            .read(sharedChatRepositoryProvider)
+            .getConversation(widget.conversationId);
+        final convoData = convoRes is Map && convoRes.containsKey('data')
+            ? convoRes['data']
+            : convoRes;
+        if (convoData is Map) {
+          effectiveOrderId =
+              (convoData['orderId'] ?? convoData['order']?['id'])?.toString();
+        }
+      } catch (_) {}
+      effectiveOrderId ??= widget.conversationId;
+    }
     if (effectiveOrderId == null || effectiveOrderId.isEmpty) return;
     try {
       final repo = ref.read(customerOrderRepositoryProvider);
@@ -641,7 +672,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             children: [
               if (_orderData != null)
                 OrderContextBar(
-                  orderNumber: (_orderData!['orderNumber'] ?? widget.orderId ?? widget.conversationId.substring(0, 8)).toString(),
+                  orderNumber: (_orderData!['orderNumber'] ?? widget.orderId ?? (widget.conversationId.length > 8 ? widget.conversationId.substring(0, 8) : widget.conversationId)).toString(),
                   statusLabel: _formatStatusLabel(context, _orderData!['status']?.toString()),
                   statusColor: _getStatusColor(_orderData!['status']?.toString()),
                   totalAmount: (_orderData!['grandTotal'] ?? _orderData!['totalAmount']) != null
@@ -1117,16 +1148,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     fontSize: 15,
                                   ),
                                 ),
-                                const Spacer(),
-                                TextButton.icon(
-                                  onPressed: _cancelRecording,
-                                  icon: const Icon(LucideIcons.x, size: 14, color: AppColors.error),
-                                  label: Text(
-                                    AppStrings.of(context).cancel,
-                                    style: const TextStyle(color: AppColors.error, fontSize: 12),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: TextButton.icon(
+                                      onPressed: _cancelRecording,
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 4,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      icon: const Icon(
+                                        LucideIcons.x,
+                                        size: 14,
+                                        color: AppColors.error,
+                                      ),
+                                      label: Text(
+                                        AppStrings.of(context).cancel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: AppColors.error,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                               ],
                             ),
                           )
@@ -1147,27 +1201,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               ),
                             ),
                           ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.camera, color: AppColors.textHint, size: 18),
-                      onPressed: _takePhotoDirectly,
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      constraints: const BoxConstraints(),
-                      tooltip: 'Take Photo',
-                    ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.paperclip, color: AppColors.textHint, size: 18),
-                      onPressed: _showMediaPicker,
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
-                      constraints: const BoxConstraints(),
-                      tooltip: 'Attach Media',
-                    ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.mapPin, color: AppColors.textHint, size: 18),
-                      onPressed: _sendCurrentLocation,
-                      padding: const EdgeInsets.only(right: 12, left: 2),
-                      constraints: const BoxConstraints(),
-                      tooltip: 'Send Location',
-                    ),
+                    if (!_isRecording) ...[
+                      IconButton(
+                        icon: const Icon(LucideIcons.camera, color: AppColors.textHint, size: 18),
+                        onPressed: _takePhotoDirectly,
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Take Photo',
+                      ),
+                      IconButton(
+                        icon: const Icon(LucideIcons.paperclip, color: AppColors.textHint, size: 18),
+                        onPressed: _showMediaPicker,
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Attach Media',
+                      ),
+                      IconButton(
+                        icon: const Icon(LucideIcons.mapPin, color: AppColors.textHint, size: 18),
+                        onPressed: _sendCurrentLocation,
+                        padding: const EdgeInsets.only(right: 12, left: 2),
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Send Location',
+                      ),
+                    ],
                   ],
                 ),
               ),
