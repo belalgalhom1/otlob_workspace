@@ -426,7 +426,7 @@ jobs:
             echo "ERROR: Expected $EXPECTED_COUNT APKs, found $ACTUAL_COUNT." >&2
             exit 1
           fi
-
+      
       - name: Generate release notes
         env:
           MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
@@ -439,7 +439,7 @@ jobs:
             echo
             echo "**Branch:** $GITHUB_REF_NAME"
             echo
-            echo "**Commit:** [View comment](${{ github.event.head_commit.url }})" >> "$NOTES_FILE"
+            echo "**Commit:** [View comment](${{ github.event.head_commit.url || github.event.pull_request.head.repo.html_url }}/${{ github.sha }})"
             echo
             echo "**Updated apps:**"
 
@@ -447,6 +447,7 @@ jobs:
               <<< "$MATRIX_JSON"
 
           } > release-notes.md
+
 
       - name: Delete existing release
         if: needs.detect-changes.outputs.all_apps_changed == 'true'
