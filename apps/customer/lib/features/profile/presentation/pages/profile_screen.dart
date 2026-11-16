@@ -322,24 +322,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Stack(
         children: [
           PositionedDirectional(
-            start: 16,
-            top: MediaQuery.paddingOf(context).top + 8,
-            child: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-              onPressed: () => context.pop(),
-            ),
-          ),
-          Positioned(
-            right: -20,
+            end: -20,
             top: -20,
-            child: Icon(
-              Icons.person_pin_circle_rounded,
-              size: 150,
-              color: Colors.white.withValues(alpha: 0.1),
+            child: IgnorePointer(
+              child: Icon(
+                Icons.person_pin_circle_rounded,
+                size: 150,
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
             ),
           ),
           Padding(
@@ -405,9 +395,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                     ),
-                    Positioned(
+                    PositionedDirectional(
                       bottom: 4,
-                      right: 4,
+                      end: 4,
                       child: GestureDetector(
                         onTap: () async {
                           try {
@@ -477,6 +467,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ],
             ),
+            ),
+          ),
+          PositionedDirectional(
+            start: 16,
+            top: MediaQuery.paddingOf(context).top + 8,
+            child: Material(
+              type: MaterialType.transparency,
+              child: IconButton(
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(RoutePaths.home);
+                  }
+                },
+              ),
             ),
           ),
         ],
