@@ -49,10 +49,14 @@ class VerifyOtpController extends _$VerifyOtpController {
         }
       }
 
-      state = const AsyncData(null);
+      if (ref.mounted) {
+        state = const AsyncData(null);
+      }
       return true;
     } catch (e, st) {
-      state = AsyncError(ApiErrorMapper.fromError(e), st);
+      if (ref.mounted) {
+        state = AsyncError(ApiErrorMapper.fromError(e), st);
+      }
       return false;
     }
   }

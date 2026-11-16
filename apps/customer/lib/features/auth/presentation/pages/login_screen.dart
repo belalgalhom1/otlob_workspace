@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart' show SocialAuthButton;
 
+import '../providers/auth_controller.dart';
 import '../providers/login_controller.dart';
 import '../../../../core/services/token_service.dart';
 import '../../../../core/router/route_paths.dart';
@@ -65,20 +67,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             password: password,
           );
 
-      if (result && context.mounted) {
+      if (result && mounted) {
         if (_saveInfo) {
-          // If login was successful, save info without letting optional Keychain cache errors block navigation.
-          try {
-            await ref.read(tokenServiceProvider).saveSavedProfile(
-              email: email,
-              password: password,
-              name: email.split('@')[0],
-              role: 'CUSTOMER',
-            );
-          } catch (_) {}
+          // Persist profile in background so Keychain/Keystore writes never delay navigation.
+          final tokenService = ref.read(tokenServiceProvider);
+          unawaited(
+            tokenService
+                .saveSavedProfile(
+                  email: email,
+                  password: password,
+                  name: email.split('@')[0],
+                  role: 'CUSTOMER',
+                )
+                .catchError((_) {}),
+          );
         }
 
-        if (!mounted) return;
         _goAfterLogin();
       }
     } finally {
@@ -95,8 +99,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .read(loginControllerProvider.notifier)
           .signInWithGoogle();
 
-      if (result && context.mounted) {
-        if (!mounted) return;
+      if (result && mounted) {
         _goAfterLogin();
       }
     } finally {
@@ -116,7 +119,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _goAfterLogin() {
-    // Explicitly navigate on success
+    if (!mounted) return;
+    if (ref.read(needsPhoneProvider)) {
+      context.go(RoutePaths.completePhone);
+      return;
+    }
+    if (ref.read(needsTermsProvider)) {
+      context.go(RoutePaths.termsAcceptance);
+      return;
+    }
+    if (ref.read(needsAddressProvider)) {
+      context.go('/addresses');
+      return;
+    }
+
     final uri = GoRouterState.of(context).uri;
     final redirectUrl = uri.queryParameters['redirect'];
 

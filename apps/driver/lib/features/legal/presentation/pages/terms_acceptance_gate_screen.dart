@@ -72,8 +72,15 @@ class _TermsAcceptanceGateScreenState
         version: version,
       );
 
-      // Re-trigger splash provider to route to dashboard
-      ref.invalidate(splashProvider);
+      // Mark terms gate cleared so router allows /dashboard immediately.
+      ref
+          .read(driverPostLoginStateProvider.notifier)
+          .set(AppStartupState.dashboard);
+      if (ref.exists(splashProvider)) {
+        ref
+            .read(splashProvider.notifier)
+            .setPostLoginState(AppStartupState.dashboard);
+      }
       if (mounted) {
         context.go('/dashboard');
       }

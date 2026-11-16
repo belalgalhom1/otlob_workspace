@@ -68,7 +68,9 @@ class RouterNotifier extends ChangeNotifier {
     final authStatus = _ref.read(authControllerProvider);
     final hasSeenOnboarding = _ref.read(appSettingsProvider).hasSeenOnboarding;
 
-    final path = state.uri.path;
+    final path = state.matchedLocation.isNotEmpty
+        ? state.matchedLocation
+        : state.uri.path;
 
     // App-status gates manage themselves; never redirect away from them.
     if (path == RoutePaths.maintenance || path == RoutePaths.updateRequired) {
@@ -145,6 +147,10 @@ class RouterNotifier extends ChangeNotifier {
           isGoingToSplash ||
           isGoingToOnboarding ||
           (path == RoutePaths.termsAcceptance && !_ref.read(needsTermsProvider))) {
+        final redirectUrl = state.uri.queryParameters['redirect'];
+        if (redirectUrl != null && redirectUrl.isNotEmpty) {
+          return redirectUrl;
+        }
         return RoutePaths.home;
       }
     }

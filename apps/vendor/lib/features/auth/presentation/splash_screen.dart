@@ -124,56 +124,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
   }
 
-  void _onAuthStateChanged(BuildContext context, AsyncValue<bool> state) async {
+  void _onAuthStateChanged(BuildContext context, AsyncValue<bool> state) {
     if (_navigated) return;
     if (!state.isLoading && state.hasValue) {
-      try {
-        if (state.value == true) {
-          final repo = ref.read(sharedAuthRepositoryProvider);
-          final role = await repo.getUserRole();
-          if (role != 'ADMIN' && role != 'SUPER_ADMIN' && role != 'VENDOR_MEMBER' && role != 'DRIVER_MANAGER') {
-            await repo.logout();
-            if (context.mounted) {
-              _navigated = true;
-              context.go('/login');
-            }
-            return;
-          }
-          final acceptanceStatus = await ref
-              .read(sharedLegalDocumentsRepositoryProvider)
-              .getAcceptanceStatus();
-          if (acceptanceStatus?['needsAcceptance'] == true) {
-            if (context.mounted) {
-              _navigated = true;
-              context.go('/terms-acceptance');
-            }
-            return;
-          }
-
-          if (role == 'VENDOR_MEMBER') {
-            final vendorId = ref.read(activeVendorProvider);
-            if (vendorId == null || vendorId.isEmpty) {
-              if (context.mounted) {
-                _navigated = true;
-                context.go('/select-vendor');
-              }
-              return;
-            }
-          }
-          if (context.mounted) {
-            _navigated = true;
-            context.go('/dashboard');
-          }
-        } else {
-          _navigated = true;
-          context.go('/login');
-        }
-      } catch (e) {
-        debugPrint('_onAuthStateChanged error: $e');
-        if (context.mounted) {
-          _navigated = true;
-          context.go('/login');
-        }
+      if (!context.mounted) return;
+      _navigated = true;
+      if (state.value == true) {
+        context.go(ref.read(vendorPostAuthRouteProvider));
+      } else {
+        context.go('/login');
       }
     }
   }

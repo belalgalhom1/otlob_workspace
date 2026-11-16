@@ -21,66 +21,87 @@ class PushNotificationService {
   PushNotificationService(this._devicesApi);
 
   Future<void> initialize() async {
-    // Request permission (iOS specifically, Android 13+)
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    try {
+      // Request permission (iOS specifically, Android 13+)
+      final settings = await _messaging
+          .requestPermission(
+            alert: true,
+            badge: true,
+            sound: true,
+          )
+          .timeout(const Duration(seconds: 5));
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized ||
-        settings.authorizationStatus == AuthorizationStatus.provisional) {
-      debugPrint('User granted permission for push notifications');
+      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional) {
+        debugPrint('User granted permission for push notifications');
+      }
+    } catch (e) {
+      debugPrint('FCM: Permission request skipped or timed out: $e');
     }
 
     if (!kIsWeb && Platform.isIOS) {
-      // Allow iOS to present APNs banners with sound natively in the foreground
-      // so taps reliably route through FirebaseMessaging.onMessageOpenedApp.
-      await _messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      try {
+        // Allow iOS to present APNs banners with sound natively in the foreground
+        // so taps reliably route through FirebaseMessaging.onMessageOpenedApp.
+        await _messaging
+            .setForegroundNotificationPresentationOptions(
+              alert: true,
+              badge: true,
+              sound: true,
+            )
+            .timeout(const Duration(seconds: 3));
+      } catch (e) {
+        debugPrint('FCM: Failed to set iOS foreground presentation options: $e');
+      }
     }
 
     if (!_listenersInitialized) {
-      // Initialize local notifications for foreground display and tap routing
-      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const iosInit = DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      );
-      const initSettings = InitializationSettings(
-        android: androidInit,
-        iOS: iosInit,
-      );
-      await _localNotifications.initialize(
-        settings: initSettings,
-        onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
-      );
-
-      final launchDetails =
-          await _localNotifications.getNotificationAppLaunchDetails();
-      if (launchDetails?.didNotificationLaunchApp == true) {
-        _pendingInitialLocalMessage =
-            _decodeLocalPayload(launchDetails?.notificationResponse?.payload);
-      }
-
-      final androidPlugin = _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-      if (androidPlugin != null) {
-        const channel = AndroidNotificationChannel(
-          'high_importance_channel',
-          'High Importance Notifications',
-          description:
-              'Used for important delivery requests and order updates.',
-          importance: Importance.max,
-          playSound: true,
-          enableVibration: true,
+      try {
+        // Initialize local notifications for foreground display and tap routing
+        const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+        const iosInit = DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestBadgePermission: false,
+          requestSoundPermission: false,
         );
-        await androidPlugin.createNotificationChannel(channel);
+        const initSettings = InitializationSettings(
+          android: androidInit,
+          iOS: iosInit,
+        );
+        await _localNotifications
+            .initialize(
+              settings: initSettings,
+              onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
+            )
+            .timeout(const Duration(seconds: 3));
+
+        final launchDetails = await _localNotifications
+            .getNotificationAppLaunchDetails()
+            .timeout(const Duration(seconds: 2), onTimeout: () => null);
+        if (launchDetails?.didNotificationLaunchApp == true) {
+          _pendingInitialLocalMessage =
+              _decodeLocalPayload(launchDetails?.notificationResponse?.payload);
+        }
+
+        final androidPlugin = _localNotifications
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>();
+        if (androidPlugin != null) {
+          const channel = AndroidNotificationChannel(
+            'high_importance_channel',
+            'High Importance Notifications',
+            description:
+                'Used for important delivery requests and order updates.',
+            importance: Importance.max,
+            playSound: true,
+            enableVibration: true,
+          );
+          await androidPlugin
+              .createNotificationChannel(channel)
+              .timeout(const Duration(seconds: 2));
+        }
+      } catch (e) {
+        debugPrint('FCM: Local notifications initialization warning: $e');
       }
 
       // Attach listeners before fetching token so delayed APNs registration
@@ -167,7 +188,9 @@ class PushNotificationService {
         ..token = token
         ..platform = platform);
 
-      await _devicesApi.devicesControllerRegister(registerDeviceDto: dto);
+      await _devicesApi
+          .devicesControllerRegister(registerDeviceDto: dto)
+          .timeout(const Duration(seconds: 5));
       debugPrint('FCM Token registered with backend successfully');
     } catch (e) {
       debugPrint('Failed to register FCM token: $e');
@@ -181,7 +204,9 @@ class PushNotificationService {
     try {
       final resolvedToken = token ?? await getToken(waitForApns: waitForApns);
       if (resolvedToken != null) {
-        await _devicesApi.devicesControllerRemove(token: resolvedToken);
+        await _devicesApi
+            .devicesControllerRemove(token: resolvedToken)
+            .timeout(const Duration(seconds: 3));
         debugPrint('FCM Token removed from backend successfully');
       }
     } catch (e) {
@@ -238,9 +263,16 @@ class PushNotificationService {
   /// Allowed roles: 'CUSTOMER', 'DRIVER', 'VENDOR', 'ADMIN'.
   Future<void> subscribeToRoleTopics(String role) async {
     try {
-      await _messaging.subscribeToTopic('topic_all');
-      debugPrint('FCM: Subscribed to topic_all');
-      
+      if (!kIsWeb && Platform.isIOS) {
+        final apnsToken = await _messaging
+            .getAPNSToken()
+            .timeout(const Duration(seconds: 2), onTimeout: () => null);
+        if (apnsToken == null) {
+          debugPrint('FCM: APNs token not available on iOS; skipping topic subscription.');
+          return;
+        }
+      }
+
       String? specificTopic;
       switch (role.toUpperCase()) {
         case 'CUSTOMER':
@@ -260,11 +292,18 @@ class PushNotificationService {
           specificTopic = 'topic_admin'; // Optional: if backend ever targets admins
           break;
       }
-      
-      if (specificTopic != null) {
-        await _messaging.subscribeToTopic(specificTopic);
-        debugPrint('FCM: Subscribed to $specificTopic');
-      }
+
+      final subscriptions = <Future<void>>[
+        _messaging.subscribeToTopic('topic_all'),
+        if (specificTopic != null) _messaging.subscribeToTopic(specificTopic),
+      ];
+
+      await Future.wait(subscriptions).timeout(const Duration(seconds: 5));
+      debugPrint(
+        specificTopic != null
+            ? 'FCM: Subscribed to topic_all and $specificTopic'
+            : 'FCM: Subscribed to topic_all',
+      );
     } catch (e) {
       debugPrint('FCM: Failed to subscribe to topics: $e');
     }
@@ -273,12 +312,16 @@ class PushNotificationService {
   Future<String?> getToken({bool waitForApns = true}) async {
     try {
       if (!kIsWeb && Platform.isIOS) {
-        String? apnsToken = await _messaging.getAPNSToken();
+        String? apnsToken = await _messaging
+            .getAPNSToken()
+            .timeout(const Duration(seconds: 2), onTimeout: () => null);
         if (waitForApns && apnsToken == null) {
           // Wait briefly for iOS APNs registration during cold startup.
           for (var i = 0; i < 3 && apnsToken == null; i++) {
             await Future<void>.delayed(const Duration(milliseconds: 500));
-            apnsToken = await _messaging.getAPNSToken();
+            apnsToken = await _messaging
+                .getAPNSToken()
+                .timeout(const Duration(seconds: 2), onTimeout: () => null);
           }
         }
         if (apnsToken == null) {
@@ -286,7 +329,9 @@ class PushNotificationService {
           return null;
         }
       }
-      return await _messaging.getToken();
+      return await _messaging
+          .getToken()
+          .timeout(const Duration(seconds: 5), onTimeout: () => null);
     } catch (e) {
       debugPrint('FCM: Failed to retrieve token: $e');
       return null;

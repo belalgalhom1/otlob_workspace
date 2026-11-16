@@ -16,11 +16,15 @@ class LoginController extends _$LoginController {
 
     try {
       await ref.read(authControllerProvider.notifier).login(email, password);
-      state = const AsyncData(null);
+      if (ref.mounted) {
+        state = const AsyncData(null);
+      }
       return true;
     } catch (e, st) {
-      final errorMessage = ApiErrorMapper.fromError(e);
-      state = AsyncError(errorMessage, st);
+      if (ref.mounted) {
+        final errorMessage = ApiErrorMapper.fromError(e);
+        state = AsyncError(errorMessage, st);
+      }
       return false;
     }
   }
@@ -31,15 +35,21 @@ class LoginController extends _$LoginController {
     try {
       final success =
           await ref.read(authControllerProvider.notifier).signInWithGoogle();
-      state = const AsyncData(null);
+      if (ref.mounted) {
+        state = const AsyncData(null);
+      }
       return success;
     } catch (e, st) {
       if (e.toString().contains('google.sign_in.no_token')) {
-        state = const AsyncData(null);
+        if (ref.mounted) {
+          state = const AsyncData(null);
+        }
         return false;
       }
-      final errorMessage = ApiErrorMapper.fromError(e);
-      state = AsyncError(errorMessage, st);
+      if (ref.mounted) {
+        final errorMessage = ApiErrorMapper.fromError(e);
+        state = AsyncError(errorMessage, st);
+      }
       return false;
     }
   }

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
-import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/utils/error_utils.dart';
@@ -32,17 +31,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  Future<bool> _isMaintenanceBlocked(WidgetRef ref) async {
-    try {
-      final status = await checkAppStatus(
-        ref.read(sharedPlatformSettingsRepositoryProvider),
-      );
-      return status?.maintenance == true;
-    } catch (_) {
-      return false;
-    }
-  }
-
   void _onAppleSignInPressed(BuildContext context, AppLocalizations l10n) {
     // UI-only placeholder until Sign in with Apple authentication is enabled.
     ScaffoldMessenger.of(context)
@@ -56,50 +44,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    ref.listen<AsyncValue<bool>>(authProvider, (previous, state) async {
-      debugPrint('DEBUG: authProvider state changed to: isLoading=${state.isLoading}, hasValue=${state.hasValue}, value=${state.value}, hasError=${state.hasError}');
+    ref.listen<AsyncValue<bool>>(authProvider, (previous, state) {
       if (!state.isLoading && state.hasValue && state.value == true) {
-        debugPrint('DEBUG: Login successful! Checking role...');
-        try {
-          final repo = ref.read(sharedAuthRepositoryProvider);
-          final role = await repo.getUserRole();
-          debugPrint('DEBUG: Role is $role');
-          final acceptanceStatus = await ref
-              .read(sharedLegalDocumentsRepositoryProvider)
-              .getAcceptanceStatus();
-          if (acceptanceStatus?['needsAcceptance'] == true) {
-            if (context.mounted) {
-              context.go('/terms-acceptance');
-            }
-            return;
-          }
-
-          if (role == 'VENDOR_MEMBER') {
-            // Vendors stay frozen during maintenance even right after login.
-            final blocked = await _isMaintenanceBlocked(ref);
-            if (!context.mounted) return;
-            if (blocked) {
-              context.go('/maintenance');
-              return;
-            }
-            final vendorId = ref.read(activeVendorProvider);
-            if (vendorId == null || vendorId.isEmpty) {
-              debugPrint('DEBUG: No vendorId, going to /select-vendor');
-              if (context.mounted) context.go('/select-vendor');
-              return;
-            }
-          }
-          debugPrint('DEBUG: Going to /dashboard');
-          if (context.mounted) {
-            context.go('/dashboard');
-          } else {
-            debugPrint('DEBUG: context is NOT mounted!');
-          }
-        } catch (e) {
-          debugPrint('DEBUG: Error in listen: $e');
+        if (context.mounted) {
+          context.go(ref.read(vendorPostAuthRouteProvider));
         }
       } else if (state.hasError && state.error != null) {
-        debugPrint('DEBUG: Showing error snackbar for: ${state.error}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

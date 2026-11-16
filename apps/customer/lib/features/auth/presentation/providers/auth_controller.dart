@@ -52,7 +52,10 @@ final needsTermsProvider = NotifierProvider<NeedsTerms, bool>(NeedsTerms.new);
 /// Returns true when the current user has not accepted the latest published terms of use.
 Future<bool> userNeedsTermsAcceptance(Ref ref) async {
   try {
-    final status = await ref.read(sharedLegalDocumentsRepositoryProvider).getAcceptanceStatus();
+    final status = await ref
+        .read(sharedLegalDocumentsRepositoryProvider)
+        .getAcceptanceStatus()
+        .timeout(const Duration(seconds: 4));
     return status?['needsAcceptance'] == true;
   } catch (_) {
     return false;
@@ -62,7 +65,10 @@ Future<bool> userNeedsTermsAcceptance(Ref ref) async {
 /// Returns true when the current user has no delivery address saved.
 Future<bool> userMissingAddress(Ref ref) async {
   try {
-    final raw = await ref.read(customerAddressesRepositoryProvider).getAddresses();
+    final raw = await ref
+        .read(customerAddressesRepositoryProvider)
+        .getAddresses()
+        .timeout(const Duration(seconds: 4));
     final list = raw is List ? raw : <dynamic>[];
     return list.isEmpty;
   } catch (_) {
@@ -73,7 +79,10 @@ Future<bool> userMissingAddress(Ref ref) async {
 /// Returns true when the current user has no phone number on record.
 Future<bool> userMissingPhone(Ref ref) async {
   try {
-    final raw = await ref.read(sharedUserRepositoryProvider).getUser();
+    final raw = await ref
+        .read(sharedUserRepositoryProvider)
+        .getUser()
+        .timeout(const Duration(seconds: 4));
     final map = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
     final user = map['user'] is Map
         ? Map<String, dynamic>.from(map['user'] as Map)
@@ -86,6 +95,15 @@ Future<bool> userMissingPhone(Ref ref) async {
   } catch (_) {
     return false;
   }
+}
+
+bool? _extractMissingPhoneFromLoginPayload(dynamic payload) {
+  if (payload is! Map) return null;
+  final user = payload['user'];
+  if (user is! Map) return null;
+  if (!user.containsKey('phone')) return null;
+  final phone = user['phone']?.toString().trim() ?? '';
+  return phone.isEmpty;
 }
 
 @Riverpod(keepAlive: true)
@@ -132,6 +150,36 @@ class AuthController extends _$AuthController {
     ref.invalidate(supportTicketProvider);
   }
 
+  Future<void> _applyPostAuthGates({dynamic loginPayload}) async {
+    final missingPhoneFromPayload =
+        _extractMissingPhoneFromLoginPayload(loginPayload);
+    final results = await Future.wait<bool>([
+      userNeedsTermsAcceptance(ref),
+      missingPhoneFromPayload != null
+          ? Future<bool>.value(missingPhoneFromPayload)
+          : userMissingPhone(ref),
+      userMissingAddress(ref),
+    ]);
+    if (!ref.mounted) return;
+    ref.read(needsTermsProvider.notifier).set(results[0]);
+    ref.read(needsPhoneProvider.notifier).set(results[1]);
+    ref.read(needsAddressProvider.notifier).set(results[2]);
+  }
+
+  void _initPushInBackground() {
+    unawaited(
+      Future<void>(() async {
+        try {
+          if (!ref.mounted) return;
+          final push = ref.read(pushNotificationServiceProvider);
+          await push.initialize();
+          if (!ref.mounted) return;
+          await push.subscribeToRoleTopics('CUSTOMER');
+        } catch (_) {}
+      }),
+    );
+  }
+
   Future<void> checkAuthStatus() async {
     final authRepo = ref.read(sharedAuthRepositoryProvider);
     final hasSession = await authRepo.isLoggedIn();
@@ -151,54 +199,40 @@ class AuthController extends _$AuthController {
       }
     }
 
-    // For now, treat all authenticated users as verified
-    // If verification state is needed, fetch it from profile
+    await _applyPostAuthGates();
+    if (!ref.mounted) return;
+    // Set authenticated after gate flags are populated so RouterNotifier
+    // evaluates the complete post-auth state in a single transition.
     state = AuthStatus.authenticated;
-    ref.read(needsTermsProvider.notifier).set(await userNeedsTermsAcceptance(ref));
-    ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
-    ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
-    try {
-      final push = ref.read(pushNotificationServiceProvider);
-      await push.initialize();
-      await push.subscribeToRoleTopics('CUSTOMER');
-    } catch (_) {}
+    _initPushInBackground();
   }
 
   Future<void> login(String email, String password) async {
-    _clearUserProviders();
     final authRepo = ref.read(sharedAuthRepositoryProvider);
-    await authRepo.login(email, password, appType: 'customer');
+    final payload =
+        await authRepo.login(email, password, appType: 'customer');
+    _clearUserProviders();
+    await _applyPostAuthGates(loginPayload: payload);
+    if (!ref.mounted) return;
     state = AuthStatus.authenticated;
-    ref.read(needsTermsProvider.notifier).set(await userNeedsTermsAcceptance(ref));
-    ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
-    ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
-    try {
-      final push = ref.read(pushNotificationServiceProvider);
-      await push.initialize();
-      await push.subscribeToRoleTopics('CUSTOMER');
-    } catch (_) {}
+    _initPushInBackground();
   }
 
   Future<bool> signInWithGoogle() async {
     try {
       final idToken = await GoogleSignInService.getIdToken();
-      _clearUserProviders();
       final authRepo = ref.read(sharedAuthRepositoryProvider);
-      await authRepo.socialLogin(
+      final payload = await authRepo.socialLogin(
         SocialLoginDto((b) => b
           ..provider = SocialLoginDtoProviderEnum.GOOGLE
           ..idToken = idToken
           ..app = SocialLoginDtoAppEnum.customer),
       );
+      _clearUserProviders();
+      await _applyPostAuthGates(loginPayload: payload);
+      if (!ref.mounted) return true;
       state = AuthStatus.authenticated;
-      ref.read(needsTermsProvider.notifier).set(await userNeedsTermsAcceptance(ref));
-      ref.read(needsPhoneProvider.notifier).set(await userMissingPhone(ref));
-      ref.read(needsAddressProvider.notifier).set(await userMissingAddress(ref));
-      try {
-        final push = ref.read(pushNotificationServiceProvider);
-        await push.initialize();
-        await push.subscribeToRoleTopics('CUSTOMER');
-      } catch (_) {}
+      _initPushInBackground();
       return true;
     } catch (e) {
       final msg = e.toString();

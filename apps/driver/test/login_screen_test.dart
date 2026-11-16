@@ -1,11 +1,85 @@
+import 'dart:async';
+
+import 'package:core/core.dart';
+import 'package:data/data.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/auth/presentation/pages/login_screen.dart';
+import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ui_kit/ui_kit.dart';
+
+class _FakeDriverAuthRepo extends Fake implements SharedAuthRepository {
+  @override
+  Future<bool> isLoggedIn() async => false;
+
+  @override
+  Future<String?> getUserRole() async => 'DRIVER';
+
+  @override
+  Future<dynamic> login(
+    String email,
+    String password, {
+    String? appType,
+  }) async =>
+      {
+        'access_token': 'fake-access',
+        'refresh_token': 'fake-refresh',
+        'user': {
+          'id': 'd1',
+          'role': 'DRIVER',
+          'driver': {
+            'id': 'drv1',
+            'status': 'OFFLINE',
+            'isApproved': true,
+          },
+        },
+      };
+}
+
+class _FakeDriverProfileRepo extends Fake implements DriverProfileRepository {
+  int getMyProfileCalls = 0;
+
+  @override
+  Future<Map<String, dynamic>?> getMyProfile() async {
+    getMyProfileCalls++;
+    return {'id': 'drv1', 'status': 'OFFLINE', 'isApproved': true};
+  }
+}
+
+class _FakeDriverLegalRepo extends Fake
+    implements SharedLegalDocumentsRepository {
+  @override
+  Future<Map<String, dynamic>?> getAcceptanceStatus() async =>
+      {'needsAcceptance': false};
+}
+
+class _FakeDriverOrdersRepo extends Fake implements DriverOrdersRepository {
+  @override
+  Future<dynamic> getActiveDriverOrder() async => {'data': null};
+}
+
+class _FakeCoreSocketService extends Fake implements CoreSocketService {
+  @override
+  Future<void> init({bool autoConnect = true}) async {}
+}
+
+class _HangingPushService extends Fake implements PushNotificationService {
+  final Completer<void> initCompleter = Completer<void>();
+  int initCalls = 0;
+
+  @override
+  Future<void> initialize() {
+    initCalls++;
+    return initCompleter.future;
+  }
+
+  @override
+  Future<void> subscribeToRoleTopics(String role) async {}
+}
 
 class _TestAuth extends Auth {
   final AsyncValue<bool> initialState;
@@ -162,6 +236,44 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
       expect(testAuth.loginCalls, 0);
       expect(testAuth.googleCalls, 0);
+    },
+  );
+
+  test(
+    'Real Driver Auth.login completes immediately without blocking on hanging PushNotificationService.initialize',
+    () async {
+      final fakeProfileRepo = _FakeDriverProfileRepo();
+      final hangingPush = _HangingPushService();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedAuthRepositoryProvider.overrideWithValue(_FakeDriverAuthRepo()),
+          driverProfileRepositoryProvider.overrideWithValue(fakeProfileRepo),
+          sharedLegalDocumentsRepositoryProvider
+              .overrideWithValue(_FakeDriverLegalRepo()),
+          driverOrdersRepositoryProvider
+              .overrideWithValue(_FakeDriverOrdersRepo()),
+          coreSocketServiceProvider
+              .overrideWithValue(_FakeCoreSocketService()),
+          pushNotificationServiceProvider.overrideWithValue(hangingPush),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(authProvider.notifier)
+          .login('driver@example.com', 'password123');
+
+      final authState = container.read(authProvider);
+      expect(authState.isLoading, isFalse);
+      expect(authState.value, isTrue);
+      expect(
+        container.read(driverPostLoginStateProvider),
+        AppStartupState.dashboard,
+      );
+      // Driver status and approval were extracted from login payload without redundant GET /drivers/me
+      expect(fakeProfileRepo.getMyProfileCalls, 0);
+      expect(hangingPush.initCalls, 1);
     },
   );
 }

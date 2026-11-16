@@ -1,11 +1,73 @@
+import 'dart:async';
+
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:vendor/core/providers.dart';
 import 'package:vendor/features/auth/presentation/auth_provider.dart';
 import 'package:vendor/features/auth/presentation/login_screen.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+
+class _FakeVendorAuthRepo extends Fake implements SharedAuthRepository {
+  @override
+  Future<String?> getUserRole() async => 'VENDOR_MEMBER';
+
+  @override
+  Future<List<dynamic>> getVendorMemberships() async => [
+        {'vendorId': 'v-1'},
+      ];
+
+  @override
+  Future<dynamic> login(
+    String email,
+    String password, {
+    String? appType,
+  }) async =>
+      {
+        'access_token': 'fake-access',
+        'refresh_token': 'fake-refresh',
+      };
+}
+
+class _FakeVendorLegalRepo extends Fake
+    implements SharedLegalDocumentsRepository {
+  @override
+  Future<Map<String, dynamic>?> getAcceptanceStatus() async =>
+      {'needsAcceptance': false};
+}
+
+class _FakePlatformSettingsRepo extends Fake
+    implements SharedPlatformSettingsRepository {
+  @override
+  Future<dynamic> checkAppVersion(dynamic dto) async =>
+      {'isMaintenanceMode': false, 'mustUpdate': false, 'shouldUpdate': false};
+}
+
+class _HangingPushService extends Fake implements PushNotificationService {
+  final Completer<void> initCompleter = Completer<void>();
+  int initCalls = 0;
+
+  @override
+  Future<void> initialize() {
+    initCalls++;
+    return initCompleter.future;
+  }
+
+  @override
+  Future<void> subscribeToRoleTopics(String role) async {}
+}
+
+class _TestActiveVendor extends ActiveVendor {
+  @override
+  String? build() => null;
+
+  @override
+  Future<void> setActiveVendor(String vendorId) async {
+    state = vendorId;
+  }
+}
 
 class _TestAuthNotifier extends AuthNotifier {
   final AsyncValue<bool> initialState;
@@ -165,6 +227,37 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
       expect(testAuth.loginCalls, 0);
       expect(testAuth.googleCalls, 0);
+    },
+  );
+
+  test(
+    'Real Vendor AuthNotifier.login completes immediately without blocking on hanging PushNotificationService.initialize',
+    () async {
+      final hangingPush = _HangingPushService();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedAuthRepositoryProvider.overrideWithValue(_FakeVendorAuthRepo()),
+          sharedLegalDocumentsRepositoryProvider
+              .overrideWithValue(_FakeVendorLegalRepo()),
+          sharedPlatformSettingsRepositoryProvider
+              .overrideWithValue(_FakePlatformSettingsRepo()),
+          activeVendorProvider.overrideWith(_TestActiveVendor.new),
+          pushNotificationServiceProvider.overrideWithValue(hangingPush),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(authProvider.notifier)
+          .login('vendor@example.com', 'password123');
+
+      final authState = container.read(authProvider);
+      expect(authState.isLoading, isFalse);
+      expect(authState.value, isTrue);
+      expect(container.read(activeVendorProvider), 'v-1');
+      expect(container.read(vendorPostAuthRouteProvider), '/dashboard');
+      expect(hangingPush.initCalls, 1);
     },
   );
 }

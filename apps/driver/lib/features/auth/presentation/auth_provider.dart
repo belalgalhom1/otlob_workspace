@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:api/api.dart';
 import 'package:data/data.dart';
@@ -18,6 +19,18 @@ import 'package:data/providers.dart' as data_providers;
 import 'package:core/core.dart';
 
 part 'auth_provider.g.dart';
+
+class DriverPostLoginState extends Notifier<AppStartupState> {
+  @override
+  AppStartupState build() => AppStartupState.dashboard;
+
+  void set(AppStartupState value) => state = value;
+}
+
+final driverPostLoginStateProvider =
+    NotifierProvider<DriverPostLoginState, AppStartupState>(
+      DriverPostLoginState.new,
+    );
 
 @Riverpod(keepAlive: true)
 class Auth extends _$Auth {
@@ -49,6 +62,20 @@ class Auth extends _$Auth {
     logout();
   }
 
+  void _initPushInBackground() {
+    unawaited(
+      Future<void>(() async {
+        try {
+          if (!ref.mounted) return;
+          final pushService = ref.read(pushNotificationServiceProvider);
+          await pushService.initialize();
+          if (!ref.mounted) return;
+          await pushService.subscribeToRoleTopics('DRIVER');
+        } catch (_) {}
+      }),
+    );
+  }
+
   Future<void> _checkInitialAuth() async {
     if (state.hasValue && state.value == true) return;
     try {
@@ -57,11 +84,7 @@ class Auth extends _$Auth {
       if (isLoggedIn) {
         final role = await repository.getUserRole();
         if (role == 'DRIVER') {
-          try {
-            final pushService = ref.read(pushNotificationServiceProvider);
-            await pushService.initialize();
-            await pushService.subscribeToRoleTopics('DRIVER');
-          } catch (_) {}
+          _initPushInBackground();
           state = const AsyncValue.data(true);
           return;
         } else {
@@ -79,8 +102,9 @@ class Auth extends _$Auth {
     state = const AsyncValue.loading();
     try {
       final repository = ref.read(sharedAuthRepositoryProvider);
-      await repository.login(email, password, appType: 'driver');
-      await _finishDriverLogin(repository);
+      final response =
+          await repository.login(email, password, appType: 'driver');
+      await _finishDriverLogin(repository, loginPayload: response);
     } catch (e, st) {
       final errorString = e.toString();
       if (errorString.contains('404') || errorString.contains('PROFILE_NOT_FOUND')) {
@@ -99,13 +123,13 @@ class Auth extends _$Auth {
     try {
       final idToken = await GoogleSignInService.getIdToken();
       final repository = ref.read(sharedAuthRepositoryProvider);
-      await repository.socialLogin(
+      final response = await repository.socialLogin(
         SocialLoginDto((b) => b
           ..provider = SocialLoginDtoProviderEnum.GOOGLE
           ..idToken = idToken
           ..app = SocialLoginDtoAppEnum.driver),
       );
-      await _finishDriverLogin(repository);
+      await _finishDriverLogin(repository, loginPayload: response);
     } catch (e, st) {
       if (e.toString().contains('google.sign_in.no_token')) {
         state = const AsyncValue.data(false);
@@ -123,75 +147,127 @@ class Auth extends _$Auth {
     }
   }
 
-  Future<void> _finishDriverLogin(SharedAuthRepository repository) async {
-      final role = await repository.getUserRole();
-      if (role != 'DRIVER') {
-        await repository.logout();
-        throw Exception('auth.error.unauthorized_role');
-      }
+  Map<String, dynamic>? _extractDriverFromLoginPayload(dynamic payload) {
+    if (payload is! Map) return null;
+    final user = payload['user'];
+    if (user is! Map) return null;
+    final driver = user['driver'];
+    if (driver is! Map) return null;
+    return Map<String, dynamic>.from(driver);
+  }
 
+  Future<void> _finishDriverLogin(
+    SharedAuthRepository repository, {
+    dynamic loginPayload,
+  }) async {
+    final role = await repository.getUserRole();
+    if (role != 'DRIVER') {
+      await repository.logout();
+      throw Exception('auth.error.unauthorized_role');
+    }
+
+    final legalRepo = ref.read(sharedLegalDocumentsRepositoryProvider);
+    final ordersRepo = ref.read(driverOrdersRepositoryProvider);
+    final termsFuture = legalRepo
+        .getAcceptanceStatus()
+        .timeout(const Duration(seconds: 4))
+        .catchError((_) => null);
+    final activeOrderFuture = ordersRepo
+        .getActiveDriverOrder()
+        .timeout(const Duration(seconds: 4))
+        .catchError((_) => null);
+
+    Map<String, dynamic>? profile =
+        _extractDriverFromLoginPayload(loginPayload);
+    var profileFetchFailed = false;
+
+    // Only fetch `/drivers/me` on login if the login payload did not already
+    // include both `isApproved` and `status` (e.g. social login or test mocks).
+    if (profile == null ||
+        !profile.containsKey('isApproved') ||
+        !profile.containsKey('status')) {
       final driverRepo = ref.read(driverProfileRepositoryProvider);
-      Map<String, dynamic>? profile;
-      var profileFetchFailed = false;
       try {
-        profile = await driverRepo.getMyProfile();
+        profile = await driverRepo
+            .getMyProfile()
+            .timeout(const Duration(seconds: 5));
       } catch (e) {
         final message = e.toString();
         if (message.contains('404') || message.contains('PROFILE_NOT_FOUND')) {
           await repository.logout();
           throw Exception('auth.error.pending_approval');
         }
-        // Tokens were already persisted by the successful login. A transient
-        // network/server failure on this very first authenticated read (cold
-        // socket/TLS, momentary 5xx, fresh KeyStore) must not strand the user
-        // on an error snackbar that only a force-restart escapes — the
-        // dashboard's fetchProfile (retries + error card) handles any lasting
-        // problem.
         profileFetchFailed = true;
         debugPrint(
           'Login succeeded; post-login profile fetch failed transiently: $e',
         );
 
-        // A real 401 that survived the refresh cycle means the interceptor
-        // already wiped the freshly saved tokens. That is not a transient
-        // hiccup — the session is genuinely dead, so marking the app
-        // authenticated would strand the user on a dashboard that only 401s.
-        // Bounce back to the login screen instead.
         try {
           final stillLoggedIn = await repository.isLoggedIn();
           if (!stillLoggedIn) {
             state = const AsyncValue.data(false);
             return;
           }
-        } catch (_) {
-          // Storage hiccup mid-check: proceed; the dashboard's retry path
-          // (fetchProfile) and the interceptor re-assert the real state.
-        }
+        } catch (_) {}
       }
-      if (!profileFetchFailed &&
-          (profile == null || profile['isApproved'] != true)) {
-        await repository.logout();
-        throw Exception('auth.error.pending_approval');
+    }
+
+    if (!profileFetchFailed &&
+        (profile == null || profile['isApproved'] != true)) {
+      await repository.logout();
+      throw Exception('auth.error.pending_approval');
+    }
+
+    var nextStartupState = AppStartupState.dashboard;
+    if (profile?['status'] == 'SUSPENDED') {
+      nextStartupState = AppStartupState.suspended;
+    } else {
+      final results = await Future.wait<dynamic>([
+        termsFuture,
+        activeOrderFuture,
+      ]);
+      final termsStatus = results[0] as Map<String, dynamic>?;
+      final activeOrderResult = results[1] as Map<String, dynamic>?;
+      if (termsStatus != null && termsStatus['needsAcceptance'] == true) {
+        nextStartupState = AppStartupState.needsTerms;
+      } else if (activeOrderResult != null &&
+          activeOrderResult['data'] != null) {
+        nextStartupState = AppStartupState.activeOrder;
       }
+    }
 
-      // Initialize Push Notifications and register FCM token. Time-boxed:
-      // on devices with broken Play Services/FCM this step can hang
-      // forever, which would strand the login button in loading state with
-      // zero feedback. Push must never gate authentication.
-      try {
-        await (() async {
-          final pushService = ref.read(pushNotificationServiceProvider);
-          await pushService.initialize();
-          await pushService.subscribeToRoleTopics('DRIVER');
-        })().timeout(const Duration(seconds: 10));
-      } catch (_) {}
+    // Connect socket and initialize push notifications in the background
+    // so they never stall the login button.
+    unawaited(
+      ref
+          .read(coreSocketServiceProvider)
+          .init(autoConnect: true)
+          .catchError((_) {}),
+    );
+    _initPushInBackground();
 
-      _clearDriverState();
-      state = const AsyncValue.data(true);
+    _clearDriverState(postLoginState: nextStartupState);
+    state = const AsyncValue.data(true);
   }
 
-  void _clearDriverState() {
-    ref.invalidate(splashProvider);
+  void _clearDriverState({AppStartupState? postLoginState}) {
+    if (postLoginState != null) {
+      ref.read(driverPostLoginStateProvider.notifier).set(
+            postLoginState == AppStartupState.unauthenticated
+                ? AppStartupState.dashboard
+                : postLoginState,
+          );
+      if (ref.exists(splashProvider)) {
+        ref.read(splashProvider.notifier).setPostLoginState(postLoginState);
+      }
+    } else {
+      ref
+          .read(driverPostLoginStateProvider.notifier)
+          .set(AppStartupState.dashboard);
+      if (ref.exists(splashProvider)) {
+        ref.invalidate(splashProvider);
+      }
+    }
     ref.invalidate(driverProfileProvider);
     ref.invalidate(driverOrdersHistoryProvider);
     ref.invalidate(data_providers.sharedInboxProvider);
@@ -221,26 +297,32 @@ class Auth extends _$Auth {
         ref.read(coreSocketServiceProvider).disconnect();
       } catch (_) {}
       try {
-        await GoogleSignInService.signOut();
+        await GoogleSignInService.signOut().timeout(const Duration(seconds: 2));
       } catch (_) {}
 
       final repository = ref.read(sharedAuthRepositoryProvider);
 
       if (await repository.isLoggedIn()) {
+        final push = ref.read(pushNotificationServiceProvider);
         String? fcmToken;
         try {
-          final push = ref.read(pushNotificationServiceProvider);
-          fcmToken = await push.getToken();
-          await push.unsubscribeFromRoleTopics('DRIVER');
-          await push.unregisterToken();
+          fcmToken = await push
+              .getToken(waitForApns: false)
+              .timeout(const Duration(milliseconds: 500), onTimeout: () => null);
         } catch (_) {}
 
+        unawaited(push.unsubscribeFromRoleTopics('DRIVER'));
+        unawaited(push.unregisterToken(token: fcmToken, waitForApns: false));
+
         try {
-          await repository.logout(fcmToken: fcmToken);
+          await repository.logout(
+            fcmToken: fcmToken,
+            timeout: const Duration(seconds: 3),
+          );
         } catch (_) {}
       }
 
-      _clearDriverState();
+      _clearDriverState(postLoginState: AppStartupState.unauthenticated);
       state = const AsyncValue.data(false);
       _goToLogin();
     } catch (e, st) {

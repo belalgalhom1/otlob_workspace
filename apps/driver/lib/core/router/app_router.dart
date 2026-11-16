@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/auth/presentation/pages/login_screen.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/features/dashboard/presentation/dashboard_screen.dart';
@@ -28,10 +29,15 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 @riverpod
 GoRouter appRouter(Ref ref) {
+  final authRefresh = ValueNotifier<int>(0);
+  ref.listen(authProvider, (_, _) => authRefresh.value++);
+  ref.onDispose(authRefresh.dispose);
+
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     debugLogDiagnostics: true,
+    refreshListenable: authRefresh,
     redirect: (context, state) {
       // App-status gates and legal documents manage themselves; never redirect away from them.
       if (state.matchedLocation == '/maintenance' ||
@@ -40,14 +46,33 @@ GoRouter appRouter(Ref ref) {
         return null;
       }
 
+      final authState = ref.read(authProvider);
+      final isAuthenticated =
+          !authState.isLoading && authState.hasValue && authState.value == true;
       final splashState = ref.read(splashProvider);
-      
+      final isGoingToLogin = state.matchedLocation == '/login';
+
+      if (isAuthenticated && isGoingToLogin) {
+        final startupState = ref.read(driverPostLoginStateProvider);
+        switch (startupState) {
+          case AppStartupState.suspended:
+            return '/suspended';
+          case AppStartupState.needsTerms:
+            return '/terms-acceptance';
+          case AppStartupState.activeOrder:
+            return '/order-execution';
+          default:
+            return '/dashboard';
+        }
+      }
+
       // If splash is still loading, don't redirect, let splash handle it
       if (splashState.isLoading || !splashState.hasValue) return null;
       
       final appState = splashState.value!;
-      final isGoingToLogin = state.matchedLocation == '/login';
-      if (appState == AppStartupState.unauthenticated && !isGoingToLogin) {
+      if (appState == AppStartupState.unauthenticated &&
+          !isAuthenticated &&
+          !isGoingToLogin) {
         return '/login';
       }
 

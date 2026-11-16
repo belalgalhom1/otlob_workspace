@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:core/core.dart' hide tokenServiceProvider, TokenService;
 import 'package:data/data.dart';
 import 'package:data/providers.dart' as data_providers;
 import 'package:easy_localization/easy_localization.dart';
@@ -31,14 +32,73 @@ class _CatalogAssetLoader extends AssetLoader {
 }
 
 class _FakeAuthRepo extends Fake implements SharedAuthRepository {
+  Map<String, dynamic> loginResponse = {
+    'access_token': 'fake-access',
+    'refresh_token': 'fake-refresh',
+    'user': {
+      'id': 'u1',
+      'email': 'customer@example.com',
+      'phone': '+201000000000',
+      'role': 'CUSTOMER',
+    },
+  };
+
   @override
   Future<bool> isLoggedIn() async => false;
+
+  @override
+  Future<dynamic> login(
+    String email,
+    String password, {
+    String? appType,
+  }) async =>
+      loginResponse;
 
   @override
   Future<void> logout({
     String? fcmToken,
     Duration timeout = const Duration(seconds: 4),
   }) async {}
+}
+
+class _FakeLegalDocsRepo extends Fake implements SharedLegalDocumentsRepository {
+  @override
+  Future<Map<String, dynamic>?> getAcceptanceStatus() async => {
+        'needsAcceptance': false,
+      };
+}
+
+class _FakeAddressesRepo extends Fake implements CustomerAddressesRepository {
+  @override
+  Future<dynamic> getAddresses() async => [
+        {'id': 'addr-1'},
+      ];
+}
+
+class _FakeUserRepo extends Fake implements SharedUserRepository {
+  int getUserCalls = 0;
+
+  @override
+  Future<dynamic> getUser() async {
+    getUserCalls++;
+    return {
+      'user': {'phone': '+201000000000'},
+    };
+  }
+}
+
+class _HangingPushService extends Fake implements PushNotificationService {
+  final Completer<void> initCompleter = Completer<void>();
+  int initCalls = 0;
+
+  @override
+  Future<void> initialize() {
+    initCalls++;
+    return initCompleter.future;
+  }
+
+  @override
+  Future<void> subscribeToRoleTopics(String role) async {}
 }
 
 class _FakeTokenService extends Fake implements TokenService {
@@ -293,6 +353,46 @@ void main() {
 
       expect(emittedStatuses.contains(AuthStatus.initial), isFalse);
       expect(container.read(authControllerProvider), AuthStatus.unauthenticated);
+    },
+  );
+
+  test(
+    'Real AuthController.login completes immediately even when PushNotificationService.initialize hangs',
+    () async {
+      SharedPreferences.setMockInitialValues({'has_seen_onboarding': true});
+      final prefs = await SharedPreferences.getInstance();
+      final fakeUserRepo = _FakeUserRepo();
+      final hangingPush = _HangingPushService();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          data_providers.sharedAuthRepositoryProvider.overrideWithValue(
+            _FakeAuthRepo(),
+          ),
+          data_providers.sharedLegalDocumentsRepositoryProvider
+              .overrideWithValue(_FakeLegalDocsRepo()),
+          data_providers.customerAddressesRepositoryProvider
+              .overrideWithValue(_FakeAddressesRepo()),
+          data_providers.sharedUserRepositoryProvider
+              .overrideWithValue(fakeUserRepo),
+          pushNotificationServiceProvider.overrideWithValue(hangingPush),
+          tokenServiceProvider.overrideWithValue(_FakeTokenService()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(authControllerProvider.notifier)
+          .login('customer@example.com', 'password123');
+
+      expect(container.read(authControllerProvider), AuthStatus.authenticated);
+      expect(container.read(needsTermsProvider), isFalse);
+      expect(container.read(needsPhoneProvider), isFalse);
+      expect(container.read(needsAddressProvider), isFalse);
+      // Phone was extracted directly from login payload without redundant GET /users/profile
+      expect(fakeUserRepo.getUserCalls, 0);
+      expect(hangingPush.initCalls, 1);
     },
   );
 }

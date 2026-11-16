@@ -49,11 +49,11 @@ class Splash extends _$Splash {
     // spinning for a minute with no feedback. On timeout, fall through to
     // the same session check the generic error path uses.
     try {
-      return await _initialize().timeout(const Duration(seconds: 25));
+      return await _initialize().timeout(const Duration(seconds: 15));
     } on TimeoutException {
       final authRepository = ref.read(sharedAuthRepositoryProvider);
       final isLoggedIn = await authRepository.isLoggedIn().timeout(
-            const Duration(seconds: 5),
+            const Duration(seconds: 3),
             onTimeout: () => false,
           );
       return isLoggedIn
@@ -62,11 +62,18 @@ class Splash extends _$Splash {
     }
   }
 
+  void setPostLoginState(AppStartupState nextState) {
+    state = AsyncValue.data(nextState);
+  }
+
   Future<AppStartupState> _initialize() async {
     try {
       debugPrint('🚀 Splash: gate check start');
       final appStatus = await checkAppStatus(
         ref.read(sharedPlatformSettingsRepositoryProvider),
+      ).timeout(
+        const Duration(seconds: 4),
+        onTimeout: () => null,
       );
       debugPrint('🚀 Splash: gate check done: ${appStatus == null ? 'offline-skip' : 'maintenance=${appStatus.maintenance} mustUpdate=${appStatus.mustUpdate}'}');
       if (appStatus != null) {
@@ -95,6 +102,20 @@ class Splash extends _$Splash {
       }
 
       final driverRepo = ref.read(driverProfileRepositoryProvider);
+      final legalRepo = ref.read(sharedLegalDocumentsRepositoryProvider);
+      final ordersRepo = ref.read(driverOrdersRepositoryProvider);
+
+      // Kick off terms and active-order checks in parallel with profile fetch
+      // so startup only pays a single network RTT instead of three sequential ones.
+      final termsFuture = legalRepo
+          .getAcceptanceStatus()
+          .timeout(const Duration(seconds: 4))
+          .catchError((_) => null);
+      final activeOrderFuture = ordersRepo
+          .getActiveDriverOrder()
+          .timeout(const Duration(seconds: 4))
+          .catchError((_) => null);
+
       debugPrint('🚀 Splash: profile fetch start');
       final profile = await driverRepo.getMyProfile();
       debugPrint('🚀 Splash: profile fetch done');
@@ -102,44 +123,46 @@ class Splash extends _$Splash {
         await authRepository.logout();
         return AppStartupState.unauthenticated;
       }
-      
+
       if (profile['status'] == 'SUSPENDED') {
         return AppStartupState.suspended;
       }
 
-      final legalRepo = ref.read(sharedLegalDocumentsRepositoryProvider);
-      final termsStatus = await legalRepo.getAcceptanceStatus();
+      // Connect socket and initialize push notifications in the background
+      // so neither blocks navigation into the app.
+      unawaited(
+        ref
+            .read(coreSocketServiceProvider)
+            .init(autoConnect: true)
+            .catchError((_) {}),
+      );
+
+      unawaited(
+        Future<void>(() async {
+          try {
+            if (!ref.mounted) return;
+            final pushService = ref.read(pushNotificationServiceProvider);
+            await pushService.initialize();
+            if (!ref.mounted) return;
+            await pushService.subscribeToRoleTopics('DRIVER');
+          } catch (_) {
+            // Gracefully ignore on platforms/environments without FCM
+          }
+        }),
+      );
+
+      final termsStatus = await termsFuture;
       if (termsStatus != null && termsStatus['needsAcceptance'] == true) {
         return AppStartupState.needsTerms;
       }
 
-      // Always connect the socket so the driver receives payment status,
-      // order updates, and dispatch events regardless of their online status.
-      // A driver who appears OFFLINE to customers must still get notified when
-      // a customer marks a payment as received.
-      await ref.read(coreSocketServiceProvider).init(autoConnect: true);
-
-      // Initialize Push Notifications and register FCM token
-      Future(() async {
-        try {
-          final pushService = ref.read(pushNotificationServiceProvider);
-          await pushService.initialize();
-          await pushService.subscribeToRoleTopics('DRIVER');
-        } catch (e) {
-          // Gracefully ignore on platforms/environments without FCM
-        }
-      });
-
-      // Query for an active order
       debugPrint('🚀 Splash: active-order fetch start');
-      final ordersRepo = ref.read(driverOrdersRepositoryProvider);
-      final activeOrderResult = await ordersRepo.getActiveDriverOrder();
+      final activeOrderResult = await activeOrderFuture;
       debugPrint('🚀 Splash: active-order fetch done');
-      
+
       // The repository resolves to {'data': null} when no order is active,
       // so an empty map must not be treated as an active order.
       if (activeOrderResult != null && activeOrderResult['data'] != null) {
-        // We have an active order
         return AppStartupState.activeOrder;
       }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:api/api.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -28,6 +30,16 @@ class UpdateStoreUrl extends Notifier<String?> {
 final updateStoreUrlProvider =
     NotifierProvider<UpdateStoreUrl, String?>(UpdateStoreUrl.new);
 
+class VendorPostAuthRoute extends Notifier<String> {
+  @override
+  String build() => '/dashboard';
+
+  void set(String value) => state = value;
+}
+
+final vendorPostAuthRouteProvider =
+    NotifierProvider<VendorPostAuthRoute, String>(VendorPostAuthRoute.new);
+
 @Riverpod(keepAlive: true)
 class AuthNotifier extends _$AuthNotifier {
   bool _logoutInProgress = false;
@@ -54,6 +66,65 @@ class AuthNotifier extends _$AuthNotifier {
     // calls and simply flips state to false so the router bounces to login,
     // instead of stranding the dashboard on an error card.
     logout();
+  }
+
+  void _initPushInBackground(String role) {
+    unawaited(
+      Future<void>(() async {
+        try {
+          if (!ref.mounted) return;
+          final pushService = ref.read(pushNotificationServiceProvider);
+          await pushService.initialize();
+          if (!ref.mounted) return;
+          await pushService.subscribeToRoleTopics(role);
+        } catch (_) {}
+      }),
+    );
+  }
+
+  Future<String> _resolvePostAuthRoute(
+    String? role, {
+    required bool checkMaintenance,
+  }) async {
+    final termsFuture = ref
+        .read(sharedLegalDocumentsRepositoryProvider)
+        .getAcceptanceStatus()
+        .timeout(const Duration(seconds: 4))
+        .catchError((_) => null);
+
+    final maintenanceFuture =
+        (checkMaintenance && role == 'VENDOR_MEMBER')
+            ? checkAppStatus(ref.read(sharedPlatformSettingsRepositoryProvider))
+                .timeout(const Duration(seconds: 4), onTimeout: () => null)
+                .catchError((_) => null)
+            : Future<AppStatusResult?>.value(null);
+
+    final results = await Future.wait<dynamic>([
+      termsFuture,
+      maintenanceFuture,
+    ]);
+
+    final acceptanceStatus = results[0] as Map<String, dynamic>?;
+    final appStatus = results[1] as AppStatusResult?;
+
+    var route = '/dashboard';
+    if (acceptanceStatus?['needsAcceptance'] == true) {
+      route = '/terms-acceptance';
+    } else if (checkMaintenance &&
+        role == 'VENDOR_MEMBER' &&
+        appStatus?.maintenance == true) {
+      route = '/maintenance';
+    } else if (role == 'VENDOR_MEMBER') {
+      final vendorId = ref.read(activeVendorProvider);
+      if (vendorId == null || vendorId.isEmpty) {
+        route = '/select-vendor';
+      }
+    }
+
+    if (ref.mounted) {
+      ref.read(vendorPostAuthRouteProvider.notifier).set(route);
+    }
+    return route;
   }
 
   Future<void> login(String email, String password) async {
@@ -127,12 +198,9 @@ class AuthNotifier extends _$AuthNotifier {
     // Seed the active vendor for single-membership accounts so they land
     // on the dashboard instead of the vendor-selection screen.
     await _seedActiveVendor(repository, onlySingle: true);
+    await _resolvePostAuthRoute(role, checkMaintenance: true);
 
-    try {
-      final pushService = ref.read(pushNotificationServiceProvider);
-      await pushService.initialize();
-      await pushService.subscribeToRoleTopics(role ?? 'VENDOR');
-    } catch (_) {}
+    _initPushInBackground(role ?? 'VENDOR');
 
     debugPrint('DEBUG: Setting state to data(true)');
     state = const AsyncValue.data(true);
@@ -178,27 +246,19 @@ class AuthNotifier extends _$AuthNotifier {
       await _seedActiveVendor(repository, onlySingle: true);
 
       final isExpired = await repository.isTokenExpired();
-      if (!isExpired) {
-        try {
-          final pushService = ref.read(pushNotificationServiceProvider);
-          await pushService.initialize();
-          await pushService.subscribeToRoleTopics(role ?? 'VENDOR');
-        } catch (_) {}
-        state = const AsyncValue.data(true);
-      } else {
+      if (isExpired) {
         try {
           await repository.refreshToken();
-          try {
-            final pushService = ref.read(pushNotificationServiceProvider);
-            await pushService.initialize();
-            await pushService.subscribeToRoleTopics(role ?? 'VENDOR');
-          } catch (_) {}
-          state = const AsyncValue.data(true);
         } catch (e) {
           await logout();
           state = const AsyncValue.data(false);
+          return;
         }
       }
+
+      await _resolvePostAuthRoute(role, checkMaintenance: false);
+      _initPushInBackground(role ?? 'VENDOR');
+      state = const AsyncValue.data(true);
     } catch (e) {
       debugPrint('checkAuth error: $e');
       state = const AsyncValue.data(false);
@@ -229,7 +289,7 @@ class AuthNotifier extends _$AuthNotifier {
     _logoutInProgress = true;
     try {
       try {
-        await GoogleSignInService.signOut();
+        await GoogleSignInService.signOut().timeout(const Duration(seconds: 2));
       } catch (_) {}
       try {
         await ref.read(activeVendorProvider.notifier).clearActiveVendor();
@@ -241,20 +301,30 @@ class AuthNotifier extends _$AuthNotifier {
       final repository = ref.read(sharedAuthRepositoryProvider);
 
       if (await repository.isLoggedIn()) {
+        final push = ref.read(pushNotificationServiceProvider);
+        String? role;
+        try {
+          role = await repository.getUserRole();
+        } catch (_) {}
         String? fcmToken;
         try {
-          final push = ref.read(pushNotificationServiceProvider);
-          final role = await repository.getUserRole();
-          fcmToken = await push.getToken();
-          await push.unsubscribeFromRoleTopics(role ?? 'VENDOR');
-          await push.unregisterToken();
+          fcmToken = await push
+              .getToken(waitForApns: false)
+              .timeout(const Duration(milliseconds: 500), onTimeout: () => null);
         } catch (_) {}
 
+        unawaited(push.unsubscribeFromRoleTopics(role ?? 'VENDOR'));
+        unawaited(push.unregisterToken(token: fcmToken, waitForApns: false));
+
         try {
-          await repository.logout(fcmToken: fcmToken);
+          await repository.logout(
+            fcmToken: fcmToken,
+            timeout: const Duration(seconds: 3),
+          );
         } catch (_) {}
       }
 
+      ref.read(vendorPostAuthRouteProvider.notifier).set('/dashboard');
       _clearVendorState();
       state = const AsyncValue.data(false);
     } finally {

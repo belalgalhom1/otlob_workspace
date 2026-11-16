@@ -79,7 +79,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       
       if (isAuth && isGoingToLogin) {
-        return '/dashboard';
+        return ref.read(vendorPostAuthRouteProvider);
       }
 
       if (isAuth && isGoingToTerms) {

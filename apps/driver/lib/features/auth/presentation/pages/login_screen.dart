@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
-import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
@@ -49,9 +48,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen<AsyncValue<bool>>(authProvider, (previous, state) {
       if (!mounted) return;
       if (!state.isLoading && state.hasValue && state.value == true) {
-        ref.invalidate(splashProvider);
-        ref.invalidate(driverProfileProvider);
-        context.go('/');
+        final startupState = ref.read(driverPostLoginStateProvider);
+        switch (startupState) {
+          case AppStartupState.suspended:
+            context.go('/suspended');
+            break;
+          case AppStartupState.needsTerms:
+            context.go('/terms-acceptance');
+            break;
+          case AppStartupState.activeOrder:
+            context.go('/order-execution');
+            break;
+          default:
+            context.go('/dashboard');
+            break;
+        }
       } else if (state.hasError && state.error != null) {
         final displayMessage = ErrorUtils.translate(context, state.error);
 
