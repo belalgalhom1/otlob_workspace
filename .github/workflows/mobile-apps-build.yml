@@ -1,4 +1,3 @@
-
 name: App Builds
 
 on:
@@ -20,8 +19,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
-
   detect-changes:
     name: Detect Changed Apps
     runs-on: ubuntu-latest
@@ -131,7 +128,6 @@ jobs:
           DRIVER="${DRIVER:-false}"
           CUSTOMER="${CUSTOMER:-false}"
 
-          # Build apps missing from the existing release.
           if [ "$RELEASE_VENDOR" = "true" ]; then
             VENDOR=true
           fi
@@ -144,7 +140,6 @@ jobs:
             CUSTOMER=true
           fi
 
-          # Determine whether all three apps actually changed.
           ALL_CHANGED=false
 
           if [ \
@@ -187,7 +182,6 @@ jobs:
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No apps need rebuilding."
           fi
-
 
   build-android-apps:
     name: ${{ matrix.app_job_name }}
@@ -365,7 +359,6 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-
   release:
     name: Update Current APK Release
 
@@ -390,7 +383,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
-          
+
       - name: Download newly built APKs
         uses: actions/download-artifact@v4
         with:
@@ -426,7 +419,7 @@ jobs:
             echo "ERROR: Expected $EXPECTED_COUNT APKs, found $ACTUAL_COUNT." >&2
             exit 1
           fi
-      
+
       - name: Generate release notes
         env:
           MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
@@ -447,7 +440,6 @@ jobs:
               <<< "$MATRIX_JSON"
 
           } > release-notes.md
-
 
       - name: Delete existing release
         if: needs.detect-changes.outputs.all_apps_changed == 'true'
@@ -499,22 +491,15 @@ jobs:
             echo "Updating existing release..."
             echo "Only newly built APKs will be replaced."
 
-            # --clobber replaces matching assets only.
-            # Other existing APKs remain untouched.
             gh release upload "$RELEASE_TAG" \
               release-artifacts/*.apk \
               --clobber
 
             gh release edit "$RELEASE_TAG" \
               --title "Latest Android APKs" \
-              --notes-file release-notes.md
-
-            # Move the existing release tag to this commit.
-            gh api \
-              --method PATCH \
-              "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_TAG}" \
-              -f sha="$GITHUB_SHA" \
-              -F force=true
+              --notes-file release-notes.md \
+              --target "$GITHUB_SHA" \
+              --latest
 
             echo "Existing release updated successfully."
 
