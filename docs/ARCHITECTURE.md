@@ -168,7 +168,8 @@ cap 20).
   pub/sub clients from `parseRedisConfig`) so WS instances scale horizontally.
 - Client events used by apps (see `packages/core/.../socket_events.dart`):
   `order.status`, `order.updated`, `order.new`, `order.cancelled`, `dispatch.incoming`,
-  `dispatch.cancelled`, `driver.location`, `notification.new`, `chat.message`, `chat.read`,
+  `dispatch.cancelled`, `driver.location`, `driver.rank.updated`, `driver.break.decided`,
+  `notification.new`, `chat.message`, `chat.read`,
   plus client→server `driver.location.update`.
 
 ### 2.7 Infrastructure modules (`src/infrastructure/`)
@@ -215,7 +216,9 @@ in any app yet. `DevicePlatform`/`RegisterDeviceDto` tie FCM push tokens to user
   `driverSearchMaxAttempts`, `maxDispatchBatchSize`), approval timeouts
   (`customerApprovalTimeoutSecs/Mins`, `mobileWalletTimeoutMins`, `autoCancelPendingMins`),
   version/force-update gate, retention days per entity, coins rules, driver bonus program,
-  shift toggle + tier bonus, `maxActiveOrdersPerCustomer`, `requirePriorDeliveryForMultipleOrders`,
+  shift toggle + tier bonus (`bronzeTierBonusPerKm`, `silverTierBonusPerKm`, `goldTierBonusPerKm`),
+  driver ranking controls (`driverRankingAutoEvalEnabled`, `driverRankingEvalTime`, `driverRankingGoldThreshold`, `driverRankingSilverThreshold`),
+  `maxActiveOrdersPerCustomer`, `requirePriorDeliveryForMultipleOrders`,
   `maxOtpAttempts`/`otpExpirySeconds`, `maxNegativeDriverBalance`.
 - **Soft-delete convention** — `deletedAt`: `User, Customer, Vendor, Product, Driver, Order, Message`.
   Auto-filtered by `PrismaService.$extends` for `findUnique/findFirst/findMany/count`; **raw SQL must
@@ -240,8 +243,13 @@ Aggregates worth knowing:
   `balanceAfter` + `referenceId`; mobile-wallet top-ups (`MobileWallet.isPlatform` + admin-approved
   `WalletTopUpRequest`) clear driver debt (`hasUnpaidCommission` blocks dispatch).
 - **Shifts** — `ShiftPool` (zone/date/window/maxDrivers) → `DriverShift` (scheduled vs actual,
-  dispatch-health counters `expiredDispatches/rejectedDispatches/warningSent`) → `ShiftSwapRequest`
+  dispatch-health counters `expiredDispatches/rejectedDispatches/warningSent`, `isExcused` tracking) → `ShiftSwapRequest`
   (`driverShiftId @unique`).
+- **Driver Ranking & Incidents** — `DriverRankingEvaluationRun` (weekly runs per `periodKey @unique`,
+  status `RUNNING/COMPLETED/FAILED`, `scheduledFor`, `executedAt`, transition counters) → `DriverRankHistory`
+  (immutable snapshot of every tier transition/override with `metricsSnapshot` JSON and `changeReason`);
+  `DriverDeliveryIncident` tracks order cancellation/reassignment fault with `responsibility`
+  (`DRIVER_AT_FAULT/CUSTOMER/VENDOR/EXTERNAL_OR_SYSTEM/UNDER_REVIEW`) to safeguard driver completion scores.
 - **Stats** — `{Vendor,Driver,App}Statistic` upserted per `@unique([owner, period, startDate])`;
   driver stats track the dispatch funnel + `onlineHours`.
 - **Chat/tickets** — `Conversation` polymorphic (ORDER/SUPPORT/VENDOR); `SupportTicket.conversationId
@@ -273,6 +281,7 @@ are registered only in `WorkerModule`, never in their feature module.
 | `customers` | Self: addresses (raw-SQL PostGIS), favorites toggle, coins history. Admin (`MANAGE_CUSTOMERS`): list/by-user/detail, enable/disable-ordering, hard delete (cascade) | addresses: 4-role `@Roles`; admin: `:P` | `assertCanOrder` gates checkout. No self profile endpoints (users module). Address creation does **no zone validation** |
 | `devices` | Push-token register/unregister for FCM | any authenticated | Consumed by push + notifications |
 | `dispatch` | Driver search (radius expansion per settings), `OrderDispatch` lifecycle | — | `DispatchProcessor` (*worker*); Redis `otlobegy:dispatch:*` states; emits/cancels with order events |
+| `driver-ranking` | Weekly driver evaluation engine (`/driver-ranking/*`): schedule status, dry-run preview, manual run (`POST run`), run history & safe batch retry (`POST runs/:id/retry`), driver history & manual tier override (`POST drivers/:id/override`), delivery incident dispute & review (`/driver-ranking/incidents`), driver self summary (`GET me`) | Driver `GET me` (`@Roles(DRIVER)`); admin `:P MANAGE_DRIVERS` (mutations: ADMIN/SUPER_ADMIN) | Evaluates previous completed Monday-Sunday week in `TIMEZONE` (`appTimeZone()`) based on 3 equal KPIs (acceptance, completion, shift punctuality). Configurable score thresholds (`driverRankingGoldThreshold`, `driverRankingSilverThreshold`). Batched transactions (50/chunk) with `FOR UPDATE` locks; emits `driver.rank.updated` socket event + push notification |
 | `driver-shifts` | Shift pools / assigned shifts / swap requests | imports `PlatformSettingsModule` + `NotificationsModule` | Crons: `shift_warning` (30-min), `late_check` (5-min), auto-complete + force-offline at end; tier bonuses read from settings |
 | `drivers` | Profile, verification, vehicle, status/suspension, active order, **breaks** (master switch `breaksEnabled`; driver requests via `POST me/break/start` → PENDING; admin `MANAGE_DRIVERS` approves/rejects via `POST breaks/:id/approve|reject`, force-ends via `POST breaks/:id/end`, grants manually via `POST :driverId/breaks/grant` (quota-bypassed override), `GET breaks/pending` (includes driver name + request note); driver ends via `POST me/break/end` or cancels via `POST me/break/cancel`; `DriverBreak` PENDING→APPROVED→ENDED machine (driver picks `reason` + `note` + `requestedMinutes`, capped by `maxSingleBreakMinutes`), limits from settings, `cron.break_watchdog` auto-ends over-limit breaks + auto-rejects stale requests; every admin/system decision emits `driver.break.decided` → driver listener → `event.notify` queue → SYSTEM notification (stored + socket + push)) | imports `AuthModule` + `SocketModule` | `DriversProcessor` (*worker*); driver rating `Int 0-1000` (×100). `PATCH me/status` is ONLINE/OFFLINE only — breaks go through request/approve endpoints |
 | `inbox` | Conversation listing + unread counts | — | Thin facade over `@Global` chat services |
@@ -313,6 +322,52 @@ are registered only in `WorkerModule`, never in their feature module.
    `/platform-settings/public` leaks full per-vehicle pricing + bonus economics; promotions/offers
    public endpoints expose vendor/product names.
 
+### 2.12 Weekly Driver Ranking & Delivery Incidents System
+
+Automated weekly evaluation engine (`backend/src/features/drivers/ranking/`) classifying drivers into tiers (**GOLD**, **SILVER**, **BRONZE**) to determine dispatch priority and per-km earnings bonuses.
+
+```mermaid
+flowchart LR
+    A[Order Dispatches] --> Calc[Weekly Metrics Collector]
+    B[Completed Orders & Incidents] --> Calc
+    C[Driver Shifts] --> Calc
+    Calc --> Engine[3-KPI Equal Average Engine]
+    Engine --> Settings[PlatformSettings: Configurable Thresholds]
+    Settings --> Runs[(DriverRankingEvaluationRun & History)]
+    Runs --> Realtime[WebSocket driver.rank.updated & Push Notifications]
+    Runs --> Earnings[OrderEarningsCalculator Per-Km Bonuses]
+```
+
+#### 1. Evaluation Engine & Zoned Schedule
+- **Scheduler**: BullMQ cron job (`CRON_JOBS.DRIVER_RANKING_EVALUATION`) in `drivers.processor.ts` checks every minute (`* * * * *`).
+- **Trigger**: Executes automatically on **Mondays** at or after `driverRankingEvalTime` (default `00:05`) when `driverRankingAutoEvalEnabled = true`.
+- **Timezone Portability**: Driven by `appTimeZone()` (`TIMEZONE` in `.env`, e.g. `Africa/Cairo`). Zoned boundaries (`getCairoWeekBounds` / `getPreviousCompletedCairoWeek`) compute the previous completed calendar week (Monday `00:00:00.000` to Sunday `23:59:59.999`) using native `Intl.DateTimeFormat`, adjusting for DST transitions and leap periods. All database timestamps are UTC (`Timestamptz(3)`).
+- **Stale Run Recovery**: Runs stuck in `RUNNING` status beyond 15 minutes (`STALE_RUNNING_RUN_MS`) are automatically failed and can be retried via `POST /driver-ranking/runs/:id/retry` without duplicating already-committed batches.
+- **Batching & Isolation**: Commits driver updates in chunks of 50 (`EVALUATION_COMMIT_BATCH_SIZE = 50`) using PostgreSQL row-level locks (`SELECT ... FOR UPDATE`), preventing memory spikes and connection pool contention.
+
+#### 2. The 3 Equal-Weighted KPIs
+Each applicable metric contributes equally ($\frac{1}{3}$) to the unrounded `performancePercentage`:
+1. **Dispatch Acceptance Rate**: $\frac{\text{Accepted}}{\text{Accepted} + \text{Rejected} + \text{Expired}} \times 100$. Cancelled/reassigned offers are strictly excluded.
+2. **Order Completion Rate**: $\frac{\text{Completed}}{\text{Completed} + \text{Driver-Fault Failures}} \times 100$. Only verified `DRIVER_AT_FAULT` incidents reduce this score. Cancellations caused by the customer, vendor preparation delays, external/system errors, or incidents marked `UNDER_REVIEW` are excluded.
+3. **Shift Punctuality Rate**: $\frac{\text{On-Time}}{\text{On-Time} + \text{Late} + \text{Missed}} \times 100$. Evaluated with a 5-minute grace period (`SHIFT_GRACE_MINUTES = 5`). Excused shifts and platform-cancelled shifts are excluded. Upcoming shifts in an in-progress week are never penalized.
+
+#### 3. Configurable Score Thresholds
+Stored in `PlatformSetting` and dynamically loaded into the calculator:
+- **GOLD**: $\ge \text{driverRankingGoldThreshold}$ (default $95\%$). Top dispatch priority, maximum per-km bonus (`goldTierBonusPerKm`).
+- **SILVER**: $[\text{driverRankingSilverThreshold}, \text{driverRankingGoldThreshold})$ (default $85\% - 94.99\%$). Baseline/standard tier (`silverTierBonusPerKm`).
+- **BRONZE**: $< \text{driverRankingSilverThreshold}$ (default $< 85\%$). Lower dispatch priority, lowest per-km rate (`bronzeTierBonusPerKm`), $-2\text{ EGP}$ platform fee deduction on standard orders.
+- **Validation**: Enforced via DTO (`@Min(1) @Max(100)` for gold; `@Min(0) @Max(99)` for silver) and service layer (`goldThreshold > silverThreshold`, rejecting invalid updates with `INVALID_RANKING_THRESHOLDS`).
+
+#### 4. Anti-Manipulation Safeguards
+- **Zero Activity (Inactive)**: Drivers with 0 qualifying activity transition to `INACTIVE_DRIVER` with default `SILVER` tier. Suspended drivers remain unchanged.
+- **Capped at Silver (`CAPPED_SILVER`)**: Attending shifts on time without receiving dispatches or completing orders caps the tier at `SILVER` to prevent gaming the system.
+- **Dynamic Metric Count**: If a driver has no shifts scheduled, the score seamlessly computes from the other 2 rates without dividing by zero.
+
+#### 5. Dispute & Accountability Pipeline (`DriverDeliveryIncident`)
+- Order cancellations and reassignments automatically generate a `DriverDeliveryIncident` with an initial responsibility tag.
+- Administrators can audit and reclassify incidents (`/driver-ranking/incidents`) to ensure drivers are not penalized for vendor delays, app outages, or customer cancellations.
+- Administrators can manually override a driver's tier (`POST /driver-ranking/drivers/:id/override`) with a mandatory reason, logged immutably in `AuditLog` and `DriverRankHistory`.
+
 ---
 
 ## 3. Flutter side
@@ -334,13 +389,14 @@ Apps → `packages/data` repositories (one `Provider<Repo>` per generated API, `
 - `DioClient` (15s timeouts) + `AuthInterceptor` (guest paths `/auth/login|refresh|register|social|verify/*|password/*`,
   terminal `/auth/logout`, single-flight refresh via `Completer`, emits `unauthenticatedEventStream` on 401).
 - `TokenService` — secure-storage keys `access_token|refresh_token|user_id|user_role|user_name|vendor_memberships|user_permissions`.
+- `ConnectivityService` — hardware network connectivity stream (`onConnectivityChanged`) with synchronous replay of `_lastKnownStatus`, caching, and auto-triggering socket resync/pending dispatch checks upon recovery.
 - `CoreSocketService` — per-event broadcast StreamControllers, `onEvent(SocketEvent)`, token-refresh preflight,
-  reconnect on resume/connect-error.
+  reconnect on resume/connect-error and hardware network reconnection.
 - `PushNotificationService` — FCM + local notifications (`high_importance_channel`), token register/unregister
   via `DevicesPushNotificationsApi`, role topics `topic_all` + `topic_customers|drivers|vendors|admin`.
 - `EnvConfig.init()` requires `API_URL` + `WS_URL` (loaded via `dotenv`, per-app `.env`).
 - Providers: `core_providers.dart` (secureStorage, baseUrl, dioClient, dio, apiClient, tokenService,
-  coreSocketService, permissionService, coreLocationService, pushNotificationService, mediaConfigService)
+  coreSocketService, connectivityService, permissionService, coreLocationService, pushNotificationService, mediaConfigService)
   + `api_providers.dart` (per-API providers).
 - L10n assets under `packages/core/assets/translations` via EasyLocalization.
 
@@ -356,7 +412,8 @@ Apps → `packages/data` repositories (one `Provider<Repo>` per generated API, `
 
 Presentation only (no networking/business logic): `AppTheme.lightTheme/darkTheme` (primary `#D4920E`),
 `PrimaryButton`, `CustomTextField`, `DialogScaffold`, `SkeletonLoader`, `OtpInput`, `EmptyState`,
-`TimeFormatter`, `ChatBubble`, `InboxConversationTile`, `ChangePasswordDialog`, `DeleteAccountDialog`, `validators`.
+`TimeFormatter`, `ChatBubble`, `InboxConversationTile`, `ChangePasswordDialog`, `DeleteAccountDialog`, `validators`,
+`OfflineStatusBanner` (animated hardware network connectivity banner with `SizeTransition`, 2.2s auto-hide on restore, RTL support).
 
 ### 3.5 Apps at a glance
 
@@ -365,24 +422,28 @@ Presentation only (no networking/business logic): `AppTheme.lightTheme/darkTheme
 Screens: onboarding, auth (no social yet), home (vendors/offers/promos/categories/search), vendor detail +
 product bottom sheet, cart + checkout (cash / mobile-wallet, coins, live fee estimate from `POST /orders/fee-estimate`),
 order tracking (wallet pay-confirm, rating, support chat), custom delivery + ride (live estimate from `POST /orders/custom-fee-estimate`),
-profile/addresses/coins,
-notifications, chat/inbox. Realtime via `core/providers/global_order_listener.dart`
-(order.status/updated, FCM, resume refetch) and `global_message_listener.dart`
-(OFFER chat metadata → global bottom sheet).
+profile/addresses/coins, notifications, chat/inbox. Realtime via `core/providers/global_order_listener.dart`
+(order.status/updated, FCM, resume refetch, network recovery refetch) and `global_message_listener.dart`
+(OFFER chat metadata → global bottom sheet). Root `OfflineStatusBanner` across all screens.
 
 **Driver** (`apps/driver`, shared stack) — Riverpod codegen + codegen GoRouter + hand-written l10n
 (`lib/l10n/app_localizations{,_en,_ar}.dart`), **dark + Arabic defaults**. Splash → dashboard | active order;
 root `global_message_listener.dart` shows dispatch modal on `dispatch.incoming`, heartbeat polling fallback,
-re-check on reconnect; `OrderExecutionProvider` handles status updates; location service emits
-`driver.location` (client). Features: dashboard, dispatch modal, order execution (flutter_map), shifts
-(pools/swap), wallet (top-up), deliveries history, chat (voice), profile/vehicle, notifications.
+re-check on reconnect/network recovery; `OrderExecutionProvider` handles status updates; location service emits
+`driver.location` (client). Features: dashboard (with dual manual refresh: spinning AppBar icon + in-card 'Refresh Offers & Connection'),
+dispatch modal, order execution (flutter_map), shifts (pools/swap), wallet (top-up), deliveries history,
+chat (voice), profile/vehicle, notifications, **Weekly Badge & Ranking (`DriverRankingScreen`)** with hero badge card,
+3-KPI breakdown, live in-progress weekly score simulation, dynamic threshold legend, and 12-week evaluation history.
+Root `OfflineStatusBanner` for immediate network alerts.
 
 **Vendor admin** (`apps/vendor`, shared stack) — entry+router+app shell all in `main.dart` (`OtlobAdminApp`);
 GoRouter only for splash/login/select-vendor/dashboard; the rest is an **IndexedStack dashboard** with
-~18 permission-gated sections (orders, vendors, drivers, users, tickets, inbox, settings, zones, verticals,
-promotions, wallet + PDF export, audit logs, announcements, access control, driver shifts, analytics, notifications).
+~19 permission-gated sections (orders, vendors, drivers, users, tickets, inbox, settings, zones, verticals,
+promotions, wallet + PDF export, audit logs, announcements, access control, driver shifts, **driver ranking console** (`DriverRankingAdminScreen`), analytics, notifications).
 Role-aware repo selection (`admin*` vs `vendor*`), `activeVendorProvider` context switcher for VENDOR_MEMBER,
-`global_order_listener.dart` for realtime order rows, ARB-generated l10n (`flutter gen-l10n`, do not hand-edit).
+`global_order_listener.dart` for realtime order rows (refetched on network recovery), ARB-generated l10n (`flutter gen-l10n`, do not hand-edit).
+Declarative settings in `settings_schema.dart` including the Weekly Driver Ranking thresholds and schedule.
+Root `OfflineStatusBanner` across all dashboard tabs.
 
 ---
 
