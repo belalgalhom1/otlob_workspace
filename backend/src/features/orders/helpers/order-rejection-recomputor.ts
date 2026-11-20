@@ -105,28 +105,30 @@ export class OrderRejectionRecomputor {
     try {
       const remainingItems = await tx.orderDeliveryGroupItem.findMany({
         where: { deliveryGroupId },
-        include: {
-          fulfillment: {
-            select: {
-              vendorBranch: { select: { lng: true, lat: true } },
-              vendor: {
-                select: {
-                  branches: {
-                    where: { deletedAt: null },
-                    take: 1,
-                    select: { lng: true, lat: true },
-                  },
-                },
-              },
-            },
-          },
-        },
+        select: { fulfillmentId: true },
+      });
+      const fulfillmentIds = remainingItems.map((i) => i.fulfillmentId);
+      const fulfillments = await tx.orderVendorFulfillment.findMany({
+        where: { id: { in: fulfillmentIds } },
+        select: { vendorBranchId: true, vendorId: true },
       });
 
-      const orderRow = await tx.order.findUnique({
-        where: { id: orderId },
-        select: { deliveryLat: true, deliveryLng: true, zoneId: true },
-      });
+      const explicitBranchIds = fulfillments
+        .map((f) => f.vendorBranchId)
+        .filter((id): id is string => Boolean(id));
+
+      const orderLocs = await tx.$queryRaw<Array<{ lng: number; lat: number }>>`
+        SELECT ST_X("deliveryLocation"::geometry) AS lng, ST_Y("deliveryLocation"::geometry) AS lat
+        FROM orders WHERE id = ${orderId} LIMIT 1
+      `;
+
+      let branchLocs: Array<{ lng: number; lat: number }> = [];
+      if (explicitBranchIds.length > 0) {
+        branchLocs = await tx.$queryRaw<Array<{ lng: number; lat: number }>>`
+          SELECT ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
+          FROM vendor_branches WHERE id IN (${Prisma.join(explicitBranchIds)})
+        `;
+      }
 
       const settings = await this.platformSettings.getSettings();
       const minFee = Number(settings.minDeliveryFee ?? 15);
@@ -136,27 +138,13 @@ export class OrderRejectionRecomputor {
       const discountMultiplier =
         Math.max(0, Math.min(100, discountPercent)) / 100;
 
-      const stops: Array<{ lng: number; lat: number }> = [];
-      for (const item of remainingItems) {
-        const f = item.fulfillment;
-        const lng = f?.vendorBranch?.lng ?? f?.vendor?.branches?.[0]?.lng;
-        const lat = f?.vendorBranch?.lat ?? f?.vendor?.branches?.[0]?.lat;
-        if (lng != null && lat != null) {
-          stops.push({ lng: Number(lng), lat: Number(lat) });
-        }
-      }
-
-      if (
-        orderRow?.deliveryLng != null &&
-        orderRow?.deliveryLat != null &&
-        stops.length > 0
-      ) {
+      if (orderLocs.length > 0 && branchLocs.length > 0) {
         const dest = {
-          lng: Number(orderRow.deliveryLng),
-          lat: Number(orderRow.deliveryLat),
+          lng: Number(orderLocs[0].lng),
+          lat: Number(orderLocs[0].lat),
         };
-        if (stops.length === 1) {
-          const dist = haversineKm(stops[0], dest);
+        if (branchLocs.length === 1) {
+          const dist = haversineKm(branchLocs[0], dest);
           const base = await this.platformSettings.calculateDeliveryFee(
             dist,
             null,
@@ -167,7 +155,7 @@ export class OrderRejectionRecomputor {
           newFee = Math.max(minFee, Math.round(base));
         } else {
           let rawSum = 0;
-          for (const stop of stops) {
+          for (const stop of branchLocs) {
             const dist = haversineKm(stop, dest);
             const fee = await this.platformSettings.calculateDeliveryFee(
               dist,
@@ -186,7 +174,8 @@ export class OrderRejectionRecomputor {
         newFee = Math.max(minFee, Math.round((group.deliveryFee * remaining) / (remaining + 1)));
       }
     } catch {
-      newFee = Math.max(0, Math.round(group.deliveryFee - extraVendorFee));
+      const minFee = Number((await this.platformSettings.getSettings()).minDeliveryFee ?? 15);
+      newFee = Math.max(minFee, Math.round((group.deliveryFee * remaining) / (remaining + 1)));
     }
 
     if (newFee === group.deliveryFee) {
