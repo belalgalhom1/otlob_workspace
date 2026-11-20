@@ -10,9 +10,16 @@ import {
   calculateEligibleDispatches,
 } from '../../../common/drivers/driver-kpi.helper';
 
-export const GOLD_MIN_PERCENTAGE = 95;
-export const SILVER_MIN_PERCENTAGE = 85;
+export const DEFAULT_GOLD_MIN_PERCENTAGE = 95;
+export const DEFAULT_SILVER_MIN_PERCENTAGE = 85;
+export const GOLD_MIN_PERCENTAGE = DEFAULT_GOLD_MIN_PERCENTAGE;
+export const SILVER_MIN_PERCENTAGE = DEFAULT_SILVER_MIN_PERCENTAGE;
 export const SHIFT_GRACE_MINUTES = 5;
+
+export interface RankingThresholds {
+  goldMinPercentage?: number | null;
+  silverMinPercentage?: number | null;
+}
 
 export enum DriverRankingOutcome {
   PROMOTED = 'PROMOTED',
@@ -181,11 +188,18 @@ export function classifyShiftForRanking(
 }
 
 /**
- * Maps an exact, unrounded percentage to the fixed Gold / Silver / Bronze tiers.
+ * Maps an exact, unrounded percentage to the fixed Gold / Silver / Bronze tiers
+ * according to configured thresholds (defaulting to 95% Gold and 85% Silver).
  */
-export function resolveTierForPercentage(percentage: number): DriverTier {
-  if (percentage >= GOLD_MIN_PERCENTAGE) return DriverTier.GOLD;
-  if (percentage >= SILVER_MIN_PERCENTAGE) return DriverTier.SILVER;
+export function resolveTierForPercentage(
+  percentage: number,
+  thresholds?: RankingThresholds,
+): DriverTier {
+  const goldMin = thresholds?.goldMinPercentage ?? DEFAULT_GOLD_MIN_PERCENTAGE;
+  const silverMin =
+    thresholds?.silverMinPercentage ?? DEFAULT_SILVER_MIN_PERCENTAGE;
+  if (percentage >= goldMin) return DriverTier.GOLD;
+  if (percentage >= silverMin) return DriverTier.SILVER;
   return DriverTier.BRONZE;
 }
 
@@ -197,6 +211,7 @@ export function resolveTierForPercentage(percentage: number): DriverTier {
  */
 export function evaluateDriverWeeklyMetrics(
   input: DriverWeeklyMetricInput,
+  thresholds?: RankingThresholds,
 ): DriverWeeklyEvaluationResult {
   const eligibleDispatches = calculateEligibleDispatches(
     input.acceptedDispatches,
@@ -292,7 +307,7 @@ export function evaluateDriverWeeklyMetrics(
     performancePercentage =
       applicableRates.reduce((sum, val) => sum + val, 0) /
       applicableRates.length;
-    const rawTier = resolveTierForPercentage(performancePercentage);
+    const rawTier = resolveTierForPercentage(performancePercentage, thresholds);
 
     if (
       eligibleDispatches === 0 &&

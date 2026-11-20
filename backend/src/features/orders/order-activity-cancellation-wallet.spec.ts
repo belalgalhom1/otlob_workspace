@@ -439,13 +439,13 @@ describe('Order Activity Log Deduplication, Cancellation Actor, Avatars & Driver
       ).toBe('Bakery (Zamalek): vendor portion ready for pickup');
 
       // Driver avatar coalesced from User.avatar
-      expect(result.deliveryGroups[0].primaryDriver.avatar).toBe(
+      expect((result as any).deliveryGroups[0].primaryDriver.avatar).toBe(
         '/media/drv.webp',
       );
 
       // Legacy placeholder 'Cancelled by user' + system recovered to real rejecting Vendor!
       expect(sanitizeCancelReason('Cancelled by user')).toBeNull();
-      expect(result.cancelledBy).toMatchObject({
+      expect((result as any).cancelledBy).toMatchObject({
         userId: 'u-vend',
         name: 'Fresh Mart',
         nameAr: 'فريش مارت',
@@ -669,7 +669,13 @@ describe('Order Activity Log Deduplication, Cancellation Actor, Avatars & Driver
         },
       });
 
-      const usersSvc = new UsersService(prisma, storage, {} as any);
+      const usersSvc = new UsersService(
+        prisma,
+        storage,
+        {} as any,
+        {} as any,
+        {} as any,
+      );
       await usersSvc.uploadAvatar('u-1', { buffer: Buffer.from('x') } as any);
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'u-1' },

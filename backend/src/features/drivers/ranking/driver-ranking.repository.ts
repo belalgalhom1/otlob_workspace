@@ -558,7 +558,14 @@ export class DriverRankingRepository {
     take: number;
   }) {
     if (params.scopedDriverIds && params.scopedDriverIds.length === 0) {
-      return Promise.resolve([[], 0] as const);
+      return Promise.resolve([[], 0] as [
+        Array<
+          Prisma.DriverRankHistoryGetPayload<{
+            include: { driver: { select: { name: true } } };
+          }>
+        >,
+        number,
+      ]);
     }
     const cleanSearch = params.search?.trim();
     const where: Prisma.DriverRankHistoryWhereInput = {

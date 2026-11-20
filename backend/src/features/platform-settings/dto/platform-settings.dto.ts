@@ -1032,6 +1032,32 @@ export class UpdatePlatformSettingsDto {
   })
   driverRankingEvalTime?: string;
 
+  @ApiProperty({
+    example: 95,
+    required: false,
+    description:
+      'Minimum performance percentage (1-100) for GOLD driver tier. Must be strictly greater than silver threshold. Default 95.',
+  })
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  driverRankingGoldThreshold?: number;
+
+  @ApiProperty({
+    example: 85,
+    required: false,
+    description:
+      'Minimum performance percentage (0-99) for SILVER driver tier. Must be strictly less than gold threshold. Default 85.',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(99)
+  @IsOptional()
+  @Type(() => Number)
+  driverRankingSilverThreshold?: number;
+
   // ─── Driver Settlement ────────────────────────────────────────────────────
   @ApiProperty({
     example: 10,

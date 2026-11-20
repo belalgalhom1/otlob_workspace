@@ -34,6 +34,7 @@ import { DriverManagersService } from '../driver-managers.service';
 import {
   DriverWeeklyEvaluationResult,
   evaluateDriverWeeklyMetrics,
+  RankingThresholds,
   summarizeRankTransitions,
 } from './driver-ranking.calculator';
 import {
@@ -91,6 +92,8 @@ export class DriverRankingService {
       frequency: 'WEEKLY',
       evaluationDay: 'MONDAY',
       timezone: tz,
+      goldThreshold: Number(settings.driverRankingGoldThreshold ?? 95),
+      silverThreshold: Number(settings.driverRankingSilverThreshold ?? 85),
       nextEvaluationAt,
       currentWeek: {
         periodKey: currentWeek.periodKey,
@@ -113,8 +116,13 @@ export class DriverRankingService {
   ) {
     const now = new Date();
     const tz = appTimeZone();
+    const settings = await this.platformSettings.getSettings();
     const week = getPreviousCompletedCairoWeek(now, tz);
     const scopedDriverIds = await this.resolveScopedDriverIds(actor);
+    const thresholds: RankingThresholds = {
+      goldMinPercentage: settings.driverRankingGoldThreshold,
+      silverMinPercentage: settings.driverRankingSilverThreshold,
+    };
 
     const [existingRun, results] = await Promise.all([
       this.rankingRepository.findRunByPeriodKey(week.periodKey),
@@ -123,6 +131,7 @@ export class DriverRankingService {
         week.periodEnd,
         scopedDriverIds,
         now,
+        thresholds,
       ),
     ]);
 
@@ -165,6 +174,8 @@ export class DriverRankingService {
         periodStart: week.periodStart,
         periodEnd: week.periodEnd,
       },
+      goldThreshold: Number(settings.driverRankingGoldThreshold ?? 95),
+      silverThreshold: Number(settings.driverRankingSilverThreshold ?? 85),
       alreadyExecuted: existingRun?.status === DriverRankingRunStatus.COMPLETED,
       ...counts,
       drivers: pagedResults,
@@ -329,9 +340,20 @@ export class DriverRankingService {
   }) {
     try {
       const now = new Date();
+      const settings = await this.platformSettings.getSettings();
+      const thresholds: RankingThresholds = {
+        goldMinPercentage: settings.driverRankingGoldThreshold,
+        silverMinPercentage: settings.driverRankingSilverThreshold,
+      };
       const [alreadyCommittedDriverIds, results] = await Promise.all([
         this.rankingRepository.findCommittedDriverIds(run.id),
-        this.collectAndEvaluatePeriod(run.periodStart, run.periodEnd, null, now),
+        this.collectAndEvaluatePeriod(
+          run.periodStart,
+          run.periodEnd,
+          null,
+          now,
+          thresholds,
+        ),
       ]);
 
       const pendingResults = results.filter(
@@ -573,6 +595,10 @@ export class DriverRankingService {
           currentWeek.periodEnd,
           [driver.id],
           now,
+          {
+            goldMinPercentage: settings.driverRankingGoldThreshold,
+            silverMinPercentage: settings.driverRankingSilverThreshold,
+          },
         ),
       ]);
 
@@ -594,6 +620,8 @@ export class DriverRankingService {
       driverId: driver.id,
       currentTier: driver.tier,
       timezone: tz,
+      goldThreshold: Number(settings.driverRankingGoldThreshold ?? 95),
+      silverThreshold: Number(settings.driverRankingSilverThreshold ?? 85),
       nextEvaluationAt,
       currentWeek: {
         periodKey: currentWeek.periodKey,
@@ -613,6 +641,7 @@ export class DriverRankingService {
     periodEnd: Date,
     scopedDriverIds: string[] | null,
     asOf: Date = new Date(),
+    thresholds?: RankingThresholds,
   ): Promise<DriverWeeklyEvaluationResult[]> {
     const inputs = await this.rankingRepository.collectWeeklyMetricInputs(
       periodStart,
@@ -620,7 +649,9 @@ export class DriverRankingService {
       asOf,
       scopedDriverIds,
     );
-    return inputs.map((input) => evaluateDriverWeeklyMetrics(input));
+    return inputs.map((input) =>
+      evaluateDriverWeeklyMetrics(input, thresholds),
+    );
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

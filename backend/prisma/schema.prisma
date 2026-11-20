@@ -147,6 +147,8 @@ model PlatformSetting {
   highValueUpfrontRate                  Int       @default(0)
   driverRankingAutoEvalEnabled          Boolean   @default(true)
   driverRankingEvalTime                 String    @default("00:05")
+  driverRankingGoldThreshold            Int       @default(95)
+  driverRankingSilverThreshold          Int       @default(85)
   updatedAt                             DateTime  @updatedAt @db.Timestamptz(3)
 
   @@map("platform_settings")

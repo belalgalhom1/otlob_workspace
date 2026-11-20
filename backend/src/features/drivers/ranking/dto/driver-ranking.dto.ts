@@ -257,6 +257,12 @@ export class DriverRankingScheduleStatusDto {
   @ApiProperty({ example: 'Africa/Cairo' })
   timezone!: string;
 
+  @ApiProperty({ example: 95 })
+  goldThreshold!: number;
+
+  @ApiProperty({ example: 85 })
+  silverThreshold!: number;
+
   @ApiProperty({ type: Date })
   nextEvaluationAt!: Date;
 
@@ -370,6 +376,12 @@ export class DriverRankingPaginationMetaDto {
 export class DriverRankingPreviewResponseDto {
   @ApiProperty({ type: RankingWeekWindowDto })
   week!: RankingWeekWindowDto;
+
+  @ApiProperty({ example: 95 })
+  goldThreshold!: number;
+
+  @ApiProperty({ example: 85 })
+  silverThreshold!: number;
 
   @ApiProperty()
   alreadyExecuted!: boolean;
@@ -543,6 +555,12 @@ export class DriverMyRankSummaryResponseDto {
 
   @ApiProperty()
   timezone!: string;
+
+  @ApiProperty({ example: 95 })
+  goldThreshold!: number;
+
+  @ApiProperty({ example: 85 })
+  silverThreshold!: number;
 
   @ApiProperty({ type: Date })
   nextEvaluationAt!: Date;

@@ -240,6 +240,42 @@ describe('Weekly Driver Ranking System', () => {
         DriverRankChangeReason.WEEKLY_EVALUATION,
       );
     });
+
+    it('supports custom dynamic score thresholds from platform settings', () => {
+      const driver = makeInput({
+        driverId: 'drv-custom',
+        currentTier: DriverTier.SILVER,
+        acceptedDispatches: 92,
+        rejectedDispatches: 8,
+        completedOrders: 92,
+        driverFaultFailures: 8,
+        onTimeShifts: 92,
+        lateShifts: 8,
+      });
+
+      // Default thresholds (95% Gold, 85% Silver) => 92% is SILVER
+      const defaultEval = evaluateDriverWeeklyMetrics(driver);
+      expect(defaultEval.performancePercentage).toBe(92);
+      expect(defaultEval.newTier).toBe(DriverTier.SILVER);
+
+      // Custom thresholds (90% Gold, 75% Silver) => 92% promotes to GOLD
+      const customEval = evaluateDriverWeeklyMetrics(driver, {
+        goldMinPercentage: 90,
+        silverMinPercentage: 75,
+      });
+      expect(customEval.performancePercentage).toBe(92);
+      expect(customEval.newTier).toBe(DriverTier.GOLD);
+      expect(customEval.outcome).toBe(DriverRankingOutcome.PROMOTED);
+
+      // Custom higher thresholds (98% Gold, 94% Silver) => 92% demotes to BRONZE
+      const strictEval = evaluateDriverWeeklyMetrics(driver, {
+        goldMinPercentage: 98,
+        silverMinPercentage: 94,
+      });
+      expect(strictEval.performancePercentage).toBe(92);
+      expect(strictEval.newTier).toBe(DriverTier.BRONZE);
+      expect(strictEval.outcome).toBe(DriverRankingOutcome.DEMOTED);
+    });
   });
 
   describe('Cairo Monday-start week boundaries & DST handling', () => {

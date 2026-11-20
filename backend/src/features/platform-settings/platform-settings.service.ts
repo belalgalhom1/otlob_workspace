@@ -16,7 +16,10 @@ import {
   UpdatePlatformSettingsDto,
   AppVersionCheckDto,
 } from './dto/platform-settings.dto';
-import { PlatformSettingErrors } from '../../common/constants/response.constants';
+import {
+  DriverErrors,
+  PlatformSettingErrors,
+} from '../../common/constants/response.constants';
 import { DeliveryFeeCalculator } from './delivery-fee.calculator';
 
 const UPLOAD_MANAGED_SETTING_FIELDS = new Set<string>([
@@ -220,6 +223,19 @@ export class PlatformSettingsService {
     const current = await this.prisma.platformSetting.findUnique({
       where: { id: 'default' },
     });
+
+    const targetGold =
+      dto.driverRankingGoldThreshold !== undefined
+        ? dto.driverRankingGoldThreshold
+        : (current?.driverRankingGoldThreshold ?? 95);
+    const targetSilver =
+      dto.driverRankingSilverThreshold !== undefined
+        ? dto.driverRankingSilverThreshold
+        : (current?.driverRankingSilverThreshold ?? 85);
+
+    if (targetGold <= targetSilver) {
+      throw new BadRequestException(DriverErrors.INVALID_RANKING_THRESHOLDS);
+    }
 
     if (current) {
       this.syncCommissionTrio(dto, current, data, {

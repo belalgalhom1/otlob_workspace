@@ -207,6 +207,58 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
       expect(storage.upload).not.toHaveBeenCalled();
     });
 
+    it('validates ranking score thresholds and rejects gold <= silver', async () => {
+      const current = makeSettings({
+        driverRankingGoldThreshold: 95,
+        driverRankingSilverThreshold: 85,
+      });
+      const upsert = jest.fn().mockImplementation(({ update }) => ({
+        ...current,
+        ...update,
+      }));
+      const service = new PlatformSettingsService(
+        {
+          platformSetting: {
+            findUnique: jest.fn().mockResolvedValue(current),
+            upsert,
+          },
+        } as any,
+        { upload: jest.fn(), delete: jest.fn() } as any,
+        { emit: jest.fn() } as any,
+        { del: jest.fn() } as any,
+        new DeliveryFeeCalculator(),
+      );
+
+      // Successfully updates when gold > silver
+      await service.updateSettings({
+        driverRankingGoldThreshold: 90,
+        driverRankingSilverThreshold: 75,
+      });
+      expect(upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({
+            driverRankingGoldThreshold: 90,
+            driverRankingSilverThreshold: 75,
+          }),
+        }),
+      );
+
+      // Throws BadRequestException when gold <= silver
+      await expect(
+        service.updateSettings({
+          driverRankingGoldThreshold: 80,
+          driverRankingSilverThreshold: 85,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.updateSettings({
+          driverRankingGoldThreshold: 85,
+          driverRankingSilverThreshold: 85,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('exposes maxMultiVendorVendors in getPublicSettings and validates 1..20 bounds in DTO', async () => {
       const s = makeSettings({ maxMultiVendorVendors: 3 });
       const service = new PlatformSettingsService(

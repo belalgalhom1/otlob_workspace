@@ -323,6 +323,7 @@ export const DriverErrors = {
   RESPONSIBLE_DRIVER_REQUIRED: 'driver.error.responsible_driver_required',
   DELIVERY_INCIDENT_NOT_FOUND: 'driver.error.delivery_incident_not_found',
   INVALID_EVAL_TIME: 'driver.error.invalid_eval_time',
+  INVALID_RANKING_THRESHOLDS: 'driver.error.invalid_ranking_thresholds',
   CANNOT_CANCEL_ASSIGNED_SHIFT: 'driver.error.cannot_cancel_assigned_shift',
 };
 
