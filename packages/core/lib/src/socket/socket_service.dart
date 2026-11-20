@@ -5,15 +5,18 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../network/connectivity_service.dart';
 import '../providers/core_providers.dart';
 import 'socket_events.dart';
 
 class CoreSocketService with WidgetsBindingObserver {
   io.Socket? _socket;
-  final String _baseUrl = dotenv.env['WS_URL']?.replaceAll('/events', '') ?? 'https://ws.otlob-egy.online';
+  final String _baseUrl = (dotenv.isInitialized ? dotenv.env['WS_URL'] : null)?.replaceAll('/events', '') ?? 'https://ws.otlob-egy.online';
   
   final Future<bool> Function() isTokenExpired;
   final Future<void> Function() refreshToken;
+  final IConnectivityService? connectivityService;
+  StreamSubscription<bool>? _connectivitySub;
   
   // Stream Controllers for strictly typed events
   final Map<SocketEvent, StreamController<dynamic>> _controllers = {};
@@ -24,12 +27,26 @@ class CoreSocketService with WidgetsBindingObserver {
   
   DateTime? _lastRefreshTime;
 
-  CoreSocketService({required this.isTokenExpired, required this.refreshToken}) {
+  CoreSocketService({
+    required this.isTokenExpired,
+    required this.refreshToken,
+    this.connectivityService,
+  }) {
     // Initialize stream controllers for all supported backend events
     for (var event in SocketEvent.values) {
       _controllers[event] = StreamController<dynamic>.broadcast();
     }
     WidgetsBinding.instance.addObserver(this);
+
+    final conn = connectivityService;
+    if (conn != null) {
+      _connectivitySub = conn.onConnectivityChanged.listen((isOnline) {
+        if (isOnline) {
+          debugPrint('🌐 Core Socket: Hardware internet reconnected -> Auto-reconnecting socket');
+          connect();
+        }
+      });
+    }
   }
 
   @override
@@ -172,6 +189,8 @@ class CoreSocketService with WidgetsBindingObserver {
 
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
     disconnect();
     _socket?.dispose();
     _socket = null;

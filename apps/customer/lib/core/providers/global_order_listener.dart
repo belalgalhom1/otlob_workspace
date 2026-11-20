@@ -38,6 +38,7 @@ class GlobalOrderListener extends _$GlobalOrderListener {
   StreamSubscription<dynamic>? _fulfillmentSub;
   StreamSubscription<dynamic>? _assistProposedSub;
   StreamSubscription<dynamic>? _settingsSub;
+  StreamSubscription<dynamic>? _connectivitySub;
   _OrdersLifecycleObserver? _lifecycleObserver;
 
   @override
@@ -49,6 +50,7 @@ class GlobalOrderListener extends _$GlobalOrderListener {
       _fulfillmentSub?.cancel();
       _assistProposedSub?.cancel();
       _settingsSub?.cancel();
+      _connectivitySub?.cancel();
       _lifecycleObserver?.dispose();
     });
     final authStatus = ref.watch(authControllerProvider);
@@ -75,6 +77,8 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     _assistProposedSub = null;
     _settingsSub?.cancel();
     _settingsSub = null;
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
     _lifecycleObserver?.dispose();
     _lifecycleObserver = null;
     ref.read(socketServiceProvider).disconnect();
@@ -126,6 +130,15 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     _openedAppSub = push.onMessageOpenedApp.listen(_handlePushOpened);
     push.getInitialMessage().then((message) {
       if (message != null) _handlePushOpened(message);
+    });
+
+    // --- Hardware Internet Reconnection Listener ---
+    _connectivitySub?.cancel();
+    _connectivitySub = ref.read(connectivityServiceProvider).onConnectivityChanged.listen((isOnline) {
+      if (isOnline) {
+        debugPrint('🌐 Customer Global Order Listener: Hardware Internet Reconnected -> Syncing orders');
+        _onResume();
+      }
     });
 
     // --- App lifecycle: refresh on resume ---

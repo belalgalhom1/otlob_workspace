@@ -180,7 +180,18 @@ class OtlobAdminApp extends ConsumerWidget {
               onPointerDown: (_) {
                 FocusManager.instance.primaryFocus?.unfocus();
               },
-              child: child ?? const SizedBox.shrink(),
+              child: Column(
+                children: [
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final isOnlineAsync = ref.watch(isOnlineStreamProvider);
+                      final isOnline = isOnlineAsync.asData?.value ?? true;
+                      return OfflineStatusBanner(isOnline: isOnline);
+                    },
+                  ),
+                  Expanded(child: child ?? const SizedBox.shrink()),
+                ],
+              ),
             ),
           );
         },

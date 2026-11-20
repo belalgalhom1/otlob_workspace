@@ -157,6 +157,16 @@ final globalOrderListenerProvider = Provider<void>((ref) {
     onResume: () => fetchOrders(immediate: true),
   );
 
+  final connectivitySub = ref
+      .read(connectivityServiceProvider)
+      .onConnectivityChanged
+      .listen((isOnline) {
+    if (isOnline) {
+      debugPrint('🌐 Vendor Global Order Listener: Hardware Internet Reconnected -> Fetching orders');
+      fetchOrders(immediate: true);
+    }
+  });
+
   ref.onDispose(() {
     fetchDebounce?.cancel();
     orderNewSub.cancel();
@@ -164,6 +174,7 @@ final globalOrderListenerProvider = Provider<void>((ref) {
     orderFulfillmentSub.cancel();
     orderCancelledSub.cancel();
     pushSub.cancel();
+    connectivitySub.cancel();
     lifecycleObserver.dispose();
   });
 });

@@ -5,6 +5,7 @@ import '../network/dio_client.dart';
 import '../permissions/permission_service.dart';
 import '../location/location_service.dart';
 import '../network/push_notification_service.dart';
+import '../network/connectivity_service.dart';
 import '../config/media_config_service.dart';
 
 import '../auth/token_service.dart';
@@ -61,9 +62,11 @@ final tokenServiceProvider = Provider<TokenService>((ref) {
 // Provides the core socket service
 final coreSocketServiceProvider = Provider<CoreSocketService>((ref) {
   final tokenService = ref.watch(tokenServiceProvider);
+  final connectivity = ref.watch(connectivityServiceProvider);
   return CoreSocketService(
     isTokenExpired: tokenService.isTokenExpired,
     refreshToken: tokenService.refreshToken,
+    connectivityService: connectivity,
   );
 });
 

@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -8,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/core/providers/driver_breaks_provider.dart';
+import 'package:driver/core/providers/driver_dispatch_coordinator.dart';
 import 'package:driver/features/ranking/presentation/driver_ranking_provider.dart';
 import 'package:driver/features/ranking/presentation/pages/driver_ranking_screen.dart';
 import 'package:driver/features/statistics/presentation/driver_statistics_screen.dart';
@@ -46,8 +48,54 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
+  bool _isRefreshing = false;
+  late final AnimationController _refreshAnimController;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshAnimController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleFullRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    _refreshAnimController.repeat();
+    try {
+      HapticFeedback.lightImpact();
+      ref.read(coreSocketServiceProvider).connect();
+      await ref
+          .read(driverDispatchCoordinatorProvider)
+          .checkPendingDispatches(checkOnline: false);
+      await Future.wait([
+        ref.read(driverProfileProvider.notifier).fetchProfile(),
+        ref.read(orderExecutionProvider.notifier).refresh(),
+      ]);
+      ref.invalidate(breaksOverviewProvider);
+      ref.invalidate(driverRankingSummaryProvider);
+      ref.invalidate(pendingAssistOffersProvider);
+    } catch (e) {
+      debugPrint('Manual dashboard refresh failed: $e');
+    } finally {
+      if (mounted) {
+        _refreshAnimController.stop();
+        _refreshAnimController.reset();
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +111,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         centerTitle: false,
         title: Text(l10n.appTitle),
         actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _isRefreshing ? null : _handleFullRefresh,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: RotationTransition(
+                    turns: _refreshAnimController,
+                    child: Icon(
+                      LucideIcons.refreshCw,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: InkWell(
@@ -140,7 +216,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
-      body: _buildBody(profileState, l10n),
+      body: Column(
+        children: [
+          Consumer(
+            builder: (context, ref, _) {
+              final isOnlineAsync = ref.watch(isOnlineStreamProvider);
+              final isOnline = isOnlineAsync.asData?.value ?? true;
+              return OfflineStatusBanner(
+                isOnline: isOnline,
+                onRetry: _handleFullRefresh,
+                useSafeArea: false,
+              );
+            },
+          ),
+          Expanded(child: _buildBody(profileState, l10n)),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
@@ -687,11 +778,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         final bool showBreaks = currentStatus == 'ONLINE' || currentStatus == 'ON_BREAK';
 
         return RefreshIndicator(
-          onRefresh: () async {
-            await ref.read(driverProfileProvider.notifier).fetchProfile();
-            ref.invalidate(breaksOverviewProvider);
-            ref.invalidate(driverRankingSummaryProvider);
-          },
+          onRefresh: _handleFullRefresh,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16.0),
@@ -761,6 +848,51 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 : l10n.goOnlineToReceive),
             textAlign: TextAlign.center,
           ),
+          if (isOnline && !onBreak) ...[
+            const SizedBox(height: 16),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _isRefreshing ? null : _handleFullRefresh,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: accent.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RotationTransition(
+                        turns: _refreshAnimController,
+                        child: Icon(
+                          LucideIcons.refreshCw,
+                          size: 16,
+                          color: accent,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.localeName == 'ar'
+                            ? 'تحديث الطلبات والاتصال'
+                            : 'Refresh Offers & Connection',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           // NOTE: no manual online/offline — status is fully shift-driven
           // (starting a shift goes ONLINE, ending it goes OFFLINE).
           // Offline drivers get a shortcut into their shifts instead.

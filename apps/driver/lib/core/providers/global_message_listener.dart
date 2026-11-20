@@ -234,6 +234,24 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   syncDispatchSweep(ref.read(driverProfileProvider).value);
   final profileSub = ref.listen(driverProfileProvider, (prev, next) => syncDispatchSweep(next.value));
 
+  // 5b. Hardware Internet Reconnection Listener:
+  // When mobile data / Wi-Fi drops and then reconnects, immediately query
+  // pending dispatches and sync order execution without waiting for next sweep tick.
+  subscriptions.add(
+    ref.read(connectivityServiceProvider).onConnectivityChanged.listen((isOnline) {
+      if (!ref.mounted) return;
+      if (isOnline) {
+        debugPrint('🌐 Driver Global Listener: Hardware Internet Reconnected -> Checking dispatches & syncing state');
+        ref.invalidate(configurationProvider);
+        ref.invalidate(breaksOverviewProvider);
+        ref.invalidate(driverRankingSummaryProvider);
+        coordinator.checkPendingDispatches(checkOnline: false);
+        unawaited(ref.read(driverProfileProvider.notifier).fetchProfile());
+        unawaited(ref.read(orderExecutionProvider.notifier).refresh());
+      }
+    }),
+  );
+
   // 6. Order Status Events
   subscriptions.add(socketService.onEvent(SocketEvent.orderStatus).listen((eventData) {
     if (!ref.mounted) return;

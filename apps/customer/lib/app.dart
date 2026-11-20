@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart' hide AppTheme;
+import 'package:core/core.dart';
 
 import 'core/providers/app_settings_provider.dart'; 
 import 'core/providers/global_message_listener.dart';
@@ -50,7 +51,18 @@ class App extends ConsumerWidget {
               onPointerDown: (_) {
                 FocusManager.instance.primaryFocus?.unfocus();
               },
-              child: child ?? const SizedBox.shrink(),
+              child: Column(
+                children: [
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final isOnlineAsync = ref.watch(isOnlineStreamProvider);
+                      final isOnline = isOnlineAsync.asData?.value ?? true;
+                      return OfflineStatusBanner(isOnline: isOnline);
+                    },
+                  ),
+                  Expanded(child: child ?? const SizedBox.shrink()),
+                ],
+              ),
             ),
           ),
         );
