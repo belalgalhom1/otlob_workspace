@@ -36,9 +36,7 @@ class CoreSocketService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       debugPrint('📱 App Resumed: Forcing socket reconnect if disconnected');
-      if (_socket != null && !_socket!.connected) {
-        _socket!.connect();
-      }
+      connect();
     }
   }
 
@@ -160,12 +158,16 @@ class CoreSocketService with WidgetsBindingObserver {
     _socket?.emit(eventName, data);
   }
 
-  void connect() => _socket?.connect();
+  void connect() {
+    if (_socket == null) {
+      unawaited(init(autoConnect: true));
+    } else if (!_socket!.connected) {
+      _socket!.connect();
+    }
+  }
 
   void disconnect() {
     _socket?.disconnect();
-    _socket?.dispose();
-    _socket = null;
   }
 
   void dispose() {

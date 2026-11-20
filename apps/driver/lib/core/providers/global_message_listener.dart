@@ -231,7 +231,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     }
   }
 
-  syncDispatchSweep(ref.watch(driverProfileProvider).value);
+  syncDispatchSweep(ref.read(driverProfileProvider).value);
   final profileSub = ref.listen(driverProfileProvider, (prev, next) => syncDispatchSweep(next.value));
 
   // 6. Order Status Events

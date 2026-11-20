@@ -209,8 +209,15 @@ export class SocketGateway
   }
 
   handleConnection(client: Socket) {
+    const user = client.data.user as { sub: string; sid?: string } | undefined;
+    if (user?.sub) {
+      void client.join(`user_${user.sub}`);
+      if (user.sid) {
+        void client.join(`session_${user.sid}`);
+      }
+    }
     this.logger.log(
-      `✅ Client Connected: ${(client.data.user as { sub: string } | undefined)?.sub} (${client.id})`,
+      `✅ Client Connected: ${user?.sub ?? 'unknown'} (${client.id})`,
     );
   }
 

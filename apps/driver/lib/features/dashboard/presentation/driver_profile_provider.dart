@@ -49,7 +49,6 @@ class DriverProfile extends _$DriverProfile {
           ref.read(coreSocketServiceProvider).connect();
         } else if (currentStatus == 'OFFLINE') {
           ref.read(locationServiceProvider).stopTracking();
-          ref.read(coreSocketServiceProvider).disconnect();
         }
 
         state = AsyncValue.data(response);

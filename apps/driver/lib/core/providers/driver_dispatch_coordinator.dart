@@ -56,7 +56,12 @@ class DriverDispatchCoordinator {
 
     final context = rootNavigatorKey.currentContext;
     if (context == null || !context.mounted) {
-      debugPrint('DriverDispatchCoordinator: SKIP dispatch $dispatchId (navigator context unavailable)');
+      debugPrint('DriverDispatchCoordinator: SKIP dispatch $dispatchId (navigator context unavailable) - retrying in 300ms');
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_ref.mounted && currentShowingDispatchId != dispatchId) {
+          showDispatchModal(dispatchData);
+        }
+      });
       return;
     }
     currentShowingDispatchId = dispatchId;
