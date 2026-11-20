@@ -616,6 +616,162 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       expect(est.deliveryCount).toBe(1);
     });
 
+    it('Option 1: calculates individual distance fees for combined groups and applies multiVendorDeliveryDiscountPercent, but leaves split groups undiscounted', async () => {
+      const mockRepo: any = {
+        getZoneAtLocation: jest.fn().mockResolvedValue({ id: 'z1' }),
+        getNearestOpenBranchLocation: jest.fn().mockResolvedValue({
+          id: 'br-1',
+          lng: 31.32,
+          lat: 30.02,
+          commissionRate: 10,
+          isContracted: true,
+        }),
+      };
+      const mockCart: any = {
+        validateForCheckout: jest.fn().mockResolvedValue({
+          cart: {
+            items: [
+              {
+                id: 'i1',
+                productId: 'p1',
+                unitPrice: 50,
+                quantity: 1,
+                totalPrice: 50,
+              },
+            ],
+          },
+        }),
+        assertItemsAvailableAtBranch: jest.fn().mockResolvedValue(undefined),
+      };
+      const mockPrisma: any = {
+        platformSetting: {
+          findUnique: jest.fn().mockResolvedValue({}),
+        },
+        customer: {
+          findUnique: jest.fn().mockResolvedValue({ id: 'c1', coinBalance: 0 }),
+        },
+        vendor: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'v1',
+            status: 'OPEN',
+            deletedAt: null,
+            commissionRate: 10,
+            isContracted: true,
+          }),
+        },
+        vendorBranch: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+      };
+
+      // 1. Combined group: 2 vendor stops sharing 1 driver -> fees 25 + 20 = 45 -> 20% off -> 36
+      const mockGroupingCombined: any = {
+        planForCheckout: jest.fn().mockResolvedValue({
+          isSplit: false,
+          groups: [
+            {
+              sequence: 1,
+              farthestToCustomerKm: 5,
+              extraVendorCount: 1,
+              splitReason: 'CLUSTERED',
+              stops: [
+                { vendorId: 'v1', lng: 31.3, lat: 30.0 },
+                { vendorId: 'v2', lng: 31.325, lat: 30.04 },
+              ],
+            },
+          ],
+        }),
+      };
+
+      const calcFeeMock = jest
+        .fn()
+        .mockImplementation(async (dist: number) => (dist > 4 ? 25 : 20));
+
+      const mockSettingsCombined: any = {
+        getSettings: jest.fn().mockResolvedValue({
+          defaultTaxRate: 0,
+          maxDeliveryRadiusKm: 50,
+          minDeliveryFee: 15,
+          multiVendorDeliveryDiscountPercent: 20,
+        }),
+        calculateDeliveryFee: calcFeeMock,
+      };
+
+      const svcCombined = new OrdersMultiVendorService(
+        mockPrisma,
+        mockCart,
+        mockSettingsCombined,
+        {} as any,
+        mockRepo,
+        mockGroupingCombined,
+        { emit: jest.fn() } as any,
+        {} as any,
+      );
+
+      const estCombined = await svcCombined.estimate(
+        { sub: 'user-cust', role: Role.CUSTOMER } as any,
+        {
+          vendorIds: ['v1', 'v2'],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Nasr City',
+          deliveryLocation: [31.33, 30.0444],
+        },
+      );
+
+      // (25 + 20) * (1 - 0.20) = 45 * 0.8 = 36 EGP
+      expect(estCombined.deliveryFee).toBe(36);
+      expect(estCombined.groups[0].deliveryFee).toBe(36);
+
+      // 2. Split group (Option 1): 2 separate drivers (1 vendor stop per group) -> no bundle discount applies
+      const mockGroupingSplit: any = {
+        planForCheckout: jest.fn().mockResolvedValue({
+          isSplit: true,
+          groups: [
+            {
+              sequence: 1,
+              farthestToCustomerKm: 5,
+              extraVendorCount: 0,
+              splitReason: 'FAR_FROM_CUSTOMER',
+              stops: [{ vendorId: 'v1', lng: 31.3, lat: 30.0 }],
+            },
+            {
+              sequence: 2,
+              farthestToCustomerKm: 3,
+              extraVendorCount: 0,
+              splitReason: 'FAR_FROM_CUSTOMER',
+              stops: [{ vendorId: 'v2', lng: 31.325, lat: 30.04 }],
+            },
+          ],
+        }),
+      };
+
+      const svcSplit = new OrdersMultiVendorService(
+        mockPrisma,
+        mockCart,
+        mockSettingsCombined,
+        {} as any,
+        mockRepo,
+        mockGroupingSplit,
+        { emit: jest.fn() } as any,
+        {} as any,
+      );
+
+      const estSplit = await svcSplit.estimate(
+        { sub: 'user-cust', role: Role.CUSTOMER } as any,
+        {
+          vendorIds: ['v1', 'v2'],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Nasr City',
+          deliveryLocation: [31.33, 30.0444],
+        },
+      );
+
+      // Group 1: 25 EGP, Group 2: 20 EGP -> Sum: 45 EGP (Option 1: separate drivers don't get the bundle discount)
+      expect(estSplit.groups[0].deliveryFee).toBe(25);
+      expect(estSplit.groups[1].deliveryFee).toBe(20);
+      expect(estSplit.deliveryFee).toBe(45);
+    });
+
     it('returns the existing order on sequential retry with an Idempotency-Key without failing on cleared carts', async () => {
       const existingOrder = { id: 'mv-existing', orderNumber: 'OTL-777' };
       const mockRepo: any = {
@@ -908,7 +1064,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         mockPrisma,
         mockOrdersRepo,
         mockCancellationService,
-        { getSettings: jest.fn().mockResolvedValue({ extraVendorDeliveryFee: 10 }) } as any,
+        { getSettings: jest.fn().mockResolvedValue({ multiVendorDeliveryDiscountPercent: 20 }) } as any,
         { emit: jest.fn() } as any,
       );
       jest.spyOn(mockDecision, 'findById').mockResolvedValue({
@@ -1225,7 +1381,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         requirePriorDeliveryForMultipleOrders: false,
         defaultTaxRate: 0,
         maxDeliveryRadiusKm: 100,
-        extraVendorDeliveryFee: 10,
+        multiVendorDeliveryDiscountPercent: 20,
         minOrderAmount: 0,
       };
       const mockSettings: any = {
@@ -1434,7 +1590,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         maxMultiVendorVendors: 2,
         defaultTaxRate: 0,
         maxDeliveryRadiusKm: 100,
-        extraVendorDeliveryFee: 10,
+        multiVendorDeliveryDiscountPercent: 20,
         minOrderAmount: 0,
       };
       const mockSettings: any = {

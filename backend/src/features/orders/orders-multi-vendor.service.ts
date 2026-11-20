@@ -23,6 +23,7 @@ import {
   OrderGroupingService,
   VendorStop,
   GroupingResult,
+  haversineKm,
 } from './order-grouping.service';
 import { CustomerErrors } from '../../common/constants/response.constants';
 import { OrderErrors } from '../../common/constants/response.constants';
@@ -767,22 +768,51 @@ export class OrdersMultiVendorService {
       throw new BadRequestException(OrderErrors.MIN_ORDER_AMOUNT_NOT_MET);
     }
 
-    // Per-group fee: the group's farthest pickup to the customer (the long leg,
-    // which the customer pays for), plus the fixed extra delivery fee for every
-    // extra vendor sharing that same trip. Groups are then summed.
-    const extraVendorFee = Number(
-      settings.extraVendorDeliveryFee ?? Math.round(Number(settings.minDeliveryFee ?? 0) / 2),
+    // Option 1: Calculate delivery fee based on each stop's distance to the customer.
+    // When 2+ vendor stops share the same delivery trip (1 driver), their individual
+    // distance fees are summed and discounted by multiVendorDeliveryDiscountPercent.
+    // For single-stop trips (isolated or split deliveries), no bundle discount applies.
+    const discountPercent = Number(
+      (settings as any).multiVendorDeliveryDiscountPercent ?? 20,
     );
+    const discountMultiplier =
+      Math.max(0, Math.min(100, discountPercent)) / 100;
+    const minFee = Number(settings.minDeliveryFee ?? 15);
+
     const groupFees: number[] = [];
     for (const g of grouping.groups) {
-      const base = await this.platformSettings.calculateDeliveryFee(
-        g.farthestToCustomerKm,
-        zone.baseDeliveryFeeOverride ?? null,
-        null,
-        true,
-        settings,
-      );
-      groupFees.push(Math.round(base + g.extraVendorCount * extraVendorFee));
+      if (g.stops.length <= 1) {
+        const stop = g.stops[0];
+        const dist = stop
+          ? haversineKm(stop, { lng: deliveryLng, lat: deliveryLat })
+          : g.farthestToCustomerKm;
+        const base = await this.platformSettings.calculateDeliveryFee(
+          dist,
+          zone.baseDeliveryFeeOverride ?? null,
+          null,
+          true,
+          settings,
+        );
+        groupFees.push(Math.round(base));
+      } else {
+        let rawSum = 0;
+        for (const stop of g.stops) {
+          const stopDist = haversineKm(stop, {
+            lng: deliveryLng,
+            lat: deliveryLat,
+          });
+          const stopFee = await this.platformSettings.calculateDeliveryFee(
+            stopDist,
+            zone.baseDeliveryFeeOverride ?? null,
+            null,
+            true,
+            settings,
+          );
+          rawSum += stopFee;
+        }
+        const discounted = Math.round(rawSum * (1 - discountMultiplier));
+        groupFees.push(Math.max(minFee, discounted));
+      }
     }
     const deliveryFee = groupFees.reduce((a, b) => a + b, 0);
 

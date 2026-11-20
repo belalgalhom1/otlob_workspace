@@ -17,7 +17,7 @@ model PlatformSetting {
   defaultTaxRate              Int     @default(14)
   minOrderAmount              Int     @default(0)
   baseDeliveryFee             Int     @default(15)
-  extraVendorDeliveryFee      Int     @default(10)
+  multiVendorDeliveryDiscountPercent Int @default(20)
   pricePerKm                  Int     @default(3)
   pricePerKmBicycle           Int     @default(2)
   pricePerKmMotorcycle        Int     @default(3)

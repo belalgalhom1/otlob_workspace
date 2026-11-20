@@ -211,12 +211,6 @@ export class OrderVendorDecisionService {
 
     const refundAmount = items.reduce((sum, i) => sum + i.totalPrice, 0);
 
-    // Extra-vendor surcharge released when this portion leaves its delivery.
-    const settings = await this.platformSettings.getSettings();
-    const extraVendorFee = Number(
-      settings.extraVendorDeliveryFee ?? Math.round(Number(settings.minDeliveryFee ?? 0) / 2),
-    );
-
     // The customer pays commission as a service fee only for UNCONTRACTED
     // vendors, so rejecting a contracted vendor must not reduce it.
     const rejectedVendor = await this.prisma.vendor.findUnique({
@@ -275,14 +269,13 @@ export class OrderVendorDecisionService {
       });
 
       // Losing a vendor can cancel its whole delivery (nobody left to pick up
-      // from) or merely release that vendor's extra-stop surcharge.
+      // from) or dynamically recompute the delivery fee for remaining vendor stops.
       const groupSync = ridingGroup
         ? await this.recomputor.syncDeliveryGroupAfterVendorRemoved(
             tx,
             ridingGroup.deliveryGroupId,
             fulfillment.orderId,
             order.status,
-            extraVendorFee,
           )
         : { deliveryFeeDelta: 0, freedDriverIds: [] as string[] };
 

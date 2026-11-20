@@ -35,6 +35,7 @@ class SettingsNotifier extends _$SettingsNotifier {
 
   static const _dispatchKeys = {
     'dispatchHandoffDedupeTtlSecs',
+    'multiVendorDeliveryDiscountPercent',
   };
 
   Future<void> updateSettings(Map<String, dynamic> settings) async {
@@ -119,7 +120,6 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('defaultTaxRate')) b.defaultTaxRate = parseNum(settings['defaultTaxRate']);
       if (settings.containsKey('minOrderAmount')) b.minOrderAmount = parseNum(settings['minOrderAmount']);
       if (settings.containsKey('baseDeliveryFee')) b.baseDeliveryFee = parseNum(settings['baseDeliveryFee']);
-      if (settings.containsKey('extraVendorDeliveryFee')) b.extraVendorDeliveryFee = parseNum(settings['extraVendorDeliveryFee']);
       if (settings.containsKey('pricePerKm')) b.pricePerKm = parseNum(settings['pricePerKm']);
       if (settings.containsKey('pricePerKmBicycle')) b.pricePerKmBicycle = parseNum(settings['pricePerKmBicycle']);
       if (settings.containsKey('pricePerKmMotorcycle')) b.pricePerKmMotorcycle = parseNum(settings['pricePerKmMotorcycle']);

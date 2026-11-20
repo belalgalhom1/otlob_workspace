@@ -238,12 +238,12 @@ const List<SettingsSection> platformSettingsSections = [
         helpEn: 'Fixed amount at the start of every delivery, before the kms.',
       ),
       SettingsField(
-        key: 'extraVendorDeliveryFee',
+        key: 'multiVendorDeliveryDiscountPercent',
         kind: SettingsFieldKind.number,
-        labelAr: 'أجرة كل متجر إضافي في نفس المشوار',
-        labelEn: 'Extra Vendor Delivery Fee',
-        helpAr: 'مبلغ ثابت يُضاف للتوصيل لكل متجر إضافي في طلبات المتاجر المتعددة.',
-        helpEn: 'Fixed delivery fee added for each additional vendor in multi-vendor orders.',
+        labelAr: 'نسبة خصم توصيل المتاجر المتعددة (%)',
+        labelEn: 'Multi-Vendor Delivery Discount (%)',
+        helpAr: 'نسبة خصم تُطبّق على مجموع أجرة التوصيل إذا جُمعت متاجر متعددة مع نفس السائق (مثلاً 20%).',
+        helpEn: 'Percentage discount applied to total delivery fee when multiple vendors share the same driver trip (e.g. 20%).',
       ),
       SettingsField(
         key: 'pricePerKm',

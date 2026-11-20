@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DeliveryGroupStatus, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../../platform-settings/platform-settings.service';
+import { haversineKm } from '../../../common/geo/geo.utils';
 import {
   recordOrderStatusEventIdempotent,
   systemActorSnapshot,
@@ -39,7 +40,7 @@ export class OrderRejectionRecomputor {
     deliveryGroupId: string,
     orderId: string,
     orderStatus: OrderStatus,
-    extraVendorFee: number,
+    _deprecatedExtraVendorFee?: number,
   ): Promise<GroupVendorRemovalResult> {
     const group = await tx.orderDeliveryGroup.findUnique({
       where: { id: deliveryGroupId },
@@ -99,8 +100,95 @@ export class OrderRejectionRecomputor {
       return { deliveryFeeDelta: -group.deliveryFee, freedDriverIds };
     }
 
-    // One fewer vendor rides along — drop that vendor's extra-stop surcharge.
-    const newFee = Math.max(0, Math.round(group.deliveryFee - extraVendorFee));
+    // Recompute the delivery fee for the remaining vendor portions in this group.
+    let newFee: number;
+    try {
+      const remainingItems = await tx.orderDeliveryGroupItem.findMany({
+        where: { deliveryGroupId },
+        include: {
+          fulfillment: {
+            select: {
+              vendorBranch: { select: { lng: true, lat: true } },
+              vendor: {
+                select: {
+                  branches: {
+                    where: { deletedAt: null },
+                    take: 1,
+                    select: { lng: true, lat: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const orderRow = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { deliveryLat: true, deliveryLng: true, zoneId: true },
+      });
+
+      const settings = await this.platformSettings.getSettings();
+      const minFee = Number(settings.minDeliveryFee ?? 15);
+      const discountPercent = Number(
+        (settings as any).multiVendorDeliveryDiscountPercent ?? 20,
+      );
+      const discountMultiplier =
+        Math.max(0, Math.min(100, discountPercent)) / 100;
+
+      const stops: Array<{ lng: number; lat: number }> = [];
+      for (const item of remainingItems) {
+        const f = item.fulfillment;
+        const lng = f?.vendorBranch?.lng ?? f?.vendor?.branches?.[0]?.lng;
+        const lat = f?.vendorBranch?.lat ?? f?.vendor?.branches?.[0]?.lat;
+        if (lng != null && lat != null) {
+          stops.push({ lng: Number(lng), lat: Number(lat) });
+        }
+      }
+
+      if (
+        orderRow?.deliveryLng != null &&
+        orderRow?.deliveryLat != null &&
+        stops.length > 0
+      ) {
+        const dest = {
+          lng: Number(orderRow.deliveryLng),
+          lat: Number(orderRow.deliveryLat),
+        };
+        if (stops.length === 1) {
+          const dist = haversineKm(stops[0], dest);
+          const base = await this.platformSettings.calculateDeliveryFee(
+            dist,
+            null,
+            null,
+            true,
+            settings,
+          );
+          newFee = Math.max(minFee, Math.round(base));
+        } else {
+          let rawSum = 0;
+          for (const stop of stops) {
+            const dist = haversineKm(stop, dest);
+            const fee = await this.platformSettings.calculateDeliveryFee(
+              dist,
+              null,
+              null,
+              true,
+              settings,
+            );
+            rawSum += fee;
+          }
+          const discounted = Math.round(rawSum * (1 - discountMultiplier));
+          newFee = Math.max(minFee, discounted);
+        }
+      } else {
+        // Fallback when coordinates are missing: scale fee proportionally to remaining stops
+        newFee = Math.max(minFee, Math.round((group.deliveryFee * remaining) / (remaining + 1)));
+      }
+    } catch {
+      newFee = Math.max(0, Math.round(group.deliveryFee - extraVendorFee));
+    }
+
     if (newFee === group.deliveryFee) {
       return { deliveryFeeDelta: 0, freedDriverIds: [] };
     }

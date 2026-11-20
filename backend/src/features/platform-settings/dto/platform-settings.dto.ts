@@ -73,16 +73,17 @@ export class UpdatePlatformSettingsDto {
   baseDeliveryFee?: number;
 
   @ApiProperty({
-    example: 10,
+    example: 20,
     required: false,
     description:
-      'Fixed extra delivery fee for each extra vendor in a multi-vendor delivery group (EGP). Default 10.',
+      'Percentage discount applied to combined multi-vendor delivery fees in the same delivery group (0-100). Default 20.',
   })
   @IsInt()
   @Min(0)
+  @Max(100)
   @IsOptional()
   @Type(() => Number)
-  extraVendorDeliveryFee?: number;
+  multiVendorDeliveryDiscountPercent?: number;
 
   @ApiProperty({ example: 2, required: false })
   @IsInt()

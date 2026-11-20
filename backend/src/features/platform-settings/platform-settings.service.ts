@@ -149,7 +149,8 @@ export class PlatformSettingsService {
       minOrderAmount: s.minOrderAmount,
       defaultTaxRate: s.defaultTaxRate,
       baseDeliveryFee: s.baseDeliveryFee,
-      extraVendorDeliveryFee: s.extraVendorDeliveryFee,
+      multiVendorDeliveryDiscountPercent:
+        (s as any).multiVendorDeliveryDiscountPercent ?? 20,
       maxMultiVendorVendors: s.maxMultiVendorVendors,
       customOrderPlatformFee: s.customOrderPlatformFee,
       pricePerKm: s.pricePerKm,
