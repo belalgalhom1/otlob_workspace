@@ -7,6 +7,7 @@ class WalletTopUpRequest {
   final String? notes;
   final DateTime createdAt;
   final String? driverName;
+  final String? driverAvatar;
 
   WalletTopUpRequest({
     required this.id,
@@ -17,12 +18,15 @@ class WalletTopUpRequest {
     this.notes,
     required this.createdAt,
     this.driverName,
+    this.driverAvatar,
   });
 
   factory WalletTopUpRequest.fromJson(Map<String, dynamic> json) {
     final driver = json['driver'];
     final user = driver is Map ? driver['user'] : null;
     final name = user is Map ? user['name'] : null;
+    final avatar = (driver is Map ? driver['avatar'] : null) ??
+        (user is Map ? user['avatar'] : null);
     return WalletTopUpRequest(
       id: json['id'] ?? '',
       driverId: json['driverId'] ?? '',
@@ -31,7 +35,8 @@ class WalletTopUpRequest {
       receiptUrl: json['receiptUrl'] ?? '',
       notes: json['notes'],
       createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-      driverName: name,
+      driverName: name?.toString(),
+      driverAvatar: avatar?.toString(),
     );
   }
 }

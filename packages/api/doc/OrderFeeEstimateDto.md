@@ -23,6 +23,7 @@ Name | Type | Description | Notes
 **vendorCount** | **num** |  | [optional] 
 **branchCount** | **num** |  | [optional] 
 **deliveryCount** | **num** |  | [optional] 
+**driverBonusPaidByCustomer** | **bool** | Whether the customer pays driverBonusFee inside grandTotal (false when platform-funded) | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

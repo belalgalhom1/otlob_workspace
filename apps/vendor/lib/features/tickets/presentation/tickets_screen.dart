@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -354,6 +355,8 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
                 builder: (context) => AdminChatScreen(
                   conversationId: ticket['conversationId'],
                   title: ticket['subject'] ?? 'Ticket Support',
+                  avatar: ticket['creator']?['avatar']?.toString() ??
+                      ticket['vendor']?['logo']?.toString(),
                   type: 'SUPPORT',
                   vendorName: ticket['vendor']?['storeName'],
                   vendorId: ticket['vendorId'],
@@ -408,14 +411,15 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen> {
                   Expanded(
                     child: Row(
                       children: [
-                        Icon(
-                          LucideIcons.user,
-                          size: 14,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface,
+                        AppNetworkAvatar(
+                          imageUrl: ImageUtils.formatImageUrl(
+                            ticket['creator']?['avatar']?.toString(),
+                          ),
+                          size: 22,
+                          fallbackIcon: LucideIcons.user,
+                          fallbackIconSize: 12,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             ticket['creator']?['name'] ?? l10n.unknown,

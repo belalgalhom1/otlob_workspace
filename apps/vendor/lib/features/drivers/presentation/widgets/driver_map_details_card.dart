@@ -463,6 +463,8 @@ class DriverMapDetailsCard extends StatelessWidget {
     final customerUser = customer['user'] is Map ? customer['user'] as Map : {};
     final customerName = customerUser['name']?.toString() ?? (isArabic ? 'عميل' : 'Customer');
     final customerPhone = customerUser['phone']?.toString() ?? '';
+    final customerAvatar =
+        (customerUser['avatar'] ?? customer['avatar'])?.toString();
     final deliveryAddress = order['deliveryAddress']?.toString() ?? '';
 
     // Vendor
@@ -509,6 +511,7 @@ class DriverMapDetailsCard extends StatelessWidget {
             ? '$vendorStoreName - $branchName'
             : vendorStoreName.toString().trim())
         : (branchName?.toString().trim() ?? (isArabic ? 'المتجر' : 'Vendor'));
+    final vendorLogo = (vendor['logo'] ?? vendor['logoUrl'])?.toString();
     final pickupAddress = order['pickupAddress']?.toString() ??
         vendorBranch['address']?.toString() ??
         vendor['address']?.toString() ??
@@ -553,17 +556,19 @@ class DriverMapDetailsCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: isHeadingToCustomer ? Colors.blue : Colors.amber.shade700,
-                      shape: BoxShape.circle,
+                  AppNetworkAvatar(
+                    imageUrl: ImageUtils.formatImageUrl(
+                      isHeadingToCustomer ? customerAvatar : vendorLogo,
                     ),
-                    child: Icon(
-                      isHeadingToCustomer ? LucideIcons.truck : LucideIcons.store,
-                      size: 15,
-                      color: Colors.white,
-                    ),
+                    size: 32,
+                    borderRadius: isHeadingToCustomer ? null : 8,
+                    fallbackIcon: isHeadingToCustomer
+                        ? LucideIcons.truck
+                        : LucideIcons.store,
+                    fallbackIconSize: 15,
+                    backgroundColor:
+                        isHeadingToCustomer ? Colors.blue : Colors.amber.shade700,
+                    foregroundColor: Colors.white,
                   ),
                   const SizedBox(width: 10),
                   Expanded(

@@ -1,9 +1,14 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import '../config/env_config.dart';
 
 class ImageUtils {
   static String formatImageUrl(String? url) {
     if (url == null || url.isEmpty) return '';
     if (url.startsWith('http')) return url;
+    if (!dotenv.isInitialized || (dotenv.env['API_URL'] ?? '').isEmpty) {
+      return url;
+    }
 
     var base = EnvConfig.apiUrl;
     if (base.endsWith('/')) {

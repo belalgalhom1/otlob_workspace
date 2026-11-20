@@ -7,7 +7,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart'
-    show SocketEvent, orderRevisionOf, orderRevisionTrackerProvider;
+    show
+        OrderActivityHelper,
+        SocketEvent,
+        orderRevisionOf,
+        orderRevisionTrackerProvider;
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -18,7 +22,7 @@ import '../widgets/rate_order_bottom_sheet.dart';
 import '../../../../core/services/socket_service.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart'
-    show MediaPermissionHelper, AppConfirmDialog;
+    show AppNetworkAvatar, MediaPermissionHelper, AppConfirmDialog;
 import '../providers/orders_provider.dart';
 
 double _parseDouble(dynamic value) {
@@ -767,8 +771,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
       statusBgColor = Colors.blue.withValues(alpha: 0.1);
     }
 
+    final cancelledByActor =
+        isCancelled ? OrderActivityHelper.resolveCancelledBy(order) : null;
+
     return GestureDetector(
-      onTap: isCancelled ? null : () {
+      onTap: () {
         context.push('/order-tracking/${order['id']}');
       },
       child: Container(
@@ -865,6 +872,97 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           ),
 
           if (!isCustom) _buildStatusTimeline(status, isDark, s),
+
+          if (cancelledByActor != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.red.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppNetworkAvatar(
+                    imageUrl: cancelledByActor.resolvedAvatarUrl,
+                    size: 32,
+                    borderRadius:
+                        cancelledByActor.role?.toUpperCase() == 'VENDOR_MEMBER'
+                            ? 8
+                            : null,
+                    fallbackIcon: Icons.cancel_rounded,
+                    fallbackIconSize: 16,
+                    backgroundColor: Colors.red.withValues(alpha: 0.14),
+                    foregroundColor: Colors.red,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              OrderActivityHelper.formatCanceledByHeadline(
+                                cancelledByActor,
+                                isArabic: s.isArabic,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.red,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                OrderActivityHelper.roleLabel(
+                                  cancelledByActor.role,
+                                  isArabic: s.isArabic,
+                                  isSystem: cancelledByActor.isSystem,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (cancelledByActor.reason != null &&
+                            cancelledByActor.reason!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '${s.isArabic ? 'السبب:' : 'Reason:'} ${cancelledByActor.reason!.trim()}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.35,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           const Divider(height: 20),
 

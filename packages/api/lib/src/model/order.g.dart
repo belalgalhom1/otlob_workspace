@@ -77,6 +77,20 @@ class _$Order extends Order {
   final DateTime? actualDeliveryTime;
   @override
   final DateTime? settledAt;
+  @override
+  final String? cancelledByUserId;
+  @override
+  final Role? cancelledByRole;
+  @override
+  final String? cancelledByName;
+  @override
+  final String? cancelledByNameAr;
+  @override
+  final String? cancelledByAvatar;
+  @override
+  final String? cancelReason;
+  @override
+  final DateTime? cancelledAt;
 
   factory _$Order([void Function(OrderBuilder)? updates]) =>
       (OrderBuilder()..update(updates))._build();
@@ -117,6 +131,13 @@ class _$Order extends Order {
     this.paymentReceiptUrl,
     this.actualDeliveryTime,
     this.settledAt,
+    this.cancelledByUserId,
+    this.cancelledByRole,
+    this.cancelledByName,
+    this.cancelledByNameAr,
+    this.cancelledByAvatar,
+    this.cancelReason,
+    this.cancelledAt,
   }) : super._();
   @override
   Order rebuild(void Function(OrderBuilder) updates) =>
@@ -163,7 +184,14 @@ class _$Order extends Order {
         updatedAt == other.updatedAt &&
         paymentReceiptUrl == other.paymentReceiptUrl &&
         actualDeliveryTime == other.actualDeliveryTime &&
-        settledAt == other.settledAt;
+        settledAt == other.settledAt &&
+        cancelledByUserId == other.cancelledByUserId &&
+        cancelledByRole == other.cancelledByRole &&
+        cancelledByName == other.cancelledByName &&
+        cancelledByNameAr == other.cancelledByNameAr &&
+        cancelledByAvatar == other.cancelledByAvatar &&
+        cancelReason == other.cancelReason &&
+        cancelledAt == other.cancelledAt;
   }
 
   @override
@@ -204,6 +232,13 @@ class _$Order extends Order {
     _$hash = $jc(_$hash, paymentReceiptUrl.hashCode);
     _$hash = $jc(_$hash, actualDeliveryTime.hashCode);
     _$hash = $jc(_$hash, settledAt.hashCode);
+    _$hash = $jc(_$hash, cancelledByUserId.hashCode);
+    _$hash = $jc(_$hash, cancelledByRole.hashCode);
+    _$hash = $jc(_$hash, cancelledByName.hashCode);
+    _$hash = $jc(_$hash, cancelledByNameAr.hashCode);
+    _$hash = $jc(_$hash, cancelledByAvatar.hashCode);
+    _$hash = $jc(_$hash, cancelReason.hashCode);
+    _$hash = $jc(_$hash, cancelledAt.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -245,7 +280,14 @@ class _$Order extends Order {
           ..add('updatedAt', updatedAt)
           ..add('paymentReceiptUrl', paymentReceiptUrl)
           ..add('actualDeliveryTime', actualDeliveryTime)
-          ..add('settledAt', settledAt))
+          ..add('settledAt', settledAt)
+          ..add('cancelledByUserId', cancelledByUserId)
+          ..add('cancelledByRole', cancelledByRole)
+          ..add('cancelledByName', cancelledByName)
+          ..add('cancelledByNameAr', cancelledByNameAr)
+          ..add('cancelledByAvatar', cancelledByAvatar)
+          ..add('cancelReason', cancelReason)
+          ..add('cancelledAt', cancelledAt))
         .toString();
   }
 }
@@ -405,6 +447,39 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   DateTime? get settledAt => _$this._settledAt;
   set settledAt(DateTime? settledAt) => _$this._settledAt = settledAt;
 
+  String? _cancelledByUserId;
+  String? get cancelledByUserId => _$this._cancelledByUserId;
+  set cancelledByUserId(String? cancelledByUserId) =>
+      _$this._cancelledByUserId = cancelledByUserId;
+
+  Role? _cancelledByRole;
+  Role? get cancelledByRole => _$this._cancelledByRole;
+  set cancelledByRole(Role? cancelledByRole) =>
+      _$this._cancelledByRole = cancelledByRole;
+
+  String? _cancelledByName;
+  String? get cancelledByName => _$this._cancelledByName;
+  set cancelledByName(String? cancelledByName) =>
+      _$this._cancelledByName = cancelledByName;
+
+  String? _cancelledByNameAr;
+  String? get cancelledByNameAr => _$this._cancelledByNameAr;
+  set cancelledByNameAr(String? cancelledByNameAr) =>
+      _$this._cancelledByNameAr = cancelledByNameAr;
+
+  String? _cancelledByAvatar;
+  String? get cancelledByAvatar => _$this._cancelledByAvatar;
+  set cancelledByAvatar(String? cancelledByAvatar) =>
+      _$this._cancelledByAvatar = cancelledByAvatar;
+
+  String? _cancelReason;
+  String? get cancelReason => _$this._cancelReason;
+  set cancelReason(String? cancelReason) => _$this._cancelReason = cancelReason;
+
+  DateTime? _cancelledAt;
+  DateTime? get cancelledAt => _$this._cancelledAt;
+  set cancelledAt(DateTime? cancelledAt) => _$this._cancelledAt = cancelledAt;
+
   OrderBuilder() {
     Order._defaults(this);
   }
@@ -447,6 +522,13 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
       _paymentReceiptUrl = $v.paymentReceiptUrl;
       _actualDeliveryTime = $v.actualDeliveryTime;
       _settledAt = $v.settledAt;
+      _cancelledByUserId = $v.cancelledByUserId;
+      _cancelledByRole = $v.cancelledByRole;
+      _cancelledByName = $v.cancelledByName;
+      _cancelledByNameAr = $v.cancelledByNameAr;
+      _cancelledByAvatar = $v.cancelledByAvatar;
+      _cancelReason = $v.cancelReason;
+      _cancelledAt = $v.cancelledAt;
       _$v = null;
     }
     return this;
@@ -576,6 +658,13 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
           paymentReceiptUrl: paymentReceiptUrl,
           actualDeliveryTime: actualDeliveryTime,
           settledAt: settledAt,
+          cancelledByUserId: cancelledByUserId,
+          cancelledByRole: cancelledByRole,
+          cancelledByName: cancelledByName,
+          cancelledByNameAr: cancelledByNameAr,
+          cancelledByAvatar: cancelledByAvatar,
+          cancelReason: cancelReason,
+          cancelledAt: cancelledAt,
         );
     replace(_$result);
     return _$result;

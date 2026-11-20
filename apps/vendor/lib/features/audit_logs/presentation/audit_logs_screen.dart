@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'package:core/core.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:intl/intl.dart';
@@ -1215,9 +1216,18 @@ class _AuditLogCardState extends State<_AuditLogCard> {
                             const SizedBox(height: 8),
                             Row(
                               children: [
-                                Icon(LucideIcons.user, size: 13,
-                                    color: theme.colorScheme.onSurface),
-                                const SizedBox(width: 5),
+                                AppNetworkAvatar(
+                                  imageUrl: ImageUtils.formatImageUrl(
+                                    (log['user'] is Map
+                                            ? (log['user'] as Map)['avatar']
+                                            : null)
+                                        ?.toString(),
+                                  ),
+                                  size: 20,
+                                  fallbackIcon: LucideIcons.user,
+                                  fallbackIconSize: 11,
+                                ),
+                                const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     '${l10n.by} $userDisplay',

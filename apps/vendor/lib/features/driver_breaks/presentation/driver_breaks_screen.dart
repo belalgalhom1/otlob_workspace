@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:core/core.dart';
 import 'package:data/data.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
@@ -370,8 +371,12 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen>
                 final displayName =
                     d.name.trim().isEmpty ? d.id : d.name;
                 return ListTile(
-                  leading: const CircleAvatar(
-                      child: Icon(LucideIcons.user, size: 16)),
+                  leading: AppNetworkAvatar(
+                    imageUrl: ImageUtils.formatImageUrl(d.avatar),
+                    size: 38,
+                    fallbackIcon: LucideIcons.user,
+                    fallbackIconSize: 16,
+                  ),
                   title: Text(displayName),
                   subtitle: Text(d.status),
                   trailing: const AppAdaptiveChevron(size: 18),

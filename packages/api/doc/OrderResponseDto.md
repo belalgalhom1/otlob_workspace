@@ -43,6 +43,13 @@ Name | Type | Description | Notes
 **paymentReceiptUrl** | **String** |  | [optional] 
 **actualDeliveryTime** | [**DateTime**](DateTime.md) |  | [optional] 
 **settledAt** | [**DateTime**](DateTime.md) |  | [optional] 
+**cancelledByUserId** | **String** |  | [optional] 
+**cancelledByRole** | [**Role**](Role.md) |  | [optional] 
+**cancelledByName** | **String** |  | [optional] 
+**cancelledByNameAr** | **String** |  | [optional] 
+**cancelledByAvatar** | **String** |  | [optional] 
+**cancelReason** | **String** |  | [optional] 
+**cancelledAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **driverTransactions** | [**BuiltList&lt;DriverWalletTransaction&gt;**](DriverWalletTransaction.md) |  | [optional] 
 **dispatches** | [**BuiltList&lt;OrderDispatch&gt;**](OrderDispatch.md) |  | [optional] 
 **items** | [**BuiltList&lt;OrderItem&gt;**](OrderItem.md) |  | [optional] 
@@ -58,6 +65,7 @@ Name | Type | Description | Notes
 **vendorFulfillments** | [**BuiltList&lt;OrderVendorFulfillment&gt;**](OrderVendorFulfillment.md) |  | [optional] 
 **deliveryGroups** | [**BuiltList&lt;OrderDeliveryGroup&gt;**](OrderDeliveryGroup.md) |  | [optional] 
 **fulfillmentSummary** | [**JsonObject**](.md) |  | [optional] 
+**cancelledBy** | [**OrderCancelledByDto**](OrderCancelledByDto.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

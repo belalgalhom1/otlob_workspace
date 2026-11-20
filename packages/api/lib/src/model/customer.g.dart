@@ -21,6 +21,8 @@ class _$Customer extends Customer {
   final DateTime updatedAt;
   @override
   final num coinBalance;
+  @override
+  final CustomerUserSummaryDto? user;
 
   factory _$Customer([void Function(CustomerBuilder)? updates]) =>
       (CustomerBuilder()..update(updates))._build();
@@ -33,6 +35,7 @@ class _$Customer extends Customer {
     required this.createdAt,
     required this.updatedAt,
     required this.coinBalance,
+    this.user,
   }) : super._();
   @override
   Customer rebuild(void Function(CustomerBuilder) updates) =>
@@ -51,7 +54,8 @@ class _$Customer extends Customer {
         deletedAt == other.deletedAt &&
         createdAt == other.createdAt &&
         updatedAt == other.updatedAt &&
-        coinBalance == other.coinBalance;
+        coinBalance == other.coinBalance &&
+        user == other.user;
   }
 
   @override
@@ -64,6 +68,7 @@ class _$Customer extends Customer {
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
     _$hash = $jc(_$hash, coinBalance.hashCode);
+    _$hash = $jc(_$hash, user.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -77,7 +82,8 @@ class _$Customer extends Customer {
           ..add('deletedAt', deletedAt)
           ..add('createdAt', createdAt)
           ..add('updatedAt', updatedAt)
-          ..add('coinBalance', coinBalance))
+          ..add('coinBalance', coinBalance)
+          ..add('user', user))
         .toString();
   }
 }
@@ -113,6 +119,11 @@ class CustomerBuilder implements Builder<Customer, CustomerBuilder> {
   num? get coinBalance => _$this._coinBalance;
   set coinBalance(num? coinBalance) => _$this._coinBalance = coinBalance;
 
+  CustomerUserSummaryDtoBuilder? _user;
+  CustomerUserSummaryDtoBuilder get user =>
+      _$this._user ??= CustomerUserSummaryDtoBuilder();
+  set user(CustomerUserSummaryDtoBuilder? user) => _$this._user = user;
+
   CustomerBuilder() {
     Customer._defaults(this);
   }
@@ -127,6 +138,7 @@ class CustomerBuilder implements Builder<Customer, CustomerBuilder> {
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
       _coinBalance = $v.coinBalance;
+      _user = $v.user?.toBuilder();
       _$v = null;
     }
     return this;
@@ -146,37 +158,54 @@ class CustomerBuilder implements Builder<Customer, CustomerBuilder> {
   Customer build() => _build();
 
   _$Customer _build() {
-    final _$result =
-        _$v ??
-        _$Customer._(
-          id: BuiltValueNullFieldError.checkNotNull(id, r'Customer', 'id'),
-          userId: BuiltValueNullFieldError.checkNotNull(
-            userId,
-            r'Customer',
-            'userId',
-          ),
-          canOrder: BuiltValueNullFieldError.checkNotNull(
-            canOrder,
-            r'Customer',
-            'canOrder',
-          ),
-          deletedAt: deletedAt,
-          createdAt: BuiltValueNullFieldError.checkNotNull(
-            createdAt,
-            r'Customer',
-            'createdAt',
-          ),
-          updatedAt: BuiltValueNullFieldError.checkNotNull(
-            updatedAt,
-            r'Customer',
-            'updatedAt',
-          ),
-          coinBalance: BuiltValueNullFieldError.checkNotNull(
-            coinBalance,
-            r'Customer',
-            'coinBalance',
-          ),
+    _$Customer _$result;
+    try {
+      _$result =
+          _$v ??
+          _$Customer._(
+            id: BuiltValueNullFieldError.checkNotNull(id, r'Customer', 'id'),
+            userId: BuiltValueNullFieldError.checkNotNull(
+              userId,
+              r'Customer',
+              'userId',
+            ),
+            canOrder: BuiltValueNullFieldError.checkNotNull(
+              canOrder,
+              r'Customer',
+              'canOrder',
+            ),
+            deletedAt: deletedAt,
+            createdAt: BuiltValueNullFieldError.checkNotNull(
+              createdAt,
+              r'Customer',
+              'createdAt',
+            ),
+            updatedAt: BuiltValueNullFieldError.checkNotNull(
+              updatedAt,
+              r'Customer',
+              'updatedAt',
+            ),
+            coinBalance: BuiltValueNullFieldError.checkNotNull(
+              coinBalance,
+              r'Customer',
+              'coinBalance',
+            ),
+            user: _user?.build(),
+          );
+    } catch (_) {
+      late String _$failedField;
+      try {
+        _$failedField = 'user';
+        _user?.build();
+      } catch (e) {
+        throw BuiltValueNestedFieldError(
+          r'Customer',
+          _$failedField,
+          e.toString(),
         );
+      }
+      rethrow;
+    }
     replace(_$result);
     return _$result;
   }

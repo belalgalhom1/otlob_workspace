@@ -67,7 +67,8 @@ class DriverProfile {
       id: (json['id']?.toString() ?? '').trim(),
       userId: (json['userId']?.toString() ?? json['user_id']?.toString() ?? '').trim(),
       name: resolvedName,
-      avatar: json['avatar']?.toString(),
+      avatar: (json['avatar'] ?? (rawUser is Map ? rawUser['avatar'] : null))
+          ?.toString(),
       nationalId: json['nationalId']?.toString(),
       licenseNumber: json['licenseNumber']?.toString(),
       vehicleType: (json['vehicleType'] ??

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:core/core.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:data/data.dart';
 import 'package:data/providers.dart';
@@ -192,12 +193,18 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     String typeLabel = isAr ? 'محادثة' : 'Chat';
     IconData icon = Icons.chat_rounded;
     Color iconColor = AppColors.primary;
+    String? rawAvatar;
+    bool isStore = false;
 
     if (type == 'SUPPORT') {
       typeLabel = isAr ? 'تذكرة دعم فني' : 'Support Ticket';
       title = convo['subject']?.toString() ?? (isAr ? 'الدعم الفني' : 'Support');
       icon = Icons.support_agent_rounded;
       iconColor = Colors.blue;
+      rawAvatar = (convo['assignee'] is Map
+              ? convo['assignee']['avatar']
+              : null)
+          ?.toString();
     } else if (type == 'ORDER') {
       typeLabel = isAr ? 'محادثة طلب' : 'Order Conversation';
       final orderIdStr = convo['orderId']?.toString() ?? '';
@@ -207,12 +214,40 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       title = isAr ? 'طلب #$orderNumStr' : 'Order #$orderNumStr';
       icon = Icons.receipt_long_rounded;
       iconColor = Colors.orange;
+      rawAvatar = (convo['order']?['customer']?['user']?['avatar'] ??
+              convo['order']?['vendor']?['logo'])
+          ?.toString();
+      if (rawAvatar == null || rawAvatar.isEmpty) {
+        final vLogo = convo['order']?['vendor']?['logo']?.toString();
+        if (vLogo != null && vLogo.isNotEmpty) {
+          rawAvatar = vLogo;
+          isStore = true;
+        }
+      }
     } else if (type == 'VENDOR') {
       typeLabel = isAr ? 'محادثة متجر' : 'Store Conversation';
       title = convo['vendor']?['name'] ?? (isAr ? 'متجر' : 'Store');
       icon = Icons.storefront_rounded;
       iconColor = Colors.green;
+      rawAvatar =
+          (convo['vendor']?['logo'] ?? convo['vendor']?['logoUrl'])?.toString();
+      isStore = rawAvatar != null && rawAvatar.isNotEmpty;
     }
+
+    if (rawAvatar == null || rawAvatar.isEmpty) {
+      final participants = convo['participants'];
+      if (participants is List) {
+        for (final p in participants) {
+          if (p is! Map) continue;
+          final av = (p['avatar'] ?? p['user']?['avatar'])?.toString();
+          if (av != null && av.trim().isNotEmpty) {
+            rawAvatar = av.trim();
+            break;
+          }
+        }
+      }
+    }
+    final resolvedAvatar = ImageUtils.formatImageUrl(rawAvatar);
 
     String subtitle = isAr ? 'لا توجد رسائل' : 'No messages';
     String timeStr = '';
@@ -242,6 +277,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       key: ValueKey('driver_convo_$id'),
       title: title,
       typeLabel: typeLabel,
+      avatarUrl: resolvedAvatar.isNotEmpty ? resolvedAvatar : null,
+      isStore: isStore,
       lastMessageContent: subtitle,
       timeStr: timeStr,
       unreadCount: unreadCount,

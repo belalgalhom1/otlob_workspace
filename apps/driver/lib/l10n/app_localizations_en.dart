@@ -2478,4 +2478,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get locationRequiredButton => 'Enable location';
+
+  @override
+  String get adjustmentHistory => 'Adjustment History';
+
+  @override
+  String get noAdjustmentsYet => 'No manual wallet adjustments yet';
 }

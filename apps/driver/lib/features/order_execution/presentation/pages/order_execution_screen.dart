@@ -85,11 +85,17 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   XFile? _deliveryPhoto;
 
   String _resolveMediaUrl(String path) {
+    final trimmed = path.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
     final baseUrl = ref.read(dioProvider).options.baseUrl;
     final cleanBaseUrl = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
-    return '$cleanBaseUrl$path';
+    final cleanPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    return '$cleanBaseUrl$cleanPath';
   }
 
   Future<XFile?> _capturePickupPhoto() async {
@@ -374,13 +380,24 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                       final isSelected = id == currentId;
                       final orderNumber = item['orderNumber']?.toString() ?? (id.length >= 6 ? id.substring(0, 6) : id);
                       final vendorName = item['vendor']?['storeName'] ?? item['type'] ?? '';
+                      final vendorLogo =
+                          (item['vendor']?['logo'] ?? item['vendor']?['logoUrl'])
+                              ?.toString();
                       final status = item['status']?.toString() ?? '';
 
                       return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: isSelected ? AppColors.primary : Colors.grey.shade200,
-                          foregroundColor: isSelected ? Colors.black : Colors.grey.shade700,
-                          child: Text('${index + 1}'),
+                        leading: AppNetworkAvatar(
+                          imageUrl: ImageUtils.formatImageUrl(vendorLogo),
+                          size: 40,
+                          borderRadius: 10,
+                          fallbackText: '${index + 1}',
+                          preferInitialFallback: true,
+                          fallbackIcon: LucideIcons.store,
+                          backgroundColor: isSelected
+                              ? AppColors.primary
+                              : Colors.grey.shade200,
+                          foregroundColor:
+                              isSelected ? Colors.black : Colors.grey.shade700,
                         ),
                         title: Row(
                           children: [
@@ -562,6 +579,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             'vendorId': f['vendorId']?.toString() ?? '',
             'storeName': storeName,
             'branchName': branchName,
+            'vendorLogo': (v['logo'] ?? v['logoUrl'])?.toString(),
             'name': branchName.isNotEmpty ? '$storeName ($branchName)' : storeName,
             'phone': phone,
             'address': address,
@@ -602,6 +620,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         'vendorId': order['vendorId']?.toString() ?? '',
         'storeName': storeName,
         'branchName': branchName,
+        'vendorLogo':
+            (vendorData is Map ? (vendorData['logo'] ?? vendorData['logoUrl']) : null)
+                ?.toString(),
         'name': branchName.isNotEmpty ? '$storeName ($branchName)' : storeName,
         'phone': phone,
         'address': address,
@@ -977,16 +998,29 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                     // 2. Active Header
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
+                        AppNetworkAvatar(
+                          imageUrl: ImageUtils.formatImageUrl(
+                            (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
+                                ? (order['customer']?['avatar'] ??
+                                        order['customer']?['user']?['avatar'])
+                                    ?.toString()
+                                : (currentStop?['vendorLogo'] ??
+                                        (order['vendor'] is Map
+                                            ? (order['vendor']['logo'] ??
+                                                order['vendor']['logoUrl'])
+                                            : null))
+                                    ?.toString(),
                           ),
-                          child: Icon(
-                            (status == 'PICKED_UP' || status == 'PENDING_PAYMENT') ? LucideIcons.user : LucideIcons.store,
-                            color: AppColors.primary,
-                          ),
+                          size: 46,
+                          borderRadius: (status == 'PICKED_UP' ||
+                                  status == 'PENDING_PAYMENT')
+                              ? null
+                              : 12,
+                          fallbackIcon: (status == 'PICKED_UP' ||
+                                  status == 'PENDING_PAYMENT')
+                              ? LucideIcons.user
+                              : LucideIcons.store,
+                          fallbackIconSize: 22,
                         ),
                         const SizedBox(width: 14),
                         Expanded(

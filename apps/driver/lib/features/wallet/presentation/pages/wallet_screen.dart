@@ -97,6 +97,15 @@ class WalletScreen extends ConsumerWidget {
                         }),
                         const SizedBox(height: 24),
                       ],
+                      if (_extractAdjustments(transactions).isNotEmpty) ...[
+                        _buildAdjustmentHistorySection(
+                          context,
+                          _extractAdjustments(transactions),
+                          currency,
+                          l10n,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
                       Text(
                         l10n.recentTransactions,
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
@@ -405,113 +414,303 @@ class WalletScreen extends ConsumerWidget {
     }
   }
 
+  List<Map<String, dynamic>> _extractAdjustments(List<dynamic> transactions) {
+    final result = <Map<String, dynamic>>[];
+    for (final raw in transactions) {
+      if (raw is! Map) continue;
+      final tx = Map<String, dynamic>.from(raw);
+      final type = (tx['type'] ?? '').toString().toUpperCase().trim();
+      final isManual = tx['isManualAdjustment'] == true ||
+          type == 'ADJUSTMENT' ||
+          type == 'BONUS' ||
+          type == 'PENALTY';
+      if (isManual) {
+        result.add(tx);
+      }
+    }
+    return result;
+  }
+
+  Widget _buildAdjustmentHistorySection(
+    BuildContext context,
+    List<Map<String, dynamic>> adjustments,
+    String currency,
+    AppLocalizations l10n,
+  ) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              LucideIcons.slidersHorizontal,
+              size: 18,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.adjustmentHistory,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...adjustments.map((tx) {
+          final type = (tx['type'] ?? 'ADJUSTMENT').toString().toUpperCase().trim();
+          final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
+          final isCredit = amount >= 0;
+          final dateStr = tx['createdAt']?.toString();
+          final date = (dateStr != null ? DateTime.tryParse(dateStr) : null)
+                  ?.toLocal() ??
+              DateTime.now();
+          final rawNote = tx['note']?.toString().trim();
+          final hasNote = rawNote != null && rawNote.isNotEmpty;
+
+          final (icon, accent) = _transactionVisuals(type, isCredit);
+          final amountColor = isCredit ? AppColors.success : AppColors.error;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: accent, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                _transactionTypeLabel(type, l10n),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14.5,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                              Text(
+                                '${isCredit ? '+' : '-'}${amount.abs().toStringAsFixed(2)} $currency',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14.5,
+                                  color: amountColor,
+                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _formatTxDate(date, l10n),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (hasNote) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: accent.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Icon(
+                            LucideIcons.messageSquare,
+                            size: 14,
+                            color: accent,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            rawNote,
+                            softWrap: true,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.45,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  (IconData, Color) _transactionVisuals(String type, bool isCredit) {
+    switch (type) {
+      case 'DELIVERY_FEE':
+        return (LucideIcons.bike, AppColors.primary);
+      case 'CASH_HANDED_TO_VENDOR':
+        return (LucideIcons.store, AppColors.success);
+      case 'CASH_COLLECTED':
+        return (LucideIcons.handCoins, const Color(0xFFF59E0B));
+      case 'PENALTY':
+        return (LucideIcons.alertTriangle, AppColors.error);
+      case 'BONUS':
+        return (LucideIcons.gift, AppColors.primary);
+      case 'ADJUSTMENT':
+        return (
+          LucideIcons.slidersHorizontal,
+          isCredit ? AppColors.success : AppColors.error,
+        );
+      default:
+        return (
+          isCredit ? LucideIcons.arrowDownLeft : LucideIcons.arrowUpRight,
+          isCredit ? AppColors.success : AppColors.error,
+        );
+    }
+  }
+
   Widget _buildTransactionItem(BuildContext context, Map<String, dynamic> tx, AppLocalizations l10n) {
     final type = (tx['type'] ?? 'UNKNOWN').toString().toUpperCase().trim();
     final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
     final isCredit = amount >= 0;
     final dateStr = tx['createdAt']?.toString();
-    final date = dateStr != null ? DateTime.tryParse(dateStr) ?? DateTime.now() : DateTime.now();
-    final note = tx['note']?.toString();
+    final date = (dateStr != null ? DateTime.tryParse(dateStr) : null)?.toLocal() ?? DateTime.now();
+    final rawNote = tx['note']?.toString().trim();
+    final hasNote = rawNote != null && rawNote.isNotEmpty;
 
-    IconData icon;
-    Color iconColor;
-    Color bgColor;
-
-    switch (type) {
-      case 'DELIVERY_FEE':
-        icon = LucideIcons.bike;
-        iconColor = AppColors.primary;
-        bgColor = AppColors.primary.withValues(alpha: 0.15);
-        break;
-      case 'CASH_HANDED_TO_VENDOR':
-        icon = LucideIcons.store;
-        iconColor = AppColors.success;
-        bgColor = AppColors.success.withValues(alpha: 0.15);
-        break;
-      case 'CASH_COLLECTED':
-        icon = LucideIcons.handCoins;
-        iconColor = const Color(0xFFF59E0B);
-        bgColor = const Color(0xFFF59E0B).withValues(alpha: 0.15);
-        break;
-      case 'PENALTY':
-        icon = LucideIcons.alertTriangle;
-        iconColor = AppColors.error;
-        bgColor = AppColors.error.withValues(alpha: 0.15);
-        break;
-      case 'BONUS':
-        icon = LucideIcons.gift;
-        iconColor = AppColors.primary;
-        bgColor = AppColors.primary.withValues(alpha: 0.15);
-        break;
-      default:
-        icon = isCredit ? LucideIcons.arrowDownLeft : LucideIcons.arrowUpRight;
-        iconColor = isCredit ? AppColors.success : AppColors.error;
-        bgColor = (isCredit ? AppColors.success : AppColors.error).withValues(alpha: 0.12);
-        break;
-    }
+    final (icon, iconColor) = _transactionVisuals(type, isCredit);
+    final bgColor = iconColor.withValues(alpha: 0.14);
+    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.08),
+            color: theme.dividerColor.withValues(alpha: 0.08),
           ),
         ),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          leading: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          title: Text(
-            _transactionTypeLabel(type, l10n),
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 2),
-              Text(
-                _formatTxDate(date, l10n),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: bgColor,
+                shape: BoxShape.circle,
               ),
-              if (note != null && note.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  note,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-                    fontStyle: FontStyle.italic,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
-          trailing: Text(
-            '${isCredit ? '+' : '-'}${amount.abs().toStringAsFixed(2)}',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-              color: isCredit ? AppColors.success : (type == 'CASH_COLLECTED' ? const Color(0xFFF59E0B) : AppColors.error),
+              child: Icon(icon, color: iconColor, size: 20),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _transactionTypeLabel(type, l10n),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${isCredit ? '+' : '-'}${amount.abs().toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          color: isCredit
+                              ? AppColors.success
+                              : (type == 'CASH_COLLECTED'
+                                  ? const Color(0xFFF59E0B)
+                                  : AppColors.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _formatTxDate(date, l10n),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  if (hasNote) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      rawNote,
+                      softWrap: true,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

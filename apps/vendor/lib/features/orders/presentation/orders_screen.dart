@@ -950,6 +950,25 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final driver = order['driver'] ?? {};
     final driverName = driver['name']?.toString() ?? '';
     final driverPhone = driver['user']?['phone']?.toString() ?? '';
+    final driverAvatar =
+        driver['avatar']?.toString() ?? driver['user']?['avatar']?.toString();
+    final Map? singleVendor =
+        order['vendor'] is Map ? (order['vendor'] as Map) : null;
+    final String singleVendorName = singleVendor == null
+        ? ''
+        : (isArabic
+                ? (singleVendor['storeNameAr'] ??
+                    singleVendor['storeName'] ??
+                    singleVendor['name'] ??
+                    '')
+                : (singleVendor['storeName'] ??
+                    singleVendor['storeNameAr'] ??
+                    singleVendor['name'] ??
+                    ''))
+            .toString()
+            .trim();
+    final String? singleVendorLogo =
+        (singleVendor?['logo'] ?? singleVendor?['logoUrl'])?.toString();
     final Map? branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : null;
     final String? branchName = branch == null
         ? null
@@ -1030,6 +1049,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         customerUser['name']?.toString() ??
         (isArabic ? 'عميل غير معروف' : 'Unknown Customer');
     final customerPhone = customerUser['phone']?.toString() ?? '';
+    final customerAvatar =
+        (customerUser['avatar'] ?? customer['avatar'])?.toString();
     final address = order['deliveryAddress']?.toString() ?? '';
     final paymentMethod = order['paymentMethod']?.toString() ?? '';
 
@@ -1186,7 +1207,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                         ],
                                       ),
                                     )
-                                  else if (branchName != null && branchName.toString().isNotEmpty)
+                                  else if (singleVendorName.isNotEmpty ||
+                                      (branchName != null && branchName.toString().isNotEmpty))
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
@@ -1199,11 +1221,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(LucideIcons.mapPin, size: 11, color: AppColors.primary),
-                                          const SizedBox(width: 4),
+                                          AppNetworkAvatar(
+                                            imageUrl: ImageUtils.formatImageUrl(singleVendorLogo),
+                                            size: 18,
+                                            borderRadius: 5,
+                                            fallbackIcon: LucideIcons.store,
+                                            fallbackIconSize: 10,
+                                            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                                            foregroundColor: AppColors.primary,
+                                          ),
+                                          const SizedBox(width: 6),
                                           Flexible(
                                             child: Text(
-                                              branchName.toString(),
+                                              [
+                                                if (singleVendorName.isNotEmpty) singleVendorName,
+                                                if (branchName != null && branchName.toString().isNotEmpty)
+                                                  branchName.toString(),
+                                              ].join(' • '),
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
@@ -1247,24 +1281,37 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    customerName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                  AppNetworkAvatar(
+                                    imageUrl: ImageUtils.formatImageUrl(customerAvatar),
+                                    size: 32,
+                                    fallbackIcon: LucideIcons.user,
+                                    fallbackIconSize: 16,
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    dateStr,
-                                    style: TextStyle(
-                                      color: Theme.of(context).colorScheme.onSurface,
-                                      fontSize: 11,
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          customerName,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          dateStr,
+                                          style: TextStyle(
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -1308,6 +1355,19 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  _buildPremiumDetailRow(
+                                    icon: LucideIcons.user,
+                                    leading: AppNetworkAvatar(
+                                      imageUrl: ImageUtils.formatImageUrl(customerAvatar),
+                                      size: 30,
+                                      fallbackIcon: LucideIcons.user,
+                                      fallbackIconSize: 15,
+                                    ),
+                                    title: isArabic ? 'العميل' : 'Customer',
+                                    value: customerName,
+                                    iconColor: statusColor,
+                                  ),
+                                  const SizedBox(height: 12),
                                   _buildPremiumDetailRow(
                                     icon: LucideIcons.hash,
                                     title: isArabic ? 'معرف الطلب' : 'Order ID',
@@ -1424,6 +1484,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                     const SizedBox(height: 12),
                                     _buildPremiumDetailRow(
                                       icon: LucideIcons.truck,
+                                      leading: AppNetworkAvatar(
+                                        imageUrl: ImageUtils.formatImageUrl(driverAvatar),
+                                        size: 30,
+                                        fallbackIcon: LucideIcons.truck,
+                                        fallbackIconSize: 15,
+                                      ),
                                       title: isArabic
                                           ? 'السائق المسؤول'
                                           : 'Assigned Driver',
@@ -1595,6 +1661,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         // Pricing breakdown
                         _buildPricingBreakdown(order, isArabic),
 
+                        // Cancellation actor & reason card (when cancelled)
+                        _buildCancellationAttributionBanner(
+                          context,
+                          order,
+                          isArabic,
+                        ),
+
                         // Status Event Activity Log
                         _buildStatusEventsHistory(context, order, isArabic),
 
@@ -1612,10 +1685,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(
-                                  LucideIcons.checkCircle,
-                                  color: AppColors.success,
-                                  size: 20,
+                                AppNetworkAvatar(
+                                  imageUrl: ImageUtils.formatImageUrl(driverAvatar),
+                                  size: 28,
+                                  fallbackIcon: LucideIcons.checkCircle,
+                                  fallbackIconSize: 18,
+                                  backgroundColor:
+                                      AppColors.success.withValues(alpha: 0.14),
+                                  foregroundColor: AppColors.success,
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
@@ -1669,6 +1746,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
             final fId = f['id']?.toString() ?? '';
             final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
+            final fVendorLogo =
+                (fVendor['logo'] ?? fVendor['logoUrl'])?.toString();
             final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
             final sName = isArabic
                 ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? fVendor['name'] ?? 'متجر')
@@ -1692,18 +1771,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 18,
-                    height: 18,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${i + 1}',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
-                    ),
+                  AppNetworkAvatar(
+                    imageUrl: ImageUtils.formatImageUrl(fVendorLogo),
+                    size: 20,
+                    borderRadius: 6,
+                    fallbackIcon: LucideIcons.store,
+                    fallbackIconSize: 11,
                   ),
                   const SizedBox(width: 6),
                   Flexible(
@@ -1982,6 +2055,121 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
+  Widget _buildCancellationAttributionBanner(
+    BuildContext context,
+    dynamic order,
+    bool isArabic,
+  ) {
+    if (order is! Map) return const SizedBox.shrink();
+    final map = Map<String, dynamic>.from(order);
+    final actor = OrderActivityHelper.resolveCancelledBy(map);
+    if (actor == null) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    final headline = OrderActivityHelper.formatCanceledByHeadline(
+      actor,
+      isArabic: isArabic,
+    );
+    final roleText = OrderActivityHelper.roleLabel(
+      actor.role,
+      isArabic: isArabic,
+      isSystem: actor.isSystem,
+    );
+    final cancelledDt = actor.cancelledAt?.toLocal();
+    final timeStr = cancelledDt != null
+        ? DateFormat('dd MMM yyyy • hh:mm a', isArabic ? 'ar' : 'en')
+            .format(cancelledDt)
+        : '';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.error.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppNetworkAvatar(
+            imageUrl: actor.resolvedAvatarUrl,
+            size: 38,
+            borderRadius: actor.role?.toUpperCase() == 'VENDOR_MEMBER' ? 10 : null,
+            fallbackIcon: LucideIcons.userX,
+            fallbackIconSize: 18,
+            backgroundColor: AppColors.error.withValues(alpha: 0.14),
+            foregroundColor: AppColors.error,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      headline,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        roleText,
+                        style: const TextStyle(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (actor.reason != null && actor.reason!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '${isArabic ? 'السبب:' : 'Reason:'} ${actor.reason!.trim()}',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.35,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+                if (timeStr.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    timeStr,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatusEventsHistory(
     BuildContext context,
     dynamic order,
@@ -1992,7 +2180,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       return const SizedBox.shrink();
     }
 
-    final events = rawEvents.whereType<Map>().toList();
+    final events = OrderActivityHelper.normalizeTimelineEvents(
+      rawEvents,
+      newestFirst: true,
+    );
     if (events.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
@@ -2019,11 +2210,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 color: AppColors.primary,
               ),
               const SizedBox(width: 8),
-              Text(
-                isArabic ? 'سجل نشاط الطلب' : 'Order Activity Log',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+              Expanded(
+                child: Text(
+                  isArabic ? 'سجل نشاط الطلب' : 'Order Activity Log',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],
@@ -2032,7 +2225,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           ...List.generate(events.length, (index) {
             final ev = events[index];
             final evStatus = ev['status']?.toString() ?? '';
-            final evNote = ev['note']?.toString().trim() ?? '';
+            final actor = OrderActivityHelper.resolveEventActor(ev);
+            final evNote = OrderActivityHelper.formatEventNote(
+              ev['note']?.toString(),
+              status: evStatus,
+              actor: actor,
+              isArabic: isArabic,
+            );
             final dt = DateTime.tryParse(ev['createdAt']?.toString() ?? '')
                 ?.toLocal();
             final timeStr = dt != null
@@ -2047,84 +2246,143 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     ? AppColors.primary
                     : theme.colorScheme.onSurface.withValues(alpha: 0.35));
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 18,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 4),
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: dotColor,
-                        ),
-                      ),
-                      if (!isLast)
-                        Container(
-                          width: 1.5,
-                          height: evNote.isNotEmpty ? 34 : 20,
-                          margin: const EdgeInsets.symmetric(vertical: 3),
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.12,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: 18,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _statusFilterLabel(evStatus, isArabic),
-                                style: TextStyle(
-                                  fontWeight: isLatest
-                                      ? FontWeight.w700
-                                      : FontWeight.w600,
-                                  fontSize: 12.5,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                              ),
-                            ),
-                            if (timeStr.isNotEmpty) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                timeStr,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: muted,
-                                ),
-                              ),
-                            ],
-                          ],
+                        const SizedBox(height: 4),
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: dotColor,
+                          ),
                         ),
-                        if (evNote.isNotEmpty) ...[
-                          const SizedBox(height: 3),
-                          Text(
-                            evNote,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              height: 1.35,
-                              color: muted,
+                        if (!isLast)
+                          Expanded(
+                            child: Container(
+                              width: 1.5,
+                              margin: const EdgeInsets.symmetric(vertical: 3),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.12,
+                              ),
                             ),
                           ),
-                        ],
                       ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 2,
+                              children: [
+                                Text(
+                                  _statusFilterLabel(evStatus, isArabic),
+                                  style: TextStyle(
+                                    fontWeight: isLatest
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                    fontSize: 12.5,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                                if (timeStr.isNotEmpty)
+                                  Text(
+                                    timeStr,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: muted,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (actor != null) ...[
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                AppNetworkAvatar(
+                                  imageUrl: actor.resolvedAvatarUrl,
+                                  size: 20,
+                                  borderRadius:
+                                      actor.role?.toUpperCase() == 'VENDOR_MEMBER'
+                                          ? 6
+                                          : null,
+                                  fallbackIcon: actor.isSystem
+                                      ? LucideIcons.cpu
+                                      : LucideIcons.user,
+                                  fallbackIconSize: 11,
+                                ),
+                                Text(
+                                  actor.displayName(isArabic: isArabic),
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.85),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 1.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.06),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    OrderActivityHelper.roleLabel(
+                                      actor.role,
+                                      isArabic: isArabic,
+                                      isSystem: actor.isSystem,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: muted,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (evNote.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              evNote,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                height: 1.35,
+                                color: muted,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           }),
         ],
@@ -2286,17 +2544,33 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           ],
 
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(LucideIcons.shoppingBag, size: 16, color: statusColor),
-              const SizedBox(width: 8),
-              Text(
-                isArabic ? 'تفاصيل الأصناف' : 'Items Specification',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(LucideIcons.shoppingBag, size: 16, color: statusColor),
               ),
-              const Spacer(),
-              Text(
-                '${items.length} ${isArabic ? "أصناف" : "items"}',
-                style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 2,
+                  children: [
+                    Text(
+                      isArabic ? 'تفاصيل الأصناف' : 'Items Specification',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    Text(
+                      '${items.length} ${isArabic ? "أصناف" : "items"}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -2339,25 +2613,35 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           : const Icon(LucideIcons.package, size: 18, color: Colors.grey),
                     ),
                     const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${quantity}x',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: statusColor),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            productName,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '${quantity}x',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                productName,
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                              ),
+                            ],
                           ),
                           if ((variantName != null && variantName.isNotEmpty) || (selectedUnit != null && selectedUnit.isNotEmpty))
                             Padding(
@@ -3052,19 +3336,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     required String title,
     required String value,
     required Color iconColor,
+    Widget? leading,
     Widget? trailing,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: iconColor.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 16, color: iconColor),
-        ),
+        leading ??
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 16, color: iconColor),
+            ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -3686,12 +3972,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           : conversation;
       final convoId = convoData?['id']?.toString() ?? orderId;
 
+      final custUser = order['customer'] is Map ? (order['customer']['user'] as Map?) : null;
+      final vendorMap = order['vendor'] is Map ? (order['vendor'] as Map) : null;
+      final chatAvatar = custUser?['avatar']?.toString() ?? vendorMap?['logo']?.toString();
+
       if (!context.mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (ctx) => AdminChatScreen(
             conversationId: convoId,
             title: isArabic ? 'محادثة الطلب #$orderCode' : 'Order Chat #$orderCode',
+            avatar: chatAvatar,
             type: 'ORDER',
           ),
         ),
@@ -3921,7 +4212,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               Navigator.pop(dialogCtx);
               ref.read(ordersProvider.notifier).cancelOrder(
                     orderId,
-                    reason.isNotEmpty ? reason : 'Cancelled by vendor/admin',
+                    reason,
                     fulfillmentId: fulfillmentId,
                   );
             },

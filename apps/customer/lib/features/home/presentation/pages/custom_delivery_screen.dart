@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:ui_kit/ui_kit.dart' show AppNetworkAvatar;
 import '../../../../core/providers/platform_settings_provider.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -814,7 +815,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                     Container(
                       padding: const EdgeInsets.all(3),
                       decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                      child: const CircleAvatar(radius: 32, backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=driver123')),
+                      child: const AppNetworkAvatar(
+                        size: 64,
+                        fallbackIcon: Icons.delivery_dining_rounded,
+                        fallbackIconSize: 32,
+                      ),
                     ),
                     const SizedBox(width: 20),
                     Expanded(

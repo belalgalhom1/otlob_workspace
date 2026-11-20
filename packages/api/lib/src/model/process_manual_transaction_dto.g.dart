@@ -14,6 +14,8 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
   @override
   final String? description;
   @override
+  final String? note;
+  @override
   final String? referenceId;
   @override
   final String? idempotencyKey;
@@ -26,6 +28,7 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
     required this.amount,
     required this.type,
     this.description,
+    this.note,
     this.referenceId,
     this.idempotencyKey,
   }) : super._();
@@ -45,6 +48,7 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
         amount == other.amount &&
         type == other.type &&
         description == other.description &&
+        note == other.note &&
         referenceId == other.referenceId &&
         idempotencyKey == other.idempotencyKey;
   }
@@ -55,6 +59,7 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
     _$hash = $jc(_$hash, amount.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, description.hashCode);
+    _$hash = $jc(_$hash, note.hashCode);
     _$hash = $jc(_$hash, referenceId.hashCode);
     _$hash = $jc(_$hash, idempotencyKey.hashCode);
     _$hash = $jf(_$hash);
@@ -67,6 +72,7 @@ class _$ProcessManualTransactionDto extends ProcessManualTransactionDto {
           ..add('amount', amount)
           ..add('type', type)
           ..add('description', description)
+          ..add('note', note)
           ..add('referenceId', referenceId)
           ..add('idempotencyKey', idempotencyKey))
         .toString();
@@ -93,6 +99,10 @@ class ProcessManualTransactionDtoBuilder
   String? get description => _$this._description;
   set description(String? description) => _$this._description = description;
 
+  String? _note;
+  String? get note => _$this._note;
+  set note(String? note) => _$this._note = note;
+
   String? _referenceId;
   String? get referenceId => _$this._referenceId;
   set referenceId(String? referenceId) => _$this._referenceId = referenceId;
@@ -112,6 +122,7 @@ class ProcessManualTransactionDtoBuilder
       _amount = $v.amount;
       _type = $v.type;
       _description = $v.description;
+      _note = $v.note;
       _referenceId = $v.referenceId;
       _idempotencyKey = $v.idempotencyKey;
       _$v = null;
@@ -147,6 +158,7 @@ class ProcessManualTransactionDtoBuilder
             'type',
           ),
           description: description,
+          note: note,
           referenceId: referenceId,
           idempotencyKey: idempotencyKey,
         );

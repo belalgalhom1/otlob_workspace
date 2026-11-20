@@ -916,6 +916,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       senderRole: msg.senderRole,
       senderTitle: msg.senderTitle,
       senderTitleAr: msg.senderTitleAr,
+      senderAvatarUrl: msg.senderAvatar,
       mediaUrl: msg.mediaUrl,
       content: msg.content,
       type: msg.type.name,

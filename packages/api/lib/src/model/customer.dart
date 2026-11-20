@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:api/src/model/customer_user_summary_dto.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -18,6 +19,7 @@ part 'customer.g.dart';
 /// * [createdAt] 
 /// * [updatedAt] 
 /// * [coinBalance] 
+/// * [user] 
 @BuiltValue()
 abstract class Customer implements Built<Customer, CustomerBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -40,6 +42,9 @@ abstract class Customer implements Built<Customer, CustomerBuilder> {
 
   @BuiltValueField(wireName: r'coinBalance')
   num get coinBalance;
+
+  @BuiltValueField(wireName: r'user')
+  CustomerUserSummaryDto? get user;
 
   Customer._();
 
@@ -101,6 +106,13 @@ class _$CustomerSerializer implements PrimitiveSerializer<Customer> {
       object.coinBalance,
       specifiedType: const FullType(num),
     );
+    if (object.user != null) {
+      yield r'user';
+      yield serializers.serialize(
+        object.user,
+        specifiedType: const FullType(CustomerUserSummaryDto),
+      );
+    }
   }
 
   @override
@@ -172,6 +184,13 @@ class _$CustomerSerializer implements PrimitiveSerializer<Customer> {
             specifiedType: const FullType(num),
           ) as num;
           result.coinBalance = valueDes;
+          break;
+        case r'user':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(CustomerUserSummaryDto),
+          ) as CustomerUserSummaryDto;
+          result.user.replace(valueDes);
           break;
         default:
           unhandled.add(key);

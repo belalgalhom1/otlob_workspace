@@ -183,7 +183,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **walletControllerGetMyDriverTransactions**
-> WalletControllerProcessDriverTransaction200Response walletControllerGetMyDriverTransactions()
+> WalletControllerGetMyDriverTransactions200Response walletControllerGetMyDriverTransactions()
 
 Get my personal driver wallet transactions
 
@@ -206,7 +206,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**WalletControllerProcessDriverTransaction200Response**](WalletControllerProcessDriverTransaction200Response.md)
+[**WalletControllerGetMyDriverTransactions200Response**](WalletControllerGetMyDriverTransactions200Response.md)
 
 ### Authorization
 

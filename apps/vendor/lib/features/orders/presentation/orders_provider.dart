@@ -248,9 +248,13 @@ class OrdersNotifier extends _$OrdersNotifier {
         );
       }
     } else if (role == 'VENDOR_MEMBER') {
-      await ref.read(vendorOrdersRepositoryProvider).cancelOrder(orderId);
+      await ref
+          .read(vendorOrdersRepositoryProvider)
+          .cancelOrder(orderId, reason: reason);
     } else {
-      await ref.read(adminOrdersRepositoryProvider).cancelOrder(orderId);
+      await ref
+          .read(adminOrdersRepositoryProvider)
+          .cancelOrder(orderId, reason: reason);
     }
 
     await fetchOrders(params: currentParams);

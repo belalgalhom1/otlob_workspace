@@ -1,9 +1,12 @@
 import 'dart:math' as math;
 
+import 'package:core/core.dart' show OrderActivityHelper;
 import 'package:flutter/material.dart';
+import 'package:ui_kit/ui_kit.dart' show AppNetworkAvatar;
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/image_utils.dart';
 
 /// Maps a raw backend order or fulfillment status code to a localized label.
 String formatTrackingDisplayStatus(String rawStatus, bool isAr) {
@@ -334,6 +337,7 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                               widget.pendingPaymentWidget!,
                               const SizedBox(height: 12),
                             ],
+                            _buildCancellationBanner(s, isDark),
                             ..._buildStoreFulfillmentSections(s, isDark),
                             if (widget.assignedDriversWidgets.isNotEmpty)
                               ...widget.assignedDriversWidgets,
@@ -635,10 +639,14 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.storefront_rounded,
-                size: 19,
-                color: AppColors.primary,
+              AppNetworkAvatar(
+                imageUrl: ImageUtils.formatImageUrl(
+                  (v['logo'] ?? v['logoUrl'])?.toString(),
+                ),
+                size: 36,
+                borderRadius: 9,
+                fallbackIcon: Icons.storefront_rounded,
+                fallbackIconSize: 19,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -755,6 +763,16 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    AppNetworkAvatar(
+                      imageUrl: ImageUtils.formatImageUrl(
+                        (v['logo'] ?? v['logoUrl'])?.toString(),
+                      ),
+                      size: 30,
+                      borderRadius: 8,
+                      fallbackIcon: Icons.storefront_rounded,
+                      fallbackIconSize: 16,
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -826,13 +844,111 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
     ];
   }
 
+  Widget _buildCancellationBanner(AppStrings s, bool isDark) {
+    final details = widget.orderDetails;
+    if (details == null) return const SizedBox.shrink();
+    final actor = OrderActivityHelper.resolveCancelledBy(details);
+    if (actor == null) return const SizedBox.shrink();
+
+    final headline = OrderActivityHelper.formatCanceledByHeadline(
+      actor,
+      isArabic: s.isArabic,
+    );
+    final roleText = OrderActivityHelper.roleLabel(
+      actor.role,
+      isArabic: s.isArabic,
+      isSystem: actor.isSystem,
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: isDark ? 0.14 : 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.red.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppNetworkAvatar(
+            imageUrl: actor.resolvedAvatarUrl,
+            size: 36,
+            borderRadius: actor.role?.toUpperCase() == 'VENDOR_MEMBER' ? 9 : null,
+            fallbackIcon: Icons.cancel_rounded,
+            fallbackIconSize: 18,
+            backgroundColor: Colors.red.withValues(alpha: 0.15),
+            foregroundColor: Colors.red,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      headline,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        roleText,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (actor.reason != null && actor.reason!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '${s.isArabic ? 'السبب:' : 'Reason:'} ${actor.reason!.trim()}',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.35,
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOrderUpdatesCard(AppStrings s, bool isDark) {
     final rawEvents = widget.orderDetails?['statusEvents'];
     if (rawEvents is! List || rawEvents.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final events = rawEvents.whereType<Map>().toList();
+    final events = OrderActivityHelper.normalizeTimelineEvents(
+      rawEvents,
+      newestFirst: true,
+    );
     if (events.isEmpty) return const SizedBox.shrink();
 
     final mutedColor = isDark ? Colors.white60 : Colors.black54;
@@ -873,7 +989,13 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
           ...List.generate(events.length, (index) {
             final ev = events[index];
             final evStatus = ev['status']?.toString() ?? '';
-            final evNote = ev['note']?.toString().trim() ?? '';
+            final actor = OrderActivityHelper.resolveEventActor(ev);
+            final evNote = OrderActivityHelper.formatEventNote(
+              ev['note']?.toString(),
+              status: evStatus,
+              actor: actor,
+              isArabic: s.isArabic,
+            );
             final dt = DateTime.tryParse(
               ev['createdAt']?.toString() ?? '',
             )?.toLocal();
@@ -938,8 +1060,64 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                             ],
                           ],
                         ),
+                        if (actor != null) ...[
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              AppNetworkAvatar(
+                                imageUrl: actor.resolvedAvatarUrl,
+                                size: 18,
+                                borderRadius:
+                                    actor.role?.toUpperCase() == 'VENDOR_MEMBER'
+                                        ? 5
+                                        : null,
+                                fallbackIcon: actor.isSystem
+                                    ? Icons.settings_rounded
+                                    : Icons.person_rounded,
+                                fallbackIconSize: 11,
+                              ),
+                              Text(
+                                actor.displayName(isArabic: s.isArabic),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.85)
+                                      : Colors.black87,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.08)
+                                      : Colors.black.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  OrderActivityHelper.roleLabel(
+                                    actor.role,
+                                    isArabic: s.isArabic,
+                                    isSystem: actor.isSystem,
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: mutedColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         if (evNote.isNotEmpty) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             evNote,
                             style: TextStyle(

@@ -884,5 +884,7 @@
   "tripDetails": "تفاصيل الرحلة",
   "locationRequiredTitle": "الموقع مطلوب",
   "locationRequiredMessage": "يرجى تفعيل خدمات الموقع لمواصلة استخدام التطبيق.",
-  "locationRequiredButton": "تفعيل الموقع"
+  "locationRequiredButton": "تفعيل الموقع",
+  "adjustmentHistory": "سجل التسويات",
+  "noAdjustmentsYet": "لا توجد تسويات يدوية بعد"
 }

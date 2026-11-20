@@ -21,6 +21,7 @@ import 'package:api/src/model/admin_assign_driver_dto.dart';
 import 'package:api/src/model/admin_assign_shift_dto.dart';
 import 'package:api/src/model/admin_book_weekly_shifts_dto.dart';
 import 'package:api/src/model/admin_bulk_assign_shifts_dto.dart';
+import 'package:api/src/model/admin_bulk_remove_shifts_dto.dart';
 import 'package:api/src/model/admin_create_driver_dto.dart';
 import 'package:api/src/model/admin_update_driver_dto.dart';
 import 'package:api/src/model/admin_update_user_dto.dart';
@@ -35,6 +36,7 @@ import 'package:api/src/model/audit_logs_controller_find_all200_response.dart';
 import 'package:api/src/model/ban_user_dto.dart';
 import 'package:api/src/model/book_overtime_shift_dto.dart';
 import 'package:api/src/model/book_weekly_shifts_dto.dart';
+import 'package:api/src/model/cancel_order_dto.dart';
 import 'package:api/src/model/cart_item.dart';
 import 'package:api/src/model/cart_item_option.dart';
 import 'package:api/src/model/change_email_dto.dart';
@@ -64,6 +66,7 @@ import 'package:api/src/model/create_wallet_top_up_dto.dart';
 import 'package:api/src/model/create_zone_dto.dart';
 import 'package:api/src/model/customer.dart';
 import 'package:api/src/model/customer_decide_assist_dto.dart';
+import 'package:api/src/model/customer_user_summary_dto.dart';
 import 'package:api/src/model/decide_assist_request_dto.dart';
 import 'package:api/src/model/delivery_group_rating_input_dto.dart';
 import 'package:api/src/model/delivery_group_status.dart';
@@ -77,9 +80,13 @@ import 'package:api/src/model/driver_shift.dart';
 import 'package:api/src/model/driver_shift_status.dart';
 import 'package:api/src/model/driver_status.dart';
 import 'package:api/src/model/driver_tier.dart';
+import 'package:api/src/model/driver_wallet_balance_response_dto.dart';
 import 'package:api/src/model/driver_wallet_transaction.dart';
 import 'package:api/src/model/driver_wallet_transaction_response_dto.dart';
+import 'package:api/src/model/driver_wallet_transactions_response_dto.dart';
 import 'package:api/src/model/drivers_controller_get_my_breaks200_response.dart';
+import 'package:api/src/model/drivers_controller_get_wallet_balance200_response.dart';
+import 'package:api/src/model/drivers_controller_get_wallet_transactions200_response.dart';
 import 'package:api/src/model/drivers_controller_my_assist_requests200_response.dart';
 import 'package:api/src/model/drivers_controller_start_break200_response.dart';
 import 'package:api/src/model/favorite_product.dart';
@@ -97,6 +104,8 @@ import 'package:api/src/model/mobile_wallet.dart';
 import 'package:api/src/model/mobile_wallet_response_dto.dart';
 import 'package:api/src/model/offer.dart';
 import 'package:api/src/model/order.dart';
+import 'package:api/src/model/order_actor_summary_dto.dart';
+import 'package:api/src/model/order_cancelled_by_dto.dart';
 import 'package:api/src/model/order_delivery_group.dart';
 import 'package:api/src/model/order_delivery_group_item.dart';
 import 'package:api/src/model/order_dispatch.dart';
@@ -199,6 +208,7 @@ import 'package:api/src/model/vendor_wallet_transaction.dart';
 import 'package:api/src/model/vendor_wallet_transaction_response_dto.dart';
 import 'package:api/src/model/verify_otp_dto.dart';
 import 'package:api/src/model/wallet_controller_get_active_platform_wallets200_response.dart';
+import 'package:api/src/model/wallet_controller_get_my_driver_transactions200_response.dart';
 import 'package:api/src/model/wallet_controller_get_pending_top_ups200_response.dart';
 import 'package:api/src/model/wallet_controller_process_driver_transaction200_response.dart';
 import 'package:api/src/model/wallet_controller_process_vendor_transaction200_response.dart';
@@ -218,6 +228,7 @@ part 'serializers.g.dart';
   AdminAssignShiftDto,
   AdminBookWeeklyShiftsDto,
   AdminBulkAssignShiftsDto,
+  AdminBulkRemoveShiftsDto,
   AdminCreateDriverDto,
   AdminUpdateDriverDto,
   AdminUpdateUserDto,
@@ -232,6 +243,7 @@ part 'serializers.g.dart';
   BanUserDto,
   BookOvertimeShiftDto,
   BookWeeklyShiftsDto,
+  CancelOrderDto,
   CartItem,
   CartItemOption,
   ChangeEmailDto,
@@ -261,6 +273,7 @@ part 'serializers.g.dart';
   CreateZoneDto,
   Customer,
   CustomerDecideAssistDto,
+  CustomerUserSummaryDto,
   DecideAssistRequestDto,
   DeliveryGroupRatingInputDto,
   DeliveryGroupStatus,
@@ -274,9 +287,13 @@ part 'serializers.g.dart';
   DriverShiftStatus,
   DriverStatus,
   DriverTier,
+  DriverWalletBalanceResponseDto,
   DriverWalletTransaction,
   DriverWalletTransactionResponseDto,
+  DriverWalletTransactionsResponseDto,
   DriversControllerGetMyBreaks200Response,
+  DriversControllerGetWalletBalance200Response,
+  DriversControllerGetWalletTransactions200Response,
   DriversControllerMyAssistRequests200Response,
   DriversControllerStartBreak200Response,
   FavoriteProduct,
@@ -294,6 +311,8 @@ part 'serializers.g.dart';
   MobileWalletResponseDto,
   Offer,
   Order,
+  OrderActorSummaryDto,
+  OrderCancelledByDto,
   OrderDeliveryGroup,
   OrderDeliveryGroupItem,
   OrderDispatch,
@@ -396,6 +415,7 @@ part 'serializers.g.dart';
   VendorWalletTransactionResponseDto,
   VerifyOtpDto,
   WalletControllerGetActivePlatformWallets200Response,
+  WalletControllerGetMyDriverTransactions200Response,
   WalletControllerGetPendingTopUps200Response,
   WalletControllerProcessDriverTransaction200Response,
   WalletControllerProcessVendorTransaction200Response,

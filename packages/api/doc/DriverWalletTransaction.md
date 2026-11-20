@@ -17,6 +17,8 @@ Name | Type | Description | Notes
 **amount** | **num** |  | 
 **balanceAfter** | **num** |  | 
 **description** | **String** |  | [optional] 
+**note** | **String** |  | [optional] 
+**isManualAdjustment** | **bool** |  | 
 **referenceId** | **String** |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 

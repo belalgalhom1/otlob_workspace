@@ -4,8 +4,10 @@ class ImageUtils {
   static String formatImageUrl(String? url) {
     if (url == null || url.isEmpty) return '';
     if (url.startsWith('http')) return url;
+    if (!dotenv.isInitialized) return url;
 
-    var baseUrl = dotenv.env['API_URL'] ?? 'http://10.0.2.2:3000';
+    var baseUrl = dotenv.env['API_URL'] ?? '';
+    if (baseUrl.isEmpty) return url;
 
     // Remove trailing slash from baseUrl
     if (baseUrl.endsWith('/')) {

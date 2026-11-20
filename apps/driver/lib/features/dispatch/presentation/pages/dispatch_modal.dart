@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -139,7 +140,9 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
     final distance = '${distVal.toStringAsFixed(1)} km';
 
     final pickupName = widget.dispatchData['pickupLocationName']?.toString() ?? AppLocalizations.of(context)!.vendorFallback;
+    final pickupLogo = widget.dispatchData['pickupLocationLogo']?.toString();
     final dropoffName = widget.dispatchData['dropoffLocationName']?.toString() ?? AppLocalizations.of(context)!.customerFallback;
+    final dropoffAvatar = widget.dispatchData['dropoffCustomerAvatar']?.toString();
     final isStacked = widget.dispatchData['isStacked'] == true || widget.dispatchData['isStacked'] == 'true';
 
     final theme = Theme.of(context);
@@ -225,6 +228,8 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
                   pickupName,
                   l10n.pickupLabel,
                   context,
+                  avatarUrl: pickupLogo,
+                  isStore: true,
                 ),
                 Divider(
                   height: 22,
@@ -236,6 +241,7 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
                   dropoffName,
                   l10n.dropoffLabel,
                   context,
+                  avatarUrl: dropoffAvatar,
                 ),
               ],
             ),
@@ -351,20 +357,23 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
     IconData icon,
     String name,
     String type,
-    BuildContext context,
-  ) {
+    BuildContext context, {
+    String? avatarUrl,
+    bool isStore = false,
+  }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final iconColor = isDark ? AppColors.primary : const Color(0xFFB45309);
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: iconColor, size: 19),
+        AppNetworkAvatar(
+          imageUrl: ImageUtils.formatImageUrl(avatarUrl),
+          size: 38,
+          borderRadius: isStore ? 10 : null,
+          fallbackIcon: icon,
+          fallbackIconSize: 19,
+          backgroundColor: AppColors.primary.withValues(alpha: 0.14),
+          foregroundColor: iconColor,
         ),
         const SizedBox(width: 12),
         Expanded(

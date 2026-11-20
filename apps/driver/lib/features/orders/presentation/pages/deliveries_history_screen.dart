@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -132,6 +133,7 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
         ? (rawEarnings is num ? rawEarnings.toDouble() : double.tryParse(rawEarnings.toString()) ?? 0.0)
         : (rawFee is num ? rawFee.toDouble() * 0.7 : (double.tryParse(rawFee.toString()) ?? 0.0) * 0.7);
     final vendor = order['vendor'] as Map<String, dynamic>?;
+    final vendorLogo = (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
     final vendorName = l10n.localeName == 'ar'
         ? (vendor?['storeNameAr'] ?? vendor?['storeName'] ?? (order['pickupAddress'] ?? ''))
         : (vendor?['storeName'] ?? (order['pickupAddress'] ?? ''));
@@ -246,10 +248,12 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
             // Pickup Row
             Row(
               children: [
-                Icon(
-                  isCustom ? LucideIcons.mapPin : LucideIcons.store,
-                  size: 16,
-                  color: AppColors.primary,
+                AppNetworkAvatar(
+                  imageUrl: ImageUtils.formatImageUrl(vendorLogo),
+                  size: 28,
+                  borderRadius: isCustom ? null : 7,
+                  fallbackIcon: isCustom ? LucideIcons.mapPin : LucideIcons.store,
+                  fallbackIconSize: 15,
                 ),
                 const SizedBox(width: 8),
                 Expanded(

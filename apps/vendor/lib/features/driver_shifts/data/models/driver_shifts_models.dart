@@ -142,9 +142,17 @@ class DriverUserInfo {
   const DriverUserInfo({required this.id, required this.user});
 
   factory DriverUserInfo.fromJson(Map<String, dynamic> json) {
+    final userJson = json['user'] is Map
+        ? Map<String, dynamic>.from(json['user'] as Map)
+        : <String, dynamic>{};
+    if ((userJson['avatar'] == null ||
+            userJson['avatar'].toString().trim().isEmpty) &&
+        json['avatar'] != null) {
+      userJson['avatar'] = json['avatar'];
+    }
     return DriverUserInfo(
       id: json['id'] as String,
-      user: DriverUserData.fromJson(json['user'] as Map<String, dynamic>),
+      user: DriverUserData.fromJson(userJson),
     );
   }
 }

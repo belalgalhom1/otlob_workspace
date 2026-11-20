@@ -95,6 +95,7 @@ class Message {
   final String? senderRole;
   final String? senderTitle;
   final String? senderTitleAr;
+  final String? senderAvatar;
   final String? mediaUrl;
   final Map<String, dynamic>? metadata;
   final bool isRead;
@@ -114,6 +115,7 @@ class Message {
     this.senderRole,
     this.senderTitle,
     this.senderTitleAr,
+    this.senderAvatar,
     this.mediaUrl,
     this.metadata,
     this.isRead = false,
@@ -134,6 +136,7 @@ class Message {
     String? senderRole,
     String? senderTitle,
     String? senderTitleAr,
+    String? senderAvatar,
     String? mediaUrl,
     Map<String, dynamic>? metadata,
     bool? isRead,
@@ -153,6 +156,7 @@ class Message {
       senderRole: senderRole ?? this.senderRole,
       senderTitle: senderTitle ?? this.senderTitle,
       senderTitleAr: senderTitleAr ?? this.senderTitleAr,
+      senderAvatar: senderAvatar ?? this.senderAvatar,
       mediaUrl: mediaUrl ?? this.mediaUrl,
       metadata: metadata ?? this.metadata,
       isRead: isRead ?? this.isRead,
@@ -192,6 +196,7 @@ class Message {
       senderRole: senderRole,
       senderTitle: sender['title']?.toString() ?? json['senderTitle']?.toString(),
       senderTitleAr: sender['titleAr']?.toString() ?? json['senderTitleAr']?.toString(),
+      senderAvatar: sender['avatar']?.toString() ?? json['senderAvatar']?.toString(),
       mediaUrl: json['mediaUrl']?.toString(),
       metadata: json['metadata'] as Map<String, dynamic>?,
       isRead: json['isRead'] == true,

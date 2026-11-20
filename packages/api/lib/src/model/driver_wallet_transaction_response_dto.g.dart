@@ -27,6 +27,10 @@ class _$DriverWalletTransactionResponseDto
   @override
   final String? description;
   @override
+  final String? note;
+  @override
+  final bool isManualAdjustment;
+  @override
   final String? referenceId;
   @override
   final DateTime createdAt;
@@ -51,6 +55,8 @@ class _$DriverWalletTransactionResponseDto
     required this.amount,
     required this.balanceAfter,
     this.description,
+    this.note,
+    required this.isManualAdjustment,
     this.referenceId,
     required this.createdAt,
     this.driver,
@@ -79,6 +85,8 @@ class _$DriverWalletTransactionResponseDto
         amount == other.amount &&
         balanceAfter == other.balanceAfter &&
         description == other.description &&
+        note == other.note &&
+        isManualAdjustment == other.isManualAdjustment &&
         referenceId == other.referenceId &&
         createdAt == other.createdAt &&
         driver == other.driver &&
@@ -98,6 +106,8 @@ class _$DriverWalletTransactionResponseDto
     _$hash = $jc(_$hash, amount.hashCode);
     _$hash = $jc(_$hash, balanceAfter.hashCode);
     _$hash = $jc(_$hash, description.hashCode);
+    _$hash = $jc(_$hash, note.hashCode);
+    _$hash = $jc(_$hash, isManualAdjustment.hashCode);
     _$hash = $jc(_$hash, referenceId.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, driver.hashCode);
@@ -119,6 +129,8 @@ class _$DriverWalletTransactionResponseDto
           ..add('amount', amount)
           ..add('balanceAfter', balanceAfter)
           ..add('description', description)
+          ..add('note', note)
+          ..add('isManualAdjustment', isManualAdjustment)
           ..add('referenceId', referenceId)
           ..add('createdAt', createdAt)
           ..add('driver', driver)
@@ -174,6 +186,15 @@ class DriverWalletTransactionResponseDtoBuilder
   String? get description => _$this._description;
   set description(String? description) => _$this._description = description;
 
+  String? _note;
+  String? get note => _$this._note;
+  set note(String? note) => _$this._note = note;
+
+  bool? _isManualAdjustment;
+  bool? get isManualAdjustment => _$this._isManualAdjustment;
+  set isManualAdjustment(bool? isManualAdjustment) =>
+      _$this._isManualAdjustment = isManualAdjustment;
+
   String? _referenceId;
   String? get referenceId => _$this._referenceId;
   set referenceId(String? referenceId) => _$this._referenceId = referenceId;
@@ -212,6 +233,8 @@ class DriverWalletTransactionResponseDtoBuilder
       _amount = $v.amount;
       _balanceAfter = $v.balanceAfter;
       _description = $v.description;
+      _note = $v.note;
+      _isManualAdjustment = $v.isManualAdjustment;
       _referenceId = $v.referenceId;
       _createdAt = $v.createdAt;
       _driver = $v.driver?.toBuilder();
@@ -272,6 +295,12 @@ class DriverWalletTransactionResponseDtoBuilder
               'balanceAfter',
             ),
             description: description,
+            note: note,
+            isManualAdjustment: BuiltValueNullFieldError.checkNotNull(
+              isManualAdjustment,
+              r'DriverWalletTransactionResponseDto',
+              'isManualAdjustment',
+            ),
             referenceId: referenceId,
             createdAt: BuiltValueNullFieldError.checkNotNull(
               createdAt,

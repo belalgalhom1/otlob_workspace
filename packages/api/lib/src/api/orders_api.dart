@@ -11,6 +11,7 @@ import 'package:dio/dio.dart';
 import 'package:api/src/api_util.dart';
 import 'package:api/src/model/admin_assign_driver_dto.dart';
 import 'package:api/src/model/api_controller_root200_response.dart';
+import 'package:api/src/model/cancel_order_dto.dart';
 import 'package:api/src/model/confirm_payment_dto.dart';
 import 'package:api/src/model/customer_decide_assist_dto.dart';
 import 'package:api/src/model/drivers_controller_my_assist_requests200_response.dart';
@@ -634,6 +635,7 @@ class OrdersApi {
   ///
   /// Parameters:
   /// * [orderId] 
+  /// * [cancelOrderDto] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -645,6 +647,7 @@ class OrdersApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<OrdersControllerPlaceOrder200Response>> ordersControllerCancelOrder({ 
     required String orderId,
+    required CancelOrderDto cancelOrderDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -668,11 +671,31 @@ class OrdersApi {
         ],
         ...?extra,
       },
+      contentType: 'application/json',
       validateStatus: validateStatus,
     );
 
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(CancelOrderDto);
+      _bodyData = _serializers.serialize(cancelOrderDto, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
     final _response = await _dio.request<Object>(
       _path,
+      data: _bodyData,
       options: _options,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,

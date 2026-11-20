@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -95,6 +96,8 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     final customerUser = customer['user'] is Map ? customer['user'] as Map : {};
     final customerName = customerUser['name']?.toString() ?? (isArabic ? 'عميل' : 'Customer');
     final customerPhone = customerUser['phone']?.toString() ?? '';
+    final customerAvatar =
+        (customerUser['avatar'] ?? customer['avatar'])?.toString();
     final deliveryAddress = order['deliveryAddress']?.toString() ?? (isArabic ? 'غير محدد' : 'Not specified');
 
     // Vendor / Pickup
@@ -111,6 +114,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
             ? '$vendorStoreName - $branchName'
             : vendorStoreName.toString().trim())
         : (branchName?.toString().trim() ?? (isArabic ? 'المتجر' : 'Vendor'));
+    final vendorLogo = (vendor['logo'] ?? vendor['logoUrl'])?.toString();
     final pickupAddress = order['pickupAddress']?.toString() ??
         vendorBranch['address']?.toString() ??
         vendor['address']?.toString() ??
@@ -223,11 +227,13 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
             isDark: isDark,
             isArabic: isArabic,
             vendorName: vendorName,
+            vendorLogo: vendorLogo,
             branchName: branchName,
             pickupAddress: pickupAddress,
             pickupLat: pickupLat,
             pickupLng: pickupLng,
             customerName: customerName,
+            customerAvatar: customerAvatar,
             customerPhone: customerPhone,
             deliveryAddress: deliveryAddress,
             deliveryLat: deliveryLat,
@@ -251,6 +257,8 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                 final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
                 final fId = f['id']?.toString() ?? '';
                 final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
+                final fVendorLogo =
+                    (fVendor['logo'] ?? fVendor['logoUrl'])?.toString();
                 final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
                 final sName = isArabic
                     ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? 'متجر')
@@ -272,18 +280,14 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                         padding: const EdgeInsets.all(12),
                         child: Row(
                           children: [
-                            Container(
-                              width: 22,
-                              height: 22,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: readableAmber.withValues(alpha: 0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Text(
-                                '${i + 1}',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: readableAmber),
-                              ),
+                            AppNetworkAvatar(
+                              imageUrl: ImageUtils.formatImageUrl(fVendorLogo),
+                              size: 26,
+                              borderRadius: 7,
+                              fallbackIcon: LucideIcons.store,
+                              fallbackIconSize: 13,
+                              backgroundColor: readableAmber.withValues(alpha: 0.15),
+                              foregroundColor: readableAmber,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -578,11 +582,13 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     required bool isDark,
     required bool isArabic,
     required String vendorName,
+    String? vendorLogo,
     required String branchName,
     required String pickupAddress,
     double? pickupLat,
     double? pickupLng,
     required String customerName,
+    String? customerAvatar,
     required String customerPhone,
     required String deliveryAddress,
     double? deliveryLat,
@@ -606,6 +612,8 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
               () {
                 final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
                 final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
+                final fVendorLogo =
+                    (fVendor['logo'] ?? fVendor['logoUrl'])?.toString();
                 final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
                 final sName = isArabic
                     ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? 'متجر')
@@ -620,18 +628,14 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 22,
-                        height: 22,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: readableAmber.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '${i + 1}',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: readableAmber),
-                        ),
+                      AppNetworkAvatar(
+                        imageUrl: ImageUtils.formatImageUrl(fVendorLogo),
+                        size: 24,
+                        borderRadius: 6,
+                        fallbackIcon: LucideIcons.store,
+                        fallbackIconSize: 12,
+                        backgroundColor: readableAmber.withValues(alpha: 0.15),
+                        foregroundColor: readableAmber,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -685,13 +689,14 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: readableAmber.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(LucideIcons.store, size: 14, color: readableAmber),
+                AppNetworkAvatar(
+                  imageUrl: ImageUtils.formatImageUrl(vendorLogo),
+                  size: 32,
+                  borderRadius: 8,
+                  fallbackIcon: LucideIcons.store,
+                  fallbackIconSize: 15,
+                  backgroundColor: readableAmber.withValues(alpha: 0.15),
+                  foregroundColor: readableAmber,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -746,13 +751,13 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(LucideIcons.mapPin, size: 14, color: AppColors.success),
+              AppNetworkAvatar(
+                imageUrl: ImageUtils.formatImageUrl(customerAvatar),
+                size: 32,
+                fallbackIcon: LucideIcons.user,
+                fallbackIconSize: 15,
+                backgroundColor: AppColors.success.withValues(alpha: 0.15),
+                foregroundColor: AppColors.success,
               ),
               const SizedBox(width: 10),
               Expanded(

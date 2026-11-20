@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -462,10 +463,16 @@ class _NearbyVendorsMapScreenState
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 22,
+                  AppNetworkAvatar(
+                    imageUrl: ImageUtils.formatImageUrl(
+                      (vendor['logo'] ?? vendor['logoUrl'])?.toString(),
+                    ),
+                    size: 44,
+                    borderRadius: 12,
+                    fallbackIcon: LucideIcons.store,
+                    fallbackIconSize: 22,
                     backgroundColor: color.withValues(alpha: 0.14),
-                    child: Icon(LucideIcons.store, color: color, size: 22),
+                    foregroundColor: color,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -613,15 +620,18 @@ class _NearbyVendorsMapScreenState
                           Navigator.pop(context);
                           _showVendorSheet(vendor, demand);
                         },
-                        leading: CircleAvatar(
-                          backgroundColor: color.withValues(alpha: 0.14),
-                          child: Icon(
-                            level == _DemandLevel.high
-                                ? LucideIcons.flame
-                                : LucideIcons.store,
-                            color: color,
-                            size: 20,
+                        leading: AppNetworkAvatar(
+                          imageUrl: ImageUtils.formatImageUrl(
+                            (vendor['logo'] ?? vendor['logoUrl'])?.toString(),
                           ),
+                          size: 40,
+                          borderRadius: 10,
+                          fallbackIcon: level == _DemandLevel.high
+                              ? LucideIcons.flame
+                              : LucideIcons.store,
+                          fallbackIconSize: 20,
+                          backgroundColor: color.withValues(alpha: 0.14),
+                          foregroundColor: color,
                         ),
                         title: Text(
                           _vendorName(vendor, _isArabic),
@@ -852,18 +862,16 @@ class _VendorMarker extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(10),
+                child: AppNetworkAvatar(
+                  imageUrl: ImageUtils.formatImageUrl(
+                    (vendor['logo'] ?? vendor['logoUrl'])?.toString(),
                   ),
-                  child: Icon(
-                    isHigh ? LucideIcons.flame : LucideIcons.store,
-                    color: Colors.white,
-                    size: 17,
-                  ),
+                  size: 32,
+                  borderRadius: 10,
+                  fallbackIcon: isHigh ? LucideIcons.flame : LucideIcons.store,
+                  fallbackIconSize: 17,
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
                 ),
               ),
               if (displayCount > 0)

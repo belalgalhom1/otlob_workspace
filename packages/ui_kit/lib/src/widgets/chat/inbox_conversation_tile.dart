@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../common/app_network_avatar.dart';
 
 class InboxConversationTile extends StatelessWidget {
   final String title;
@@ -11,6 +12,8 @@ class InboxConversationTile extends StatelessWidget {
   final VoidCallback onTap;
   final String? typeLabel;
   final String? participantName;
+  final String? avatarUrl;
+  final bool isStore;
 
   const InboxConversationTile({
     super.key,
@@ -24,6 +27,8 @@ class InboxConversationTile extends StatelessWidget {
     required this.onTap,
     this.typeLabel,
     this.participantName,
+    this.avatarUrl,
+    this.isStore = false,
   });
 
   @override
@@ -60,24 +65,25 @@ class InboxConversationTile extends StatelessWidget {
           children: [
             Stack(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        iconColor.withValues(alpha: 0.2),
-                        iconColor.withValues(alpha: 0.05),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: iconColor.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
+                AppNetworkAvatar(
+                  imageUrl: avatarUrl,
+                  size: 46,
+                  borderRadius: isStore ? 13 : null,
+                  fallbackIcon: icon,
+                  fallbackIconSize: 22,
+                  foregroundColor: iconColor,
+                  gradient: LinearGradient(
+                    colors: [
+                      iconColor.withValues(alpha: 0.2),
+                      iconColor.withValues(alpha: 0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: Icon(icon, color: iconColor, size: 22),
+                  border: Border.all(
+                    color: iconColor.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
                 ),
                 if (isSupport)
                   PositionedDirectional(

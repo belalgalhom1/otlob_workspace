@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:core/core.dart';
 import 'package:data/providers.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/core/utils/error_utils.dart';
@@ -217,6 +218,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
 
   Widget _buildManagerCard(dynamic m, ThemeData theme, bool isDark) {
     final name = (m['name'] ?? '').toString().trim();
+    final avatar = m['avatar']?.toString();
     final email = (m['email'] ?? '').toString().trim();
     final phone = (m['phone'] ?? '').toString().trim();
     final userId = (m['userId'] ?? '').toString();
@@ -250,10 +252,13 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CircleAvatar(
-                  radius: 22,
+                AppNetworkAvatar(
+                  imageUrl: ImageUtils.formatImageUrl(avatar),
+                  size: 44,
+                  fallbackIcon: LucideIcons.userCheck,
+                  fallbackIconSize: 22,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                  child: const Icon(LucideIcons.userCheck, color: AppColors.primary, size: 22),
+                  foregroundColor: AppColors.primary,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -489,6 +494,9 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                   final dName = (d['name'] ?? '').toString();
                   final dStatus = (d['status'] ?? '').toString();
                   final driverId = (d['driverId'] ?? '').toString();
+                  final dAvatar = (d['avatar'] ??
+                          (d['user'] is Map ? d['user']['avatar'] : null))
+                      ?.toString();
                   Color statusColor = Colors.grey;
                   if (dStatus == 'ONLINE') statusColor = Colors.green;
                   if (dStatus == 'BUSY' || dStatus == 'ON_DELIVERY') statusColor = Colors.blue;
@@ -497,9 +505,32 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                   return Chip(
                     visualDensity: VisualDensity.compact,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    avatar: CircleAvatar(
-                      radius: 4,
-                      backgroundColor: statusColor,
+                    avatar: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        AppNetworkAvatar(
+                          imageUrl: ImageUtils.formatImageUrl(dAvatar),
+                          size: 20,
+                          fallbackIcon: LucideIcons.user,
+                          fallbackIconSize: 11,
+                        ),
+                        Positioned(
+                          right: -1,
+                          bottom: -1,
+                          child: Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: theme.colorScheme.surface,
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     label: Text(
                       dName.isEmpty ? (_isAr ? 'سائق' : 'Driver') : dName,
@@ -825,6 +856,13 @@ class _AssignDriversDialogState extends ConsumerState<_AssignDriversDialog> {
                                           },
                                     title: Row(
                                       children: [
+                                        AppNetworkAvatar(
+                                          imageUrl: ImageUtils.formatImageUrl(d.avatar),
+                                          size: 26,
+                                          fallbackIcon: LucideIcons.user,
+                                          fallbackIconSize: 13,
+                                        ),
+                                        const SizedBox(width: 8),
                                         Flexible(
                                           child: Text(
                                             d.name,

@@ -189,7 +189,13 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     final targetUser = target?['user'] is Map ? target!['user'] as Map<String, dynamic> : target;
     final String rawName = (targetUser?['name'] ?? target?['name'])?.toString().trim() ?? '';
     final String name = rawName.isNotEmpty ? rawName : AppLocalizations.of(context)!.unknownUser;
-    final String? avatar = (targetUser?['avatar'] ?? target?['avatar'])?.toString();
+    final String? avatar = (targetUser?['avatar'] ??
+            target?['avatar'] ??
+            (conversation['vendor'] is Map
+                ? (conversation['vendor']['logo'] ??
+                    conversation['vendor']['logoUrl'])
+                : null))
+        ?.toString();
     final String? phoneNumber = (targetUser?['phoneNumber'] ?? target?['phoneNumber'])?.toString();
     final String? vendorName = conversation['vendorName'];
     final String lastMsgText = lastMessage != null
@@ -270,22 +276,14 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
                     ),
                   ),
                   padding: const EdgeInsets.all(2),
-                  child: CircleAvatar(
-                    radius: 28,
+                  child: AppNetworkAvatar(
+                    imageUrl: ImageUtils.formatImageUrl(avatar),
+                    size: 56,
+                    fallbackIcon: Icons.person_rounded,
+                    fallbackText: name,
+                    preferInitialFallback: true,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    backgroundImage: avatar != null && avatar.isNotEmpty
-                        ? NetworkImage(ImageUtils.formatImageUrl(avatar))
-                        : null,
-                    child: (avatar == null || avatar.isEmpty)
-                        ? Text(
-                            (name.isNotEmpty ? name[0] : '?').toUpperCase(),
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                            ),
-                          )
-                        : null,
+                    foregroundColor: AppColors.primary,
                   ),
                 ),
                 if (isUnread)

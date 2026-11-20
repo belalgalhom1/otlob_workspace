@@ -4807,6 +4807,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enable location'**
   String get locationRequiredButton;
+
+  /// No description provided for @adjustmentHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjustment History'**
+  String get adjustmentHistory;
+
+  /// No description provided for @noAdjustmentsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No manual wallet adjustments yet'**
+  String get noAdjustmentsYet;
 }
 
 class _AppLocalizationsDelegate

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
+import 'package:core/core.dart';
 import 'package:data/data.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/providers.dart';
@@ -236,14 +237,13 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
             return ListTile(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              leading: CircleAvatar(
-                radius: 18,
+              leading: AppNetworkAvatar(
+                imageUrl: ImageUtils.formatImageUrl(d.avatar),
+                size: 36,
+                fallbackIcon: LucideIcons.user,
+                fallbackIconSize: 16,
                 backgroundColor: AppColors.primary.withValues(alpha: 0.14),
-                child: const Icon(
-                  LucideIcons.user,
-                  size: 16,
-                  color: AppColors.primary,
-                ),
+                foregroundColor: AppColors.primary,
               ),
               title: Text(
                 d.name,
@@ -409,6 +409,9 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                     final driverPhone = primaryUser['phone']?.toString() ??
                         primaryDriver['phone']?.toString() ??
                         '';
+                    final driverAvatar =
+                        (primaryDriver['avatar'] ?? primaryUser['avatar'])
+                            ?.toString();
                     final reason = item['reason']?.toString() ?? '';
                     final note = item['note']?.toString() ?? '';
                     final fee = item['proposedAssistFee']?.toString() ??
@@ -472,12 +475,25 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                             ],
                           ),
                           const SizedBox(height: 10),
-                          Text(
-                            '${isAr ? "الكابتن الطالب" : "Primary Driver"}: $driverName ${driverPhone.isNotEmpty ? "($driverPhone)" : ""}',
-                            style: const TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          Row(
+                            children: [
+                              AppNetworkAvatar(
+                                imageUrl: ImageUtils.formatImageUrl(driverAvatar),
+                                size: 24,
+                                fallbackIcon: LucideIcons.user,
+                                fallbackIconSize: 13,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${isAr ? "الكابتن الطالب" : "Primary Driver"}: $driverName ${driverPhone.isNotEmpty ? "($driverPhone)" : ""}',
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(

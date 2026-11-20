@@ -5,7 +5,8 @@ import 'package:lottie/lottie.dart';
 import 'package:dio/dio.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart'
-    show AppDialog, AppDialogHeader, AppDialogStyles;
+    show AppDialog, AppDialogHeader, AppDialogStyles, AppNetworkAvatar;
+import '../../../../core/utils/image_utils.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -736,7 +737,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.storefront_rounded, size: 16, color: AppColors.primary),
+                                AppNetworkAvatar(
+                                  imageUrl: ImageUtils.formatImageUrl(
+                                    first.vendorLogo,
+                                  ),
+                                  size: 24,
+                                  borderRadius: 6,
+                                  fallbackIcon: Icons.storefront_rounded,
+                                  fallbackIconSize: 14,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(

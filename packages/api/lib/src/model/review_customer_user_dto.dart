@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -11,11 +12,19 @@ part 'review_customer_user_dto.g.dart';
 /// ReviewCustomerUserDto
 ///
 /// Properties:
+/// * [id] 
 /// * [name] 
+/// * [avatar] 
 @BuiltValue()
 abstract class ReviewCustomerUserDto implements Built<ReviewCustomerUserDto, ReviewCustomerUserDtoBuilder> {
+  @BuiltValueField(wireName: r'id')
+  String? get id;
+
   @BuiltValueField(wireName: r'name')
   String get name;
+
+  @BuiltValueField(wireName: r'avatar')
+  JsonObject? get avatar;
 
   ReviewCustomerUserDto._();
 
@@ -40,11 +49,25 @@ class _$ReviewCustomerUserDtoSerializer implements PrimitiveSerializer<ReviewCus
     ReviewCustomerUserDto object, {
     FullType specifiedType = FullType.unspecified,
   }) sync* {
+    if (object.id != null) {
+      yield r'id';
+      yield serializers.serialize(
+        object.id,
+        specifiedType: const FullType(String),
+      );
+    }
     yield r'name';
     yield serializers.serialize(
       object.name,
       specifiedType: const FullType(String),
     );
+    if (object.avatar != null) {
+      yield r'avatar';
+      yield serializers.serialize(
+        object.avatar,
+        specifiedType: const FullType(JsonObject),
+      );
+    }
   }
 
   @override
@@ -68,12 +91,26 @@ class _$ReviewCustomerUserDtoSerializer implements PrimitiveSerializer<ReviewCus
       final key = serializedList[i] as String;
       final value = serializedList[i + 1];
       switch (key) {
+        case r'id':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.id = valueDes;
+          break;
         case r'name':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(String),
           ) as String;
           result.name = valueDes;
+          break;
+        case r'avatar':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(JsonObject),
+          ) as JsonObject;
+          result.avatar = valueDes;
           break;
         default:
           unhandled.add(key);

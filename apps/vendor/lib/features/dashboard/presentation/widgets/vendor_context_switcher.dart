@@ -1,6 +1,8 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 
@@ -44,16 +46,42 @@ class VendorContextSwitcher extends ConsumerWidget {
                           ? (vendor?['storeNameAr'] ?? vendor?['storeName'])
                           : (vendor?['storeName'] ?? vendor?['storeNameAr']))
                       ?.toString();
+                  final storeLogo =
+                      (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
                   final display =
                       (storeName != null && storeName.isNotEmpty) ? storeName : vId;
-                  if (!isMobile) return const Center(child: Icon(LucideIcons.store, size: 20));
+                  if (!isMobile) {
+                    return Center(
+                      child: AppNetworkAvatar(
+                        imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                        size: 24,
+                        borderRadius: 6,
+                        fallbackIcon: LucideIcons.store,
+                        fallbackIconSize: 16,
+                      ),
+                    );
+                  }
                   return Container(
                     alignment: AlignmentDirectional.centerStart,
-                    child: Text(
-                      display,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Row(
+                      children: [
+                        AppNetworkAvatar(
+                          imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                          size: 22,
+                          borderRadius: 6,
+                          fallbackIcon: LucideIcons.store,
+                          fallbackIconSize: 13,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            display,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }).toList();
@@ -65,6 +93,8 @@ class VendorContextSwitcher extends ConsumerWidget {
                 final role = member['role']?.toString() ?? '';
                 final vendor = member['vendor'] as Map<String, dynamic>?;
                 final branch = member['branch'] as Map<String, dynamic>?;
+                final storeLogo =
+                    (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
                 final storeName = (isAr
                         ? (vendor?['storeNameAr'] ?? vendor?['storeName'])
                         : (vendor?['storeName'] ?? vendor?['storeNameAr']))
@@ -82,26 +112,40 @@ class VendorContextSwitcher extends ConsumerWidget {
                 ].join(' • ');
                 return DropdownMenuItem<String>(
                   value: vId,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                  child: Row(
                     children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      AppNetworkAvatar(
+                        imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                        size: 28,
+                        borderRadius: 7,
+                        fallbackIcon: LucideIcons.store,
+                        fallbackIconSize: 14,
                       ),
-                      if (subtitle.isNotEmpty)
-                        Text(
-                          subtitle,
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (subtitle.isNotEmpty)
+                              Text(
+                                subtitle,
+                                style: const TextStyle(fontSize: 11),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
                         ),
+                      ),
                     ],
                   ),
                 );

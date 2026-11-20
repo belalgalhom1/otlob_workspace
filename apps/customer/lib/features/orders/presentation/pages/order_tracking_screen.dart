@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:core/core.dart'
     show SocketEvent, orderRevisionOf, orderRevisionTrackerProvider;
+import '../../../../core/utils/image_utils.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -506,6 +507,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     if (mounted && order != null) {
       setState(() {
         _orderDetails = order;
+        _orderStatus = order['status']?.toString() ?? _orderStatus;
       });
       _extractDriverLocationFromOrder();
     }
@@ -618,7 +620,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     final vehiclePlate = driver['vehiclePlate']?.toString().trim();
     final phone =
         (driver['phone'] ?? driver['user']?['phone'])?.toString().trim() ?? '';
-    final avatar = driver['avatar']?.toString().trim() ?? '';
+    final avatar =
+        (driver['avatar'] ?? driver['user']?['avatar'])?.toString().trim() ??
+            '';
     final ratingCount = (driver['ratingCount'] as num?)?.toInt() ?? 0;
     final ratingRaw = (driver['rating'] as num?)?.toDouble() ?? 500.0;
 
@@ -636,13 +640,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           Stack(
             clipBehavior: Clip.none,
             children: [
-              CircleAvatar(
-                radius: 21,
+              AppNetworkAvatar(
+                imageUrl: ImageUtils.formatImageUrl(avatar),
+                size: 42,
+                fallbackIcon: Icons.person,
+                fallbackIconSize: 22,
                 backgroundColor: AppColors.primary,
-                backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
-                child: avatar.isEmpty
-                    ? const Icon(Icons.person, color: Colors.white, size: 22)
-                    : null,
+                foregroundColor: Colors.white,
               ),
               PositionedDirectional(
                 bottom: -2,
@@ -1130,9 +1134,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       ),
       body: Stack(
         children: [
-          if (_driverLocation == null && _initialMapCenter == null)
+          if (_orderDetails == null && _driverLocation == null && _initialMapCenter == null)
             const Center(
               child: CircularProgressIndicator(color: AppColors.primary),
+            )
+          else if (_driverLocation == null && _initialMapCenter == null)
+            ColoredBox(
+              color: isDark ? const Color(0xFF111827) : const Color(0xFFF3F4F6),
             )
           else
             FlutterMap(

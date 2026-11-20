@@ -16,6 +16,8 @@ import 'package:api/src/model/assign_assist_driver_dto.dart';
 import 'package:api/src/model/create_driver_shift_dto.dart';
 import 'package:api/src/model/decide_assist_request_dto.dart';
 import 'package:api/src/model/drivers_controller_get_my_breaks200_response.dart';
+import 'package:api/src/model/drivers_controller_get_wallet_balance200_response.dart';
+import 'package:api/src/model/drivers_controller_get_wallet_transactions200_response.dart';
 import 'package:api/src/model/drivers_controller_my_assist_requests200_response.dart';
 import 'package:api/src/model/drivers_controller_start_break200_response.dart';
 import 'package:api/src/model/register_driver_dto.dart';
@@ -2563,9 +2565,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
+  /// Returns a [Future] containing a [Response] with a [DriversControllerGetWalletBalance200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<ApiControllerRoot200Response>> driversControllerGetWalletBalance({ 
+  Future<Response<DriversControllerGetWalletBalance200Response>> driversControllerGetWalletBalance({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -2600,14 +2602,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    ApiControllerRoot200Response? _responseData;
+    DriversControllerGetWalletBalance200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(ApiControllerRoot200Response),
-      ) as ApiControllerRoot200Response;
+        specifiedType: const FullType(DriversControllerGetWalletBalance200Response),
+      ) as DriversControllerGetWalletBalance200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -2619,7 +2621,7 @@ class DriversApi {
       );
     }
 
-    return Response<ApiControllerRoot200Response>(
+    return Response<DriversControllerGetWalletBalance200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -2644,9 +2646,9 @@ class DriversApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
+  /// Returns a [Future] containing a [Response] with a [DriversControllerGetWalletTransactions200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<ApiControllerRoot200Response>> driversControllerGetWalletTransactions({ 
+  Future<Response<DriversControllerGetWalletTransactions200Response>> driversControllerGetWalletTransactions({ 
     num? page = 1,
     num? limit = 20,
     CancelToken? cancelToken,
@@ -2689,14 +2691,14 @@ class DriversApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    ApiControllerRoot200Response? _responseData;
+    DriversControllerGetWalletTransactions200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(ApiControllerRoot200Response),
-      ) as ApiControllerRoot200Response;
+        specifiedType: const FullType(DriversControllerGetWalletTransactions200Response),
+      ) as DriversControllerGetWalletTransactions200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -2708,7 +2710,7 @@ class DriversApi {
       );
     }
 
-    return Response<ApiControllerRoot200Response>(
+    return Response<DriversControllerGetWalletTransactions200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

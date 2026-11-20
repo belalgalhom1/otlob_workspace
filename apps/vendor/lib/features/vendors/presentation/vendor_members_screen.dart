@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -923,9 +924,6 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                                   final roleColor = _getRoleColor(currentRole);
                                   final roleIcon = _getRoleIcon(currentRole);
                                   final roleLabel = _getRoleLabel(currentRole, l10n, isAr);
-                                  final initial = userName.trim().isNotEmpty
-                                      ? userName.trim()[0].toUpperCase()
-                                      : 'U';
 
                                   return Container(
                                     margin: const EdgeInsets.only(bottom: 12),
@@ -952,44 +950,20 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               // Avatar with role accent border
-                                              Container(
-                                                width: 44,
-                                                height: 44,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: roleColor.withValues(alpha: 0.12),
-                                                  border: Border.all(
-                                                    color: roleColor.withValues(alpha: 0.3),
-                                                    width: 1.5,
-                                                  ),
+                                              AppNetworkAvatar(
+                                                imageUrl: ImageUtils.formatImageUrl(
+                                                  user['avatar']?.toString(),
                                                 ),
-                                                alignment: Alignment.center,
-                                                child: (user['avatar'] != null &&
-                                                        user['avatar'].toString().isNotEmpty)
-                                                    ? ClipOval(
-                                                        child: Image.network(
-                                                          user['avatar'].toString(),
-                                                          width: 44,
-                                                          height: 44,
-                                                          fit: BoxFit.cover,
-                                                          errorBuilder: (_, __, ___) => Text(
-                                                            initial,
-                                                            style: TextStyle(
-                                                              color: roleColor,
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 18,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      )
-                                                    : Text(
-                                                        initial,
-                                                        style: TextStyle(
-                                                          color: roleColor,
-                                                          fontWeight: FontWeight.bold,
-                                                          fontSize: 18,
-                                                        ),
-                                                      ),
+                                                size: 44,
+                                                fallbackIcon: Icons.person,
+                                                fallbackText: userName,
+                                                preferInitialFallback: true,
+                                                backgroundColor: roleColor.withValues(alpha: 0.12),
+                                                foregroundColor: roleColor,
+                                                border: Border.all(
+                                                  color: roleColor.withValues(alpha: 0.3),
+                                                  width: 1.5,
+                                                ),
                                               ),
                                               const SizedBox(width: 14),
                                               Expanded(

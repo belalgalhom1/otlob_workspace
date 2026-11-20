@@ -15,6 +15,7 @@ import 'package:api/src/model/create_wallet_top_up_dto.dart';
 import 'package:api/src/model/process_manual_transaction_dto.dart';
 import 'package:api/src/model/review_wallet_top_up_dto.dart';
 import 'package:api/src/model/wallet_controller_get_active_platform_wallets200_response.dart';
+import 'package:api/src/model/wallet_controller_get_my_driver_transactions200_response.dart';
 import 'package:api/src/model/wallet_controller_get_pending_top_ups200_response.dart';
 import 'package:api/src/model/wallet_controller_process_driver_transaction200_response.dart';
 import 'package:api/src/model/wallet_controller_process_vendor_transaction200_response.dart';
@@ -398,9 +399,9 @@ class WalletFinancialsApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [WalletControllerProcessDriverTransaction200Response] as data
+  /// Returns a [Future] containing a [Response] with a [WalletControllerGetMyDriverTransactions200Response] as data
   /// Throws [DioException] if API call or serialization fails
-  Future<Response<WalletControllerProcessDriverTransaction200Response>> walletControllerGetMyDriverTransactions({ 
+  Future<Response<WalletControllerGetMyDriverTransactions200Response>> walletControllerGetMyDriverTransactions({ 
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -435,14 +436,14 @@ class WalletFinancialsApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    WalletControllerProcessDriverTransaction200Response? _responseData;
+    WalletControllerGetMyDriverTransactions200Response? _responseData;
 
     try {
       final rawResponse = _response.data;
       _responseData = rawResponse == null ? null : _serializers.deserialize(
         rawResponse,
-        specifiedType: const FullType(WalletControllerProcessDriverTransaction200Response),
-      ) as WalletControllerProcessDriverTransaction200Response;
+        specifiedType: const FullType(WalletControllerGetMyDriverTransactions200Response),
+      ) as WalletControllerGetMyDriverTransactions200Response;
 
     } catch (error, stackTrace) {
       throw DioException(
@@ -454,7 +455,7 @@ class WalletFinancialsApi {
       );
     }
 
-    return Response<WalletControllerProcessDriverTransaction200Response>(
+    return Response<WalletControllerGetMyDriverTransactions200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

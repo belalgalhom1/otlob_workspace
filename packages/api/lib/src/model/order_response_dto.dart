@@ -9,6 +9,8 @@ import 'package:api/src/model/order_delivery_group.dart';
 import 'package:api/src/model/vendor.dart';
 import 'package:api/src/model/zone.dart';
 import 'package:api/src/model/payment_method.dart';
+import 'package:api/src/model/role.dart';
+import 'package:api/src/model/order_cancelled_by_dto.dart';
 import 'package:api/src/model/order_dispatch.dart';
 import 'package:api/src/model/order_vendor_fulfillment.dart';
 import 'package:api/src/model/order_item.dart';
@@ -67,6 +69,13 @@ part 'order_response_dto.g.dart';
 /// * [paymentReceiptUrl] 
 /// * [actualDeliveryTime] 
 /// * [settledAt] 
+/// * [cancelledByUserId] 
+/// * [cancelledByRole] 
+/// * [cancelledByName] 
+/// * [cancelledByNameAr] 
+/// * [cancelledByAvatar] 
+/// * [cancelReason] 
+/// * [cancelledAt] 
 /// * [driverTransactions] 
 /// * [dispatches] 
 /// * [items] 
@@ -82,6 +91,7 @@ part 'order_response_dto.g.dart';
 /// * [vendorFulfillments] 
 /// * [deliveryGroups] 
 /// * [fulfillmentSummary] 
+/// * [cancelledBy] 
 @BuiltValue()
 abstract class OrderResponseDto implements Built<OrderResponseDto, OrderResponseDtoBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -194,6 +204,28 @@ abstract class OrderResponseDto implements Built<OrderResponseDto, OrderResponse
   @BuiltValueField(wireName: r'settledAt')
   DateTime? get settledAt;
 
+  @BuiltValueField(wireName: r'cancelledByUserId')
+  String? get cancelledByUserId;
+
+  @BuiltValueField(wireName: r'cancelledByRole')
+  Role? get cancelledByRole;
+  // enum cancelledByRoleEnum {  CUSTOMER,  DRIVER,  DRIVER_MANAGER,  VENDOR_MEMBER,  ADMIN,  SUPER_ADMIN,  };
+
+  @BuiltValueField(wireName: r'cancelledByName')
+  String? get cancelledByName;
+
+  @BuiltValueField(wireName: r'cancelledByNameAr')
+  String? get cancelledByNameAr;
+
+  @BuiltValueField(wireName: r'cancelledByAvatar')
+  String? get cancelledByAvatar;
+
+  @BuiltValueField(wireName: r'cancelReason')
+  String? get cancelReason;
+
+  @BuiltValueField(wireName: r'cancelledAt')
+  DateTime? get cancelledAt;
+
   @BuiltValueField(wireName: r'driverTransactions')
   BuiltList<DriverWalletTransaction>? get driverTransactions;
 
@@ -238,6 +270,9 @@ abstract class OrderResponseDto implements Built<OrderResponseDto, OrderResponse
 
   @BuiltValueField(wireName: r'fulfillmentSummary')
   JsonObject? get fulfillmentSummary;
+
+  @BuiltValueField(wireName: r'cancelledBy')
+  OrderCancelledByDto? get cancelledBy;
 
   OrderResponseDto._();
 
@@ -465,6 +500,55 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
         specifiedType: const FullType(DateTime),
       );
     }
+    if (object.cancelledByUserId != null) {
+      yield r'cancelledByUserId';
+      yield serializers.serialize(
+        object.cancelledByUserId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelledByRole != null) {
+      yield r'cancelledByRole';
+      yield serializers.serialize(
+        object.cancelledByRole,
+        specifiedType: const FullType(Role),
+      );
+    }
+    if (object.cancelledByName != null) {
+      yield r'cancelledByName';
+      yield serializers.serialize(
+        object.cancelledByName,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelledByNameAr != null) {
+      yield r'cancelledByNameAr';
+      yield serializers.serialize(
+        object.cancelledByNameAr,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelledByAvatar != null) {
+      yield r'cancelledByAvatar';
+      yield serializers.serialize(
+        object.cancelledByAvatar,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelReason != null) {
+      yield r'cancelReason';
+      yield serializers.serialize(
+        object.cancelReason,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelledAt != null) {
+      yield r'cancelledAt';
+      yield serializers.serialize(
+        object.cancelledAt,
+        specifiedType: const FullType(DateTime),
+      );
+    }
     if (object.driverTransactions != null) {
       yield r'driverTransactions';
       yield serializers.serialize(
@@ -568,6 +652,13 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
       yield serializers.serialize(
         object.fulfillmentSummary,
         specifiedType: const FullType(JsonObject),
+      );
+    }
+    if (object.cancelledBy != null) {
+      yield r'cancelledBy';
+      yield serializers.serialize(
+        object.cancelledBy,
+        specifiedType: const FullType(OrderCancelledByDto),
       );
     }
   }
@@ -838,6 +929,55 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
           ) as DateTime;
           result.settledAt = valueDes;
           break;
+        case r'cancelledByUserId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelledByUserId = valueDes;
+          break;
+        case r'cancelledByRole':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(Role),
+          ) as Role;
+          result.cancelledByRole = valueDes;
+          break;
+        case r'cancelledByName':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelledByName = valueDes;
+          break;
+        case r'cancelledByNameAr':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelledByNameAr = valueDes;
+          break;
+        case r'cancelledByAvatar':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelledByAvatar = valueDes;
+          break;
+        case r'cancelReason':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelReason = valueDes;
+          break;
+        case r'cancelledAt':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DateTime),
+          ) as DateTime;
+          result.cancelledAt = valueDes;
+          break;
         case r'driverTransactions':
           final valueDes = serializers.deserialize(
             value,
@@ -942,6 +1082,13 @@ class _$OrderResponseDtoSerializer implements PrimitiveSerializer<OrderResponseD
             specifiedType: const FullType(JsonObject),
           ) as JsonObject;
           result.fulfillmentSummary = valueDes;
+          break;
+        case r'cancelledBy':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(OrderCancelledByDto),
+          ) as OrderCancelledByDto;
+          result.cancelledBy.replace(valueDes);
           break;
         default:
           unhandled.add(key);

@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../utils/external_action_launcher.dart';
 import '../../utils/voice_audio_helper.dart';
+import '../common/app_network_avatar.dart';
 import '../map/navigation_map_launcher.dart';
 
 class ChatBubbleWidget extends StatelessWidget {
@@ -15,6 +16,7 @@ class ChatBubbleWidget extends StatelessWidget {
   final String? senderRole;
   final String? senderTitle;
   final String? senderTitleAr;
+  final String? senderAvatarUrl;
   final String? mediaUrl;
   final String content;
   final String type; // 'text', 'image', 'video', 'audio', 'file', 'system'
@@ -54,6 +56,7 @@ class ChatBubbleWidget extends StatelessWidget {
     this.senderRole,
     this.senderTitle,
     this.senderTitleAr,
+    this.senderAvatarUrl,
     this.mediaUrl,
     required this.content,
     required this.type,
@@ -144,16 +147,39 @@ class ChatBubbleWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            if (!isMe && senderName != null)
+            if (!isMe &&
+                (senderName != null ||
+                    (senderAvatarUrl != null && senderAvatarUrl!.trim().isNotEmpty)))
               Padding(
-                padding: const EdgeInsetsDirectional.only(bottom: 4, start: 4),
-                child: Text(
-                  _formatSenderBadge(context),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface.withValues(alpha: 0.85),
-                  ),
+                padding: const EdgeInsetsDirectional.only(bottom: 6, start: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (senderAvatarUrl != null &&
+                        senderAvatarUrl!.trim().isNotEmpty) ...[
+                      AppNetworkAvatar(
+                        imageUrl: formatImageUrl != null
+                            ? formatImageUrl!(senderAvatarUrl!)
+                            : senderAvatarUrl,
+                        size: 20,
+                        fallbackIcon: Icons.person_rounded,
+                        backgroundColor: colorScheme.primary.withValues(alpha: 0.14),
+                        foregroundColor: colorScheme.primary,
+                      ),
+                      if (senderName != null) const SizedBox(width: 6),
+                    ],
+                    if (senderName != null)
+                      Flexible(
+                        child: Text(
+                          _formatSenderBadge(context),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             if (replyToSenderName != null || replyToContent != null)

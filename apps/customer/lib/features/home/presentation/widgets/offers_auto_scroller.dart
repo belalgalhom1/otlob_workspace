@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:ui_kit/ui_kit.dart' show AppNetworkAvatar;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/utils/image_utils.dart';
@@ -280,8 +281,20 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                     if (vendorName.isNotEmpty)
                       Row(
                         children: [
-                          Icon(Icons.storefront_rounded, color: AppColors.primary, size: 12),
-                          const SizedBox(width: 4),
+                          AppNetworkAvatar(
+                            imageUrl: ImageUtils.formatImageUrl(
+                              (vendorObj?['logo'] ??
+                                      vendorObj?['logoUrl'] ??
+                                      vendorObj?['image'] ??
+                                      offer['vendorLogo'])
+                                  ?.toString(),
+                            ),
+                            size: 16,
+                            borderRadius: 4,
+                            fallbackIcon: Icons.storefront_rounded,
+                            fallbackIconSize: 11,
+                          ),
+                          const SizedBox(width: 5),
                           Expanded(
                             child: Text(
                               vendorName,

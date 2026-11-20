@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ui_kit/ui_kit.dart' show AppNetworkAvatar;
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/l10n/app_strings.dart';
+import '../../../../../../core/utils/image_utils.dart';
 import '../providers/orders_provider.dart';
 
 class RateOrderBottomSheet extends ConsumerStatefulWidget {
@@ -321,10 +323,14 @@ class _RateOrderBottomSheetState extends ConsumerState<RateOrderBottomSheet> {
                     children: [
                       Row(
                         children: [
-                          const Icon(
-                            Icons.storefront_rounded,
-                            size: 18,
-                            color: AppColors.primary,
+                          AppNetworkAvatar(
+                            imageUrl: ImageUtils.formatImageUrl(
+                              (v['logo'] ?? v['logoUrl'])?.toString(),
+                            ),
+                            size: 28,
+                            borderRadius: 7,
+                            fallbackIcon: Icons.storefront_rounded,
+                            fallbackIconSize: 16,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -378,10 +384,19 @@ class _RateOrderBottomSheetState extends ConsumerState<RateOrderBottomSheet> {
                     children: [
                       Row(
                         children: [
-                          const Icon(
-                            Icons.delivery_dining_rounded,
-                            size: 18,
-                            color: AppColors.primary,
+                          AppNetworkAvatar(
+                            imageUrl: ImageUtils.formatImageUrl(
+                              (driver is Map
+                                      ? (driver['avatar'] ??
+                                          (driver['user'] is Map
+                                              ? driver['user']['avatar']
+                                              : null))
+                                      : null)
+                                  ?.toString(),
+                            ),
+                            size: 28,
+                            fallbackIcon: Icons.delivery_dining_rounded,
+                            fallbackIconSize: 16,
                           ),
                           const SizedBox(width: 8),
                           Expanded(

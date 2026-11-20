@@ -133,7 +133,19 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildInfoRow(context, LucideIcons.user, customer['name'] ?? customer['user']?['name'] ?? l10n.customerFallback),
+              _buildInfoRow(
+                context,
+                LucideIcons.user,
+                customer['name'] ?? customer['user']?['name'] ?? l10n.customerFallback,
+                leading: AppNetworkAvatar(
+                  imageUrl: ImageUtils.formatImageUrl(
+                    (customer['avatar'] ?? customer['user']?['avatar'])?.toString(),
+                  ),
+                  size: 30,
+                  fallbackIcon: LucideIcons.user,
+                  fallbackIconSize: 15,
+                ),
+              ),
               if (customer['phone'] != null || customer['user']?['phone'] != null) ...[
                 const SizedBox(height: 12),
                 _buildInfoRow(
@@ -1009,13 +1021,22 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                         final branchName = b != null ? (l10n.localeName == 'ar' ? (b['nameAr'] ?? b['name']) : (b['name'] ?? b['nameAr']))?.toString() : null;
                         final displayName = (branchName != null && branchName.isNotEmpty) ? '$name ($branchName)' : name;
                         final fStatus = f['status']?.toString() ?? '';
+                        final vLogo = (v['logo'] ?? v['logoUrl'])?.toString();
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              _buildVendorAvatar(
+                                context,
+                                ref,
+                                vLogo,
+                                size: 28,
+                                iconSize: 14,
+                              ),
+                              const SizedBox(width: 8),
                               Expanded(
-                                child: Text('• $displayName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                child: Text(displayName, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
                               ),
                               const SizedBox(width: 8),
                               Flexible(
@@ -1103,6 +1124,11 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                   : null));
                       final aName = aDriver?['name']?.toString() ??
                           (isAr ? 'مندوب مساعد' : 'Assistant Driver');
+                      final aAvatar = (aDriver?['avatar'] ??
+                              (aDriver?['user'] is Map
+                                  ? aDriver!['user']['avatar']
+                                  : null))
+                          ?.toString();
                       final aStatus = isAssigned
                           ? 'ASSIGNED'
                           : (activeAssist?['status']?.toString() ?? 'PENDING');
@@ -1132,15 +1158,22 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                           children: [
                             Row(
                               children: [
-                                Icon(
-                                  aStatus == 'ASSIGNED'
-                                      ? LucideIcons.userCheck
-                                      : LucideIcons.userPlus,
-                                  size: 18,
-                                  color: aStatus == 'ASSIGNED'
-                                      ? AppColors.success
-                                      : AppColors.primary,
-                                ),
+                                if (aStatus == 'ASSIGNED')
+                                  AppNetworkAvatar(
+                                    imageUrl: ImageUtils.formatImageUrl(aAvatar),
+                                    size: 28,
+                                    fallbackIcon: LucideIcons.userCheck,
+                                    fallbackIconSize: 15,
+                                    backgroundColor:
+                                        AppColors.success.withValues(alpha: 0.14),
+                                    foregroundColor: AppColors.success,
+                                  )
+                                else
+                                  Icon(
+                                    LucideIcons.userPlus,
+                                    size: 18,
+                                    color: AppColors.primary,
+                                  ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -1418,7 +1451,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoRow(BuildContext context, IconData icon, String text, {VoidCallback? onTap}) {
+  Widget _buildInfoRow(BuildContext context, IconData icon, String text, {VoidCallback? onTap, Widget? leading}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -1427,7 +1460,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 20, color: AppColors.primary),
+            leading ?? Icon(icon, size: 20, color: AppColors.primary),
             const SizedBox(width: 12),
             Expanded(
               child: Text(

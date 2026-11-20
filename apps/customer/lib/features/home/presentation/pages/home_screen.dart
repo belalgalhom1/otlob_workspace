@@ -745,8 +745,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   final title = (s.isArabic && b['titleAr'] != null) ? b['titleAr'] : b['title'];
                   final description = (s.isArabic && b['descriptionAr'] != null) ? b['descriptionAr'] : (b['description'] ?? '');
                   
-                  final String imageUrl = b['imageUrl'] ?? '';
-                  final String fullUrl = imageUrl.startsWith('http') ? imageUrl : 'https://api.otlob-egy.online$imageUrl';
+                  final String imageUrl = b['imageUrl']?.toString() ?? '';
+                  final String fullUrl = ImageUtils.formatImageUrl(imageUrl);
 
                   final vendorId = b['vendorId']?.toString();
                   final linkedVendor = vendorId != null 

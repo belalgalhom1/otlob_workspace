@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -328,9 +329,7 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
             final user = allAdmins[index];
             final isSuperAdmin = user['role'] == 'SUPER_ADMIN';
             final userPerms = (user['permissions'] as List?)?.map((e) => e.toString()).toList() ?? [];
-            final hasValidAvatar = user['avatar'] != null && 
-                                   user['avatar'].toString().isNotEmpty && 
-                                   user['avatar'].toString().startsWith('http');
+            final rawAvatar = user['avatar']?.toString();
 
             return Container(
               padding: const EdgeInsets.all(20),
@@ -351,16 +350,14 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 24,
+                      AppNetworkAvatar(
+                        imageUrl: ImageUtils.formatImageUrl(rawAvatar),
+                        size: 48,
+                        fallbackIcon: Icons.person,
+                        fallbackText: user['name']?.toString(),
+                        preferInitialFallback: true,
                         backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                        backgroundImage: hasValidAvatar ? NetworkImage(user['avatar']) : null,
-                        child: !hasValidAvatar
-                            ? Text(
-                                (user['name'] ?? '?').toString().isNotEmpty ? (user['name'] ?? '?')[0].toUpperCase() : '?',
-                                style: const TextStyle(color: AppColors.primary, fontSize: 18, fontWeight: FontWeight.bold),
-                              )
-                            : null,
+                        foregroundColor: AppColors.primary,
                       ),
                       const SizedBox(width: 16),
                       Expanded(

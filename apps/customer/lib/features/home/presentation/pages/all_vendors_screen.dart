@@ -8,6 +8,7 @@ import 'package:ui_kit/ui_kit.dart' hide AppColors;
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
+import '../../../../core/utils/image_utils.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../../../../core/widgets/floating_cart_overlay.dart';
 import '../providers/home_controller.dart';
@@ -222,13 +223,16 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
               onTap: () => context.push('/vendor', extra: v),
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: CachedNetworkImage(
-                      imageUrl: 'https://api.otlob-egy.online${v['image']}',
-                      width: 50, height: 50, fit: BoxFit.cover,
-                      errorWidget: (c, u, e) => Container(color: Colors.grey.shade200, child: const Icon(Icons.storefront, size: 24)),
+                  AppNetworkAvatar(
+                    imageUrl: ImageUtils.formatImageUrl(
+                      (v['image'] ?? v['logo'])?.toString(),
                     ),
+                    size: 50,
+                    borderRadius: 12,
+                    fallbackIcon: Icons.storefront,
+                    fallbackIconSize: 24,
+                    backgroundColor: Colors.grey.shade200,
+                    foregroundColor: AppColors.primary,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -333,12 +337,25 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: CachedNetworkImage(
-                    imageUrl: (p['image']?.toString().isNotEmpty ?? false)
-                        ? 'https://api.otlob-egy.online${p['image']}'
-                        : 'https://via.placeholder.com/150',
-                    height: 120, width: 150, fit: BoxFit.cover,
-                  ),
+                  child: (p['image']?.toString().isNotEmpty ?? false)
+                      ? CachedNetworkImage(
+                          imageUrl: ImageUtils.formatImageUrl(p['image']?.toString()),
+                          height: 120,
+                          width: 150,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, _, _) => Container(
+                            height: 120,
+                            width: 150,
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.fastfood, size: 28, color: Colors.grey),
+                          ),
+                        )
+                      : Container(
+                          height: 120,
+                          width: 150,
+                          color: Colors.grey.shade200,
+                          child: const Icon(Icons.fastfood, size: 28, color: Colors.grey),
+                        ),
                 ),
                 Positioned(
                   bottom: 8, right: 8,
@@ -471,12 +488,19 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    CachedNetworkImage(
-                      imageUrl: (v['image']?.toString().isNotEmpty ?? false)
-                          ? 'https://api.otlob-egy.online${v['image']}'
-                          : 'https://via.placeholder.com/160x100',
-                      fit: BoxFit.cover,
-                    ),
+                    (v['image']?.toString().isNotEmpty ?? false)
+                        ? CachedNetworkImage(
+                            imageUrl: ImageUtils.formatImageUrl(v['image']?.toString()),
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) => Container(
+                              color: Colors.grey.shade200,
+                              child: const Icon(Icons.storefront, size: 28, color: Colors.grey),
+                            ),
+                          )
+                        : Container(
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.storefront, size: 28, color: Colors.grey),
+                          ),
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(

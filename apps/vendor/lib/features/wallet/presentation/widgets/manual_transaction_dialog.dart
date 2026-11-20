@@ -74,10 +74,12 @@ class _ManualTransactionDialogState
 
     final repo = ref.read(adminWalletRepositoryProvider);
     try {
+      final trimmedNote = _descController.text.trim();
       final dto = ProcessManualTransactionDto((b) => b
         ..type = _type
         ..amount = amount
         ..description = _descController.text
+        ..note = trimmedNote.isNotEmpty ? trimmedNote : null
       );
 
       if (widget.isVendor) {

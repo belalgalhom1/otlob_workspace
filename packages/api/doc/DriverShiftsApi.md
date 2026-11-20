@@ -13,6 +13,7 @@ Method | HTTP request | Description
 [**driverShiftsControllerAdminAssignShift**](DriverShiftsApi.md#drivershiftscontrolleradminassignshift) | **POST** /driver-shifts/admin/assign | [Admin] Force-assign a driver to a shift pool
 [**driverShiftsControllerAdminAssignShiftBulk**](DriverShiftsApi.md#drivershiftscontrolleradminassignshiftbulk) | **POST** /driver-shifts/admin/assign-bulk | [Admin] Assign a driver to a generated group of shift pools
 [**driverShiftsControllerAdminBookWeeklyShifts**](DriverShiftsApi.md#drivershiftscontrolleradminbookweeklyshifts) | **POST** /driver-shifts/admin/book-week | [Admin] Book a full weekly shift schedule for a driver
+[**driverShiftsControllerAdminRemoveDriverBulk**](DriverShiftsApi.md#drivershiftscontrolleradminremovedriverbulk) | **POST** /driver-shifts/admin/remove-bulk | [Admin] Remove a driver from a generated group of shift pools
 [**driverShiftsControllerBookOvertimeShift**](DriverShiftsApi.md#drivershiftscontrollerbookovertimeshift) | **POST** /driver-shifts/book-overtime | Book a single extra shift
 [**driverShiftsControllerBookWeeklyShifts**](DriverShiftsApi.md#drivershiftscontrollerbookweeklyshifts) | **POST** /driver-shifts/book-week | Book 6 shifts for the week
 [**driverShiftsControllerGenerateShiftPools**](DriverShiftsApi.md#drivershiftscontrollergenerateshiftpools) | **POST** /driver-shifts/admin/pools | [Admin] Generate shift pools for a date range
@@ -176,6 +177,47 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **adminBookWeeklyShiftsDto** | [**AdminBookWeeklyShiftsDto**](AdminBookWeeklyShiftsDto.md)|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **driverShiftsControllerAdminRemoveDriverBulk**
+> ApiControllerRoot200Response driverShiftsControllerAdminRemoveDriverBulk(adminBulkRemoveShiftsDto)
+
+[Admin] Remove a driver from a generated group of shift pools
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getDriverShiftsApi();
+final AdminBulkRemoveShiftsDto adminBulkRemoveShiftsDto = ; // AdminBulkRemoveShiftsDto | 
+
+try {
+    final response = api.driverShiftsControllerAdminRemoveDriverBulk(adminBulkRemoveShiftsDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DriverShiftsApi->driverShiftsControllerAdminRemoveDriverBulk: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **adminBulkRemoveShiftsDto** | [**AdminBulkRemoveShiftsDto**](AdminBulkRemoveShiftsDto.md)|  | 
 
 ### Return type
 

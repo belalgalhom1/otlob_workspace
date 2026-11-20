@@ -8,6 +8,7 @@ import 'package:api/src/model/order_type.dart';
 import 'package:api/src/model/order_status.dart';
 import 'package:api/src/model/payment_method.dart';
 import 'package:api/src/model/payment_status.dart';
+import 'package:api/src/model/role.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -51,6 +52,13 @@ part 'order.g.dart';
 /// * [paymentReceiptUrl] 
 /// * [actualDeliveryTime] 
 /// * [settledAt] 
+/// * [cancelledByUserId] 
+/// * [cancelledByRole] 
+/// * [cancelledByName] 
+/// * [cancelledByNameAr] 
+/// * [cancelledByAvatar] 
+/// * [cancelReason] 
+/// * [cancelledAt] 
 @BuiltValue()
 abstract class Order implements Built<Order, OrderBuilder> {
   @BuiltValueField(wireName: r'id')
@@ -162,6 +170,28 @@ abstract class Order implements Built<Order, OrderBuilder> {
 
   @BuiltValueField(wireName: r'settledAt')
   DateTime? get settledAt;
+
+  @BuiltValueField(wireName: r'cancelledByUserId')
+  String? get cancelledByUserId;
+
+  @BuiltValueField(wireName: r'cancelledByRole')
+  Role? get cancelledByRole;
+  // enum cancelledByRoleEnum {  CUSTOMER,  DRIVER,  DRIVER_MANAGER,  VENDOR_MEMBER,  ADMIN,  SUPER_ADMIN,  };
+
+  @BuiltValueField(wireName: r'cancelledByName')
+  String? get cancelledByName;
+
+  @BuiltValueField(wireName: r'cancelledByNameAr')
+  String? get cancelledByNameAr;
+
+  @BuiltValueField(wireName: r'cancelledByAvatar')
+  String? get cancelledByAvatar;
+
+  @BuiltValueField(wireName: r'cancelReason')
+  String? get cancelReason;
+
+  @BuiltValueField(wireName: r'cancelledAt')
+  DateTime? get cancelledAt;
 
   Order._();
 
@@ -386,6 +416,55 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
       yield r'settledAt';
       yield serializers.serialize(
         object.settledAt,
+        specifiedType: const FullType(DateTime),
+      );
+    }
+    if (object.cancelledByUserId != null) {
+      yield r'cancelledByUserId';
+      yield serializers.serialize(
+        object.cancelledByUserId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelledByRole != null) {
+      yield r'cancelledByRole';
+      yield serializers.serialize(
+        object.cancelledByRole,
+        specifiedType: const FullType(Role),
+      );
+    }
+    if (object.cancelledByName != null) {
+      yield r'cancelledByName';
+      yield serializers.serialize(
+        object.cancelledByName,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelledByNameAr != null) {
+      yield r'cancelledByNameAr';
+      yield serializers.serialize(
+        object.cancelledByNameAr,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelledByAvatar != null) {
+      yield r'cancelledByAvatar';
+      yield serializers.serialize(
+        object.cancelledByAvatar,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelReason != null) {
+      yield r'cancelReason';
+      yield serializers.serialize(
+        object.cancelReason,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.cancelledAt != null) {
+      yield r'cancelledAt';
+      yield serializers.serialize(
+        object.cancelledAt,
         specifiedType: const FullType(DateTime),
       );
     }
@@ -656,6 +735,55 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.settledAt = valueDes;
+          break;
+        case r'cancelledByUserId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelledByUserId = valueDes;
+          break;
+        case r'cancelledByRole':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(Role),
+          ) as Role;
+          result.cancelledByRole = valueDes;
+          break;
+        case r'cancelledByName':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelledByName = valueDes;
+          break;
+        case r'cancelledByNameAr':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelledByNameAr = valueDes;
+          break;
+        case r'cancelledByAvatar':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelledByAvatar = valueDes;
+          break;
+        case r'cancelReason':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.cancelReason = valueDes;
+          break;
+        case r'cancelledAt':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DateTime),
+          ) as DateTime;
+          result.cancelledAt = valueDes;
           break;
         default:
           unhandled.add(key);

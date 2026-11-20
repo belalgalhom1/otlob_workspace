@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -65,12 +66,35 @@ class VendorSelectionScreen extends ConsumerWidget {
               final member = memberships[index] as Map<String, dynamic>;
               final vendorId = member['vendorId']?.toString() ?? '';
               final role = member['role']?.toString() ?? 'STAFF';
+              final vendor = member['vendor'] is Map
+                  ? member['vendor'] as Map
+                  : null;
+              final isAr = Localizations.localeOf(context).languageCode == 'ar';
+              final storeName = vendor == null
+                  ? null
+                  : (isAr
+                          ? (vendor['storeNameAr'] ?? vendor['storeName'])
+                          : (vendor['storeName'] ?? vendor['storeNameAr']))
+                      ?.toString();
+              final storeLogo =
+                  (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
-                  leading: const Icon(LucideIcons.store, color: AppColors.primary),
-                  title: Text(AppLocalizations.of(context)!.vendorIdParam(vendorId)), // We should probably fetch vendor names, but ID is what we have in membership
+                  leading: AppNetworkAvatar(
+                    imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                    size: 40,
+                    borderRadius: 10,
+                    fallbackIcon: LucideIcons.store,
+                    foregroundColor: AppColors.primary,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                  ),
+                  title: Text(
+                    (storeName != null && storeName.trim().isNotEmpty)
+                        ? storeName.trim()
+                        : AppLocalizations.of(context)!.vendorIdParam(vendorId),
+                  ),
                   subtitle: Text(AppLocalizations.of(context)!.roleParam(role)),
                   trailing: const Icon(LucideIcons.chevronRight),
                   onTap: () async {

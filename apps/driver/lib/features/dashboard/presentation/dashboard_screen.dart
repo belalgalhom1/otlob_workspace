@@ -242,9 +242,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             : (profileData ?? {});
             
         final user = data['user'] ?? {};
-        final avatarPath = data['avatar'] ?? user['avatar'];
-        final avatarUrl = avatarPath != null
-            ? '${ref.read(dioProvider).options.baseUrl}$avatarPath'
+        final avatarPath = (data['avatar'] ?? user['avatar'])?.toString();
+        final avatarUrl = avatarPath != null && avatarPath.trim().isNotEmpty
+            ? ImageUtils.formatImageUrl(avatarPath.trim())
             : null;
 
         return SingleChildScrollView(

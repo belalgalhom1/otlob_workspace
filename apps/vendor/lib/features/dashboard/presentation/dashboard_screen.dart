@@ -1661,6 +1661,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           statusLabel = status;
                       }
 
+                      final rawVendorLogo = order['vendor'] is Map
+                          ? (order['vendor']['logo'] ??
+                              order['vendor']['logoUrl'])
+                          : null;
+                      final vendorLogo = rawVendorLogo?.toString();
                       final vendorName = (order['vendor'] is Map
                               ? (isArabic
                                   ? (order['vendor']['storeNameAr'] ??
@@ -1728,17 +1733,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                             child: Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(9),
-                                  decoration: BoxDecoration(
-                                    color: statusColor.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    LucideIcons.receipt,
-                                    size: 18,
-                                    color: statusColor,
-                                  ),
+                                AppNetworkAvatar(
+                                  imageUrl: ImageUtils.formatImageUrl(vendorLogo),
+                                  size: 36,
+                                  borderRadius: 10,
+                                  fallbackIcon: LucideIcons.receipt,
+                                  fallbackIconSize: 18,
+                                  backgroundColor:
+                                      statusColor.withValues(alpha: 0.12),
+                                  foregroundColor: statusColor,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(

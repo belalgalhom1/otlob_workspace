@@ -130,6 +130,7 @@ class SharedChat extends _$SharedChat {
       String? senderRole = data['senderRole'] ?? senderObj?['role']?.toString();
       String? senderTitle = data['senderTitle']?.toString() ?? senderObj?['title']?.toString();
       String? senderTitleAr = data['senderTitleAr']?.toString() ?? senderObj?['titleAr']?.toString();
+      String? senderAvatar = data['senderAvatar']?.toString() ?? senderObj?['avatar']?.toString();
 
       MessageReply? replyTo;
       if (data['replyTo'] != null && data['replyTo'] is Map) {
@@ -146,6 +147,7 @@ class SharedChat extends _$SharedChat {
         senderRole: senderRole,
         senderTitle: senderTitle,
         senderTitleAr: senderTitleAr,
+        senderAvatar: senderAvatar,
         mediaUrl: _getFullUrl(data['mediaUrl']),
         metadata: data['metadata'] as Map<String, dynamic>?,
         replyToId: data['replyToId']?.toString() ?? replyTo?.id,

@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -214,9 +215,17 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                               '')
                           .toString();
 
+                      final rawAvatar = (driver['avatar'] ??
+                              (driver['user'] is Map
+                                  ? driver['user']['avatar']
+                                  : null))
+                          ?.toString();
+
                       return ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.person),
+                        leading: AppNetworkAvatar(
+                          imageUrl: ImageUtils.formatImageUrl(rawAvatar),
+                          size: 40,
+                          fallbackIcon: Icons.person,
                         ),
                         title: Text(name),
                         subtitle: Text(phone),

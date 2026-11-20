@@ -4,9 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:data/providers.dart' hide inboxCountsProvider;
-import 'package:ui_kit/ui_kit.dart' show AppAdaptiveChevron, AppDialog;
+import 'package:ui_kit/ui_kit.dart' show AppAdaptiveChevron, AppDialog, AppNetworkAvatar;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/network/network_providers.dart';
+import '../../../../core/utils/image_utils.dart';
 import '../providers/inbox_counts_provider.dart';
 import '../providers/support_ticket_provider.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
@@ -1081,6 +1082,11 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
         order['orderNumber'] ?? orderId.split('-').last.toUpperCase();
 
     final isSelected = _selectedOrder?['id'] == order['id'];
+    final vendorLogo = (order['vendorLogo'] ??
+            (order['vendor'] is Map
+                ? (order['vendor']['logo'] ?? order['vendor']['logoUrl'])
+                : null))
+        ?.toString();
 
     return GestureDetector(
       onTap: () => _onOrderSelected(order),
@@ -1113,20 +1119,16 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary
-                    : AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                LucideIcons.shoppingBag,
-                size: 20,
-                color: isSelected ? Colors.white : AppColors.primary,
-              ),
+            AppNetworkAvatar(
+              imageUrl: ImageUtils.formatImageUrl(vendorLogo),
+              size: 44,
+              borderRadius: 12,
+              fallbackIcon: LucideIcons.shoppingBag,
+              fallbackIconSize: 20,
+              backgroundColor: isSelected
+                  ? AppColors.primary
+                  : AppColors.primary.withValues(alpha: 0.1),
+              foregroundColor: isSelected ? Colors.white : AppColors.primary,
             ),
             const SizedBox(width: 14),
             Expanded(

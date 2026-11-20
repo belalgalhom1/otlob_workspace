@@ -984,5 +984,7 @@
   "tripDetails": "Trip Details",
   "locationRequiredTitle": "Location required",
   "locationRequiredMessage": "Enable location services to continue using the app.",
-  "locationRequiredButton": "Enable location"
+  "locationRequiredButton": "Enable location",
+  "adjustmentHistory": "Adjustment History",
+  "noAdjustmentsYet": "No manual wallet adjustments yet"
 }

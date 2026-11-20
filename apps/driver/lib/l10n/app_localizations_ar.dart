@@ -2457,4 +2457,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get locationRequiredButton => 'تفعيل الموقع';
+
+  @override
+  String get adjustmentHistory => 'سجل التسويات';
+
+  @override
+  String get noAdjustmentsYet => 'لا توجد تسويات يدوية بعد';
 }

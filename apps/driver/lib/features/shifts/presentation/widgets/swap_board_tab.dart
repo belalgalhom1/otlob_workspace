@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -87,6 +88,11 @@ class SwapBoardTab extends ConsumerWidget {
 
     final zoneName = shift['zone']?['name'] ?? shift['shiftPool']?['zone']?['name'] ?? l10n.assignedZone;
     final driverName = shift['driver']?['name'] ?? swap['offeredByDriver']?['name'] ?? l10n.unknownDriver;
+    final driverAvatar = (shift['driver']?['avatar'] ??
+            shift['driver']?['user']?['avatar'] ??
+            swap['offeredByDriver']?['avatar'] ??
+            swap['offeredByDriver']?['user']?['avatar'])
+        ?.toString();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -134,7 +140,12 @@ class SwapBoardTab extends ConsumerWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Icon(LucideIcons.user, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+              AppNetworkAvatar(
+                imageUrl: ImageUtils.formatImageUrl(driverAvatar),
+                size: 24,
+                fallbackIcon: LucideIcons.user,
+                fallbackIconSize: 13,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

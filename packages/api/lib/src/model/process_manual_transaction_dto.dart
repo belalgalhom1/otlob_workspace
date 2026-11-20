@@ -14,6 +14,7 @@ part 'process_manual_transaction_dto.g.dart';
 /// * [amount] - Positive or negative amount
 /// * [type] - Type of transaction
 /// * [description] 
+/// * [note] - Driver-facing note for manual wallet adjustments
 /// * [referenceId] 
 /// * [idempotencyKey] 
 @BuiltValue()
@@ -28,6 +29,10 @@ abstract class ProcessManualTransactionDto implements Built<ProcessManualTransac
 
   @BuiltValueField(wireName: r'description')
   String? get description;
+
+  /// Driver-facing note for manual wallet adjustments
+  @BuiltValueField(wireName: r'note')
+  String? get note;
 
   @BuiltValueField(wireName: r'referenceId')
   String? get referenceId;
@@ -72,6 +77,13 @@ class _$ProcessManualTransactionDtoSerializer implements PrimitiveSerializer<Pro
       yield r'description';
       yield serializers.serialize(
         object.description,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.note != null) {
+      yield r'note';
+      yield serializers.serialize(
+        object.note,
         specifiedType: const FullType(String),
       );
     }
@@ -132,6 +144,13 @@ class _$ProcessManualTransactionDtoSerializer implements PrimitiveSerializer<Pro
             specifiedType: const FullType(String),
           ) as String;
           result.description = valueDes;
+          break;
+        case r'note':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.note = valueDes;
           break;
         case r'referenceId':
           final valueDes = serializers.deserialize(

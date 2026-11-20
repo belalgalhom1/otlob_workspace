@@ -78,6 +78,20 @@ class _$OrderResponseDto extends OrderResponseDto {
   @override
   final DateTime? settledAt;
   @override
+  final String? cancelledByUserId;
+  @override
+  final Role? cancelledByRole;
+  @override
+  final String? cancelledByName;
+  @override
+  final String? cancelledByNameAr;
+  @override
+  final String? cancelledByAvatar;
+  @override
+  final String? cancelReason;
+  @override
+  final DateTime? cancelledAt;
+  @override
   final BuiltList<DriverWalletTransaction>? driverTransactions;
   @override
   final BuiltList<OrderDispatch>? dispatches;
@@ -107,6 +121,8 @@ class _$OrderResponseDto extends OrderResponseDto {
   final BuiltList<OrderDeliveryGroup>? deliveryGroups;
   @override
   final JsonObject? fulfillmentSummary;
+  @override
+  final OrderCancelledByDto? cancelledBy;
 
   factory _$OrderResponseDto([
     void Function(OrderResponseDtoBuilder)? updates,
@@ -148,6 +164,13 @@ class _$OrderResponseDto extends OrderResponseDto {
     this.paymentReceiptUrl,
     this.actualDeliveryTime,
     this.settledAt,
+    this.cancelledByUserId,
+    this.cancelledByRole,
+    this.cancelledByName,
+    this.cancelledByNameAr,
+    this.cancelledByAvatar,
+    this.cancelReason,
+    this.cancelledAt,
     this.driverTransactions,
     this.dispatches,
     this.items,
@@ -163,6 +186,7 @@ class _$OrderResponseDto extends OrderResponseDto {
     this.vendorFulfillments,
     this.deliveryGroups,
     this.fulfillmentSummary,
+    this.cancelledBy,
   }) : super._();
   @override
   OrderResponseDto rebuild(void Function(OrderResponseDtoBuilder) updates) =>
@@ -211,6 +235,13 @@ class _$OrderResponseDto extends OrderResponseDto {
         paymentReceiptUrl == other.paymentReceiptUrl &&
         actualDeliveryTime == other.actualDeliveryTime &&
         settledAt == other.settledAt &&
+        cancelledByUserId == other.cancelledByUserId &&
+        cancelledByRole == other.cancelledByRole &&
+        cancelledByName == other.cancelledByName &&
+        cancelledByNameAr == other.cancelledByNameAr &&
+        cancelledByAvatar == other.cancelledByAvatar &&
+        cancelReason == other.cancelReason &&
+        cancelledAt == other.cancelledAt &&
         driverTransactions == other.driverTransactions &&
         dispatches == other.dispatches &&
         items == other.items &&
@@ -225,7 +256,8 @@ class _$OrderResponseDto extends OrderResponseDto {
         reviews == other.reviews &&
         vendorFulfillments == other.vendorFulfillments &&
         deliveryGroups == other.deliveryGroups &&
-        fulfillmentSummary == other.fulfillmentSummary;
+        fulfillmentSummary == other.fulfillmentSummary &&
+        cancelledBy == other.cancelledBy;
   }
 
   @override
@@ -266,6 +298,13 @@ class _$OrderResponseDto extends OrderResponseDto {
     _$hash = $jc(_$hash, paymentReceiptUrl.hashCode);
     _$hash = $jc(_$hash, actualDeliveryTime.hashCode);
     _$hash = $jc(_$hash, settledAt.hashCode);
+    _$hash = $jc(_$hash, cancelledByUserId.hashCode);
+    _$hash = $jc(_$hash, cancelledByRole.hashCode);
+    _$hash = $jc(_$hash, cancelledByName.hashCode);
+    _$hash = $jc(_$hash, cancelledByNameAr.hashCode);
+    _$hash = $jc(_$hash, cancelledByAvatar.hashCode);
+    _$hash = $jc(_$hash, cancelReason.hashCode);
+    _$hash = $jc(_$hash, cancelledAt.hashCode);
     _$hash = $jc(_$hash, driverTransactions.hashCode);
     _$hash = $jc(_$hash, dispatches.hashCode);
     _$hash = $jc(_$hash, items.hashCode);
@@ -281,6 +320,7 @@ class _$OrderResponseDto extends OrderResponseDto {
     _$hash = $jc(_$hash, vendorFulfillments.hashCode);
     _$hash = $jc(_$hash, deliveryGroups.hashCode);
     _$hash = $jc(_$hash, fulfillmentSummary.hashCode);
+    _$hash = $jc(_$hash, cancelledBy.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -323,6 +363,13 @@ class _$OrderResponseDto extends OrderResponseDto {
           ..add('paymentReceiptUrl', paymentReceiptUrl)
           ..add('actualDeliveryTime', actualDeliveryTime)
           ..add('settledAt', settledAt)
+          ..add('cancelledByUserId', cancelledByUserId)
+          ..add('cancelledByRole', cancelledByRole)
+          ..add('cancelledByName', cancelledByName)
+          ..add('cancelledByNameAr', cancelledByNameAr)
+          ..add('cancelledByAvatar', cancelledByAvatar)
+          ..add('cancelReason', cancelReason)
+          ..add('cancelledAt', cancelledAt)
           ..add('driverTransactions', driverTransactions)
           ..add('dispatches', dispatches)
           ..add('items', items)
@@ -337,7 +384,8 @@ class _$OrderResponseDto extends OrderResponseDto {
           ..add('reviews', reviews)
           ..add('vendorFulfillments', vendorFulfillments)
           ..add('deliveryGroups', deliveryGroups)
-          ..add('fulfillmentSummary', fulfillmentSummary))
+          ..add('fulfillmentSummary', fulfillmentSummary)
+          ..add('cancelledBy', cancelledBy))
         .toString();
   }
 }
@@ -498,6 +546,39 @@ class OrderResponseDtoBuilder
   DateTime? get settledAt => _$this._settledAt;
   set settledAt(DateTime? settledAt) => _$this._settledAt = settledAt;
 
+  String? _cancelledByUserId;
+  String? get cancelledByUserId => _$this._cancelledByUserId;
+  set cancelledByUserId(String? cancelledByUserId) =>
+      _$this._cancelledByUserId = cancelledByUserId;
+
+  Role? _cancelledByRole;
+  Role? get cancelledByRole => _$this._cancelledByRole;
+  set cancelledByRole(Role? cancelledByRole) =>
+      _$this._cancelledByRole = cancelledByRole;
+
+  String? _cancelledByName;
+  String? get cancelledByName => _$this._cancelledByName;
+  set cancelledByName(String? cancelledByName) =>
+      _$this._cancelledByName = cancelledByName;
+
+  String? _cancelledByNameAr;
+  String? get cancelledByNameAr => _$this._cancelledByNameAr;
+  set cancelledByNameAr(String? cancelledByNameAr) =>
+      _$this._cancelledByNameAr = cancelledByNameAr;
+
+  String? _cancelledByAvatar;
+  String? get cancelledByAvatar => _$this._cancelledByAvatar;
+  set cancelledByAvatar(String? cancelledByAvatar) =>
+      _$this._cancelledByAvatar = cancelledByAvatar;
+
+  String? _cancelReason;
+  String? get cancelReason => _$this._cancelReason;
+  set cancelReason(String? cancelReason) => _$this._cancelReason = cancelReason;
+
+  DateTime? _cancelledAt;
+  DateTime? get cancelledAt => _$this._cancelledAt;
+  set cancelledAt(DateTime? cancelledAt) => _$this._cancelledAt = cancelledAt;
+
   ListBuilder<DriverWalletTransaction>? _driverTransactions;
   ListBuilder<DriverWalletTransaction> get driverTransactions =>
       _$this._driverTransactions ??= ListBuilder<DriverWalletTransaction>();
@@ -580,6 +661,12 @@ class OrderResponseDtoBuilder
   set fulfillmentSummary(JsonObject? fulfillmentSummary) =>
       _$this._fulfillmentSummary = fulfillmentSummary;
 
+  OrderCancelledByDtoBuilder? _cancelledBy;
+  OrderCancelledByDtoBuilder get cancelledBy =>
+      _$this._cancelledBy ??= OrderCancelledByDtoBuilder();
+  set cancelledBy(OrderCancelledByDtoBuilder? cancelledBy) =>
+      _$this._cancelledBy = cancelledBy;
+
   OrderResponseDtoBuilder() {
     OrderResponseDto._defaults(this);
   }
@@ -622,6 +709,13 @@ class OrderResponseDtoBuilder
       _paymentReceiptUrl = $v.paymentReceiptUrl;
       _actualDeliveryTime = $v.actualDeliveryTime;
       _settledAt = $v.settledAt;
+      _cancelledByUserId = $v.cancelledByUserId;
+      _cancelledByRole = $v.cancelledByRole;
+      _cancelledByName = $v.cancelledByName;
+      _cancelledByNameAr = $v.cancelledByNameAr;
+      _cancelledByAvatar = $v.cancelledByAvatar;
+      _cancelReason = $v.cancelReason;
+      _cancelledAt = $v.cancelledAt;
       _driverTransactions = $v.driverTransactions?.toBuilder();
       _dispatches = $v.dispatches?.toBuilder();
       _items = $v.items?.toBuilder();
@@ -637,6 +731,7 @@ class OrderResponseDtoBuilder
       _vendorFulfillments = $v.vendorFulfillments?.toBuilder();
       _deliveryGroups = $v.deliveryGroups?.toBuilder();
       _fulfillmentSummary = $v.fulfillmentSummary;
+      _cancelledBy = $v.cancelledBy?.toBuilder();
       _$v = null;
     }
     return this;
@@ -780,6 +875,13 @@ class OrderResponseDtoBuilder
             paymentReceiptUrl: paymentReceiptUrl,
             actualDeliveryTime: actualDeliveryTime,
             settledAt: settledAt,
+            cancelledByUserId: cancelledByUserId,
+            cancelledByRole: cancelledByRole,
+            cancelledByName: cancelledByName,
+            cancelledByNameAr: cancelledByNameAr,
+            cancelledByAvatar: cancelledByAvatar,
+            cancelReason: cancelReason,
+            cancelledAt: cancelledAt,
             driverTransactions: _driverTransactions?.build(),
             dispatches: _dispatches?.build(),
             items: _items?.build(),
@@ -795,6 +897,7 @@ class OrderResponseDtoBuilder
             vendorFulfillments: _vendorFulfillments?.build(),
             deliveryGroups: _deliveryGroups?.build(),
             fulfillmentSummary: fulfillmentSummary,
+            cancelledBy: _cancelledBy?.build(),
           );
     } catch (_) {
       late String _$failedField;
@@ -827,6 +930,9 @@ class OrderResponseDtoBuilder
         _vendorFulfillments?.build();
         _$failedField = 'deliveryGroups';
         _deliveryGroups?.build();
+
+        _$failedField = 'cancelledBy';
+        _cancelledBy?.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
           r'OrderResponseDto',

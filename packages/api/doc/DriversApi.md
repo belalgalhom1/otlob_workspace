@@ -1244,7 +1244,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerGetWalletBalance**
-> ApiControllerRoot200Response driversControllerGetWalletBalance()
+> DriversControllerGetWalletBalance200Response driversControllerGetWalletBalance()
 
 Get wallet balance
 
@@ -1267,7 +1267,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+[**DriversControllerGetWalletBalance200Response**](DriversControllerGetWalletBalance200Response.md)
 
 ### Authorization
 
@@ -1281,7 +1281,7 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **driversControllerGetWalletTransactions**
-> ApiControllerRoot200Response driversControllerGetWalletTransactions(page, limit)
+> DriversControllerGetWalletTransactions200Response driversControllerGetWalletTransactions(page, limit)
 
 Get wallet transaction history
 
@@ -1310,7 +1310,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+[**DriversControllerGetWalletTransactions200Response**](DriversControllerGetWalletTransactions200Response.md)
 
 ### Authorization
 

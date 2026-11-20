@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:core/core.dart';
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
@@ -234,37 +234,16 @@ class _CustomerCard extends StatelessWidget {
     }
 
     Widget buildAvatar() {
-      return Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isTop3 ? rankColor.withValues(alpha: 0.6) : borderColor,
-            width: isTop3 ? 2.0 : 1.0,
-          ),
-          color: rankColor.withValues(alpha: 0.08),
-        ),
-        child: ClipOval(
-          child: customer.avatar != null && customer.avatar!.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: customer.avatar!,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, url, err) => Center(
-                    child: Icon(
-                      LucideIcons.user,
-                      size: 20,
-                      color: rankColor,
-                    ),
-                  ),
-                )
-              : Center(
-                  child: Icon(
-                    LucideIcons.user,
-                    size: 20,
-                    color: rankColor,
-                  ),
-                ),
+      return AppNetworkAvatar(
+        imageUrl: ImageUtils.formatImageUrl(customer.avatar),
+        size: 46,
+        fallbackIcon: LucideIcons.user,
+        fallbackIconSize: 20,
+        backgroundColor: rankColor.withValues(alpha: 0.08),
+        foregroundColor: rankColor,
+        border: Border.all(
+          color: isTop3 ? rankColor.withValues(alpha: 0.6) : borderColor,
+          width: isTop3 ? 2.0 : 1.0,
         ),
       );
     }

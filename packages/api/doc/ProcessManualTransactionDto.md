@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **amount** | **num** | Positive or negative amount | 
 **type** | **String** | Type of transaction | 
 **description** | **String** |  | [optional] 
+**note** | **String** | Driver-facing note for manual wallet adjustments | [optional] 
 **referenceId** | **String** |  | [optional] 
 **idempotencyKey** | **String** |  | [optional] 
 

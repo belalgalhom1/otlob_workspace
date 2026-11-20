@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:data/providers.dart' hide inboxCountsProvider;
+import '../../../../core/utils/image_utils.dart';
 import '../providers/inbox_counts_provider.dart';
 
 class InboxScreen extends ConsumerStatefulWidget {
@@ -460,6 +461,40 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
     final participantName = _resolveParticipantName(convo, type, isAr);
 
+    String? rawAvatar;
+    bool isStore = false;
+    if (type == 'VENDOR' || type == 'ORDER') {
+      final vMap = convo['vendor'] is Map
+          ? convo['vendor'] as Map
+          : (convo['order'] is Map && convo['order']['vendor'] is Map
+              ? convo['order']['vendor'] as Map
+              : null);
+      rawAvatar = (vMap?['logo'] ?? vMap?['logoUrl'] ?? convo['vendorLogo'])
+          ?.toString();
+      if (rawAvatar != null && rawAvatar.isNotEmpty) {
+        isStore = true;
+      }
+    }
+    if (rawAvatar == null || rawAvatar.isEmpty) {
+      if (type == 'SUPPORT' && convo['assignee'] is Map) {
+        rawAvatar = convo['assignee']['avatar']?.toString();
+      }
+      final participants = convo['participants'];
+      if ((rawAvatar == null || rawAvatar.isEmpty) && participants is List) {
+        for (final p in participants) {
+          if (p is! Map) continue;
+          final role =
+              (p['role'] ?? p['user']?['role'])?.toString().toUpperCase() ?? '';
+          final av = (p['avatar'] ?? p['user']?['avatar'])?.toString();
+          if (role != 'CUSTOMER' && av != null && av.trim().isNotEmpty) {
+            rawAvatar = av.trim();
+            break;
+          }
+        }
+      }
+    }
+    final resolvedAvatarUrl = ImageUtils.formatImageUrl(rawAvatar);
+
     String subtitle = isAr ? 'لا توجد رسائل' : 'No messages';
     String timeStr = '';
 
@@ -480,6 +515,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       title: title,
       typeLabel: typeLabel,
       participantName: participantName,
+      avatarUrl: resolvedAvatarUrl.isNotEmpty ? resolvedAvatarUrl : null,
+      isStore: isStore,
       lastMessageContent: subtitle,
       timeStr: timeStr,
       unreadCount: unreadCount,

@@ -8,6 +8,7 @@ doc/AdminAssignDriverDto.md
 doc/AdminAssignShiftDto.md
 doc/AdminBookWeeklyShiftsDto.md
 doc/AdminBulkAssignShiftsDto.md
+doc/AdminBulkRemoveShiftsDto.md
 doc/AdminCreateDriverDto.md
 doc/AdminUpdateDriverDto.md
 doc/AdminUpdateUserDto.md
@@ -24,6 +25,7 @@ doc/AuthenticationApi.md
 doc/BanUserDto.md
 doc/BookOvertimeShiftDto.md
 doc/BookWeeklyShiftsDto.md
+doc/CancelOrderDto.md
 doc/CartApi.md
 doc/CartItem.md
 doc/CartItemOption.md
@@ -56,6 +58,7 @@ doc/CreateWalletTopUpDto.md
 doc/CreateZoneDto.md
 doc/Customer.md
 doc/CustomerDecideAssistDto.md
+doc/CustomerUserSummaryDto.md
 doc/CustomersApi.md
 doc/DecideAssistRequestDto.md
 doc/DeliveryGroupRatingInputDto.md
@@ -73,10 +76,14 @@ doc/DriverShiftStatus.md
 doc/DriverShiftsApi.md
 doc/DriverStatus.md
 doc/DriverTier.md
+doc/DriverWalletBalanceResponseDto.md
 doc/DriverWalletTransaction.md
 doc/DriverWalletTransactionResponseDto.md
+doc/DriverWalletTransactionsResponseDto.md
 doc/DriversApi.md
 doc/DriversControllerGetMyBreaks200Response.md
+doc/DriversControllerGetWalletBalance200Response.md
+doc/DriversControllerGetWalletTransactions200Response.md
 doc/DriversControllerMyAssistRequests200Response.md
 doc/DriversControllerStartBreak200Response.md
 doc/FavoriteProduct.md
@@ -100,6 +107,8 @@ doc/NotificationsApi.md
 doc/Offer.md
 doc/OffersApi.md
 doc/Order.md
+doc/OrderActorSummaryDto.md
+doc/OrderCancelledByDto.md
 doc/OrderDeliveryGroup.md
 doc/OrderDeliveryGroupItem.md
 doc/OrderDispatch.md
@@ -216,6 +225,7 @@ doc/VendorsVerticalsCategoriesApi.md
 doc/VendorsWalletTransactionsApi.md
 doc/VerifyOtpDto.md
 doc/WalletControllerGetActivePlatformWallets200Response.md
+doc/WalletControllerGetMyDriverTransactions200Response.md
 doc/WalletControllerGetPendingTopUps200Response.md
 doc/WalletControllerProcessDriverTransaction200Response.md
 doc/WalletControllerProcessVendorTransaction200Response.md
@@ -272,6 +282,7 @@ lib/src/model/admin_assign_driver_dto.dart
 lib/src/model/admin_assign_shift_dto.dart
 lib/src/model/admin_book_weekly_shifts_dto.dart
 lib/src/model/admin_bulk_assign_shifts_dto.dart
+lib/src/model/admin_bulk_remove_shifts_dto.dart
 lib/src/model/admin_create_driver_dto.dart
 lib/src/model/admin_update_driver_dto.dart
 lib/src/model/admin_update_user_dto.dart
@@ -286,6 +297,7 @@ lib/src/model/audit_logs_controller_find_all200_response.dart
 lib/src/model/ban_user_dto.dart
 lib/src/model/book_overtime_shift_dto.dart
 lib/src/model/book_weekly_shifts_dto.dart
+lib/src/model/cancel_order_dto.dart
 lib/src/model/cart_item.dart
 lib/src/model/cart_item_option.dart
 lib/src/model/change_email_dto.dart
@@ -315,6 +327,7 @@ lib/src/model/create_wallet_top_up_dto.dart
 lib/src/model/create_zone_dto.dart
 lib/src/model/customer.dart
 lib/src/model/customer_decide_assist_dto.dart
+lib/src/model/customer_user_summary_dto.dart
 lib/src/model/date.dart
 lib/src/model/decide_assist_request_dto.dart
 lib/src/model/delivery_group_rating_input_dto.dart
@@ -329,9 +342,13 @@ lib/src/model/driver_shift.dart
 lib/src/model/driver_shift_status.dart
 lib/src/model/driver_status.dart
 lib/src/model/driver_tier.dart
+lib/src/model/driver_wallet_balance_response_dto.dart
 lib/src/model/driver_wallet_transaction.dart
 lib/src/model/driver_wallet_transaction_response_dto.dart
+lib/src/model/driver_wallet_transactions_response_dto.dart
 lib/src/model/drivers_controller_get_my_breaks200_response.dart
+lib/src/model/drivers_controller_get_wallet_balance200_response.dart
+lib/src/model/drivers_controller_get_wallet_transactions200_response.dart
 lib/src/model/drivers_controller_my_assist_requests200_response.dart
 lib/src/model/drivers_controller_start_break200_response.dart
 lib/src/model/favorite_product.dart
@@ -349,6 +366,8 @@ lib/src/model/mobile_wallet.dart
 lib/src/model/mobile_wallet_response_dto.dart
 lib/src/model/offer.dart
 lib/src/model/order.dart
+lib/src/model/order_actor_summary_dto.dart
+lib/src/model/order_cancelled_by_dto.dart
 lib/src/model/order_delivery_group.dart
 lib/src/model/order_delivery_group_item.dart
 lib/src/model/order_dispatch.dart
@@ -451,6 +470,7 @@ lib/src/model/vendor_wallet_transaction.dart
 lib/src/model/vendor_wallet_transaction_response_dto.dart
 lib/src/model/verify_otp_dto.dart
 lib/src/model/wallet_controller_get_active_platform_wallets200_response.dart
+lib/src/model/wallet_controller_get_my_driver_transactions200_response.dart
 lib/src/model/wallet_controller_get_pending_top_ups200_response.dart
 lib/src/model/wallet_controller_process_driver_transaction200_response.dart
 lib/src/model/wallet_controller_process_vendor_transaction200_response.dart
@@ -468,6 +488,7 @@ test/admin_assign_driver_dto_test.dart
 test/admin_assign_shift_dto_test.dart
 test/admin_book_weekly_shifts_dto_test.dart
 test/admin_bulk_assign_shifts_dto_test.dart
+test/admin_bulk_remove_shifts_dto_test.dart
 test/admin_create_driver_dto_test.dart
 test/admin_update_driver_dto_test.dart
 test/admin_update_user_dto_test.dart
@@ -484,6 +505,7 @@ test/authentication_api_test.dart
 test/ban_user_dto_test.dart
 test/book_overtime_shift_dto_test.dart
 test/book_weekly_shifts_dto_test.dart
+test/cancel_order_dto_test.dart
 test/cart_api_test.dart
 test/cart_item_option_test.dart
 test/cart_item_test.dart
@@ -516,6 +538,7 @@ test/create_wallet_top_up_dto_test.dart
 test/create_zone_dto_test.dart
 test/customer_decide_assist_dto_test.dart
 test/customer_test.dart
+test/customer_user_summary_dto_test.dart
 test/customers_api_test.dart
 test/decide_assist_request_dto_test.dart
 test/delivery_group_rating_input_dto_test.dart
@@ -533,10 +556,14 @@ test/driver_shifts_api_test.dart
 test/driver_status_test.dart
 test/driver_test.dart
 test/driver_tier_test.dart
+test/driver_wallet_balance_response_dto_test.dart
 test/driver_wallet_transaction_response_dto_test.dart
 test/driver_wallet_transaction_test.dart
+test/driver_wallet_transactions_response_dto_test.dart
 test/drivers_api_test.dart
 test/drivers_controller_get_my_breaks200_response_test.dart
+test/drivers_controller_get_wallet_balance200_response_test.dart
+test/drivers_controller_get_wallet_transactions200_response_test.dart
 test/drivers_controller_my_assist_requests200_response_test.dart
 test/drivers_controller_start_break200_response_test.dart
 test/favorite_product_test.dart
@@ -559,6 +586,8 @@ test/mobile_wallet_test.dart
 test/notifications_api_test.dart
 test/offer_test.dart
 test/offers_api_test.dart
+test/order_actor_summary_dto_test.dart
+test/order_cancelled_by_dto_test.dart
 test/order_delivery_group_item_test.dart
 test/order_delivery_group_test.dart
 test/order_dispatch_test.dart
@@ -676,6 +705,7 @@ test/vendors_verticals_categories_api_test.dart
 test/vendors_wallet_transactions_api_test.dart
 test/verify_otp_dto_test.dart
 test/wallet_controller_get_active_platform_wallets200_response_test.dart
+test/wallet_controller_get_my_driver_transactions200_response_test.dart
 test/wallet_controller_get_pending_top_ups200_response_test.dart
 test/wallet_controller_process_driver_transaction200_response_test.dart
 test/wallet_controller_process_vendor_transaction200_response_test.dart

@@ -21,6 +21,8 @@ part 'driver_wallet_transaction.g.dart';
 /// * [amount] 
 /// * [balanceAfter] 
 /// * [description] 
+/// * [note] 
+/// * [isManualAdjustment] 
 /// * [referenceId] 
 /// * [createdAt] 
 @BuiltValue()
@@ -52,6 +54,12 @@ abstract class DriverWalletTransaction implements Built<DriverWalletTransaction,
 
   @BuiltValueField(wireName: r'description')
   String? get description;
+
+  @BuiltValueField(wireName: r'note')
+  String? get note;
+
+  @BuiltValueField(wireName: r'isManualAdjustment')
+  bool get isManualAdjustment;
 
   @BuiltValueField(wireName: r'referenceId')
   String? get referenceId;
@@ -135,6 +143,18 @@ class _$DriverWalletTransactionSerializer implements PrimitiveSerializer<DriverW
         specifiedType: const FullType(String),
       );
     }
+    if (object.note != null) {
+      yield r'note';
+      yield serializers.serialize(
+        object.note,
+        specifiedType: const FullType(String),
+      );
+    }
+    yield r'isManualAdjustment';
+    yield serializers.serialize(
+      object.isManualAdjustment,
+      specifiedType: const FullType(bool),
+    );
     if (object.referenceId != null) {
       yield r'referenceId';
       yield serializers.serialize(
@@ -232,6 +252,20 @@ class _$DriverWalletTransactionSerializer implements PrimitiveSerializer<DriverW
             specifiedType: const FullType(String),
           ) as String;
           result.description = valueDes;
+          break;
+        case r'note':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.note = valueDes;
+          break;
+        case r'isManualAdjustment':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isManualAdjustment = valueDes;
           break;
         case r'referenceId':
           final valueDes = serializers.deserialize(

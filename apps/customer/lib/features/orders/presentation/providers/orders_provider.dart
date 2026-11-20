@@ -266,10 +266,20 @@ class Orders extends _$Orders {
           // that may still be queued behind this response.
           ref.read(orderRevisionTrackerProvider).observeOrder(updatedOrder);
           final index = state.activeOrders.indexWhere((o) => o['id'] == orderId);
-          if (index != -1) {
-            final newOrders = List<Map<String, dynamic>>.from(state.activeOrders);
-            newOrders[index] = updatedOrder;
-            state = state.copyWith(activeOrders: newOrders);
+          final pastIndex = state.pastOrders.indexWhere((o) => o['id'] == orderId);
+          if (index != -1 || pastIndex != -1) {
+            final newActive = index != -1
+                ? (List<Map<String, dynamic>>.from(state.activeOrders)
+                  ..[index] = updatedOrder)
+                : state.activeOrders;
+            final newPast = pastIndex != -1
+                ? (List<Map<String, dynamic>>.from(state.pastOrders)
+                  ..[pastIndex] = updatedOrder)
+                : state.pastOrders;
+            state = state.copyWith(
+              activeOrders: newActive,
+              pastOrders: newPast,
+            );
           }
           return updatedOrder;
         }
@@ -526,7 +536,7 @@ class Orders extends _$Orders {
   Future<bool> cancelOrder(String orderId, String reason) async {
     final repository = ref.read(customerOrderRepositoryProvider);
     try {
-      await repository.cancelOrder(orderId);
+      await repository.cancelOrder(orderId, reason: reason);
       ref.invalidateSelf();
       return true;
     } catch (e) {

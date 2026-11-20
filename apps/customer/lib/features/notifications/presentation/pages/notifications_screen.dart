@@ -192,10 +192,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           }
           // Deep link based on type if possible
           if (type == 'ORDER_UPDATE' && n['data'] != null && n['data']['orderId'] != null) {
-            final orderStatus = n['data']['status'] ?? '';
-            if (orderStatus != 'CANCELLED' && orderStatus != 'REJECTED') {
-              context.push('/order-tracking/${n['data']['orderId']}');
-            }
+            context.push('/order-tracking/${n['data']['orderId']}');
           } else if (type == 'CHAT_MESSAGE' && n['data'] != null) {
             final convoId = n['data']['conversationId'] ?? n['data']['conversation_id'];
             if (convoId != null) {

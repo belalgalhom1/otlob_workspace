@@ -214,12 +214,15 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                               const SizedBox(height: 2),
                               Row(
                                 children: [
-                                  Icon(
-                                    LucideIcons.user,
-                                    size: 12,
-                                    color: theme.colorScheme.onSurface,
+                                  AppNetworkAvatar(
+                                    imageUrl: ImageUtils.formatImageUrl(
+                                      topUp.driverAvatar,
+                                    ),
+                                    size: 20,
+                                    fallbackIcon: LucideIcons.user,
+                                    fallbackIconSize: 11,
                                   ),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
                                       '${l10n.driverId}: ${topUp.driverName ?? topUp.driverId}',

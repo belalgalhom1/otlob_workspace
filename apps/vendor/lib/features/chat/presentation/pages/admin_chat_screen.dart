@@ -969,13 +969,17 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     final customer = _orderDetails!['customer']?['user'] ?? {};
     final customerName = customer['name'] ?? '';
     final customerPhone = customer['phone'] ?? '';
+    final customerAvatar = customer['avatar']?.toString();
     final driver = _orderDetails!['driver'] ?? {};
     final driverUser = driver['user'] ?? {};
     final driverName =
         driver['name']?.toString() ?? driverUser['name']?.toString() ?? '';
     final driverPhone = driverUser['phone']?.toString() ?? '';
+    final driverAvatar =
+        driver['avatar']?.toString() ?? driverUser['avatar']?.toString();
     final vendor = _orderDetails!['vendor'] ?? {};
     final vendorName = vendor['storeName'] ?? '';
+    final vendorLogo = vendor['logo']?.toString();
     final items = _orderDetails!['items'] as List? ?? [];
 
     Color statusColor;
@@ -1055,17 +1059,14 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        LucideIcons.shoppingBag,
-                        color: AppColors.primary,
-                        size: 18,
-                      ),
+                    AppNetworkAvatar(
+                      imageUrl: ImageUtils.formatImageUrl(vendorLogo),
+                      size: 36,
+                      borderRadius: 10,
+                      fallbackIcon: LucideIcons.shoppingBag,
+                      fallbackIconSize: 18,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      foregroundColor: AppColors.primary,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1139,12 +1140,13 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                         driverPhone.isNotEmpty) ...[
                       Row(
                         children: [
-                          const Icon(
-                            LucideIcons.bike,
-                            size: 14,
-                            color: AppColors.primary,
+                          AppNetworkAvatar(
+                            imageUrl: ImageUtils.formatImageUrl(driverAvatar),
+                            size: 24,
+                            fallbackIcon: LucideIcons.bike,
+                            fallbackIconSize: 13,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               driverName.isNotEmpty
@@ -1183,12 +1185,13 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                         customerPhone.isNotEmpty) ...[
                       Row(
                         children: [
-                          const Icon(
-                            LucideIcons.user,
-                            size: 14,
-                            color: AppColors.primary,
+                          AppNetworkAvatar(
+                            imageUrl: ImageUtils.formatImageUrl(customerAvatar),
+                            size: 24,
+                            fallbackIcon: LucideIcons.user,
+                            fallbackIconSize: 13,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               customerName,
@@ -2007,16 +2010,13 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         titleSpacing: 0,
         title: Row(
           children: [
-            CircleAvatar(
-              radius: 18,
+            AppNetworkAvatar(
+              imageUrl: ImageUtils.formatImageUrl(widget.avatar),
+              size: 36,
+              fallbackIcon: Icons.person,
+              fallbackIconSize: 20,
               backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              backgroundImage:
-                  widget.avatar != null && widget.avatar!.isNotEmpty
-                  ? NetworkImage(ImageUtils.formatImageUrl(widget.avatar!))
-                  : null,
-              child: (widget.avatar == null || widget.avatar!.isEmpty)
-                  ? const Icon(Icons.person, size: 20)
-                  : null,
+              foregroundColor: AppColors.primary,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -2515,25 +2515,17 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!isMe) ...[
-                CircleAvatar(
-                  radius: 12,
+                AppNetworkAvatar(
+                  imageUrl: ImageUtils.formatImageUrl(
+                    (senderObj?['avatar'] ?? message['senderAvatar'])?.toString(),
+                  ),
+                  size: 24,
+                  fallbackIcon: Icons.person_rounded,
+                  fallbackIconSize: 13,
+                  fallbackText: senderName.toString(),
+                  preferInitialFallback: true,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  backgroundImage: message['sender']['avatar'] != null
-                      ? NetworkImage(
-                          ImageUtils.formatImageUrl(
-                            message['sender']['avatar'],
-                          ),
-                        )
-                      : null,
-                  child: message['sender']['avatar'] == null
-                      ? Text(
-                          (senderName.isNotEmpty ? senderName[0] : '?').toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
+                  foregroundColor: AppColors.primary,
                 ),
                 const SizedBox(width: 8),
               ],

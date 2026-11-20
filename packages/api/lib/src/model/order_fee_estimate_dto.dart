@@ -26,6 +26,7 @@ part 'order_fee_estimate_dto.g.dart';
 /// * [vendorCount] 
 /// * [branchCount] 
 /// * [deliveryCount] 
+/// * [driverBonusPaidByCustomer] - Whether the customer pays driverBonusFee inside grandTotal (false when platform-funded)
 @BuiltValue()
 abstract class OrderFeeEstimateDto implements Built<OrderFeeEstimateDto, OrderFeeEstimateDtoBuilder> {
   /// Vendor branch to delivery distance in km
@@ -73,6 +74,10 @@ abstract class OrderFeeEstimateDto implements Built<OrderFeeEstimateDto, OrderFe
 
   @BuiltValueField(wireName: r'deliveryCount')
   num? get deliveryCount;
+
+  /// Whether the customer pays driverBonusFee inside grandTotal (false when platform-funded)
+  @BuiltValueField(wireName: r'driverBonusPaidByCustomer')
+  bool? get driverBonusPaidByCustomer;
 
   OrderFeeEstimateDto._();
 
@@ -180,6 +185,13 @@ class _$OrderFeeEstimateDtoSerializer implements PrimitiveSerializer<OrderFeeEst
       yield serializers.serialize(
         object.deliveryCount,
         specifiedType: const FullType(num),
+      );
+    }
+    if (object.driverBonusPaidByCustomer != null) {
+      yield r'driverBonusPaidByCustomer';
+      yield serializers.serialize(
+        object.driverBonusPaidByCustomer,
+        specifiedType: const FullType(bool),
       );
     }
   }
@@ -309,6 +321,13 @@ class _$OrderFeeEstimateDtoSerializer implements PrimitiveSerializer<OrderFeeEst
             specifiedType: const FullType(num),
           ) as num;
           result.deliveryCount = valueDes;
+          break;
+        case r'driverBonusPaidByCustomer':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.driverBonusPaidByCustomer = valueDes;
           break;
         default:
           unhandled.add(key);

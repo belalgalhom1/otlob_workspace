@@ -132,6 +132,7 @@ Class | Method | HTTP request | Description
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminAssignShift**](doc/DriverShiftsApi.md#drivershiftscontrolleradminassignshift) | **POST** /driver-shifts/admin/assign | [Admin] Force-assign a driver to a shift pool
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminAssignShiftBulk**](doc/DriverShiftsApi.md#drivershiftscontrolleradminassignshiftbulk) | **POST** /driver-shifts/admin/assign-bulk | [Admin] Assign a driver to a generated group of shift pools
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminBookWeeklyShifts**](doc/DriverShiftsApi.md#drivershiftscontrolleradminbookweeklyshifts) | **POST** /driver-shifts/admin/book-week | [Admin] Book a full weekly shift schedule for a driver
+[*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminRemoveDriverBulk**](doc/DriverShiftsApi.md#drivershiftscontrolleradminremovedriverbulk) | **POST** /driver-shifts/admin/remove-bulk | [Admin] Remove a driver from a generated group of shift pools
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerBookOvertimeShift**](doc/DriverShiftsApi.md#drivershiftscontrollerbookovertimeshift) | **POST** /driver-shifts/book-overtime | Book a single extra shift
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerBookWeeklyShifts**](doc/DriverShiftsApi.md#drivershiftscontrollerbookweeklyshifts) | **POST** /driver-shifts/book-week | Book 6 shifts for the week
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerGenerateShiftPools**](doc/DriverShiftsApi.md#drivershiftscontrollergenerateshiftpools) | **POST** /driver-shifts/admin/pools | [Admin] Generate shift pools for a date range
@@ -401,6 +402,7 @@ Class | Method | HTTP request | Description
  - [AdminAssignShiftDto](doc/AdminAssignShiftDto.md)
  - [AdminBookWeeklyShiftsDto](doc/AdminBookWeeklyShiftsDto.md)
  - [AdminBulkAssignShiftsDto](doc/AdminBulkAssignShiftsDto.md)
+ - [AdminBulkRemoveShiftsDto](doc/AdminBulkRemoveShiftsDto.md)
  - [AdminCreateDriverDto](doc/AdminCreateDriverDto.md)
  - [AdminUpdateDriverDto](doc/AdminUpdateDriverDto.md)
  - [AdminUpdateUserDto](doc/AdminUpdateUserDto.md)
@@ -415,6 +417,7 @@ Class | Method | HTTP request | Description
  - [BanUserDto](doc/BanUserDto.md)
  - [BookOvertimeShiftDto](doc/BookOvertimeShiftDto.md)
  - [BookWeeklyShiftsDto](doc/BookWeeklyShiftsDto.md)
+ - [CancelOrderDto](doc/CancelOrderDto.md)
  - [CartItem](doc/CartItem.md)
  - [CartItemOption](doc/CartItemOption.md)
  - [ChangeEmailDto](doc/ChangeEmailDto.md)
@@ -444,6 +447,7 @@ Class | Method | HTTP request | Description
  - [CreateZoneDto](doc/CreateZoneDto.md)
  - [Customer](doc/Customer.md)
  - [CustomerDecideAssistDto](doc/CustomerDecideAssistDto.md)
+ - [CustomerUserSummaryDto](doc/CustomerUserSummaryDto.md)
  - [DecideAssistRequestDto](doc/DecideAssistRequestDto.md)
  - [DeliveryGroupRatingInputDto](doc/DeliveryGroupRatingInputDto.md)
  - [DeliveryGroupStatus](doc/DeliveryGroupStatus.md)
@@ -457,9 +461,13 @@ Class | Method | HTTP request | Description
  - [DriverShiftStatus](doc/DriverShiftStatus.md)
  - [DriverStatus](doc/DriverStatus.md)
  - [DriverTier](doc/DriverTier.md)
+ - [DriverWalletBalanceResponseDto](doc/DriverWalletBalanceResponseDto.md)
  - [DriverWalletTransaction](doc/DriverWalletTransaction.md)
  - [DriverWalletTransactionResponseDto](doc/DriverWalletTransactionResponseDto.md)
+ - [DriverWalletTransactionsResponseDto](doc/DriverWalletTransactionsResponseDto.md)
  - [DriversControllerGetMyBreaks200Response](doc/DriversControllerGetMyBreaks200Response.md)
+ - [DriversControllerGetWalletBalance200Response](doc/DriversControllerGetWalletBalance200Response.md)
+ - [DriversControllerGetWalletTransactions200Response](doc/DriversControllerGetWalletTransactions200Response.md)
  - [DriversControllerMyAssistRequests200Response](doc/DriversControllerMyAssistRequests200Response.md)
  - [DriversControllerStartBreak200Response](doc/DriversControllerStartBreak200Response.md)
  - [FavoriteProduct](doc/FavoriteProduct.md)
@@ -477,6 +485,8 @@ Class | Method | HTTP request | Description
  - [MobileWalletResponseDto](doc/MobileWalletResponseDto.md)
  - [Offer](doc/Offer.md)
  - [Order](doc/Order.md)
+ - [OrderActorSummaryDto](doc/OrderActorSummaryDto.md)
+ - [OrderCancelledByDto](doc/OrderCancelledByDto.md)
  - [OrderDeliveryGroup](doc/OrderDeliveryGroup.md)
  - [OrderDeliveryGroupItem](doc/OrderDeliveryGroupItem.md)
  - [OrderDispatch](doc/OrderDispatch.md)
@@ -579,6 +589,7 @@ Class | Method | HTTP request | Description
  - [VendorWalletTransactionResponseDto](doc/VendorWalletTransactionResponseDto.md)
  - [VerifyOtpDto](doc/VerifyOtpDto.md)
  - [WalletControllerGetActivePlatformWallets200Response](doc/WalletControllerGetActivePlatformWallets200Response.md)
+ - [WalletControllerGetMyDriverTransactions200Response](doc/WalletControllerGetMyDriverTransactions200Response.md)
  - [WalletControllerGetPendingTopUps200Response](doc/WalletControllerGetPendingTopUps200Response.md)
  - [WalletControllerProcessDriverTransaction200Response](doc/WalletControllerProcessDriverTransaction200Response.md)
  - [WalletControllerProcessVendorTransaction200Response](doc/WalletControllerProcessVendorTransaction200Response.md)

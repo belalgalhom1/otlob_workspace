@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -196,9 +197,19 @@ class _CustomerPolygonSelectionScreenState extends ConsumerState<CustomerPolygon
                             children: [
                               Row(
                                 children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                                    child: const Icon(LucideIcons.user, color: AppColors.primary),
+                                  AppNetworkAvatar(
+                                    imageUrl: ImageUtils.formatImageUrl(
+                                      (customer['avatar'] ??
+                                              (customer['user'] is Map
+                                                  ? customer['user']['avatar']
+                                                  : null))
+                                          ?.toString(),
+                                    ),
+                                    size: 40,
+                                    fallbackIcon: LucideIcons.user,
+                                    backgroundColor:
+                                        AppColors.primary.withValues(alpha: 0.1),
+                                    foregroundColor: AppColors.primary,
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(

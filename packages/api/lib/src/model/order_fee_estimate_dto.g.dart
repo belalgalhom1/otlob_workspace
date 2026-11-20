@@ -37,6 +37,8 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
   final num? branchCount;
   @override
   final num? deliveryCount;
+  @override
+  final bool? driverBonusPaidByCustomer;
 
   factory _$OrderFeeEstimateDto([
     void Function(OrderFeeEstimateDtoBuilder)? updates,
@@ -58,6 +60,7 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
     this.vendorCount,
     this.branchCount,
     this.deliveryCount,
+    this.driverBonusPaidByCustomer,
   }) : super._();
   @override
   OrderFeeEstimateDto rebuild(
@@ -86,7 +89,8 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
         isSplit == other.isSplit &&
         vendorCount == other.vendorCount &&
         branchCount == other.branchCount &&
-        deliveryCount == other.deliveryCount;
+        deliveryCount == other.deliveryCount &&
+        driverBonusPaidByCustomer == other.driverBonusPaidByCustomer;
   }
 
   @override
@@ -107,6 +111,7 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
     _$hash = $jc(_$hash, vendorCount.hashCode);
     _$hash = $jc(_$hash, branchCount.hashCode);
     _$hash = $jc(_$hash, deliveryCount.hashCode);
+    _$hash = $jc(_$hash, driverBonusPaidByCustomer.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -128,7 +133,8 @@ class _$OrderFeeEstimateDto extends OrderFeeEstimateDto {
           ..add('isSplit', isSplit)
           ..add('vendorCount', vendorCount)
           ..add('branchCount', branchCount)
-          ..add('deliveryCount', deliveryCount))
+          ..add('deliveryCount', deliveryCount)
+          ..add('driverBonusPaidByCustomer', driverBonusPaidByCustomer))
         .toString();
   }
 }
@@ -200,6 +206,11 @@ class OrderFeeEstimateDtoBuilder
   set deliveryCount(num? deliveryCount) =>
       _$this._deliveryCount = deliveryCount;
 
+  bool? _driverBonusPaidByCustomer;
+  bool? get driverBonusPaidByCustomer => _$this._driverBonusPaidByCustomer;
+  set driverBonusPaidByCustomer(bool? driverBonusPaidByCustomer) =>
+      _$this._driverBonusPaidByCustomer = driverBonusPaidByCustomer;
+
   OrderFeeEstimateDtoBuilder() {
     OrderFeeEstimateDto._defaults(this);
   }
@@ -222,6 +233,7 @@ class OrderFeeEstimateDtoBuilder
       _vendorCount = $v.vendorCount;
       _branchCount = $v.branchCount;
       _deliveryCount = $v.deliveryCount;
+      _driverBonusPaidByCustomer = $v.driverBonusPaidByCustomer;
       _$v = null;
     }
     return this;
@@ -299,6 +311,7 @@ class OrderFeeEstimateDtoBuilder
           vendorCount: vendorCount,
           branchCount: branchCount,
           deliveryCount: deliveryCount,
+          driverBonusPaidByCustomer: driverBonusPaidByCustomer,
         );
     replace(_$result);
     return _$result;

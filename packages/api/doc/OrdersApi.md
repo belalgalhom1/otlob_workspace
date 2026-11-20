@@ -308,7 +308,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **ordersControllerCancelOrder**
-> OrdersControllerPlaceOrder200Response ordersControllerCancelOrder(orderId)
+> OrdersControllerPlaceOrder200Response ordersControllerCancelOrder(orderId, cancelOrderDto)
 
 Cancel an order (customer or vendor)
 
@@ -318,9 +318,10 @@ import 'package:api/api.dart';
 
 final api = Api().getOrdersApi();
 final String orderId = orderId_example; // String | 
+final CancelOrderDto cancelOrderDto = ; // CancelOrderDto | 
 
 try {
-    final response = api.ordersControllerCancelOrder(orderId);
+    final response = api.ordersControllerCancelOrder(orderId, cancelOrderDto);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling OrdersApi->ordersControllerCancelOrder: $e\n');
@@ -332,6 +333,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **orderId** | **String**|  | 
+ **cancelOrderDto** | [**CancelOrderDto**](CancelOrderDto.md)|  | 
 
 ### Return type
 
@@ -343,7 +345,7 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
+ - **Content-Type**: application/json
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

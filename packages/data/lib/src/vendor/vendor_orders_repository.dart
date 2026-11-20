@@ -48,8 +48,16 @@ class VendorOrdersRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> cancelOrder(String orderId) async {
-    final response = await _ordersApi.ordersControllerCancelOrder(orderId: orderId);
+  Future<dynamic> cancelOrder(String orderId, {String? reason}) async {
+    final trimmedReason = reason?.trim();
+    final response = await _ordersApi.ordersControllerCancelOrder(
+      orderId: orderId,
+      cancelOrderDto: CancelOrderDto((b) {
+        if (trimmedReason != null && trimmedReason.isNotEmpty) {
+          b.reason = trimmedReason;
+        }
+      }),
+    );
     return ResponseParser.parse(response);
   }
 }

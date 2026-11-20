@@ -398,16 +398,14 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
       dense: true,
       horizontalTitleGap: 10,
       contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      leading: CircleAvatar(
-        radius: 18,
+      leading: AppNetworkAvatar(
+        imageUrl: ImageUtils.formatImageUrl(driver.avatar),
+        size: 36,
+        fallbackIcon: LucideIcons.user,
+        fallbackText: driver.name,
+        preferInitialFallback: true,
         backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-        child: Text(
-          driver.name.isNotEmpty ? driver.name[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        foregroundColor: AppColors.primary,
       ),
       title: Text(
         driver.name,
@@ -709,17 +707,15 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 16,
+          AppNetworkAvatar(
+            imageUrl: ImageUtils.formatImageUrl(shift.driver?.user.avatar),
+            size: 32,
+            fallbackIcon: LucideIcons.user,
+            fallbackIconSize: 15,
+            fallbackText: driverName,
+            preferInitialFallback: true,
             backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-            child: Text(
-              driverName.isNotEmpty ? driverName[0].toUpperCase() : '?',
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            foregroundColor: AppColors.primary,
           ),
           const SizedBox(width: 12),
           Expanded(
