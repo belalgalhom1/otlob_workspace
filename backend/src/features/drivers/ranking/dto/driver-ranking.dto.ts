@@ -353,6 +353,20 @@ export class QueryRankingPreviewDto {
 
 export class QueryRunDetailsDto extends QueryRankingPreviewDto {}
 
+export class DriverRankingPaginationMetaDto {
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  page!: number;
+
+  @ApiProperty()
+  limit!: number;
+
+  @ApiProperty()
+  totalPages!: number;
+}
+
 export class DriverRankingPreviewResponseDto {
   @ApiProperty({ type: RankingWeekWindowDto })
   week!: RankingWeekWindowDto;
@@ -378,7 +392,7 @@ export class DriverRankingPreviewResponseDto {
   @ApiProperty({ type: [DriverRankingPreviewItemDto] })
   drivers!: DriverRankingPreviewItemDto[];
 
-  @ApiProperty({ type: () => DriverRankingPaginationMetaDto })
+  @ApiProperty({ type: DriverRankingPaginationMetaDto })
   meta!: DriverRankingPaginationMetaDto;
 }
 
@@ -435,20 +449,6 @@ export class DriverRankHistoryEntryDto {
   createdAt!: Date;
 }
 
-export class DriverRankingPaginationMetaDto {
-  @ApiProperty()
-  total!: number;
-
-  @ApiProperty()
-  page!: number;
-
-  @ApiProperty()
-  limit!: number;
-
-  @ApiProperty()
-  totalPages!: number;
-}
-
 export class PaginatedRankingRunsResponseDto {
   @ApiProperty({ type: [DriverRankingEvaluationRunDto] })
   data!: DriverRankingEvaluationRunDto[];
@@ -472,7 +472,7 @@ export class DriverRankingRunDetailsResponseDto {
   @ApiProperty({ type: [DriverRankHistoryEntryDto] })
   entries!: DriverRankHistoryEntryDto[];
 
-  @ApiProperty({ type: () => DriverRankingPaginationMetaDto })
+  @ApiProperty({ type: DriverRankingPaginationMetaDto })
   meta!: DriverRankingPaginationMetaDto;
 }
 

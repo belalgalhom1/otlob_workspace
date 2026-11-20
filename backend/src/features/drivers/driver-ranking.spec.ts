@@ -54,6 +54,7 @@ import {
   EVALUATION_COMMIT_BATCH_SIZE,
   STALE_RUNNING_RUN_MS,
 } from './ranking/driver-ranking.repository';
+import { DriverRankingController } from './ranking/driver-ranking.controller';
 import { DriverRankingService } from './ranking/driver-ranking.service';
 
 function makeInput(
@@ -695,8 +696,13 @@ describe('Weekly Driver Ranking System', () => {
         driverManagersService,
         { emit } as any,
       );
+      const controller = new DriverRankingController(
+        service,
+        incidentsService,
+      );
 
       return {
+        controller,
         service,
         rankingRepository,
         incidentsService,
