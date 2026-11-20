@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -55,8 +56,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final spinState = _spinLogoKey.currentState;
     if (spinState != null) {
       await spinState.waitForSpinAndSettle(Future<void>.value());
+    } else {
+      await Future.delayed(const Duration(milliseconds: 3900));
     }
     if (!mounted) return;
+    if (ref.read(authProvider).value == true) {
+      ref.read(authProvider.notifier).markUnauthenticated();
+    }
     OtlobLoginEntranceCoordinator.markFromSplash();
     context.go('/login');
   }

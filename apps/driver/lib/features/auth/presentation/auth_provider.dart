@@ -98,6 +98,14 @@ class Auth extends _$Auth {
     }
   }
 
+  /// Synchronizes [Auth] to unauthenticated when [Splash] already cleared
+  /// a stale/expired session before navigating to `/login`.
+  void markUnauthenticated() {
+    if (state.value != false || state.isLoading || state.hasError) {
+      state = const AsyncValue.data(false);
+    }
+  }
+
   Future<void> login(String email, String password) async {
     state = const AsyncValue.loading();
     try {

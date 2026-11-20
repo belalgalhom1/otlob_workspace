@@ -26,13 +26,18 @@ class _FakeDriverAuthRepo extends Fake implements SharedAuthRepository {
   Future<bool> isLoggedIn() async => false;
 }
 
+class _FakeStaleDriverAuth extends Auth {
+  @override
+  AsyncValue<bool> build() => const AsyncValue.data(true);
+}
+
 void main() {
   tearDown(OtlobLoginEntranceCoordinator.reset);
 
   for (final themeMode in [ThemeMode.dark, ThemeMode.light]) {
     for (final locale in [const Locale('en'), const Locale('ar')]) {
       testWidgets(
-        'Driver Splash -> Spin -> Hero Transition -> Welcome Celebration inside Login (${locale.languageCode}, ${themeMode.name})',
+        'Driver Splash -> ~4s Spin -> Hero Transition -> Welcome Celebration & Confetti/Sparkles inside Login (${locale.languageCode}, ${themeMode.name})',
         (tester) async {
           final router = GoRouter(
             initialLocation: '/',
@@ -41,7 +46,9 @@ void main() {
               GoRoute(
                 path: '/login',
                 pageBuilder: (context, state) {
-                  if (OtlobLoginEntranceCoordinator.isPendingFromSplash) {
+                  if (OtlobLoginEntranceCoordinator.shouldUseTransitionForPage(
+                    state.pageKey,
+                  )) {
                     return CustomTransitionPage<void>(
                       key: state.pageKey,
                       transitionDuration:
@@ -97,7 +104,23 @@ void main() {
           await tester.pump();
           expect(find.byType(OtlobSplashSpinLogo), findsOneWidget);
 
-          // Complete splash spin + Hero flight + Welcome Celebration inside Login
+          // At 2 seconds, Splash must still be spinning and NOT yet navigated to Login.
+          await tester.pump(const Duration(seconds: 2));
+          expect(find.byType(OtlobSplashSpinLogo), findsOneWidget);
+          expect(find.byType(LoginScreen), findsNothing);
+
+          // Finish remaining ~1.9s spin + 800ms Hero transition -> enters Login.
+          await tester.pump(const Duration(milliseconds: 2100));
+          await tester.pump(const Duration(milliseconds: 900));
+          expect(find.byType(LoginScreen), findsOneWidget);
+
+          // Entrance (900ms) starts after Hero and triggers 10s confetti/sparkles at 0.72.
+          await tester.pump(const Duration(milliseconds: 900));
+          final overlayState = tester.state<OtlobLoginWelcomeOverlayState>(
+            find.byType(OtlobLoginWelcomeOverlay),
+          );
+          expect(overlayState.effectsController.isAnimating, isTrue);
+
           await tester.pumpAndSettle(const Duration(seconds: 1));
 
           expect(find.text('WELCOME TO OTLOB'), findsOneWidget);
@@ -134,4 +157,97 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'Driver Splash clears stale authProvider == true when unauthenticated so celebration still plays on Login',
+    (tester) async {
+      GoRouter? router;
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        router?.dispose();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            splashProvider.overrideWith(_FakeDriverSplash.new),
+            authProvider.overrideWith(_FakeStaleDriverAuth.new),
+            sharedAuthRepositoryProvider
+                .overrideWithValue(_FakeDriverAuthRepo()),
+          ],
+          child: Consumer(
+            builder: (context, ref, _) {
+              router ??= GoRouter(
+                initialLocation: '/',
+                redirect: (context, state) {
+                  final auth = ref.read(authProvider);
+                  final isAuthenticated =
+                      !auth.isLoading && auth.hasValue && auth.value == true;
+                  if (isAuthenticated && state.matchedLocation == '/login') {
+                    return '/dashboard';
+                  }
+                  return null;
+                },
+                routes: [
+                  GoRoute(path: '/', builder: (_, _) => const SplashScreen()),
+                  GoRoute(
+                    path: '/dashboard',
+                    builder: (_, _) => const Scaffold(body: Text('DASHBOARD')),
+                  ),
+                  GoRoute(
+                    path: '/login',
+                    pageBuilder: (context, state) {
+                      if (OtlobLoginEntranceCoordinator
+                          .shouldUseTransitionForPage(state.pageKey)) {
+                        return CustomTransitionPage<void>(
+                          key: state.pageKey,
+                          transitionDuration:
+                              OtlobSplashToLoginTransition.effectiveDuration(
+                            context,
+                          ),
+                          reverseTransitionDuration: Duration.zero,
+                          transitionsBuilder:
+                              OtlobSplashToLoginTransition.buildPageTransition,
+                          child: const LoginScreen(),
+                        );
+                      }
+                      return MaterialPage<void>(
+                        key: state.pageKey,
+                        child: const LoginScreen(),
+                      );
+                    },
+                  ),
+                ],
+              );
+              return MaterialApp.router(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('ar'),
+                theme: AppTheme.lightTheme,
+                darkTheme: AppTheme.darkTheme,
+                themeMode: ThemeMode.dark,
+                routerConfig: router!,
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 4100));
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 900));
+
+      final overlayState = tester.state<OtlobLoginWelcomeOverlayState>(
+        find.byType(OtlobLoginWelcomeOverlay),
+      );
+      expect(overlayState.effectsController.isAnimating, isTrue);
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+      expect(find.text('WELCOME TO OTLOB'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

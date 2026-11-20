@@ -46,7 +46,9 @@ void main() {
               GoRoute(
                 path: '/login',
                 pageBuilder: (context, state) {
-                  if (OtlobLoginEntranceCoordinator.isPendingFromSplash) {
+                  if (OtlobLoginEntranceCoordinator.shouldUseTransitionForPage(
+                    state.pageKey,
+                  )) {
                     return CustomTransitionPage<void>(
                       key: state.pageKey,
                       transitionDuration:
@@ -96,6 +98,21 @@ void main() {
 
           await tester.pump();
           expect(find.byType(OtlobSplashSpinLogo), findsOneWidget);
+
+          // At 2 seconds, Splash must still be spinning and NOT yet navigated to Login.
+          await tester.pump(const Duration(seconds: 2));
+          expect(find.byType(OtlobSplashSpinLogo), findsOneWidget);
+          expect(find.byType(LoginScreen), findsNothing);
+
+          await tester.pump(const Duration(milliseconds: 2100));
+          await tester.pump(const Duration(milliseconds: 900));
+          expect(find.byType(LoginScreen), findsOneWidget);
+
+          await tester.pump(const Duration(milliseconds: 900));
+          final overlayState = tester.state<OtlobLoginWelcomeOverlayState>(
+            find.byType(OtlobLoginWelcomeOverlay),
+          );
+          expect(overlayState.effectsController.isAnimating, isTrue);
 
           await tester.pumpAndSettle(const Duration(seconds: 1));
 
