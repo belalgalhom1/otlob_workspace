@@ -2,10 +2,6 @@ import {
   IsString,
   IsOptional,
   IsEnum,
-  IsNumber,
-  IsArray,
-  ArrayMinSize,
-  ArrayMaxSize,
   IsNotEmpty,
   IsInt,
   Min,
@@ -16,8 +12,13 @@ import {
   IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { DriverStatus, DriverBreakReason, VehicleType } from '@prisma/client';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  DriverStatus,
+  DriverBreakReason,
+  DriverTier,
+  VehicleType,
+} from '@prisma/client';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterDriverDto {
   @ApiProperty({ example: 'Ahmed Hassan' })
@@ -106,18 +107,6 @@ export class StartBreakDto {
   @IsOptional()
   @Type(() => Number)
   requestedMinutes?: number;
-}
-
-export class UpdateDriverLocationDto {
-  @ApiProperty({
-    example: [31.2357, 30.0444],
-    description: '[longitude, latitude]',
-  })
-  @IsArray()
-  @ArrayMinSize(2)
-  @ArrayMaxSize(2)
-  @IsNumber({}, { each: true })
-  location!: [number, number];
 }
 
 export class CreateDriverShiftDto {
@@ -239,10 +228,14 @@ export class AdminCreateDriverDto {
   @IsOptional()
   status?: DriverStatus;
 
-  @ApiProperty({ example: 'BRONZE', required: false })
-  @IsString()
+  @ApiPropertyOptional({
+    enum: DriverTier,
+    enumName: 'DriverTier',
+    default: DriverTier.SILVER,
+  })
+  @IsEnum(DriverTier)
   @IsOptional()
-  tier?: string;
+  tier?: DriverTier;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
@@ -291,6 +284,21 @@ export class AdminUpdateDriverDto {
   @IsEnum(DriverStatus)
   @IsOptional()
   status?: DriverStatus;
+
+  @ApiPropertyOptional({ enum: DriverTier, enumName: 'DriverTier' })
+  @IsEnum(DriverTier)
+  @IsOptional()
+  tier?: DriverTier;
+
+  @ApiPropertyOptional({
+    example: 'Manual adjustment after support escalation',
+    maxLength: 500,
+    description: 'Mandatory audit reason when changing tier',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  tierOverrideReason?: string;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()

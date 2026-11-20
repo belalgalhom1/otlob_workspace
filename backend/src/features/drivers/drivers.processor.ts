@@ -9,6 +9,7 @@ import { DriverShiftsService } from '../driver-shifts/driver-shifts.service';
 import { DriverBreaksService } from './driver-breaks.service';
 import { DriverShiftExecutionService } from './driver-shift-execution.service';
 import { DriverAssistService } from './driver-assist.service';
+import { DriverRankingService } from './ranking/driver-ranking.service';
 
 @Processor(QUEUES.DRIVERS, { concurrency: 10 })
 export class DriversProcessor extends WorkerHost implements OnModuleInit {
@@ -20,6 +21,7 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
     private readonly driverBreaksService: DriverBreaksService,
     private readonly driverShiftExecutionService: DriverShiftExecutionService,
     private readonly driverAssistService: DriverAssistService,
+    private readonly driverRankingService: DriverRankingService,
     @InjectQueue(QUEUES.DRIVERS) private readonly queue: Queue,
   ) {
     super();
@@ -55,6 +57,14 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
         jobId: CRON_JOBS.ASSIST_DECISION_TIMEOUT,
       },
     );
+    await this.queue.add(
+      CRON_JOBS.DRIVER_RANKING_EVALUATION,
+      {},
+      {
+        repeat: { pattern: '* * * * *' },
+        jobId: CRON_JOBS.DRIVER_RANKING_EVALUATION,
+      },
+    );
   }
 
   async process(job: Job): Promise<any> {
@@ -69,6 +79,8 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
         return this.driverBreaksService.autoEndExpiredBreaks();
       case CRON_JOBS.ASSIST_DECISION_TIMEOUT:
         return this.driverAssistService.autoDeclineExpiredAssistDecisions();
+      case CRON_JOBS.DRIVER_RANKING_EVALUATION:
+        return this.driverRankingService.checkAndRunScheduledEvaluation();
       default:
         this.logger.warn(`Unknown driver job: ${job.name}`);
     }
@@ -105,16 +117,21 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
           `🏁 Auto-completed ${shiftsToComplete.length} finished driver shifts`,
         );
 
-        // Force drivers offline — but never a driver who is still mid-delivery
-        // (their shift stays ACTIVE via endShiftBySystem and is completed on a
-        // later pass once they are free). Going OFFINE while carrying a live
-        // order would break the CANNOT_GO_OFFLINE_ON_DELIVERY invariant.
+        // Force drivers offline — but never a driver who is still mid-delivery,
+        // suspended, or already running another ACTIVE shift.
         await this.prisma.driver.updateMany({
           where: {
             id: { in: driverIds },
-            status: { not: DriverStatus.ON_DELIVERY },
+            status: {
+              notIn: [
+                DriverStatus.ON_DELIVERY,
+                DriverStatus.SUSPENDED,
+                DriverStatus.OFFLINE,
+              ],
+            },
+            shifts: { none: { status: DriverShiftStatus.ACTIVE } },
           },
-          data: { status: 'OFFLINE' },
+          data: { status: DriverStatus.OFFLINE },
         });
       }
     } catch (error) {

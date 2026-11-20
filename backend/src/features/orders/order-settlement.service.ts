@@ -297,20 +297,15 @@ export class OrderSettlementService {
       fee: number,
       routeKm: number,
       primaryTier: string,
-    ): number => {
-      const tierDifferencePerKm = goldBonus - tierBonusPerKm(primaryTier);
-      let result =
-        settings.driverShiftsEnabled &&
-        orderType === 'STANDARD' &&
-        tierDifferencePerKm > 0
-          ? Math.max(0, fee - tierDifferencePerKm * routeKm)
-          : fee;
-      // Bronze drivers take 2 less than the standard delivery fee.
-      if (primaryTier === 'BRONZE') {
-        result = Math.max(0, result - 2);
-      }
-      return result;
-    };
+    ): number =>
+      (
+        this.earnings.adjustPrimaryFeeForTier ??
+        OrderEarningsCalculator.prototype.adjustPrimaryFeeForTier
+      ).call(this.earnings, fee, settings, {
+        driverTier: primaryTier,
+        distanceKm: routeKm,
+        isStandardOrder: orderType === 'STANDARD',
+      });
 
     // 100% rule: assisting driver keeps their own full fee based on their own tier.
     const assistFeeFor = (
@@ -398,7 +393,7 @@ export class OrderSettlementService {
         });
 
         if (g.assistDriverId) {
-          const assistTier = tierById.get(g.assistDriverId) ?? 'GOLD';
+          const assistTier = tierById.get(g.assistDriverId) ?? 'SILVER';
           const assistAmount = assistFeeFor(
             primaryTier,
             assistTier,

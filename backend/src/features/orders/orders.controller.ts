@@ -533,7 +533,10 @@ export class OrdersController {
     @Body() dto?: CancelOrderDto,
   ) {
     const reason = dto?.reason?.trim() || '';
-    const order = await this.stateService.cancelOrder(actor, orderId, reason);
+    const order = await this.stateService.cancelOrder(actor, orderId, reason, {
+      responsibility: dto?.responsibility,
+      responsibleDriverId: dto?.responsibleDriverId,
+    });
     return this.ordersService.projectOrderForRole(order, actor);
   }
 

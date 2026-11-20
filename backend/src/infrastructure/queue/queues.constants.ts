@@ -52,6 +52,7 @@ export const CRON_JOBS = {
   BREAK_WATCHDOG: 'cron.break_watchdog',
   GEO_FRESHNESS_SWEEP: 'cron.geo_freshness_sweep',
   ASSIST_DECISION_TIMEOUT: 'cron.assist_decision_timeout',
+  DRIVER_RANKING_EVALUATION: 'cron.driver_ranking_evaluation',
 } as const;
 
 export const STATS_JOBS = {

@@ -145,6 +145,8 @@ model PlatformSetting {
   goldTierBonusPerKm                    Int       @default(0)
   highValueOrderThreshold               Int       @default(0)
   highValueUpfrontRate                  Int       @default(0)
+  driverRankingAutoEvalEnabled          Boolean   @default(true)
+  driverRankingEvalTime                 String    @default("00:05")
   updatedAt                             DateTime  @updatedAt @db.Timestamptz(3)
 
   @@map("platform_settings")
@@ -928,6 +930,7 @@ model Order {
   vendorFulfillments   OrderVendorFulfillment[]
   deliveryGroups       OrderDeliveryGroup[]
   assistRequests       DriverAssistRequest[]
+  deliveryIncidents    DriverDeliveryIncident[]
 
   @@index([customerId])
   @@index([zoneId])
@@ -1122,12 +1125,14 @@ model OrderDeliveryGroup {
   statusEvents                  OrderStatusEvent[]
   driverWalletTransactions      DriverWalletTransaction[]
   driverManagerWalletTransactions DriverManagerWalletTransaction[]
+  deliveryIncidents             DriverDeliveryIncident[]
 
   @@unique([orderId, sequence])
   @@index([orderId])
   @@index([orderId, status])
   @@index([primaryDriverId])
   @@index([primaryDriverId, status])
+  @@index([primaryDriverId, status, deliveredAt])
   @@index([assistDriverId, status])
   @@index([status])
   @@map("order_delivery_groups")
@@ -1224,6 +1229,8 @@ model Driver {
   assignedAssistRequests DriverAssistRequest[] @relation("AssistAssignedDriver")
   shiftWaitlist          ShiftPoolWaitlist[]
   managerAssignment DriverManagerAssignment?
+  rankHistory            DriverRankHistory[]
+  deliveryIncidents      DriverDeliveryIncident[]
   @@index([status])
   @@index([createdAt])
   @@index([deletedAt])
@@ -1250,6 +1257,10 @@ model DriverShift {
   expiredDispatches  Int                       @default(0)
   rejectedDispatches Int                       @default(0)
   warningSent        Boolean                   @default(false)
+  isExcused          Boolean                   @default(false)
+  excuseReason       String?
+  excusedByUserId    String?
+  excusedAt          DateTime?                 @db.Timestamptz(3)
   createdAt          DateTime                  @default(now()) @db.Timestamptz(3)
   driver             Driver                    @relation(fields: [driverId], references: [id], onDelete: Cascade)
   shiftPool          ShiftPool?                @relation(fields: [shiftPoolId], references: [id])
@@ -1264,6 +1275,7 @@ model DriverShift {
   @@index([shiftPoolId])
   @@index([zoneId])
   @@index([driverId, status])
+  @@index([driverId, startTime])
   @@index([shiftDate])
   @@index([status])
   @@index([startingLocation], type: Gist)
@@ -1459,6 +1471,7 @@ model OrderDispatch {
   @@index([status, expiresAt])
   @@index([createdAt])
   @@index([driverId, status])
+  @@index([driverId, createdAt])
   @@map("order_dispatches")
 }
 
@@ -1645,6 +1658,112 @@ enum DriverTier {
   BRONZE
   SILVER
   GOLD
+}
+
+enum DriverRankingRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum DriverRankingTriggerSource {
+  SCHEDULED
+  MANUAL
+}
+
+enum DriverRankChangeReason {
+  WEEKLY_EVALUATION
+  INACTIVE_DRIVER
+  ADMIN_OVERRIDE
+}
+
+enum DeliveryIncidentType {
+  ORDER_CANCELLED
+  DRIVER_REASSIGNED
+  DRIVER_UNASSIGNED
+  DELIVERY_FAILURE
+}
+
+enum DeliveryIncidentResponsibility {
+  DRIVER_AT_FAULT
+  CUSTOMER
+  VENDOR
+  EXTERNAL_OR_SYSTEM
+  UNDER_REVIEW
+}
+
+model DriverRankingEvaluationRun {
+  id                String                     @id @default(uuid())
+  periodKey         String                     @unique
+  status            DriverRankingRunStatus     @default(RUNNING)
+  triggerSource     DriverRankingTriggerSource @default(SCHEDULED)
+  triggeredByUserId String?
+  scheduledFor      DateTime                   @db.Timestamptz(3)
+  executedAt        DateTime?                  @db.Timestamptz(3)
+  periodStart       DateTime                   @db.Timestamptz(3)
+  periodEnd         DateTime                   @db.Timestamptz(3)
+  totalDrivers      Int                        @default(0)
+  promotedCount     Int                        @default(0)
+  demotedCount      Int                        @default(0)
+  unchangedCount    Int                        @default(0)
+  inactiveCount     Int                        @default(0)
+  errorMessage      String?
+  createdAt         DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime                   @updatedAt @db.Timestamptz(3)
+
+  entries DriverRankHistory[]
+
+  @@index([status, createdAt])
+  @@map("driver_ranking_evaluation_runs")
+}
+
+model DriverRankHistory {
+  id                    String                 @id @default(uuid())
+  driverId              String
+  runId                 String?
+  evaluatedAt           DateTime               @default(now()) @db.Timestamptz(3)
+  periodStart           DateTime?              @db.Timestamptz(3)
+  periodEnd             DateTime?              @db.Timestamptz(3)
+  performancePercentage Float?
+  metricsSnapshot       Json?
+  previousTier          DriverTier
+  newTier               DriverTier
+  changeReason          DriverRankChangeReason
+  adminUserId           String?
+  overrideReason        String?
+  createdAt             DateTime               @default(now()) @db.Timestamptz(3)
+
+  driver Driver                      @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  run    DriverRankingEvaluationRun? @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, driverId])
+  @@index([driverId, evaluatedAt])
+  @@map("driver_rank_history")
+}
+
+model DriverDeliveryIncident {
+  id               String                         @id @default(uuid())
+  orderId          String
+  deliveryGroupId  String
+  driverId         String
+  incidentType     DeliveryIncidentType
+  responsibility   DeliveryIncidentResponsibility
+  reason           String?
+  reportedByUserId String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?                      @db.Timestamptz(3)
+  reviewNote       String?
+  occurredAt       DateTime                       @default(now()) @db.Timestamptz(3)
+  createdAt        DateTime                       @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                       @updatedAt @db.Timestamptz(3)
+
+  order         Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveryGroup OrderDeliveryGroup @relation(fields: [deliveryGroupId], references: [id], onDelete: Cascade)
+  driver        Driver             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, occurredAt])
+  @@index([responsibility, occurredAt])
+  @@map("driver_delivery_incidents")
 }
 
 enum DriverManagerTransactionType {

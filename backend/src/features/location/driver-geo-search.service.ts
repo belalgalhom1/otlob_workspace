@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DriverStatus } from '@prisma/client';
+import { DriverStatus, DriverTier } from '@prisma/client';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from '../../common/orders/order-status.constants';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { LocationRepository } from './location.repository';
@@ -55,8 +55,9 @@ export class DriverGeoSearchService {
     );
     if (nearby.length === 0) return [];
 
+    const excludedSet = new Set(excludedDriverIds);
     const candidateIds = nearby
-      .filter((n) => !excludedDriverIds.includes(n.member))
+      .filter((n) => !excludedSet.has(n.member))
       .map((n) => n.member);
     if (candidateIds.length === 0) return [];
 
@@ -118,7 +119,7 @@ export class DriverGeoSearchService {
     const results: NearbyDriverMatch[] = rows.map((r) => ({
       id: r.id,
       userId: r.userId,
-      tier: r.tier ?? 'GOLD',
+      tier: r.tier ?? DriverTier.SILVER,
       distanceKm: distanceMap.get(r.id) ?? 0,
       activeShiftId: r.activeShiftId ?? null,
       isOnDelivery: Boolean(r.isOnDelivery),
@@ -138,7 +139,7 @@ export class DriverGeoSearchService {
     const valid = await this.locationRepository.findEligibleGeoPoolDriverIds(
       members,
       GEO_POOL_ACTIVE_DRIVER_STATUSES,
-      { chunkSize: 500 },
+      { chunkSize: 500, requireApproved: true },
     );
 
     const stale = members.filter((id) => !valid.has(id));

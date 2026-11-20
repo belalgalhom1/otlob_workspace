@@ -27,6 +27,8 @@ export const EVENTS = {
   DRIVER_LOCATION_UPDATED: 'driver.location.updated',
   DRIVER_STATUS_CHANGED: 'driver.status.changed',
   DRIVER_BREAK_DECIDED: 'driver.break.decided',
+  DRIVER_RANK_UPDATED: 'driver.rank.updated',
+  DRIVER_RANK_EVALUATION_FAILED: 'driver.rank.evaluation.failed',
   SHIFT_REMINDER: 'shift.reminder',
   SHIFT_MISSED: 'shift.missed',
   SHIFT_SWAP_CANCELLED: 'shift.swap.cancelled',

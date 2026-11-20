@@ -14,6 +14,8 @@ import {
 } from '../../common/constants/response.constants';
 import {
   DeliveryGroupStatus,
+  DeliveryIncidentResponsibility,
+  DeliveryIncidentType,
   DispatchStatus,
   DriverStatus,
   OrderStatus,
@@ -516,7 +518,16 @@ export class OrdersRepository {
     customerId: string,
     orderNumber: string,
     driverIds: string[],
-    actorMeta?: { actor?: OrderActorSnapshot | null; vendorId?: string | null },
+    actorMeta?: {
+      actor?: OrderActorSnapshot | null;
+      vendorId?: string | null;
+      driverIncidents?: Array<{
+        deliveryGroupId: string;
+        driverId: string;
+        responsibility: DeliveryIncidentResponsibility;
+        reason?: string | null;
+      }>;
+    },
   ) {
     const cleanReason = sanitizeCancelReason(reason);
     const actorSnapshot =
@@ -628,6 +639,22 @@ export class OrdersRepository {
       // vendor portions that were still live. Without this a cancelled order
       // left live groups behind: their drivers stayed ON_DELIVERY and the
       // dispatch handoff could still fan out for a cancelled order.
+      if (actorMeta?.driverIncidents && actorMeta.driverIncidents.length > 0) {
+        await tx.driverDeliveryIncident.createMany({
+          data: actorMeta.driverIncidents.map((inc) => ({
+            orderId,
+            deliveryGroupId: inc.deliveryGroupId,
+            driverId: inc.driverId,
+            incidentType: DeliveryIncidentType.ORDER_CANCELLED,
+            responsibility: inc.responsibility,
+            reason: inc.reason ?? cleanReason ?? null,
+            reportedByUserId:
+              actorUserId && actorUserId !== 'system' ? actorUserId : null,
+            occurredAt: cancelledAt,
+          })),
+        });
+      }
+
       await tx.orderDeliveryGroup.updateMany({
         where: {
           orderId,
@@ -855,6 +882,10 @@ export class OrdersRepository {
     nextStatus: OrderStatus = OrderStatus.DRIVER_ASSIGNED,
     maxActiveOrders: number = 1,
     deliveryGroupId?: string,
+    reassignMeta?: {
+      previousDriverResponsibility?: DeliveryIncidentResponsibility;
+      reassignmentReason?: string | null;
+    },
   ) {
     // Revision written by THIS assignment. Captured inside the transaction so
     // the event carries the value this call produced even when another
@@ -915,6 +946,21 @@ export class OrdersRepository {
         targetGroup.primaryDriverId !== driverId
       ) {
         const prevId = targetGroup.primaryDriverId;
+        await tx.driverDeliveryIncident.create({
+          data: {
+            orderId,
+            deliveryGroupId: targetGroup.id,
+            driverId: prevId,
+            incidentType: DeliveryIncidentType.DRIVER_REASSIGNED,
+            responsibility:
+              reassignMeta?.previousDriverResponsibility ??
+              DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM,
+            reason: reassignMeta?.reassignmentReason?.trim() || null,
+            reportedByUserId:
+              actorUserId && actorUserId !== 'system' ? actorUserId : null,
+            occurredAt: new Date(),
+          },
+        });
         const hasSiblingActiveInOrder = activeGroups.some(
           (g) =>
             g.id !== targetGroup.id &&

@@ -175,3 +175,198 @@ export function parseDateEnd(value: string, tz = appTimeZone()): Date {
   if (!ymd) return new Date(value);
   return tzDayEnd(ymd.year, ymd.month, ymd.day, tz);
 }
+
+export interface CairoWeekBounds {
+  periodKey: string;
+  monday: TzYmd;
+  sunday: TzYmd;
+  periodStart: Date;
+  periodEnd: Date;
+}
+
+/** Shifts a zoned calendar date by `deltaDays` without local-timezone drift. */
+export function addCalendarDays(
+  ymd: Pick<TzYmd, 'year' | 'month' | 'day'>,
+  deltaDays: number,
+): TzYmd {
+  const dt = new Date(Date.UTC(ymd.year, ymd.month - 1, ymd.day + deltaDays));
+  return {
+    year: dt.getUTCFullYear(),
+    month: dt.getUTCMonth() + 1,
+    day: dt.getUTCDate(),
+    weekday: dt.getUTCDay(),
+  };
+}
+
+/** Parses an `"HH:mm"` wall-clock string; falls back to `00:05` if blank/invalid. */
+export function parseEvalTimeHhMm(value?: string | null): {
+  hour: number;
+  minute: number;
+} {
+  const trimmed = (value ?? '').trim();
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(trimmed);
+  if (!m) return { hour: 0, minute: 5 };
+  return { hour: Number(m[1]), minute: Number(m[2]) };
+}
+
+/** Normalizes an `"HH:mm"` evaluation time string using `parseEvalTimeHhMm`. */
+export function formatEvalTimeHhMm(value?: string | null): string {
+  const { hour, minute } = parseEvalTimeHhMm(value);
+  return `${pad(hour)}:${pad(minute)}`;
+}
+
+/** Standard ISO-8601 week key (`YYYY-Www`) from the week's Monday calendar date. */
+export function isoWeekKeyFromMonday(
+  monday: Pick<TzYmd, 'year' | 'month' | 'day'>,
+): string {
+  const thursday = addCalendarDays(monday, 3);
+  const isoYear = thursday.year;
+  const jan4Utc = Date.UTC(isoYear, 0, 4);
+  const jan4MonZeroDay = (new Date(jan4Utc).getUTCDay() + 6) % 7;
+  const week1MondayUtc = jan4Utc - jan4MonZeroDay * 86_400_000;
+  const mondayUtc = Date.UTC(monday.year, monday.month - 1, monday.day);
+  const weekNo = Math.round((mondayUtc - week1MondayUtc) / (7 * 86_400_000)) + 1;
+  return `${isoYear}-W${pad(weekNo)}`;
+}
+
+/**
+ * Returns the Monday 00:00:00.000 -> Sunday 23:59:59.999 week bounds and
+ * ISO-8601 periodKey in `tz` for the calendar week containing `instant`.
+ */
+export function getCairoWeekBounds(
+  instant: Date,
+  tz = appTimeZone(),
+): CairoWeekBounds {
+  const p = tzParts(instant, tz);
+  const diffToMonday = p.weekday === 0 ? -6 : 1 - p.weekday;
+  const monday = addCalendarDays(p, diffToMonday);
+  const sunday = addCalendarDays(monday, 6);
+  return {
+    periodKey: isoWeekKeyFromMonday(monday),
+    monday,
+    sunday,
+    periodStart: tzDayStart(monday.year, monday.month, monday.day, tz),
+    periodEnd: tzDayEnd(sunday.year, sunday.month, sunday.day, tz),
+  };
+}
+
+/**
+ * Returns the previous completed Monday->Sunday calendar week relative to `now`
+ * in `tz`. Never returns the active in-progress week.
+ */
+export function getPreviousCompletedCairoWeek(
+  now: Date,
+  tz = appTimeZone(),
+): CairoWeekBounds {
+  const currentWeek = getCairoWeekBounds(now, tz);
+  const monday = addCalendarDays(currentWeek.monday, -7);
+  const sunday = addCalendarDays(monday, 6);
+  return {
+    periodKey: isoWeekKeyFromMonday(monday),
+    monday,
+    sunday,
+    periodStart: tzDayStart(monday.year, monday.month, monday.day, tz),
+    periodEnd: tzDayEnd(sunday.year, sunday.month, sunday.day, tz),
+  };
+}
+
+/**
+ * Scheduled evaluation instant for `getPreviousCompletedCairoWeek(now)`:
+ * Monday of the current week at `hhMm` in `tz`.
+ */
+export function getScheduledEvaluationUtcForCompletedWeek(
+  now: Date,
+  hhMm?: string | null,
+  tz = appTimeZone(),
+): Date {
+  const currentWeek = getCairoWeekBounds(now, tz);
+  const { hour, minute } = parseEvalTimeHhMm(hhMm);
+  return wallToUtc(
+    currentWeek.monday.year,
+    currentWeek.monday.month,
+    currentWeek.monday.day,
+    hour,
+    minute,
+    tz,
+  );
+}
+
+/**
+ * Computes the next scheduled weekly evaluation timestamp in UTC.
+ * Only schedules on Mondays (either today if today is Monday in `tz` and the
+ * previous completed week has not been evaluated yet and either evalTime is still
+ * ahead or auto-eval is enabled, otherwise next Monday). Never returns a past
+ * timestamp on Tuesday-Sunday.
+ */
+export function getNextScheduledEvaluationUtc(
+  now: Date,
+  hhMm?: string | null,
+  previousWeekAlreadyEvaluated = false,
+  tz = appTimeZone(),
+  autoEvalEnabled = true,
+): Date {
+  const currentWeek = getCairoWeekBounds(now, tz);
+  const { hour, minute } = parseEvalTimeHhMm(hhMm);
+  const thisMondayAt = wallToUtc(
+    currentWeek.monday.year,
+    currentWeek.monday.month,
+    currentWeek.monday.day,
+    hour,
+    minute,
+    tz,
+  );
+  const nowParts = tzParts(now, tz);
+  const isMonday = nowParts.weekday === 1;
+  if (
+    !previousWeekAlreadyEvaluated &&
+    isMonday &&
+    (now.getTime() < thisMondayAt.getTime() || autoEvalEnabled)
+  ) {
+    return thisMondayAt;
+  }
+
+  const nextMonday = addCalendarDays(currentWeek.monday, 7);
+  return wallToUtc(
+    nextMonday.year,
+    nextMonday.month,
+    nextMonday.day,
+    hour,
+    minute,
+    tz,
+  );
+}
+
+/**
+ * Parses a YYYY-MM-DD (or ISO timestamp) string into a UTC-midnight Date
+ * matching `@db.Date` columns without server-local timezone drift.
+ */
+export function parseUtcDateOnly(dateInput: string): Date {
+  const ymdPart = dateInput.trim().slice(0, 10);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymdPart);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  }
+  const parsed = new Date(dateInput);
+  return new Date(
+    Date.UTC(
+      parsed.getUTCFullYear(),
+      parsed.getUTCMonth(),
+      parsed.getUTCDate(),
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
+}
+
+/**
+ * Returns 23:59:59.999 UTC for the given YYYY-MM-DD (or ISO timestamp) string.
+ */
+export function endOfUtcDateOnly(dateInput: string): Date {
+  const start = parseUtcDateOnly(dateInput);
+  return new Date(start.getTime() + 86_400_000 - 1);
+}

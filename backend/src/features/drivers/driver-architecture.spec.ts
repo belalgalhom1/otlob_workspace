@@ -32,6 +32,7 @@ import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
 import { DriverAssistMatchingService } from './driver-assist-matching.service';
 import { DriverAssistService } from './driver-assist.service';
 import { DriverBreaksService } from './driver-breaks.service';
+import { DriverManagersService } from './driver-managers.service';
 import { DriverShiftExecutionService } from './driver-shift-execution.service';
 
 describe('Drivers & Assist Clean Architecture', () => {
@@ -523,7 +524,7 @@ describe('Drivers & Assist Clean Architecture', () => {
       expect(h.driverBreaksService.finishBreak).not.toHaveBeenCalled();
     });
 
-    it('finalizes idle shift in endShiftBySystem, closes breaks, sets OFFLINE, and promotes tier on 0 rejected/expired', async () => {
+    it('finalizes idle shift in endShiftBySystem, closes breaks, sets OFFLINE, and leaves tier unchanged until weekly evaluation', async () => {
       const h = makeShiftHarness({
         status: DriverStatus.ONLINE,
         tier: 'BRONZE',
@@ -551,9 +552,7 @@ describe('Drivers & Assist Clean Architecture', () => {
       expect(h.driverTracking.removeDriverLocation).toHaveBeenCalledWith(
         'drv-1',
       );
-      expect(h.driversRepository.update).toHaveBeenCalledWith('drv-1', {
-        tier: 'SILVER',
-      });
+      expect(h.driversRepository.update).not.toHaveBeenCalled();
       expect(h.eventEmit).toHaveBeenCalledWith(
         EVENTS.DRIVER_STATUS_CHANGED,
         expect.objectContaining({
@@ -563,6 +562,79 @@ describe('Drivers & Assist Clean Architecture', () => {
           reason: 'Shift ended by system.',
         }),
       );
+    });
+
+    it('preserves SUSPENDED driver status when endShiftBySystem closes an expired shift and maps ACTIVE_SHIFT_EXISTS to 400 in startShift', async () => {
+      const h = makeShiftHarness({ status: DriverStatus.SUSPENDED });
+
+      const updated = await h.service.endShiftBySystem('drv-1', 'shift-1');
+      expect(updated?.status).toBe(DriverShiftStatus.COMPLETED);
+      expect(h.driversRepository.updateStatus).not.toHaveBeenCalled();
+
+      const deleteUploaded = jest.fn().mockResolvedValue(undefined);
+      const startRepo: any = {
+        findByUserId: jest.fn().mockResolvedValue({
+          id: 'drv-1',
+          userId: 'drv-user-1',
+          status: DriverStatus.OFFLINE,
+          isApproved: true,
+        }),
+        findShiftById: jest.fn().mockResolvedValue({
+          id: 'shift-sched',
+          driverId: 'drv-1',
+          status: DriverShiftStatus.SCHEDULED,
+          startTime: new Date(Date.now() - 60_000),
+          endTime: new Date(Date.now() + 3600_000),
+          zoneId: null,
+        }),
+        startShiftSafely: jest
+          .fn()
+          .mockRejectedValue(new Error(DriverErrors.ACTIVE_SHIFT_EXISTS)),
+      };
+      const execService = new DriverShiftExecutionService(
+        startRepo,
+        {
+          upload: jest.fn().mockResolvedValue('https://cdn/start.jpg'),
+          delete: deleteUploaded,
+        } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        { emit: jest.fn() } as any,
+      );
+
+      await expect(
+        execService.startShift(
+          'drv-user-1',
+          'shift-sched',
+          { buffer: Buffer.from('img') } as any,
+        ),
+      ).rejects.toThrow(
+        new BadRequestException(DriverErrors.ACTIVE_SHIFT_EXISTS),
+      );
+      expect(deleteUploaded).toHaveBeenCalledWith('https://cdn/start.jpg');
+    });
+
+    it('DriverManagersService.assertManagesDriver authorizes in O(1) without scanning all drivers', async () => {
+      const driverFindMany = jest.fn();
+      const prisma: any = {
+        driverManager: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'mgr-1',
+            walletBalance: 0,
+            manageAllDrivers: true,
+          }),
+        },
+        driver: {
+          findMany: driverFindMany,
+        },
+      };
+      const managersSvc = new DriverManagersService(prisma);
+
+      await expect(
+        managersSvc.assertManagesDriver('mgr-user-1', 'drv-any'),
+      ).resolves.toBe(true);
+      expect(driverFindMany).not.toHaveBeenCalled();
     });
   });
 

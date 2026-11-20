@@ -4,23 +4,38 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { DriverStatus, Role } from '@prisma/client';
+import {
+  DriverRankChangeReason,
+  DriverStatus,
+  DriverTier,
+  Role,
+} from '@prisma/client';
 import { DriverErrors } from 'src/common/constants/response.constants';
 import {
   AuditLogCreatedEvent,
+  DriverRankUpdatedEvent,
   DriverStatusChangedEvent,
 } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { ensureDriverManagerRecord } from '../../common/drivers/driver-manager-auth.helper';
+import { createScheduledDriverShift } from '../../common/drivers/driver-shift.helper';
 import { DriverTrackingService } from '../location/driver-tracking.service';
 import { DriverBreaksService } from './driver-breaks.service';
 import { requireDriverById } from './driver-lookup.helper';
 import { DriverManagersService } from './driver-managers.service';
 import { DriversRepository } from './drivers.repository';
-import { CreateDriverShiftDto, QueryDriversDto } from './dto/driver.dto';
+import {
+  AdminCreateDriverDto,
+  AdminUpdateDriverDto,
+  CreateDriverShiftDto,
+  QueryDriversDto,
+} from './dto/driver.dto';
+import { DriverRankingRepository } from './ranking/driver-ranking.repository';
 
 @Injectable()
 export class DriverAdminService {
@@ -33,9 +48,15 @@ export class DriverAdminService {
     private readonly driverTracking: DriverTrackingService,
     private readonly driverBreaksService: DriverBreaksService,
     private readonly eventEmitter: EventEmitter2,
+    @Optional()
+    private readonly driverRankingRepository?: DriverRankingRepository,
   ) {}
 
-  async adminCreateDriver(userId: string, adminId: string, dto: any) {
+  async adminCreateDriver(
+    userId: string,
+    adminId: string,
+    dto: AdminCreateDriverDto,
+  ) {
     const existing = await this.driversRepository.findByUserId(userId);
     if (existing) throw new ConflictException(DriverErrors.PROFILE_EXISTS);
 
@@ -51,7 +72,7 @@ export class DriverAdminService {
     if (dto.status || dto.tier || dto.isApproved !== undefined) {
       const updateData: any = {
         status: dto.status ?? DriverStatus.OFFLINE,
-        tier: dto.tier ?? 'SILVER',
+        tier: dto.tier ?? DriverTier.SILVER,
       };
 
       if (dto.isApproved !== undefined) {
@@ -83,7 +104,11 @@ export class DriverAdminService {
     return this.driversRepository.findById(driver.id);
   }
 
-  async adminUpdateDriver(driverId: string, adminId: string, dto: any) {
+  async adminUpdateDriver(
+    driverId: string,
+    adminId: string,
+    dto: AdminUpdateDriverDto,
+  ) {
     const driver = await requireDriverById(this.driversRepository, driverId);
 
     const actor = await this.prisma.user.findUnique({
@@ -94,21 +119,29 @@ export class DriverAdminService {
       await this.driverManagersService.assertManagesDriver(adminId, driverId);
     }
 
+    if (dto.status === DriverStatus.ON_BREAK) {
+      throw new BadRequestException(DriverErrors.BREAK_USE_ENDPOINTS);
+    }
+
+    const requestedTier = dto.tier;
+    const tierChangeRequested =
+      requestedTier !== undefined && requestedTier !== driver.tier;
+    const overrideReason =
+      typeof dto.tierOverrideReason === 'string'
+        ? dto.tierOverrideReason.trim()
+        : '';
+
+    // Validate before mutating breaks or manager assignments so failures cause zero partial side effects.
+    if (tierChangeRequested && !overrideReason) {
+      throw new BadRequestException(DriverErrors.RANK_OVERRIDE_REASON_REQUIRED);
+    }
+
     const oldValues = { ...driver };
 
-    if (dto.status !== undefined) {
-      if (dto.status === DriverStatus.ON_BREAK) {
-        throw new BadRequestException(DriverErrors.BREAK_USE_ENDPOINTS);
-      }
-      if (
-        driver.status === DriverStatus.ON_BREAK &&
-        dto.status !== DriverStatus.ON_BREAK
-      ) {
-        const openBreak =
-          await this.driversRepository.findActiveBreak(driverId);
-        if (openBreak) {
-          await this.driverBreaksService.finishBreak(openBreak.id, false);
-        }
+    if (dto.status !== undefined && driver.status === DriverStatus.ON_BREAK) {
+      const openBreak = await this.driversRepository.findActiveBreak(driverId);
+      if (openBreak) {
+        await this.driverBreaksService.finishBreak(openBreak.id, false);
       }
     }
 
@@ -123,7 +156,7 @@ export class DriverAdminService {
       updateData.vehiclePlate = dto.vehiclePlate;
     }
     if (dto.status !== undefined) updateData.status = dto.status;
-    if (dto.tier !== undefined) updateData.tier = dto.tier;
+
     if (dto.isApproved !== undefined) {
       updateData.isApproved = dto.isApproved;
       if (dto.isApproved) {
@@ -154,7 +187,48 @@ export class DriverAdminService {
       }
     }
 
-    await this.driversRepository.update(driverId, updateData);
+    let appliedPreviousTier: DriverTier = driver.tier;
+    let appliedTierChange = false;
+
+    if (tierChangeRequested && requestedTier) {
+      const rankingRepo =
+        this.driverRankingRepository ?? new DriverRankingRepository(this.prisma);
+      const overrideResult = await this.prisma.$transaction((tx) =>
+        rankingRepo.applyManualTierOverrideInTx(tx, {
+          driverId,
+          newTier: requestedTier,
+          adminUserId: adminId,
+          reason: overrideReason,
+          extraDriverUpdateData: updateData,
+          fallbackDriver: {
+            id: driver.id,
+            userId: driver.userId,
+            tier: driver.tier,
+          },
+        }),
+      );
+
+      appliedPreviousTier = overrideResult.previousTier;
+      appliedTierChange = overrideResult.tierChanged;
+
+      if (appliedTierChange) {
+        this.eventEmitter.emit(
+          EVENTS.DRIVER_RANK_UPDATED,
+          new DriverRankUpdatedEvent(
+            driverId,
+            driver.userId,
+            appliedPreviousTier,
+            requestedTier,
+            null,
+            null,
+            DriverRankChangeReason.ADMIN_OVERRIDE,
+            overrideReason,
+          ),
+        );
+      }
+    } else {
+      await this.driversRepository.update(driverId, updateData);
+    }
 
     this.logAdminAction(
       adminId,
@@ -162,7 +236,9 @@ export class DriverAdminService {
       'Driver',
       driverId,
       oldValues,
-      updateData,
+      appliedTierChange
+        ? { ...updateData, tier: requestedTier, overrideReason }
+        : updateData,
     );
 
     this.logger.log(`Admin ${adminId} updated driver ${driverId}`);
@@ -324,27 +400,7 @@ export class DriverAdminService {
   ) {
     await this.assertManagedIfManager(driverId, actor);
     const driver = await requireDriverById(this.driversRepository, driverId);
-
-    const startTime = new Date(dto.startTime);
-    const endTime = new Date(dto.endTime);
-
-    if (endTime <= startTime) {
-      throw new BadRequestException(DriverErrors.END_TIME_BEFORE_START);
-    }
-
-    const overlap = await this.driversRepository.findOverlappingShift(
-      driver.id,
-      startTime,
-      endTime,
-    );
-    if (overlap) throw new ConflictException(DriverErrors.SHIFT_OVERLAPS);
-
-    return this.driversRepository.createShift({
-      driverId: driver.id,
-      zoneId: dto.zoneId ?? null,
-      startTime,
-      endTime,
-    });
+    return createScheduledDriverShift(this.driversRepository, driver.id, dto);
   }
 
   async adminGetShifts(driverId: string, actor?: JwtAccessPayload) {
@@ -369,21 +425,7 @@ export class DriverAdminService {
   }
 
   private async ensureManagerRecord(managerUserId: string) {
-    let dm = await this.prisma.driverManager.findUnique({
-      where: { userId: managerUserId },
-    });
-    if (!dm) {
-      const dmUser = await this.prisma.user.findUnique({
-        where: { id: managerUserId },
-        select: { role: true },
-      });
-      if (dmUser?.role === Role.DRIVER_MANAGER) {
-        dm = await this.prisma.driverManager.create({
-          data: { userId: managerUserId },
-        });
-      }
-    }
-    return dm;
+    return ensureDriverManagerRecord(this.prisma, managerUserId);
   }
 
   private logAdminAction(

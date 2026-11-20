@@ -890,6 +890,29 @@ export class DeliveryGroupTransitionService {
         await stock.restoreForItems(tx, itemsToRestore);
       }
 
+      if (
+        group.primaryDriverId &&
+        typeof tx.driverDeliveryIncident?.create === 'function'
+      ) {
+        const isCustomerDecline = reason
+          .toLowerCase()
+          .includes('customer declined');
+        await tx.driverDeliveryIncident.create({
+          data: {
+            orderId,
+            deliveryGroupId,
+            driverId: group.primaryDriverId,
+            incidentType: 'DELIVERY_FAILURE',
+            responsibility: isCustomerDecline
+              ? 'CUSTOMER'
+              : 'EXTERNAL_OR_SYSTEM',
+            reason,
+            reportedByUserId: null,
+            occurredAt: new Date(),
+          },
+        });
+      }
+
       await recordOrderStatusEventIdempotent(tx, {
         orderId,
         deliveryGroupId,

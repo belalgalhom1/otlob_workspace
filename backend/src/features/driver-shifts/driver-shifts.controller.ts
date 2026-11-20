@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
   Delete,
+  Patch,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { DriverShiftsService } from './driver-shifts.service';
@@ -17,6 +18,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { Role, Permission } from '@prisma/client';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
+import { DriverShiftResponseDto } from '../../common/dto/response-models.dto';
 
 import {
   GenerateShiftPoolsDto,
@@ -28,6 +30,7 @@ import {
   AdminBulkRemoveShiftsDto,
   AdminBookWeeklyShiftsDto,
   JoinWaitlistDto,
+  ExcuseDriverShiftDto,
 } from './dto/driver-shifts.dto';
 
 @ApiTags('Driver Shifts')
@@ -134,6 +137,22 @@ export class DriverShiftsController {
     @Param('shiftId') shiftId: string,
   ) {
     return this.shiftsService.removeDriverFromShift(shiftId, actor);
+  }
+
+  @ApiStandardResponse(DriverShiftResponseDto)
+  @Patch('admin/shifts/:shiftId/excuse')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermissions(Permission.MANAGE_DRIVERS)
+  @ApiOperation({
+    summary:
+      '[Admin] Mark or unmark a driver shift as excused for weekly ranking',
+  })
+  excuseShift(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('shiftId') shiftId: string,
+    @Body() dto: ExcuseDriverShiftDto,
+  ) {
+    return this.shiftsService.excuseShift(shiftId, actor, dto);
   }
 
   @ApiStandardResponse()

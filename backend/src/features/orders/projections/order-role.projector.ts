@@ -302,6 +302,11 @@ export class OrderRoleProjector {
                 isStacked: isGroupStacked,
                 isMultiVendor,
                 driverTier: myDriver?.tier,
+                distanceKm:
+                  g.distanceKm != null
+                    ? Number(g.distanceKm)
+                    : Number(order.distanceKm ?? 0),
+                isStandardOrder: order.type === 'STANDARD',
               })
             );
           }, 0);
@@ -554,6 +559,8 @@ export class OrderRoleProjector {
         isStacked: projectedIsStacked,
         isMultiVendor,
         driverTier: myDriver?.tier,
+        distanceKm: Number(order.distanceKm ?? 0),
+        isStandardOrder: order.type === 'STANDARD',
       });
 
     const normalizedScopedItems = Array.isArray(scopedItems)
@@ -1201,6 +1208,11 @@ export class OrderRoleProjector {
                 isStacked: Boolean(g.isStacked),
                 isMultiVendor,
                 driverTier: g.primaryDriver?.tier ?? order.driver?.tier,
+                distanceKm:
+                  g.distanceKm != null
+                    ? Number(g.distanceKm)
+                    : Number(order.distanceKm ?? 0),
+                isStandardOrder: order.type === 'STANDARD',
               })
             );
           }, 0)
@@ -1208,6 +1220,8 @@ export class OrderRoleProjector {
             isStacked: Boolean(order.isStacked),
             isMultiVendor: false,
             driverTier: order.driver?.tier,
+            distanceKm: Number(order.distanceKm ?? 0),
+            isStandardOrder: order.type === 'STANDARD',
           });
 
     const isMultiVendorOrder = Boolean(

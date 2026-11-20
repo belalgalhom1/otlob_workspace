@@ -358,17 +358,19 @@ export class DriverAssistMatchingService {
         isApproved: true,
         deletedAt: null,
         hasUnpaidCommission: false,
-        NOT: { id: primaryDriverId ?? undefined },
+        ...(primaryDriverId ? { NOT: { id: primaryDriverId } } : {}),
       },
       select: { id: true },
     });
+    if (candidates.length === 0) return [];
+    const candidateIds = candidates.map((c) => c.id);
 
     const busyGroupDrivers = await this.prisma.orderDeliveryGroup.findMany({
       where: {
         id: { not: request.deliveryGroupId },
         OR: [
-          { primaryDriverId: { not: null } },
-          { assistDriverId: { not: null } },
+          { primaryDriverId: { in: candidateIds } },
+          { assistDriverId: { in: candidateIds } },
         ],
         status: {
           notIn: [DeliveryGroupStatus.DELIVERED, DeliveryGroupStatus.CANCELLED],
@@ -382,23 +384,42 @@ export class DriverAssistMatchingService {
       if (g.assistDriverId) busyIds.add(g.assistDriverId);
     }
 
-    const locations = await this.fetchDriverLocations(
-      candidates.map((c) => c.id),
-    );
+    const freeCandidateIds = candidateIds.filter((id) => !busyIds.has(id));
+    if (freeCandidateIds.length === 0) return [];
+
+    let activeShiftDriverIds: Set<string> | null = null;
+    if (
+      settings.driverShiftsEnabled &&
+      typeof this.prisma.driverShift?.findMany === 'function'
+    ) {
+      const activeShifts = await this.prisma.driverShift.findMany({
+        where: {
+          driverId: { in: freeCandidateIds },
+          status: DriverShiftStatus.ACTIVE,
+        },
+        select: { driverId: true },
+      });
+      activeShiftDriverIds = new Set(activeShifts.map((s) => s.driverId));
+    }
+
+    const locations = await this.fetchDriverLocations(freeCandidateIds);
     const eligible: { id: string; distance: number }[] = [];
-    for (const c of candidates) {
-      if (busyIds.has(c.id)) continue;
-      const ll = locations.get(c.id);
+    for (const candidateId of freeCandidateIds) {
+      const ll = locations.get(candidateId);
       if (!ll) continue;
       const dist = haversineKm({ lng: ll.lng, lat: ll.lat }, { lng, lat });
       if (settings.driverShiftsEnabled) {
-        const shift = await this.prisma.driverShift.findFirst({
-          where: { driverId: c.id, status: DriverShiftStatus.ACTIVE },
-          select: { id: true },
-        });
-        if (!shift) continue;
+        if (activeShiftDriverIds !== null) {
+          if (!activeShiftDriverIds.has(candidateId)) continue;
+        } else {
+          const shift = await this.prisma.driverShift.findFirst({
+            where: { driverId: candidateId, status: DriverShiftStatus.ACTIVE },
+            select: { id: true },
+          });
+          if (!shift) continue;
+        }
       }
-      eligible.push({ id: c.id, distance: dist });
+      eligible.push({ id: candidateId, distance: dist });
     }
     eligible.sort((a, b) => a.distance - b.distance);
     return eligible.slice(0, limit).map((e) => e.id);
@@ -407,8 +428,13 @@ export class DriverAssistMatchingService {
   private async fetchDriverLocations(
     driverIds: string[],
   ): Promise<Map<string, { lng: number; lat: number }>> {
+    if (driverIds.length === 0) return new Map();
+    if (
+      typeof this.locationRepository?.getPersistedDriverLocations === 'function'
+    ) {
+      return this.locationRepository.getPersistedDriverLocations(driverIds);
+    }
     const map = new Map<string, { lng: number; lat: number }>();
-    if (driverIds.length === 0) return map;
     const rows = await this.prisma.$queryRaw<
       Array<{ id: string; lng: number; lat: number }>
     >`

@@ -39,7 +39,7 @@ export class DriverBreaksService {
 
   async startBreak(userId: string, dto?: StartBreakDto) {
     const driver = await requireDriverByUserId(this.driversRepository, userId);
-    const fresh = await this.assertCanBreak(driver.id);
+    const fresh = await this.assertCanBreak(driver);
 
     const pendingBreak = await this.driversRepository.findPendingBreak(
       fresh.id,
@@ -121,7 +121,7 @@ export class DriverBreaksService {
       throw new BadRequestException(DriverErrors.BREAKS_DISABLED);
     }
 
-    const fresh = await this.assertCanBreak(driver.id);
+    const fresh = await this.assertCanBreak(driver);
     const approved = await this.activateApprovedBreak({
       driver,
       breakId,
@@ -176,8 +176,12 @@ export class DriverBreaksService {
     return rejected;
   }
 
-  async getPendingBreaks() {
-    return this.driversRepository.findPendingBreaks();
+  async getPendingBreaks(actor?: JwtAccessPayload) {
+    const scopedDriverIds =
+      actor?.role === Role.DRIVER_MANAGER
+        ? await this.driverManagersService.getManagedDriverIds(actor.sub)
+        : undefined;
+    return this.driversRepository.findPendingBreaks(50, scopedDriverIds);
   }
 
   async adminEndBreak(
@@ -194,11 +198,11 @@ export class DriverBreaksService {
       );
     }
     if (brk.status !== 'APPROVED' || brk.endedAt) {
-      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+      throw new BadRequestException(DriverErrors.NOT_ON_BREAK);
     }
     const ended = await this.finishBreak(breakId, false, 'ended_by_admin');
     if (!ended) {
-      throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
+      throw new BadRequestException(DriverErrors.NOT_ON_BREAK);
     }
     this.logger.log(`Break ${breakId} force-ended by admin ${reviewerId}`);
     return ended;
@@ -214,7 +218,7 @@ export class DriverBreaksService {
       await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
     }
     const driver = await requireDriverById(this.driversRepository, driverId);
-    const fresh = await this.assertCanBreak(driver.id);
+    const fresh = await this.assertCanBreak(driver);
 
     const pending = await this.driversRepository.findPendingBreak(driver.id);
     if (pending) {
@@ -489,8 +493,20 @@ export class DriverBreaksService {
    * breakable right now (approved, not suspended, not busy/delivering/on
    * break, no live order, no pending dispatch, no other active break).
    */
-  private async assertCanBreak(driverId: string) {
-    const driver = await requireDriverById(this.driversRepository, driverId);
+  private async assertCanBreak(
+    driverOrId:
+      | string
+      | {
+          id: string;
+          userId: string;
+          status: DriverStatus;
+          isApproved: boolean;
+        },
+  ) {
+    const driver =
+      typeof driverOrId === 'string'
+        ? await requireDriverById(this.driversRepository, driverOrId)
+        : driverOrId;
 
     if (driver.status === DriverStatus.SUSPENDED) {
       throw new ForbiddenException(DriverErrors.ACCOUNT_SUSPENDED);

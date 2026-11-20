@@ -491,8 +491,16 @@ export class DriversRepository {
     });
   }
 
-  async startShiftSafely(shiftId: string, driverId: string) {
+  async startShiftSafely(
+    shiftId: string,
+    driverId: string,
+    startPhotoUrl?: string | null,
+  ) {
     return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$executeRaw === 'function') {
+        await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+      }
+
       // Check for existing active shift
       const activeShift = await tx.driverShift.findFirst({
         where: { driverId, status: DriverShiftStatus.ACTIVE },
@@ -503,7 +511,11 @@ export class DriversRepository {
 
       const result = await tx.driverShift.updateMany({
         where: { id: shiftId, driverId, status: DriverShiftStatus.SCHEDULED },
-        data: { status: DriverShiftStatus.ACTIVE, actualStart: new Date() },
+        data: {
+          status: DriverShiftStatus.ACTIVE,
+          actualStart: new Date(),
+          ...(startPhotoUrl !== undefined ? { startPhotoUrl } : {}),
+        },
       });
 
       if (result.count === 0) {
@@ -640,9 +652,15 @@ export class DriversRepository {
     return this.prisma.driverBreak.findUnique({ where: { id: breakId } });
   }
 
-  async findPendingBreaks(take = 50) {
+  async findPendingBreaks(take = 50, driverIds?: string[]) {
+    if (driverIds && driverIds.length === 0) {
+      return [];
+    }
     const rows = await this.prisma.driverBreak.findMany({
-      where: { status: 'PENDING' },
+      where: {
+        status: 'PENDING',
+        ...(driverIds ? { driverId: { in: driverIds } } : {}),
+      },
       orderBy: { createdAt: 'asc' },
       take,
       include: {

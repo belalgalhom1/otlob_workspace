@@ -1,15 +1,17 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
-  CommonErrors,
   DriverErrors,
   UserErrors,
   DriverManagerErrors,
 } from '../../common/constants/response.constants';
+import {
+  assertDriverManagerOwnsDriver,
+  ensureDriverManagerRecord,
+} from '../../common/drivers/driver-manager-auth.helper';
 import { AssignDriversToManagerDto } from './dto/driver-manager.dto';
 
 @Injectable()
@@ -17,22 +19,7 @@ export class DriverManagersService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async getManager(userId: string) {
-    let manager = await this.prisma.driverManager.findUnique({
-      where: { userId },
-      select: { id: true, walletBalance: true, manageAllDrivers: true },
-    });
-    if (!manager) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { role: true },
-      });
-      if (user && user.role === 'DRIVER_MANAGER') {
-        manager = await this.prisma.driverManager.create({
-          data: { userId },
-          select: { id: true, walletBalance: true, manageAllDrivers: true },
-        });
-      }
-    }
+    const manager = await ensureDriverManagerRecord(this.prisma, userId);
     if (!manager) {
       throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     }
@@ -66,11 +53,9 @@ export class DriverManagersService {
   }
 
   async assertManagesDriver(userId: string, driverId: string) {
-    const managed = await this.getManagedDriverIds(userId);
-    if (!managed.includes(driverId)) {
-      throw new ForbiddenException(CommonErrors.FORBIDDEN);
-    }
-    return true;
+    return assertDriverManagerOwnsDriver(this.prisma, userId, driverId, {
+      throwNotFoundIfNoManager: true,
+    });
   }
 
   async getMyWallet(userId: string) {
@@ -310,20 +295,10 @@ export class DriverManagersService {
   }
 
   async assignDrivers(body: AssignDriversToManagerDto) {
-    let manager = await this.prisma.driverManager.findUnique({
-      where: { userId: body.driverManagerUserId },
-    });
-    if (!manager) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: body.driverManagerUserId },
-        select: { role: true },
-      });
-      if (user?.role === 'DRIVER_MANAGER') {
-        manager = await this.prisma.driverManager.create({
-          data: { userId: body.driverManagerUserId },
-        });
-      }
-    }
+    const manager = await ensureDriverManagerRecord(
+      this.prisma,
+      body.driverManagerUserId,
+    );
     if (!manager) throw new NotFoundException(DriverManagerErrors.NOT_FOUND);
     const managerId = manager.id;
 

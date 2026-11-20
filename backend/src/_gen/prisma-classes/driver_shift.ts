@@ -53,6 +53,18 @@ export class DriverShift {
   @ApiProperty({ type: Boolean })
   warningSent: boolean;
 
+  @ApiProperty({ type: Boolean })
+  isExcused: boolean = false;
+
+  @ApiPropertyOptional({ type: String })
+  excuseReason?: string;
+
+  @ApiPropertyOptional({ type: String })
+  excusedByUserId?: string;
+
+  @ApiPropertyOptional({ type: Date })
+  excusedAt?: Date;
+
   @ApiProperty({ type: Date })
   createdAt: Date;
 }

@@ -5,7 +5,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { OrderStatus, Role } from '@prisma/client';
+import {
+  DeliveryGroupStatus,
+  DeliveryIncidentResponsibility,
+  OrderStatus,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { OrdersRepository } from '../orders.repository';
 import { OrderAuthorizationHelper } from '../helpers/order-authorization.helper';
@@ -13,7 +18,10 @@ import { NON_CANCELLABLE } from './order-state.constants';
 import { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interface';
 import { OrderCancelledEvent } from '../../../common/events';
 import { EVENTS } from '../../../common/events/event-names';
-import { OrderErrors } from '../../../common/constants/response.constants';
+import {
+  DriverErrors,
+  OrderErrors,
+} from '../../../common/constants/response.constants';
 import { resolveOrderActorSnapshot } from '../helpers/order-actor.helper';
 
 /**
@@ -35,7 +43,11 @@ export class OrderCancellationService {
     actor: JwtAccessPayload | null,
     orderId: string,
     reason: string,
-    options?: { vendorId?: string | null },
+    options?: {
+      vendorId?: string | null;
+      responsibility?: DeliveryIncidentResponsibility;
+      responsibleDriverId?: string;
+    },
   ) {
     if (actor?.role === Role.DRIVER_MANAGER) {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
@@ -68,6 +80,8 @@ export class OrderCancellationService {
     const groups = await this.prisma.orderDeliveryGroup.findMany({
       where: { orderId: order.id },
       select: {
+        id: true,
+        status: true,
         sequence: true,
         isPaymentCollector: true,
         primaryDriverId: true,
@@ -97,6 +111,72 @@ export class OrderCancellationService {
       },
     );
 
+    const assignedActiveGroups = groups.filter(
+      (g) =>
+        Boolean(g.id) &&
+        Boolean(g.primaryDriverId) &&
+        g.status !== DeliveryGroupStatus.CANCELLED &&
+        g.status !== DeliveryGroupStatus.DELIVERED,
+    );
+    const distinctAssignedDriverIds = Array.from(
+      new Set(assignedActiveGroups.map((g) => g.primaryDriverId!)),
+    );
+
+    const isAdminActor =
+      actor != null &&
+      actor.role !== Role.CUSTOMER &&
+      actor.role !== Role.VENDOR_MEMBER;
+
+    if (
+      isAdminActor &&
+      options?.responsibility === DeliveryIncidentResponsibility.DRIVER_AT_FAULT &&
+      distinctAssignedDriverIds.length > 0
+    ) {
+      if (distinctAssignedDriverIds.length > 1 && !options.responsibleDriverId) {
+        throw new BadRequestException(DriverErrors.RESPONSIBLE_DRIVER_REQUIRED);
+      }
+      if (
+        options.responsibleDriverId &&
+        !distinctAssignedDriverIds.includes(options.responsibleDriverId)
+      ) {
+        throw new BadRequestException(DriverErrors.RESPONSIBLE_DRIVER_REQUIRED);
+      }
+    }
+
+    const resolveResponsibility = (
+      driverId: string,
+    ): DeliveryIncidentResponsibility => {
+      if (!actor) {
+        return options?.vendorId
+          ? DeliveryIncidentResponsibility.VENDOR
+          : DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM;
+      }
+      if (actor.role === Role.CUSTOMER) {
+        return DeliveryIncidentResponsibility.CUSTOMER;
+      }
+      if (actor.role === Role.VENDOR_MEMBER) {
+        return DeliveryIncidentResponsibility.VENDOR;
+      }
+      const chosen =
+        options?.responsibility ??
+        DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM;
+      if (
+        chosen === DeliveryIncidentResponsibility.DRIVER_AT_FAULT &&
+        options?.responsibleDriverId &&
+        options.responsibleDriverId !== driverId
+      ) {
+        return DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM;
+      }
+      return chosen;
+    };
+
+    const driverIncidents = assignedActiveGroups.map((g) => ({
+      deliveryGroupId: g.id,
+      driverId: g.primaryDriverId!,
+      responsibility: resolveResponsibility(g.primaryDriverId!),
+      reason: reason || null,
+    }));
+
     const updatedOrder = await this.ordersRepository.cancelOrder(
       orderId,
       actor?.sub ?? 'system',
@@ -109,6 +189,7 @@ export class OrderCancellationService {
       {
         actor: actorSnapshot,
         vendorId: options?.vendorId ?? singleVendorId,
+        ...(driverIncidents.length > 0 ? { driverIncidents } : {}),
       },
     );
 

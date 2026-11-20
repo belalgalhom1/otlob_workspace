@@ -83,6 +83,24 @@ export class OrderRejectionRecomputor {
         data: { status: 'CANCELLED' },
       });
 
+      if (
+        group.primaryDriverId &&
+        typeof tx.driverDeliveryIncident?.create === 'function'
+      ) {
+        await tx.driverDeliveryIncident.create({
+          data: {
+            orderId,
+            deliveryGroupId,
+            driverId: group.primaryDriverId,
+            incidentType: 'DELIVERY_FAILURE',
+            responsibility: 'VENDOR',
+            reason: `Delivery ${group.sequence} cancelled — no vendors accepted`,
+            reportedByUserId: null,
+            occurredAt: new Date(),
+          },
+        });
+      }
+
       await recordOrderStatusEventIdempotent(tx, {
         orderId,
         deliveryGroupId,

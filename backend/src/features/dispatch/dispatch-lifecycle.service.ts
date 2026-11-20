@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   DeliveryGroupStatus,
   DispatchStatus,
+  DriverShiftStatus,
   DriverStatus,
   OrderStatus,
 } from '@prisma/client';
@@ -366,16 +367,24 @@ export class DispatchLifecycleService {
       where: { id: orderId },
       select: { status: true },
     });
-    if (orderRow?.status === OrderStatus.CANCELLED) return true;
+    if (
+      !orderRow ||
+      orderRow.status === OrderStatus.CANCELLED ||
+      orderRow.status === OrderStatus.DELIVERED
+    ) {
+      return true;
+    }
 
     if (!groupScope) return false;
     const groupRow = await this.prisma.orderDeliveryGroup.findUnique({
       where: { id: groupScope },
-      select: { status: true },
+      select: { status: true, primaryDriverId: true },
     });
-    return (
-      groupRow?.status === DeliveryGroupStatus.CANCELLED ||
-      groupRow?.status === DeliveryGroupStatus.DELIVERED
+    return Boolean(
+      groupRow &&
+        (groupRow.primaryDriverId != null ||
+          groupRow.status === DeliveryGroupStatus.CANCELLED ||
+          groupRow.status === DeliveryGroupStatus.DELIVERED),
     );
   }
 
@@ -391,6 +400,117 @@ export class DispatchLifecycleService {
     if (owner) await this.dispatchRepository.deleteDispatchState(scope);
   }
 
+  private async partitionExpiredCandidates(
+    unresponded: DispatchCandidateOffer[],
+    dispatchData: DispatchBroadcastPayload,
+  ): Promise<{
+    expired: DispatchCandidateOffer[];
+    ineligible: DispatchCandidateOffer[];
+  }> {
+    const settings = await this.platformSettings.getSettings();
+    const maxActiveOrders = Number(settings.maxActiveOrdersPerDriver ?? 1);
+    const requireActiveShift = Boolean(
+      settings.driverShiftsEnabled && dispatchData.type === 'STANDARD',
+    );
+    const candidateIds = Array.from(
+      new Set(unresponded.map((c) => c.driverId)),
+    );
+    const candidateIdSet = new Set(candidateIds);
+    const needsShiftLookup =
+      requireActiveShift || unresponded.some((c) => c.driverShiftId != null);
+
+    const [drivers, activeGroups, activeShifts] = await Promise.all([
+      this.prisma.driver.findMany({
+        where: { id: { in: candidateIds } },
+        select: {
+          id: true,
+          status: true,
+          isApproved: true,
+          deletedAt: true,
+          hasUnpaidCommission: true,
+        },
+      }),
+      this.prisma.orderDeliveryGroup.findMany({
+        where: {
+          status: {
+            notIn: [
+              DeliveryGroupStatus.CANCELLED,
+              DeliveryGroupStatus.DELIVERED,
+            ],
+          },
+          OR: [
+            { primaryDriverId: { in: candidateIds } },
+            { assistDriverId: { in: candidateIds } },
+          ],
+        },
+        select: { primaryDriverId: true, assistDriverId: true },
+      }),
+      needsShiftLookup
+        ? this.prisma.driverShift.findMany({
+            where: {
+              driverId: { in: candidateIds },
+              status: DriverShiftStatus.ACTIVE,
+            },
+            select: { id: true, driverId: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const driverById = new Map(drivers.map((d) => [d.id, d]));
+    const activeUnitsByDriver = new Map<string, number>();
+    for (const g of activeGroups) {
+      if (g.primaryDriverId && candidateIdSet.has(g.primaryDriverId)) {
+        activeUnitsByDriver.set(
+          g.primaryDriverId,
+          (activeUnitsByDriver.get(g.primaryDriverId) ?? 0) + 1,
+        );
+      }
+      if (
+        g.assistDriverId &&
+        g.assistDriverId !== g.primaryDriverId &&
+        candidateIdSet.has(g.assistDriverId)
+      ) {
+        activeUnitsByDriver.set(
+          g.assistDriverId,
+          (activeUnitsByDriver.get(g.assistDriverId) ?? 0) + 1,
+        );
+      }
+    }
+
+    const activeShiftIds = new Set(activeShifts.map((s) => s.id));
+    const driversWithActiveShift = new Set(
+      activeShifts.map((s) => s.driverId),
+    );
+
+    const expired: DispatchCandidateOffer[] = [];
+    const ineligible: DispatchCandidateOffer[] = [];
+
+    for (const candidate of unresponded) {
+      const driver = driverById.get(candidate.driverId);
+      const statusEligible =
+        driver != null &&
+        driver.deletedAt == null &&
+        driver.isApproved === true &&
+        driver.hasUnpaidCommission === false &&
+        (driver.status === DriverStatus.ONLINE ||
+          driver.status === DriverStatus.BUSY ||
+          (maxActiveOrders > 1 && driver.status === DriverStatus.ON_DELIVERY));
+      const underCapacity =
+        (activeUnitsByDriver.get(candidate.driverId) ?? 0) < maxActiveOrders;
+      const shiftEligible =
+        (!candidate.driverShiftId || activeShiftIds.has(candidate.driverShiftId)) &&
+        (!requireActiveShift || driversWithActiveShift.has(candidate.driverId));
+
+      if (statusEligible && underCapacity && shiftEligible) {
+        expired.push(candidate);
+      } else {
+        ineligible.push(candidate);
+      }
+    }
+
+    return { expired, ineligible };
+  }
+
   private async recordExpiredRound(
     unresponded: DispatchCandidateOffer[],
     dispatchData: DispatchBroadcastPayload,
@@ -399,15 +519,40 @@ export class DispatchLifecycleService {
   ): Promise<void> {
     if (unresponded.length === 0) return;
 
+    const { expired, ineligible } = await this.partitionExpiredCandidates(
+      unresponded,
+      dispatchData,
+    );
+    const expiresAt = new Date(dispatchData.expiresAt);
+
+    if (ineligible.length > 0) {
+      await this.dispatchRepository.createTerminalRecords(this.prisma, {
+        orderId,
+        type: dispatchData.type,
+        expiresAt,
+        candidates: ineligible,
+        status: DispatchStatus.CANCELLED,
+      });
+
+      for (const candidate of ineligible) {
+        this.eventEmitter.emit(
+          EVENTS.ORDER_DISPATCH_CANCELLED,
+          new OrderDispatchCancelledEvent(dispatchId, orderId, candidate.userId),
+        );
+      }
+    }
+
+    if (expired.length === 0) return;
+
     await this.dispatchRepository.createTerminalRecords(this.prisma, {
       orderId,
       type: dispatchData.type,
-      expiresAt: new Date(dispatchData.expiresAt),
-      candidates: unresponded,
+      expiresAt,
+      candidates: expired,
       status: DispatchStatus.EXPIRED,
     });
 
-    const shiftIds = unresponded
+    const shiftIds = expired
       .map((c) => c.driverShiftId)
       .filter((id): id is string => id != null);
     if (shiftIds.length > 0) {
@@ -417,7 +562,7 @@ export class DispatchLifecycleService {
       });
     }
 
-    for (const candidate of unresponded) {
+    for (const candidate of expired) {
       this.eventEmitter.emit(
         EVENTS.ORDER_DISPATCH_CANCELLED,
         new OrderDispatchCancelledEvent(dispatchId, orderId, candidate.userId),

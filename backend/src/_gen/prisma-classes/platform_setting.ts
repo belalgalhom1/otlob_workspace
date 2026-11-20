@@ -364,6 +364,12 @@ export class PlatformSetting {
   @ApiProperty({ type: Number })
   highValueUpfrontRate: number;
 
+  @ApiProperty({ type: Boolean })
+  driverRankingAutoEvalEnabled: boolean = true;
+
+  @ApiProperty({ type: String })
+  driverRankingEvalTime: string = '00:05';
+
   @ApiProperty({ type: Date })
   updatedAt: Date;
 }

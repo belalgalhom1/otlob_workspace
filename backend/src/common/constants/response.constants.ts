@@ -313,6 +313,17 @@ export const DriverErrors = {
   ASSIST_REASON_REQUIRED: 'driver.error.assist_reason_required',
   SHIFT_POOL_IDS_MUST_BE_UNIQUE: 'driver.error.shift_pool_ids_must_be_unique',
   INVALID_LOCATION: 'driver.error.invalid_location',
+  RANK_EVALUATION_ALREADY_EXISTS:
+    'driver.error.rank_evaluation_already_exists',
+  RANK_EVALUATION_NOT_FOUND: 'driver.error.rank_evaluation_not_found',
+  RANK_EVALUATION_NOT_FAILED: 'driver.error.rank_evaluation_not_failed',
+  RANK_OVERRIDE_REASON_REQUIRED:
+    'driver.error.rank_override_reason_required',
+  RANK_TIER_UNCHANGED: 'driver.error.rank_tier_unchanged',
+  RESPONSIBLE_DRIVER_REQUIRED: 'driver.error.responsible_driver_required',
+  DELIVERY_INCIDENT_NOT_FOUND: 'driver.error.delivery_incident_not_found',
+  INVALID_EVAL_TIME: 'driver.error.invalid_eval_time',
+  CANNOT_CANCEL_ASSIGNED_SHIFT: 'driver.error.cannot_cancel_assigned_shift',
 };
 
 export const DriverManagerErrors = {

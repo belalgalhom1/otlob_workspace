@@ -16,6 +16,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
+  DeliveryIncidentResponsibility,
   OrderStatus,
   PaymentMethod,
   OrderType,
@@ -389,6 +390,26 @@ export class AdminAssignDriverDto {
   @IsUUID()
   @IsOptional()
   deliveryGroupId?: string;
+
+  @ApiPropertyOptional({
+    enum: DeliveryIncidentResponsibility,
+    enumName: 'DeliveryIncidentResponsibility',
+    description:
+      'Responsibility classification when replacing an already-assigned driver (for weekly ranking)',
+  })
+  @IsEnum(DeliveryIncidentResponsibility)
+  @IsOptional()
+  previousDriverResponsibility?: DeliveryIncidentResponsibility;
+
+  @ApiPropertyOptional({
+    example: 'Driver asked to drop order mid-pickup without excuse',
+    maxLength: 500,
+    description: 'Reason for driver reassignment',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  reassignmentReason?: string;
 }
 
 export class ConfirmPaymentDto {
@@ -406,4 +427,22 @@ export class CancelOrderDto {
   @IsOptional()
   @MaxLength(300)
   reason?: string;
+
+  @ApiPropertyOptional({
+    enum: DeliveryIncidentResponsibility,
+    enumName: 'DeliveryIncidentResponsibility',
+    description:
+      'Optional admin/support responsibility classification when an order already had an assigned driver',
+  })
+  @IsEnum(DeliveryIncidentResponsibility)
+  @IsOptional()
+  responsibility?: DeliveryIncidentResponsibility;
+
+  @ApiPropertyOptional({
+    description:
+      'Specific driverId attributed when responsibility is DRIVER_AT_FAULT on multi-group orders',
+  })
+  @IsUUID()
+  @IsOptional()
+  responsibleDriverId?: string;
 }

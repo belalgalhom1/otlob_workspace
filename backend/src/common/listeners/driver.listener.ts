@@ -3,18 +3,37 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SocketService } from '../../infrastructure/socket/socket.service';
-import { NotificationType, DriverStatus } from '@prisma/client';
+import {
+  DriverRankChangeReason,
+  DriverStatus,
+  DriverTier,
+  NotificationType,
+} from '@prisma/client';
 import {
   DriverLocationUpdatedEvent,
   DriverStatusChangedEvent,
   DriverBreakDecidedEvent,
   DriverBreakDecision,
+  DriverRankUpdatedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
 import {
   QUEUES,
   EVENT_JOBS,
 } from '../../infrastructure/queue/queues.constants';
+import { compareTiers } from '../../features/drivers/ranking/driver-ranking.calculator';
+
+const TIER_LABEL_EN: Record<DriverTier, string> = {
+  [DriverTier.GOLD]: 'Gold',
+  [DriverTier.SILVER]: 'Silver',
+  [DriverTier.BRONZE]: 'Bronze',
+};
+
+const TIER_LABEL_AR: Record<DriverTier, string> = {
+  [DriverTier.GOLD]: 'الذهبي',
+  [DriverTier.SILVER]: 'الفضي',
+  [DriverTier.BRONZE]: 'البرونزي',
+};
 
 @Injectable()
 export class DriverListener {
@@ -68,8 +87,16 @@ export class DriverListener {
     );
 
     if (event.newStatus === DriverStatus.SUSPENDED && event.driverUserId) {
-      void this.socketService.disconnectUser(event.driverUserId);
+      Promise.resolve(
+        this.socketService.disconnectUser(event.driverUserId),
+      ).catch((err: unknown) =>
+        this.logger.error(
+          `Failed to disconnect suspended driver socket: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
     }
+
+    if (!event.driverUserId) return;
 
     let dto:
       | {
@@ -200,6 +227,106 @@ export class DriverListener {
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue break notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  @OnEvent(EVENTS.DRIVER_RANK_UPDATED, { async: true })
+  async handleRankUpdated(event: DriverRankUpdatedEvent) {
+    if (!event.driverUserId || event.previousTier === event.newTier) {
+      return;
+    }
+
+    const newTier = event.newTier as DriverTier;
+    const prevTier = event.previousTier as DriverTier;
+    const newEn = TIER_LABEL_EN[newTier] ?? event.newTier;
+    const newAr = TIER_LABEL_AR[newTier] ?? event.newTier;
+    const isPromotion = compareTiers(newTier, prevTier) > 0;
+    const scoreText =
+      event.performancePercentage != null
+        ? `${Number(event.performancePercentage.toFixed(2))}%`
+        : null;
+    const periodSuffix = event.periodKey ? ` (${event.periodKey})` : '';
+
+    let title: string;
+    let titleAr: string;
+    let body: string;
+    let bodyAr: string;
+
+    if (event.changeReason === DriverRankChangeReason.INACTIVE_DRIVER) {
+      title = `Weekly Rank Updated: ${newEn}`;
+      titleAr = `تحديث المستوى الأسبوعي: ${newAr}`;
+      body = `You had no qualifying activity last week${periodSuffix}, so your badge has been set to ${newEn}.`;
+      bodyAr = `لم يكن لديك نشاط مؤهل الأسبوع الماضي${periodSuffix}، لذلك تم تعيين مستواك إلى ${newAr}.`;
+    } else if (event.changeReason === DriverRankChangeReason.ADMIN_OVERRIDE) {
+      title = `Driver Badge Updated: ${newEn}`;
+      titleAr = `تم تحديث مستواك: ${newAr}`;
+      const reasonSuffixEn = event.overrideReason
+        ? ` Reason: ${event.overrideReason}`
+        : '';
+      const reasonSuffixAr = event.overrideReason
+        ? ` السبب: ${event.overrideReason}`
+        : '';
+      body = `An administrator updated your badge to ${newEn}.${reasonSuffixEn}`;
+      bodyAr = `قام المشرف بتحديث مستواك إلى ${newAr}.${reasonSuffixAr}`;
+    } else if (isPromotion) {
+      title = `Congratulations! Promoted to ${newEn}`;
+      titleAr = `مبروك! تمت ترقيتك إلى المستوى ${newAr}`;
+      body = scoreText
+        ? `Your weekly performance score was ${scoreText}${periodSuffix}. Your badge is now ${newEn}.`
+        : `Your badge has been promoted to ${newEn}.`;
+      bodyAr = scoreText
+        ? `نسبة أدائك الأسبوعية ${scoreText}${periodSuffix}. أصبح مستواك الآن ${newAr}.`
+        : `تمت ترقية مستواك إلى ${newAr}.`;
+    } else {
+      title = `Weekly Rank Updated: ${newEn}`;
+      titleAr = `تحديث المستوى الأسبوعي: ${newAr}`;
+      body = scoreText
+        ? `Your weekly performance score was ${scoreText}${periodSuffix}. Your badge is now ${newEn}.`
+        : `Your badge has been updated to ${newEn}.`;
+      bodyAr = scoreText
+        ? `نسبة أدائك الأسبوعية ${scoreText}${periodSuffix}. أصبح مستواك الآن ${newAr}.`
+        : `تم تحديث مستواك إلى ${newAr}.`;
+    }
+
+    await this.socketService
+      .emitToUser(event.driverUserId, 'driver.rank.updated', {
+        driverId: event.driverId,
+        previousTier: event.previousTier,
+        newTier: event.newTier,
+        performancePercentage: event.performancePercentage,
+        periodKey: event.periodKey,
+        changeReason: event.changeReason,
+      })
+      .catch((err: unknown) =>
+        this.logger.error(
+          `Failed to emit driver.rank.updated socket event: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+
+    try {
+      await this.eventsQueue.add(EVENT_JOBS.NOTIFY, {
+        dto: {
+          userId: event.driverUserId,
+          title,
+          titleAr,
+          body,
+          bodyAr,
+          type: NotificationType.SYSTEM,
+          data: {
+            kind: 'driver_rank_updated',
+            driverId: event.driverId,
+            previousTier: event.previousTier,
+            newTier: event.newTier,
+            performancePercentage: event.performancePercentage,
+            periodKey: event.periodKey,
+            changeReason: event.changeReason,
+          },
+        },
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to enqueue driver rank notification: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

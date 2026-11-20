@@ -10,6 +10,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DeliveryGroupStatus,
+  DeliveryIncidentResponsibility,
   DispatchStatus,
   OrderStatus,
   OrderVendorFulfillmentStatus,
@@ -606,6 +607,12 @@ export class OrdersStateService {
       throw new BadRequestException(OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER);
     }
 
+    const shouldPassReassignMeta =
+      (targetGroup.primaryDriverId &&
+        targetGroup.primaryDriverId !== driver.id) ||
+      dto.previousDriverResponsibility !== undefined ||
+      dto.reassignmentReason !== undefined;
+
     const updated = await this.ordersRepository.assignDriver(
       orderId,
       driver.id,
@@ -614,6 +621,14 @@ export class OrdersStateService {
       nextStatus,
       maxActive,
       targetGroup.id,
+      shouldPassReassignMeta
+        ? {
+            previousDriverResponsibility:
+              dto.previousDriverResponsibility ??
+              DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM,
+            reassignmentReason: dto.reassignmentReason ?? null,
+          }
+        : undefined,
     );
 
     await this.prisma.orderDeliveryGroup.update({
@@ -679,6 +694,10 @@ export class OrdersStateService {
     actor: JwtAccessPayload | null,
     orderId: string,
     reason: string,
+    options?: {
+      responsibility?: DeliveryIncidentResponsibility;
+      responsibleDriverId?: string;
+    },
   ) {
     if (actor?.role === Role.VENDOR_MEMBER) {
       const order = await this.ordersRepository.findById(orderId);
@@ -689,7 +708,7 @@ export class OrdersStateService {
         });
       }
     }
-    return this.cancellation.cancelOrder(actor, orderId, reason);
+    return this.cancellation.cancelOrder(actor, orderId, reason, options);
   }
 
   private async applyStatusTransition(

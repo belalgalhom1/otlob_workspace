@@ -323,6 +323,116 @@ describe('DriverShiftsService.adminRemoveDriverBulk', () => {
 
     expect(res).toEqual({ success: true, removed: 1, skippedHistorical: 0 });
   });
+
+  it('removeDriverFromShift blocks deleting an ACTIVE shift while driver is ON_DELIVERY and preserves SUSPENDED status', async () => {
+    const deleteShift = jest.fn();
+    const updateDriver = jest.fn();
+    const prisma: any = {
+      driverShift: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'sh-deliv',
+            driverId: 'drv-1',
+            shiftPoolId: 'p1',
+            status: DriverShiftStatus.ACTIVE,
+            driver: {
+              id: 'drv-1',
+              status: DriverStatus.ON_DELIVERY,
+              user: { id: 'u-drv-1' },
+            },
+            swapRequests: [],
+          })
+          .mockResolvedValueOnce({
+            id: 'sh-susp',
+            driverId: 'drv-1',
+            shiftPoolId: null,
+            status: DriverShiftStatus.ACTIVE,
+            driver: {
+              id: 'drv-1',
+              status: DriverStatus.SUSPENDED,
+              user: { id: 'u-drv-1' },
+            },
+            swapRequests: [],
+          }),
+        delete: deleteShift,
+      },
+      driver: {
+        update: updateDriver,
+      },
+    };
+
+    const service = new DriverShiftsService(
+      prisma as unknown as PrismaService,
+      { getSettings: jest.fn() } as unknown as PlatformSettingsService,
+      { emit: jest.fn() } as unknown as EventEmitter2,
+    );
+
+    await expect(
+      service.removeDriverFromShift('sh-deliv', adminActor),
+    ).rejects.toThrow(
+      new BadRequestException(DriverErrors.CANNOT_END_WHILE_ON_DELIVERY),
+    );
+    expect(deleteShift).not.toHaveBeenCalled();
+
+    const res = await service.removeDriverFromShift('sh-susp', adminActor);
+    expect(res).toEqual({ success: true, removed: 1 });
+    expect(updateDriver).not.toHaveBeenCalled();
+    expect(deleteShift).toHaveBeenCalledWith({ where: { id: 'sh-susp' } });
+  });
+
+  it('offerSwap reopens a previously ACCEPTED or CANCELLED swap request on the same shift without P2002 collision', async () => {
+    const updateSwap = jest.fn().mockResolvedValue({
+      id: 'swap-prev',
+      driverShiftId: 'sh-1',
+      offeredByDriverId: 'drv-2',
+      status: SwapRequestStatus.PENDING,
+    });
+    const createSwap = jest.fn();
+    const prisma: any = {
+      driver: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'drv-2' }),
+      },
+      driverShift: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'sh-1',
+          driverId: 'drv-2',
+          status: DriverShiftStatus.SCHEDULED,
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        }),
+      },
+      shiftSwapRequest: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'swap-prev',
+          driverShiftId: 'sh-1',
+          status: SwapRequestStatus.ACCEPTED,
+        }),
+        update: updateSwap,
+        create: createSwap,
+      },
+    };
+
+    const service = new DriverShiftsService(
+      prisma as unknown as PrismaService,
+      {
+        getSettings: jest
+          .fn()
+          .mockResolvedValue({ driverShiftsEnabled: true }),
+      } as unknown as PlatformSettingsService,
+      { emit: jest.fn() } as unknown as EventEmitter2,
+    );
+
+    const reopened = await service.offerSwap('u-drv-2', 'sh-1');
+    expect(reopened.status).toBe(SwapRequestStatus.PENDING);
+    expect(updateSwap).toHaveBeenCalledWith({
+      where: { id: 'swap-prev' },
+      data: {
+        offeredByDriverId: 'drv-2',
+        status: SwapRequestStatus.PENDING,
+      },
+    });
+    expect(createSwap).not.toHaveBeenCalled();
+  });
 });
 
 describe('NotificationListener.handleShiftDisabled', () => {

@@ -206,7 +206,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       grandTotal: Number(order.grandTotal),
       upfrontAmount: Number(order.upfrontAmount),
       distanceKm: Number(order.distanceKm ?? 0),
-      driverTier: collectorGroup.primaryDriver?.tier ?? 'GOLD',
+      driverTier: collectorGroup.primaryDriver?.tier ?? 'SILVER',
       deliveryFee: Number(order.deliveryFee),
       driverBonusFee: Number(order.driverBonusFee),
       subtotal: Number(order.subtotal),

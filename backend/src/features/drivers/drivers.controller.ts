@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -11,6 +12,7 @@ import {
   HttpStatus,
   UploadedFile,
 } from '@nestjs/common';
+import { DriverErrors } from 'src/common/constants/response.constants';
 import { ApiFileUpload } from 'src/common/decorators/api-file-upload.decorator';
 import { DriversService } from './drivers.service';
 import { DriverBreaksService } from './driver-breaks.service';
@@ -227,11 +229,24 @@ export class DriversController {
     @CurrentUser('sub') userId: string,
     @Param('shiftId') shiftId: string,
     @UploadedFile() file: Express.Multer.File,
-    @Body() body?: { latitude?: number; longitude?: number },
+    @Body() body?: { latitude?: number | string; longitude?: number | string },
   ) {
-    const latitude = body?.latitude != null ? Number(body.latitude) : undefined;
+    const rawLat = body?.latitude;
+    const rawLng = body?.longitude;
+    const latitude =
+      rawLat !== undefined && rawLat !== null && String(rawLat).trim() !== ''
+        ? Number(rawLat)
+        : undefined;
     const longitude =
-      body?.longitude != null ? Number(body.longitude) : undefined;
+      rawLng !== undefined && rawLng !== null && String(rawLng).trim() !== ''
+        ? Number(rawLng)
+        : undefined;
+    if (
+      (latitude !== undefined && !Number.isFinite(latitude)) ||
+      (longitude !== undefined && !Number.isFinite(longitude))
+    ) {
+      throw new BadRequestException(DriverErrors.INVALID_LOCATION);
+    }
     return this.driverShiftExecutionService.startShift(
       userId,
       shiftId,
@@ -349,8 +364,8 @@ export class DriversController {
   @Get('breaks/pending')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @ApiOperation({ summary: '[Admin] List pending break requests' })
-  adminGetPendingBreaks() {
-    return this.driverBreaksService.getPendingBreaks();
+  adminGetPendingBreaks(@CurrentUser() actor: JwtAccessPayload) {
+    return this.driverBreaksService.getPendingBreaks(actor);
   }
 
   @ApiStandardResponse(DriverBreak)

@@ -59,7 +59,13 @@ export class DriverTrackingService {
       return;
     }
 
-    const activeOrder = JSON.parse(activeOrderRaw);
+    let activeOrder: any = null;
+    try {
+      activeOrder = JSON.parse(activeOrderRaw);
+    } catch {
+      activeOrder = null;
+    }
+
     const activeList: Array<{ orderId: string; customerUserId: string }> =
       Array.isArray(activeOrder?.orders) && activeOrder.orders.length > 0
         ? activeOrder.orders
@@ -71,6 +77,14 @@ export class DriverTrackingService {
               },
             ]
           : [];
+
+    if (activeList.length === 0) {
+      this.eventEmitter.emit(
+        EVENTS.DRIVER_LOCATION_UPDATED,
+        new DriverLocationUpdatedEvent(driverId, userId, lng, lat, null, null),
+      );
+      return;
+    }
 
     for (const entry of activeList) {
       if (!entry?.orderId) continue;
@@ -194,7 +208,10 @@ export class DriverTrackingService {
     if (!raw) return null;
     try {
       const parsed = JSON.parse(raw);
-      return parsed?.orderId ? { orderId: parsed.orderId } : null;
+      const orderId =
+        parsed?.orderId ??
+        (Array.isArray(parsed?.orders) ? parsed.orders[0]?.orderId : undefined);
+      return orderId ? { orderId } : null;
     } catch {
       return null;
     }

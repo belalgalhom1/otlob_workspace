@@ -11,9 +11,11 @@ import {
   IsEmail,
   IsDateString,
   Max,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { DriverErrors } from '../../../common/constants/response.constants';
 
 export class UpdatePlatformSettingsDto {
   // ─── Financial ─────────────────────────────────────────────────────────────
@@ -1006,6 +1008,29 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @Type(() => Number)
   goldTierBonusPerKm?: number;
+
+  @ApiProperty({
+    example: true,
+    required: false,
+    description:
+      'Enable/disable the weekly Monday automatic driver ranking evaluation',
+  })
+  @IsBoolean()
+  @IsOptional()
+  driverRankingAutoEvalEnabled?: boolean;
+
+  @ApiProperty({
+    example: '00:05',
+    required: false,
+    description:
+      'Monday evaluation wall-clock time (HH:mm in configured project timezone)',
+  })
+  @IsString()
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: DriverErrors.INVALID_EVAL_TIME,
+  })
+  driverRankingEvalTime?: string;
 
   // ─── Driver Settlement ────────────────────────────────────────────────────
   @ApiProperty({

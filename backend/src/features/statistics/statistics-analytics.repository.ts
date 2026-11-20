@@ -1,5 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, StatisticPeriod } from '@prisma/client';
+import {
+  DeliveryIncidentResponsibility,
+  Prisma,
+  StatisticPeriod,
+} from '@prisma/client';
+import {
+  calculateAcceptanceRate,
+  calculateCompletionRate,
+  calculateEligibleDispatches,
+} from '../../common/drivers/driver-kpi.helper';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   parseDateEnd,
@@ -726,6 +735,34 @@ export class StatisticsAnalyticsRepository {
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
   }
 
+  private withDriverKpis<
+    T extends {
+      completedOrders: number;
+      dispatchesAccepted: number;
+      dispatchesRejected: number;
+      dispatchesExpired: number;
+      driverFaultCancellations: number;
+    },
+  >(bucket: T) {
+    return {
+      ...bucket,
+      eligibleDispatches: calculateEligibleDispatches(
+        bucket.dispatchesAccepted,
+        bucket.dispatchesRejected,
+        bucket.dispatchesExpired,
+      ),
+      acceptanceRate: calculateAcceptanceRate(
+        bucket.dispatchesAccepted,
+        bucket.dispatchesRejected,
+        bucket.dispatchesExpired,
+      ),
+      completionRate: calculateCompletionRate(
+        bucket.completedOrders,
+        bucket.driverFaultCancellations,
+      ),
+    };
+  }
+
   private async aggregateDriverStats(
     driverId: string,
     period: StatisticPeriod,
@@ -733,40 +770,53 @@ export class StatisticsAnalyticsRepository {
     to: string,
   ) {
     const { from: fromDate, to: toDate } = this.buildRange(from, to);
-    const days = await this.prisma.driverStatistic.findMany({
-      where: {
-        driverId,
-        period: StatisticPeriod.DAILY,
-        startDate: { gte: fromDate, lt: toDate },
-      },
+    const [days, faultIncidents] = await Promise.all([
+      this.prisma.driverStatistic.findMany({
+        where: {
+          driverId,
+          period: StatisticPeriod.DAILY,
+          startDate: { gte: fromDate, lt: toDate },
+        },
+      }),
+      this.prisma.driverDeliveryIncident.findMany({
+        where: {
+          driverId,
+          responsibility: DeliveryIncidentResponsibility.DRIVER_AT_FAULT,
+          occurredAt: { gte: fromDate, lt: toDate },
+        },
+        select: { deliveryGroupId: true, occurredAt: true },
+      }),
+    ]);
+
+    type DriverBucket = {
+      totalOrders: number;
+      totalEarnings: number;
+      completedOrders: number;
+      cancelledOrders: number;
+      driverFaultCancellations: number;
+      onlineHours: number;
+      totalDispatchesReceived: number;
+      dispatchesAccepted: number;
+      dispatchesRejected: number;
+      dispatchesExpired: number;
+    };
+    const emptyBucket = (): DriverBucket => ({
+      totalOrders: 0,
+      totalEarnings: 0,
+      completedOrders: 0,
+      cancelledOrders: 0,
+      driverFaultCancellations: 0,
+      onlineHours: 0,
+      totalDispatchesReceived: 0,
+      dispatchesAccepted: 0,
+      dispatchesRejected: 0,
+      dispatchesExpired: 0,
     });
-    const groups = new Map<
-      string,
-      {
-        totalOrders: number;
-        totalEarnings: number;
-        completedOrders: number;
-        cancelledOrders: number;
-        onlineHours: number;
-        totalDispatchesReceived: number;
-        dispatchesAccepted: number;
-        dispatchesRejected: number;
-        dispatchesExpired: number;
-      }
-    >();
+
+    const groups = new Map<string, DriverBucket>();
     for (const day of days) {
       const key = this.groupKey(day.startDate, period);
-      const g = groups.get(key) ?? {
-        totalOrders: 0,
-        totalEarnings: 0,
-        completedOrders: 0,
-        cancelledOrders: 0,
-        onlineHours: 0,
-        totalDispatchesReceived: 0,
-        dispatchesAccepted: 0,
-        dispatchesRejected: 0,
-        dispatchesExpired: 0,
-      };
+      const g = groups.get(key) ?? emptyBucket();
       g.totalOrders += day.totalOrders;
       g.totalEarnings += day.totalEarnings;
       g.completedOrders += day.completedOrders;
@@ -778,10 +828,22 @@ export class StatisticsAnalyticsRepository {
       g.dispatchesExpired += day.dispatchesExpired;
       groups.set(key, g);
     }
+
+    const seenFaultGroups = new Set<string>();
+    for (const inc of faultIncidents) {
+      const key = this.groupKey(inc.occurredAt, period);
+      const dedupeKey = `${key}:${inc.deliveryGroupId}`;
+      if (seenFaultGroups.has(dedupeKey)) continue;
+      seenFaultGroups.add(dedupeKey);
+      const g = groups.get(key) ?? emptyBucket();
+      g.driverFaultCancellations += 1;
+      groups.set(key, g);
+    }
+
     return [...groups.entries()]
       .map(([key, g]) => {
         const { startDate, endDate } = this.groupBounds(key, period);
-        return { period, startDate, endDate, ...g };
+        return { period, startDate, endDate, ...this.withDriverKpis(g) };
       })
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
   }
@@ -802,7 +864,7 @@ export class StatisticsAnalyticsRepository {
       where.driverId = { in: driverIds };
     }
 
-    const [days, drivers] = await Promise.all([
+    const [days, drivers, faultIncidents] = await Promise.all([
       this.prisma.driverStatistic.findMany({ where }),
       this.prisma.driver.findMany({
         where: {
@@ -818,6 +880,14 @@ export class StatisticsAnalyticsRepository {
           user: { select: { name: true, phone: true, avatar: true } },
         },
       }),
+      this.prisma.driverDeliveryIncident.findMany({
+        where: {
+          ...(driverIds !== null ? { driverId: { in: driverIds } } : {}),
+          responsibility: DeliveryIncidentResponsibility.DRIVER_AT_FAULT,
+          occurredAt: { gte: fromDate, lt: toDate },
+        },
+        select: { driverId: true, deliveryGroupId: true },
+      }),
     ]);
 
     type DriverBucket = {
@@ -825,6 +895,7 @@ export class StatisticsAnalyticsRepository {
       totalEarnings: number;
       completedOrders: number;
       cancelledOrders: number;
+      driverFaultCancellations: number;
       onlineHours: number;
       totalDispatchesReceived: number;
       dispatchesAccepted: number;
@@ -836,6 +907,7 @@ export class StatisticsAnalyticsRepository {
       totalEarnings: 0,
       completedOrders: 0,
       cancelledOrders: 0,
+      driverFaultCancellations: 0,
       onlineHours: 0,
       totalDispatchesReceived: 0,
       dispatchesAccepted: 0,
@@ -843,10 +915,12 @@ export class StatisticsAnalyticsRepository {
       dispatchesExpired: 0,
     });
 
+    const activeDriverIds = new Set(drivers.map((d) => d.id));
     const perDriver = new Map<string, DriverBucket>();
     const totals = emptyBucket();
 
     for (const day of days) {
+      if (!activeDriverIds.has(day.driverId)) continue;
       const bucket = perDriver.get(day.driverId) ?? emptyBucket();
       bucket.totalOrders += day.totalOrders;
       bucket.totalEarnings += day.totalEarnings;
@@ -870,6 +944,18 @@ export class StatisticsAnalyticsRepository {
       totals.dispatchesExpired += day.dispatchesExpired;
     }
 
+    const seenDriverFaults = new Set<string>();
+    for (const inc of faultIncidents) {
+      if (!activeDriverIds.has(inc.driverId)) continue;
+      const dedupeKey = `${inc.driverId}:${inc.deliveryGroupId}`;
+      if (seenDriverFaults.has(dedupeKey)) continue;
+      seenDriverFaults.add(dedupeKey);
+      const bucket = perDriver.get(inc.driverId) ?? emptyBucket();
+      bucket.driverFaultCancellations += 1;
+      perDriver.set(inc.driverId, bucket);
+      totals.driverFaultCancellations += 1;
+    }
+
     const rows = drivers
       .map((driver) => {
         const stats = perDriver.get(driver.id) ?? emptyBucket();
@@ -880,7 +966,7 @@ export class StatisticsAnalyticsRepository {
           avatar: driver.avatar ?? driver.user?.avatar ?? null,
           tier: driver.tier,
           status: driver.status,
-          ...stats,
+          ...this.withDriverKpis(stats),
         };
       })
       .sort(
@@ -894,7 +980,7 @@ export class StatisticsAnalyticsRepository {
       period,
       from: fromDate,
       to: toDate,
-      totals,
+      totals: this.withDriverKpis(totals),
       drivers: rows,
     };
   }

@@ -27,7 +27,7 @@ export class Driver {
   vehiclePlate?: string;
 
   @ApiProperty({ enum: DriverTier, enumName: 'DriverTier' })
-  tier: DriverTier = DriverTier.GOLD;
+  tier: DriverTier = DriverTier.SILVER;
 
   @ApiProperty({ enum: DriverStatus, enumName: 'DriverStatus' })
   status: DriverStatus = DriverStatus.OFFLINE;

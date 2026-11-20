@@ -11,8 +11,9 @@ import {
   Max,
   MaxLength,
   IsDateString,
+  IsBoolean,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class GenerateShiftPoolsDto {
   @ApiProperty({ example: '2026-05-10' })
@@ -128,53 +129,6 @@ export class QueryShiftPoolsDto {
   limit?: number;
 }
 
-export class UpdateShiftPoolDto {
-  @ApiProperty({ example: 'Morning Shift', required: false, maxLength: 100 })
-  @IsString()
-  @IsOptional()
-  @MaxLength(100)
-  title?: string;
-
-  @ApiProperty({ example: 'وردية الصباح', required: false, maxLength: 100 })
-  @IsString()
-  @IsOptional()
-  @MaxLength(100)
-  titleAr?: string;
-
-  @ApiProperty({ example: 50, required: false })
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  maxDrivers?: number;
-
-  @ApiProperty({ example: '08:00', required: false })
-  @IsString()
-  @IsOptional()
-  startTime?: string;
-
-  @ApiProperty({ example: '16:00', required: false })
-  @IsString()
-  @IsOptional()
-  endTime?: string;
-}
-
-export class ShiftReportQueryDto {
-  @ApiProperty({ example: '2026-05-10', required: false })
-  @IsDateString()
-  @IsOptional()
-  startDate?: string;
-
-  @ApiProperty({ example: '2026-05-16', required: false })
-  @IsDateString()
-  @IsOptional()
-  endDate?: string;
-
-  @ApiProperty({ example: 'zone-uuid', required: false })
-  @IsString()
-  @IsOptional()
-  zoneId?: string;
-}
-
 export class AdminAssignShiftDto {
   @ApiProperty({ example: 'pool-id' })
   @IsString()
@@ -237,4 +191,19 @@ export class AdminBookWeeklyShiftsDto {
   @ArrayMaxSize(6)
   @IsString({ each: true })
   shiftPoolIds!: string[];
+}
+
+export class ExcuseDriverShiftDto {
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  isExcused!: boolean;
+
+  @ApiPropertyOptional({
+    example: 'Approved medical absence',
+    maxLength: 500,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  excuseReason?: string;
 }

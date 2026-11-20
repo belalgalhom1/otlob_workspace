@@ -616,6 +616,8 @@ export class DispatchService implements DispatchPort {
                   isStacked: isCandidateStacked,
                   isMultiVendor: isCandidateMultiVendor,
                   driverTier: candidate.tier,
+                  distanceKm: orderDistanceKm,
+                  isStandardOrder: order.type === 'STANDARD',
                 },
               )
             : estimatedEarnings;

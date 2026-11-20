@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -13,13 +13,16 @@ import {
   OrderFulfillmentDecidedEvent,
   DriverAssistDecidedEvent,
   DriverAssistRequestedEvent,
+  DriverRankEvaluationFailedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
 import {
   NotificationType,
   OrderVendorFulfillmentStatus,
+  Role,
   TicketStatus,
 } from '@prisma/client';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   QUEUES,
   EVENT_JOBS,
@@ -40,6 +43,7 @@ export class NotificationListener {
 
   constructor(
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   // The DB write + socket + push for each notification happens on the worker
@@ -101,13 +105,51 @@ export class NotificationListener {
   async handleShiftMissed(event: ShiftMissedEvent) {
     await this.enqueueNotification({
       userId: event.driverUserId,
-      title: 'Shift Missed / Tier Demotion',
-      titleAr: 'تغيب عن الوردية / نزول المستوى',
-      body: `You failed to start your shift on time. You have been demoted to ${event.newTier} tier.`,
-      bodyAr: `لم تقم ببدء ورديتك في الوقت المحدد. تم تنزيل مستواك إلى ${event.newTier}.`,
+      title: 'Shift Missed',
+      titleAr: 'تغيب عن الوردية',
+      body: 'You missed starting your scheduled shift on time. This will be reflected in your weekly ranking evaluation.',
+      bodyAr:
+        'فاتك بدء ورديتك المجدولة في الوقت المحدد. سيؤثر ذلك على تقييم مستواك الأسبوعي.',
       type: NotificationType.SYSTEM,
-      data: { shiftId: event.shiftId, type: 'TIER_DEMOTION' },
+      data: { shiftId: event.shiftId, type: 'SHIFT_MISSED' },
     });
+  }
+
+  @OnEvent(EVENTS.DRIVER_RANK_EVALUATION_FAILED, { async: true })
+  async handleRankEvaluationFailed(event: DriverRankEvaluationFailedEvent) {
+    if (!this.prisma) return;
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: {
+          role: { in: [Role.ADMIN, Role.SUPER_ADMIN] },
+          isBanned: false,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      await Promise.all(
+        admins.map((admin) =>
+          this.enqueueNotification({
+            userId: admin.id,
+            title: 'Weekly Driver Ranking Failed',
+            titleAr: 'فشل تقييم مستويات السائقين الأسبوعي',
+            body: `Evaluation run for week ${event.periodKey} failed: ${event.errorMessage}. Open Driver Ranking to retry.`,
+            bodyAr: `فشل تشغيل تقييم الأسبوع ${event.periodKey}: ${event.errorMessage}. افتح تصنيف السائقين لإعادة المحاولة.`,
+            type: NotificationType.SYSTEM,
+            data: {
+              kind: 'driver_rank_evaluation_failed',
+              runId: event.runId,
+              periodKey: event.periodKey,
+            },
+          }),
+        ),
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to notify admins about driver ranking failure: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   @OnEvent(EVENTS.SHIFT_SWAP_CANCELLED, { async: true })

@@ -284,7 +284,28 @@ export class ShiftMissedEvent {
   constructor(
     public readonly driverUserId: string,
     public readonly shiftId: string,
+    public readonly newTier?: string | null,
+  ) {}
+}
+
+export class DriverRankUpdatedEvent {
+  constructor(
+    public readonly driverId: string,
+    public readonly driverUserId: string,
+    public readonly previousTier: string,
     public readonly newTier: string,
+    public readonly performancePercentage: number | null,
+    public readonly periodKey: string | null,
+    public readonly changeReason: string,
+    public readonly overrideReason?: string | null,
+  ) {}
+}
+
+export class DriverRankEvaluationFailedEvent {
+  constructor(
+    public readonly runId: string,
+    public readonly periodKey: string,
+    public readonly errorMessage: string,
   ) {}
 }
 
