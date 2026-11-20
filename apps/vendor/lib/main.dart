@@ -93,7 +93,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         pageBuilder: (context, state) {
-          if (OtlobLoginEntranceCoordinator.isPendingFromSplash) {
+          if (OtlobLoginEntranceCoordinator.shouldUseTransitionForPage(
+            state.pageKey,
+          )) {
             return CustomTransitionPage<void>(
               key: state.pageKey,
               transitionDuration:

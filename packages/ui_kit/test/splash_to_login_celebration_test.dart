@@ -28,12 +28,39 @@ void main() {
   tearDown(OtlobLoginEntranceCoordinator.reset);
 
   test('OtlobLoginEntranceCoordinator marks, reads, consumes, and resets cleanly', () {
+    const loginKeyA = ValueKey<String>('login-a');
+    const loginKeyB = ValueKey<String>('login-b');
+
     expect(OtlobLoginEntranceCoordinator.isPendingFromSplash, isFalse);
+    expect(
+      OtlobLoginEntranceCoordinator.shouldUseTransitionForPage(loginKeyA),
+      isFalse,
+    );
+
     OtlobLoginEntranceCoordinator.markFromSplash();
     expect(OtlobLoginEntranceCoordinator.isPendingFromSplash, isTrue);
+    expect(
+      OtlobLoginEntranceCoordinator.shouldUseTransitionForPage(loginKeyA),
+      isTrue,
+    );
     expect(OtlobLoginEntranceCoordinator.consumeFromSplash(), isTrue);
     expect(OtlobLoginEntranceCoordinator.isPendingFromSplash, isFalse);
     expect(OtlobLoginEntranceCoordinator.consumeFromSplash(), isFalse);
+    // Same GoRouter pageKey keeps CustomTransitionPage across rebuilds.
+    expect(
+      OtlobLoginEntranceCoordinator.shouldUseTransitionForPage(loginKeyA),
+      isTrue,
+    );
+    expect(
+      OtlobLoginEntranceCoordinator.shouldUseTransitionForPage(loginKeyB),
+      isFalse,
+    );
+
+    OtlobLoginEntranceCoordinator.reset();
+    expect(
+      OtlobLoginEntranceCoordinator.shouldUseTransitionForPage(loginKeyA),
+      isFalse,
+    );
   });
 
   testWidgets(

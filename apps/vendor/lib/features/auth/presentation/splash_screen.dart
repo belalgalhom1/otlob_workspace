@@ -51,6 +51,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final spinState = _spinLogoKey.currentState;
     if (spinState != null) {
       await spinState.waitForSpinAndSettle(Future<void>.value());
+    } else {
+      await Future.delayed(const Duration(milliseconds: 3900));
     }
     if (!mounted) return;
     OtlobLoginEntranceCoordinator.markFromSplash();

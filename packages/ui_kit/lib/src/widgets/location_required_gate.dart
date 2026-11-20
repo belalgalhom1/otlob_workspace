@@ -84,15 +84,11 @@ class _LocationRequiredGateState extends State<LocationRequiredGate>
     return Stack(
       fit: StackFit.expand,
       children: [
-        widget.child,
-        if (enabled == null)
-          Scaffold(
-            backgroundColor: theme.scaffoldBackgroundColor,
-            body: const SafeArea(
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          )
-        else if (!enabled)
+        TickerMode(
+          enabled: enabled != false,
+          child: widget.child,
+        ),
+        if (enabled == false)
           Scaffold(
             backgroundColor: theme.scaffoldBackgroundColor,
             body: SafeArea(

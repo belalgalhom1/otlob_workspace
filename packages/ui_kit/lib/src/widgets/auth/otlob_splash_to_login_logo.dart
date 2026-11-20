@@ -13,14 +13,27 @@ class OtlobLoginEntranceCoordinator {
   OtlobLoginEntranceCoordinator._();
 
   static bool _pendingFromSplash = false;
+  static LocalKey? _activeTransitionPageKey;
 
   /// Marks that Splash is about to transition into Login.
   static void markFromSplash() {
     _pendingFromSplash = true;
+    _activeTransitionPageKey = null;
   }
 
   /// Returns whether a Splash-to-Login transition is pending without consuming.
   static bool get isPendingFromSplash => _pendingFromSplash;
+
+  /// Returns whether GoRouter's `/login` `pageBuilder` for [pageKey] should
+  /// build the Hero-friendly [CustomTransitionPage], keeping the same page type
+  /// across any router refresh/rebuild after [consumeFromSplash] has run.
+  static bool shouldUseTransitionForPage(LocalKey pageKey) {
+    if (_pendingFromSplash) {
+      _activeTransitionPageKey = pageKey;
+      return true;
+    }
+    return _activeTransitionPageKey == pageKey;
+  }
 
   /// Reads and clears the Splash-to-Login transition marker.
   static bool consumeFromSplash() {
@@ -32,6 +45,7 @@ class OtlobLoginEntranceCoordinator {
   /// Resets pending state cleanly.
   static void reset() {
     _pendingFromSplash = false;
+    _activeTransitionPageKey = null;
   }
 }
 
