@@ -76,7 +76,7 @@ export class OffersService {
       orderBy: { createdAt: 'desc' },
       take,
       include: {
-        vendor: { select: { id: true, storeName: true, storeNameAr: true } },
+        vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true } },
         product: {
           select: {
             id: true,

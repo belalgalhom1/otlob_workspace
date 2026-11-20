@@ -13,7 +13,7 @@ export class PromotionsService {
       orderBy: { sortOrder: 'asc' },
       include: {
         vendor: {
-          select: { id: true, storeName: true, storeNameAr: true },
+          select: { id: true, storeName: true, storeNameAr: true, logo: true },
         },
         product: {
           select: { id: true, name: true, nameAr: true },

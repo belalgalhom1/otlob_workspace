@@ -29,6 +29,7 @@ import { StockService } from './helpers/stock.service';
 import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
 import { OrderRejectionRecomputor } from './helpers/order-rejection-recomputor';
 import { OrderCancellationService } from './transitions/order-cancellation.service';
+import { sanitizeCancelReason } from './helpers/order-actor.helper';
 import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
 import { DeliveryGroupTransitionService } from './transitions/delivery-group-transition.service';
 
@@ -307,6 +308,7 @@ export class OrderVendorDecisionService {
       refundAmount,
       result.deliveryFeeDelta,
       serviceFeeDelta,
+      fulfillmentId,
     );
 
     this.logger.log(
@@ -320,11 +322,14 @@ export class OrderVendorDecisionService {
       // (coins refunded, stock restored, dispatch cancelled) rather than
       // leaving an invalid active order behind. Guard against two simultaneous
       // rejections/timeouts both entering `cancelOrder` at the same time.
+      const cancelReason =
+        sanitizeCancelReason(reason) ?? 'All vendors rejected their portions';
       try {
         await this.cancellationService.cancelOrder(
-          null,
+          actor,
           fulfillment.orderId,
-          'All vendors rejected their portions',
+          cancelReason,
+          { vendorId: fulfillment.vendorId },
         );
       } catch (err) {
         const latest = await this.prisma.order.findUnique({

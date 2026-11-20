@@ -13,6 +13,8 @@ export interface DispatchCandidateOffer {
   estimatedEarnings: number;
   pickupLocationName?: string;
   dropoffLocationName?: string;
+  pickupLocationLogo?: string | null;
+  dropoffCustomerAvatar?: string | null;
   isStacked: boolean;
 }
 
@@ -25,6 +27,8 @@ export interface DispatchBroadcastPayload {
   expiresAt: string;
   pickupLocationName?: string;
   dropoffLocationName?: string;
+  pickupLocationLogo?: string | null;
+  dropoffCustomerAvatar?: string | null;
 }
 
 export interface DispatchRetryState {

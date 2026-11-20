@@ -200,12 +200,14 @@ export class DriverAdminService {
           : (persistedInfo ?? null);
         return {
           ...rest,
+          avatar: rest.avatar ?? rest.user?.avatar ?? null,
           driverManager: managerAssignment?.driverManager
             ? {
                 id: managerAssignment.driverManager.id,
                 userId: managerAssignment.driverManager.userId,
                 name: managerAssignment.driverManager.user?.name,
                 phone: managerAssignment.driverManager.user?.phone,
+                avatar: managerAssignment.driverManager.user?.avatar ?? null,
               }
             : null,
           location: loc ? [loc.lng, loc.lat] : null,

@@ -214,6 +214,7 @@ export class MessagesService {
         message.sender.title ?? null,
         message.sender.titleAr ?? null,
         conversation.orderId ?? null,
+        message.sender.avatar ?? null,
       ),
     );
 
@@ -343,6 +344,7 @@ export class MessagesService {
         message.sender.title ?? null,
         message.sender.titleAr ?? null,
         conversation.orderId ?? null,
+        message.sender.avatar ?? null,
       ),
     );
 

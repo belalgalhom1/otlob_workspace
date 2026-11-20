@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import { OrderVendorFulfillment } from './order_vendor_fulfillment';
 import { OrderDeliveryGroup } from './order_delivery_group';
 import { OrderReview } from './order_review';
@@ -13,6 +14,35 @@ import { Zone } from './zone';
 import { SupportTicket } from './support_ticket';
 import { VendorWalletTransaction } from './vendor_wallet_transaction';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class OrderCancelledByDto {
+  @ApiPropertyOptional({ type: String })
+  userId?: string | null;
+
+  @ApiProperty({ type: String })
+  name!: string;
+
+  @ApiPropertyOptional({ type: String })
+  nameAr?: string | null;
+
+  @ApiPropertyOptional({ enum: Role, enumName: 'Role' })
+  role?: Role | null;
+
+  @ApiPropertyOptional({ type: String })
+  avatar?: string | null;
+
+  @ApiPropertyOptional({ type: String })
+  vendorId?: string | null;
+
+  @ApiPropertyOptional({ type: String })
+  reason?: string | null;
+
+  @ApiPropertyOptional({ type: Date })
+  cancelledAt?: Date | null;
+
+  @ApiProperty({ type: Boolean })
+  isSystem!: boolean;
+}
 
 export class OrderRelations {
   @ApiProperty({ isArray: true, type: () => DriverWalletTransaction })
@@ -65,4 +95,7 @@ export class OrderRelations {
     currentStopBranchName: string | null;
     isFullyCollected: boolean;
   };
+
+  @ApiPropertyOptional({ type: () => OrderCancelledByDto })
+  cancelledBy?: OrderCancelledByDto | null;
 }

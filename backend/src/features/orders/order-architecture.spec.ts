@@ -222,6 +222,12 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         'cust-1',
         'OTL-10',
         ['d-1', 'd-2'],
+        expect.objectContaining({
+          actor: expect.objectContaining({
+            actorUserId: 'u-cust',
+            actorRole: Role.CUSTOMER,
+          }),
+        }),
       );
       expect(mockEmitter.emit).toHaveBeenCalledWith(
         EVENTS.ORDER_CANCELLED,

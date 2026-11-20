@@ -210,6 +210,8 @@ model User {
   accounts             Account[]
   createdLegalDocuments LegalDocument[]          @relation("CreatedLegalDocuments")
   legalAcceptances      UserLegalAcceptance[]    @relation("UserLegalAcceptances")
+  cancelledOrders       Order[]                  @relation("OrderCancelledBy")
+  orderStatusEvents     OrderStatusEvent[]       @relation("OrderStatusEventActor")
 
   @@index([role])
   @@index([deletedAt])
@@ -520,7 +522,8 @@ model Vendor {
   orderReviews       OrderReview[]
   vertical           VendorVertical            @relation(fields: [verticalId], references: [id])
 
-  orderFulfillments OrderVendorFulfillment[]
+  orderFulfillments      OrderVendorFulfillment[]
+  orderStatusEventActors OrderStatusEvent[]       @relation("OrderStatusEventActorVendor")
   @@index([createdAt])
   @@index([status])
   @@index([verticalId])
@@ -902,12 +905,20 @@ model Order {
   paymentReceiptUrl    String?
   actualDeliveryTime   DateTime?                 @db.Timestamptz(3)
   settledAt            DateTime?                 @db.Timestamptz(3)
+  cancelledByUserId    String?
+  cancelledByRole      Role?
+  cancelledByName      String?
+  cancelledByNameAr    String?
+  cancelledByAvatar    String?
+  cancelReason         String?
+  cancelledAt          DateTime?                 @db.Timestamptz(3)
   driverTransactions   DriverWalletTransaction[]
   driverManagerTransactions DriverManagerWalletTransaction[]
   dispatches           OrderDispatch[]
   items                OrderItem[]
   statusEvents         OrderStatusEvent[]
   customer             Customer                  @relation(fields: [customerId], references: [id])
+  cancelledByUser      User?                     @relation("OrderCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
   zone                 Zone?                     @relation(fields: [zoneId], references: [id])
   supportTickets       SupportTicket[]
   conversations        Conversation[]
@@ -937,17 +948,28 @@ model OrderStatusEvent {
   orderId         String
   fulfillmentId   String?
   deliveryGroupId String?
+  eventKey        String?
   status          OrderStatus
   note            String?
   createdBy       String?
+  actorUserId     String?
+  actorRole       Role?
+  actorName       String?
+  actorNameAr     String?
+  actorAvatar     String?
+  actorVendorId   String?
   createdAt       DateTime                @default(now()) @db.Timestamptz(3)
   order           Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   fulfillment     OrderVendorFulfillment? @relation(fields: [fulfillmentId], references: [id], onDelete: SetNull)
   deliveryGroup   OrderDeliveryGroup?     @relation(fields: [deliveryGroupId], references: [id], onDelete: SetNull)
+  actorUser       User?                   @relation("OrderStatusEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorVendor     Vendor?                 @relation("OrderStatusEventActorVendor", fields: [actorVendorId], references: [id], onDelete: SetNull)
 
+  @@unique([orderId, eventKey])
   @@index([orderId, createdAt])
   @@index([fulfillmentId])
   @@index([deliveryGroupId])
+  @@index([actorUserId])
   @@map("order_status_events")
 }
 
@@ -1356,28 +1378,31 @@ model DriverManagerWalletTransaction {
 }
 
 model DriverWalletTransaction {
-  id              String                @id @default(uuid())
-  driverId        String
-  orderId         String?
-  deliveryGroupId String?
-  driverShiftId   String?
-  type            WalletTransactionType
-  amount          Int
-  balanceAfter    Int
-  description     String?
-  referenceId     String?
-  idempotencyKey  String?
-  createdAt       DateTime              @default(now()) @db.Timestamptz(3)
-  driver          Driver                @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  driverShift     DriverShift?          @relation(fields: [driverShiftId], references: [id])
-  order           Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  deliveryGroup   OrderDeliveryGroup?   @relation(fields: [deliveryGroupId], references: [id], onDelete: SetNull)
+  id                 String                @id @default(uuid())
+  driverId           String
+  orderId            String?
+  deliveryGroupId    String?
+  driverShiftId      String?
+  type               WalletTransactionType
+  amount             Int
+  balanceAfter       Int
+  description        String?
+  note               String?
+  isManualAdjustment Boolean               @default(false)
+  referenceId        String?
+  idempotencyKey     String?
+  createdAt          DateTime              @default(now()) @db.Timestamptz(3)
+  driver             Driver                @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driverShift        DriverShift?          @relation(fields: [driverShiftId], references: [id])
+  order              Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  deliveryGroup      OrderDeliveryGroup?   @relation(fields: [deliveryGroupId], references: [id], onDelete: SetNull)
 
   @@index([driverId])
   @@index([orderId])
   @@index([deliveryGroupId])
   @@index([createdAt])
   @@index([driverShiftId])
+  @@index([driverId, isManualAdjustment, createdAt])
   @@unique([deliveryGroupId, type, driverId])
   @@unique([driverId, idempotencyKey])
   @@map("driver_wallet_transactions")

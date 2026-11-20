@@ -235,14 +235,14 @@ export class OrdersStateService {
           return this.cancelOrder(
             actor,
             orderId,
-            dto.note ?? 'Cancelled by admin',
+            dto.note?.trim() || '',
           );
         }
         for (const f of targetFulfillments) {
           if (f.status !== 'REJECTED' && f.status !== 'CANCELLED') {
             await this.vendorDecisionService.reject(actor, f.id, {
               code: 'VENDOR_CANCELLED',
-              reason: dto.note ?? 'Cancelled by vendor',
+              reason: dto.note?.trim() || 'Cancelled by vendor',
             });
           }
         }
@@ -279,7 +279,7 @@ export class OrdersStateService {
       return this.cancelOrder(
         actor,
         orderId,
-        dto.note ?? 'Cancelled by vendor',
+        dto.note?.trim() || '',
       );
     }
 

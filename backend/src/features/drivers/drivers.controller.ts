@@ -44,6 +44,10 @@ import {
   ApiStandardResponse,
   ApiArrayResponse,
 } from 'src/common/decorators/api-response.decorator';
+import {
+  DriverWalletBalanceResponseDto,
+  DriverWalletTransactionsResponseDto,
+} from 'src/common/dto/response-models.dto';
 import { DriverBreak } from '../../_gen/prisma-classes/driver_break';
 
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -268,7 +272,7 @@ export class DriversController {
 
   // ─── Wallet ───────────────────────────────────────────────────────────────
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(DriverWalletBalanceResponseDto)
   @Get('me/wallet')
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Get wallet balance' })
@@ -276,7 +280,7 @@ export class DriversController {
     return this.driversService.getWalletBalance(userId);
   }
 
-  @ApiStandardResponse()
+  @ApiStandardResponse(DriverWalletTransactionsResponseDto)
   @Get('me/wallet/transactions')
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Get wallet transaction history' })

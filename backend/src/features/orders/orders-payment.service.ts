@@ -18,6 +18,10 @@ import { DeliveryGroupStatus, OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { OrderErrors } from '../../common/constants/response.constants';
+import {
+  recordOrderStatusEventIdempotent,
+  resolveOrderActorSnapshot,
+} from './helpers/order-actor.helper';
 
 @Injectable()
 export class OrdersPaymentService {
@@ -361,14 +365,19 @@ export class OrdersPaymentService {
           )?.revision ?? 0;
 
         if (advanced.count > 0) {
-          await tx.orderStatusEvent.create({
-            data: {
-              orderId,
-              deliveryGroupId: collectorGroup?.id ?? null,
-              status: nextStatus,
-              note: 'Driver confirmed payment received.',
-              createdBy: actor.sub,
-            },
+          const paymentActor = await resolveOrderActorSnapshot(
+            this.prisma,
+            actor.sub,
+            { orderId },
+          );
+          await recordOrderStatusEventIdempotent(tx, {
+            orderId,
+            deliveryGroupId: collectorGroup?.id ?? null,
+            eventKey: `driver_payment_confirmed:${orderId}`,
+            status: nextStatus,
+            note: 'Driver confirmed payment received.',
+            createdBy: actor.sub,
+            actor: paymentActor,
           });
 
           await this.outbox.record(tx, {

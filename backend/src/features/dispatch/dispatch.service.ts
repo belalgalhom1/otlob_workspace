@@ -310,6 +310,14 @@ export class DispatchService implements DispatchPort {
             candidate.pickupLocationName ?? dispatchData.pickupLocationName,
           dropoffLocationName:
             candidate.dropoffLocationName ?? dispatchData.dropoffLocationName,
+          pickupLocationLogo:
+            candidate.pickupLocationLogo ??
+            dispatchData.pickupLocationLogo ??
+            null,
+          dropoffCustomerAvatar:
+            candidate.dropoffCustomerAvatar ??
+            dispatchData.dropoffCustomerAvatar ??
+            null,
           isStacked: Boolean(candidate.isStacked),
         };
       }),
@@ -354,7 +362,7 @@ export class DispatchService implements DispatchPort {
                 select: { name: true, nameAr: true, address: true },
               },
               vendor: {
-                select: { storeName: true, storeNameAr: true },
+                select: { storeName: true, storeNameAr: true, logo: true },
               },
             },
           },
@@ -371,7 +379,7 @@ export class DispatchService implements DispatchPort {
           type: true,
           pickupAddress: true,
           deliveryFee: true,
-          customer: { select: { user: { select: { name: true } } } },
+          customer: { select: { user: { select: { name: true, avatar: true } } } },
         },
       }),
       this.prisma.orderDeliveryGroup.count({
@@ -510,7 +518,7 @@ export class DispatchService implements DispatchPort {
     order: {
       type: string;
       pickupAddress: string | null;
-      customer: { user: { name: string } | null } | null;
+      customer: { user: { name: string; avatar?: string | null } | null } | null;
     };
     group: {
       id: string;
@@ -520,7 +528,7 @@ export class DispatchService implements DispatchPort {
         fulfillment: {
           id: string;
           vendorBranch: { name: string; nameAr: string | null; address: string } | null;
-          vendor: { storeName: string; storeNameAr: string | null };
+          vendor: { storeName: string; storeNameAr: string | null; logo?: string | null };
         };
       }>;
     };
@@ -558,6 +566,11 @@ export class DispatchService implements DispatchPort {
       pickupNames.length > 0
         ? pickupNames.join(' • ')
         : order.pickupAddress || `Delivery ${group.sequence}`;
+    const resolvedPickupLogo =
+      group.items
+        .map(({ fulfillment: f }) => f.vendor?.logo)
+        .find((l): l is string => Boolean(l && l.trim())) ?? null;
+    const resolvedCustomerAvatar = order.customer?.user?.avatar ?? null;
 
     return Promise.all(
       selectedDrivers.map(async (candidate) => {
@@ -600,6 +613,8 @@ export class DispatchService implements DispatchPort {
           estimatedEarnings: advertisedEarnings,
           pickupLocationName: resolvedPickupName,
           dropoffLocationName: order.customer?.user?.name ?? 'Customer',
+          pickupLocationLogo: resolvedPickupLogo,
+          dropoffCustomerAvatar: resolvedCustomerAvatar,
           isStacked: isCandidateStacked,
         };
       }),
@@ -645,6 +660,8 @@ export class DispatchService implements DispatchPort {
       expiresAt: expiresAt.toISOString(),
       pickupLocationName: candidates[0]?.pickupLocationName,
       dropoffLocationName: candidates[0]?.dropoffLocationName,
+      pickupLocationLogo: candidates[0]?.pickupLocationLogo ?? null,
+      dropoffCustomerAvatar: candidates[0]?.dropoffCustomerAvatar ?? null,
     };
 
     await this.dispatchRepository.saveBroadcast(dispatchId, dispatchData, redisTtl);
@@ -722,6 +739,8 @@ export class DispatchService implements DispatchPort {
           candidate.dropoffLocationName,
           candidate.isStacked,
           dispatchDeliveryFee,
+          candidate.pickupLocationLogo ?? null,
+          candidate.dropoffCustomerAvatar ?? null,
         ),
       );
     }

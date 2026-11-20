@@ -29,6 +29,10 @@ import { OrderErrors } from '../../common/constants/response.constants';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { EVENTS } from '../../common/events/event-names';
 import { OrderCreatedEvent } from '../../common/events';
+import {
+  recordOrderStatusEventIdempotent,
+  resolveOrderActorSnapshot,
+} from './helpers/order-actor.helper';
 
 export interface PlaceMultiVendorOrderDto {
   /** 2+ vendors; a single vendor should use the existing POST /orders. */
@@ -518,8 +522,17 @@ export class OrdersMultiVendorService {
         });
       }
 
-      await tx.orderStatusEvent.create({
-        data: { orderId, status: 'PENDING', createdBy: actor.sub },
+      const placeActorSnapshot = await resolveOrderActorSnapshot(
+        this.prisma,
+        actor.sub,
+        { orderId },
+      );
+      await recordOrderStatusEventIdempotent(tx, {
+        orderId,
+        eventKey: `order_created:${orderId}`,
+        status: 'PENDING',
+        createdBy: actor.sub,
+        actor: placeActorSnapshot,
       });
 
       await this.outbox.record(tx, {

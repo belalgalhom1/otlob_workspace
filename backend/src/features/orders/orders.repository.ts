@@ -24,6 +24,12 @@ import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { EVENTS } from '../../common/events/event-names';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
 import { StockService } from './helpers/stock.service';
+import {
+  OrderActorSnapshot,
+  recordOrderStatusEventIdempotent,
+  resolveOrderActorSnapshot,
+  sanitizeCancelReason,
+} from './helpers/order-actor.helper';
 import { OrderGeoRepository } from './repositories/order-geo.repository';
 import {
   ORDER_INCLUDE,
@@ -455,12 +461,15 @@ export class OrdersRepository {
       // whole packages (ceil), because stock is tracked in packages.
       await this.stock.decrementForItems(tx, items);
 
-      await tx.orderStatusEvent.create({
-        data: {
-          orderId: created.id,
-          status: OrderStatus.PENDING,
-          createdBy: actorUserId,
-        },
+      const actorSnapshot = await resolveOrderActorSnapshot(this.prisma, actorUserId, {
+        orderId: created.id,
+      });
+      await recordOrderStatusEventIdempotent(tx, {
+        orderId: created.id,
+        eventKey: `order_created:${created.id}`,
+        status: OrderStatus.PENDING,
+        createdBy: actorUserId,
+        actor: actorSnapshot,
       });
 
       await this.outbox.record(tx, {
@@ -498,7 +507,17 @@ export class OrdersRepository {
     customerId: string,
     orderNumber: string,
     driverIds: string[],
+    actorMeta?: { actor?: OrderActorSnapshot | null; vendorId?: string | null },
   ) {
+    const cleanReason = sanitizeCancelReason(reason);
+    const actorSnapshot =
+      actorMeta?.actor ??
+      (await resolveOrderActorSnapshot(this.prisma, actorUserId, {
+        orderId,
+        vendorId: actorMeta?.vendorId ?? null,
+      }));
+    const cancelledAt = new Date();
+
     // Revision written by THIS cancellation. Read inside the transaction so the
     // event carries the version this call produced even when another transition
     // commits before the post-commit aggregate read below.
@@ -510,6 +529,13 @@ export class OrdersRepository {
         data: {
           status: OrderStatus.CANCELLED,
           revision: { increment: 1 },
+          cancelledByUserId: actorSnapshot.actorUserId,
+          cancelledByRole: actorSnapshot.actorRole,
+          cancelledByName: actorSnapshot.actorName,
+          cancelledByNameAr: actorSnapshot.actorNameAr,
+          cancelledByAvatar: actorSnapshot.actorAvatar,
+          cancelReason: cleanReason,
+          cancelledAt,
         },
       });
 
@@ -533,13 +559,13 @@ export class OrdersRepository {
         })
       )?.revision ?? null;
 
-      await tx.orderStatusEvent.create({
-        data: {
-          orderId,
-          status: OrderStatus.CANCELLED,
-          note: reason,
-          createdBy: actorUserId,
-        },
+      await recordOrderStatusEventIdempotent(tx, {
+        orderId,
+        eventKey: `order_cancelled:${orderId}`,
+        status: OrderStatus.CANCELLED,
+        note: cleanReason,
+        createdBy: actorUserId,
+        actor: actorSnapshot,
       });
 
       // Refund coins atomically with the status change so a crash or a retry
@@ -696,7 +722,21 @@ export class OrdersRepository {
     note?: string,
     extraData?: Prisma.OrderUpdateInput,
     expectedOldStatus?: OrderStatus,
+    options?: {
+      eventKey?: string | null;
+      actor?: OrderActorSnapshot | null;
+      skipStatusEvent?: boolean;
+      fulfillmentId?: string | null;
+      deliveryGroupId?: string | null;
+    },
   ) {
+    const actorSnapshot = options?.skipStatusEvent
+      ? null
+      : (options?.actor ??
+          (await resolveOrderActorSnapshot(this.prisma, actorUserId, {
+            orderId,
+            fulfillmentId: options?.fulfillmentId ?? null,
+          })));
     // Revision written by THIS transition. Captured inside the transaction so
     // the event identity can never collide with a transition that commits
     // between this commit and the post-commit aggregate read.
@@ -725,14 +765,23 @@ export class OrdersRepository {
         })
       )?.revision ?? null;
 
-      await tx.orderStatusEvent.create({
-        data: {
+      if (!options?.skipStatusEvent) {
+        const eventKey =
+          options?.eventKey ??
+          (written.revision != null
+            ? `order_status:${orderId}:${status}:rev_${written.revision}`
+            : null);
+        await recordOrderStatusEventIdempotent(tx, {
           orderId,
+          fulfillmentId: options?.fulfillmentId ?? null,
+          deliveryGroupId: options?.deliveryGroupId ?? null,
+          eventKey,
           status,
           note: note ?? null,
           createdBy: actorUserId,
-        },
-      });
+          actor: actorSnapshot,
+        });
+      }
 
       if (written.revision != null) {
         const orderRow = await tx.order.findUnique({
@@ -948,14 +997,17 @@ export class OrdersRepository {
         })
       ).revision;
 
-      await tx.orderStatusEvent.create({
-        data: {
-          orderId,
-          deliveryGroupId: targetGroup.id,
-          status: resolvedOrderStatus,
-          createdBy: actorUserId,
-          note: `Driver manually assigned by admin. ${resolvedOrderStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
-        },
+      const assignActor = await resolveOrderActorSnapshot(this.prisma, actorUserId, {
+        orderId,
+      });
+      await recordOrderStatusEventIdempotent(tx, {
+        orderId,
+        deliveryGroupId: targetGroup.id,
+        eventKey: `driver_assigned:${orderId}:${targetGroup.id}:${driverId}:rev_${written.revision}`,
+        status: resolvedOrderStatus,
+        createdBy: actorUserId,
+        actor: assignActor,
+        note: `Driver manually assigned by admin. ${resolvedOrderStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`.trim(),
       });
 
       await tx.driver.update({

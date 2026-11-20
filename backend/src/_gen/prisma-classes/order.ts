@@ -3,6 +3,7 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  Role,
   VehicleType,
 } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -112,4 +113,25 @@ export class Order {
 
   @ApiPropertyOptional({ type: Date })
   settledAt?: Date;
+
+  @ApiPropertyOptional({ type: String })
+  cancelledByUserId?: string;
+
+  @ApiPropertyOptional({ enum: Role, enumName: 'Role' })
+  cancelledByRole?: Role;
+
+  @ApiPropertyOptional({ type: String })
+  cancelledByName?: string;
+
+  @ApiPropertyOptional({ type: String })
+  cancelledByNameAr?: string;
+
+  @ApiPropertyOptional({ type: String })
+  cancelledByAvatar?: string;
+
+  @ApiPropertyOptional({ type: String })
+  cancelReason?: string;
+
+  @ApiPropertyOptional({ type: Date })
+  cancelledAt?: Date;
 }

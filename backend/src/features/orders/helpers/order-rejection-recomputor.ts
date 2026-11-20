@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { DeliveryGroupStatus, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../../platform-settings/platform-settings.service';
+import {
+  recordOrderStatusEventIdempotent,
+  systemActorSnapshot,
+} from './order-actor.helper';
 
 export interface GroupVendorRemovalResult {
   deliveryFeeDelta: number;
@@ -79,14 +83,14 @@ export class OrderRejectionRecomputor {
         data: { status: 'CANCELLED' },
       });
 
-      await tx.orderStatusEvent.create({
-        data: {
-          orderId,
-          deliveryGroupId,
-          status: orderStatus,
-          note: `Delivery ${group.sequence} cancelled — no vendors accepted`,
-          createdBy: 'system',
-        },
+      await recordOrderStatusEventIdempotent(tx, {
+        orderId,
+        deliveryGroupId,
+        eventKey: `group_no_vendors:${deliveryGroupId}`,
+        status: orderStatus,
+        note: `Delivery ${group.sequence} cancelled — no vendors accepted`,
+        createdBy: 'system',
+        actor: systemActorSnapshot(),
       });
       const freedDriverIds = [
         group.primaryDriverId,
@@ -125,6 +129,7 @@ export class OrderRejectionRecomputor {
     rejectedAmount: number,
     deliveryFeeDelta = 0,
     serviceFeeDelta = 0,
+    fulfillmentId?: string,
   ): Promise<void> {
     if (rejectedAmount <= 0 && deliveryFeeDelta === 0 && serviceFeeDelta === 0) {
       return;
@@ -277,13 +282,14 @@ export class OrderRejectionRecomputor {
       if (deliveryFeeDelta !== 0)
         parts.push(`${Math.abs(deliveryFeeDelta)} EGP of delivery fee`);
       if (parts.length > 0) {
-        await tx.orderStatusEvent.create({
-          data: {
-            orderId,
-            status: order.status,
-            note: `Vendor portion rejected — removed ${parts.join(' and ')} from the order`,
-            createdBy: 'system',
-          },
+        await recordOrderStatusEventIdempotent(tx, {
+          orderId,
+          fulfillmentId: fulfillmentId ?? null,
+          eventKey: fulfillmentId ? `portion_rejected:${fulfillmentId}` : null,
+          status: order.status,
+          note: `Vendor portion rejected — removed ${parts.join(' and ')} from the order`,
+          createdBy: 'system',
+          actor: systemActorSnapshot(),
         });
       }
 
@@ -302,13 +308,14 @@ export class OrderRejectionRecomputor {
             : order.grandTotal;
         const cashRefundOwed = Math.max(0, alreadyPaidCash - newGrandTotal);
         if (cashRefundOwed > 0) {
-          await tx.orderStatusEvent.create({
-            data: {
-              orderId,
-              status: order.status,
-              note: `Refund obligation: ${cashRefundOwed} EGP owed to customer after portion rejection (payment already ${order.paymentStatus})`,
-              createdBy: 'system',
-            },
+          await recordOrderStatusEventIdempotent(tx, {
+            orderId,
+            fulfillmentId: fulfillmentId ?? null,
+            eventKey: fulfillmentId ? `refund_obligation:${fulfillmentId}` : null,
+            status: order.status,
+            note: `Refund obligation: ${cashRefundOwed} EGP owed to customer after portion rejection (payment already ${order.paymentStatus})`,
+            createdBy: 'system',
+            actor: systemActorSnapshot(),
           });
         }
       }

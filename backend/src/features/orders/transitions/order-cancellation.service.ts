@@ -14,6 +14,7 @@ import { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interfa
 import { OrderCancelledEvent } from '../../../common/events';
 import { EVENTS } from '../../../common/events/event-names';
 import { OrderErrors } from '../../../common/constants/response.constants';
+import { resolveOrderActorSnapshot } from '../helpers/order-actor.helper';
 
 /**
  * Owns order cancellation authorization, guardrails, driver collection,
@@ -34,6 +35,7 @@ export class OrderCancellationService {
     actor: JwtAccessPayload | null,
     orderId: string,
     reason: string,
+    options?: { vendorId?: string | null },
   ) {
     if (actor?.role === Role.DRIVER_MANAGER) {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
@@ -85,6 +87,16 @@ export class OrderCancellationService {
     const primaryDriverId =
       collectorGroup?.primaryDriverId ?? allDriverIds[0] ?? null;
 
+    const actorSnapshot = await resolveOrderActorSnapshot(
+      this.prisma,
+      actor?.sub ?? null,
+      {
+        fallbackRole: actor?.role ?? null,
+        vendorId: options?.vendorId ?? singleVendorId,
+        orderId,
+      },
+    );
+
     const updatedOrder = await this.ordersRepository.cancelOrder(
       orderId,
       actor?.sub ?? 'system',
@@ -94,6 +106,10 @@ export class OrderCancellationService {
       order.customerId,
       order.orderNumber,
       allDriverIds,
+      {
+        actor: actorSnapshot,
+        vendorId: options?.vendorId ?? singleVendorId,
+      },
     );
 
     const updatedGroups = (
@@ -124,6 +140,10 @@ export class OrderCancellationService {
         actor?.sub ?? null,
         allDriverIds,
         updatedOrder.revision,
+        actorSnapshot.actorName,
+        actorSnapshot.actorNameAr,
+        actorSnapshot.actorRole,
+        actorSnapshot.actorAvatar,
       ),
     );
 

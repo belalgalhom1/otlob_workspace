@@ -790,7 +790,7 @@ export class ConversationsService {
         },
       },
       vendor: {
-        select: { id: true, storeName: true, storeNameAr: true },
+        select: { id: true, storeName: true, storeNameAr: true, logo: true },
       },
       order: {
         select: { orderNumber: true },
@@ -833,6 +833,7 @@ export class ConversationsService {
         createdAt: Date;
         sender: {
           name: string;
+          avatar?: string | null;
           role: string;
           title: string | null;
           titleAr?: string | null;
@@ -849,7 +850,7 @@ export class ConversationsService {
         titleAr?: string | null;
         vendorMemberships: { role: string }[];
       } | null;
-      vendor: { storeName: string; storeNameAr: string | null } | null;
+      vendor: { storeName: string; storeNameAr: string | null; logo?: string | null } | null;
       order: { orderNumber: string } | null;
       _count: { messages: number } | null;
     };
@@ -884,6 +885,7 @@ export class ConversationsService {
       vendorId: conversation.vendorId,
       vendorName: conversation.vendor?.storeName,
       vendorNameAr: conversation.vendor?.storeNameAr,
+      vendorLogo: conversation.vendor?.logo ?? null,
       participants: conversation.participants.map((p) => ({
         userId: p.userId,
         name: p.user.name,
@@ -906,6 +908,7 @@ export class ConversationsService {
             mediaUrl: lastMessage.mediaUrl,
             senderId: lastMessage.senderId,
             senderName: lastMessage.sender.name,
+            senderAvatar: lastMessage.sender.avatar ?? null,
             senderRole:
               lastMessage.sender.vendorMemberships &&
               lastMessage.sender.vendorMemberships.length > 0

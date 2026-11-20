@@ -880,8 +880,12 @@ export class OrderRoleProjector {
             return myVendorFulfillmentIds.has(ev.fulfillmentId);
           }
           if (isOrderMultiVendor) {
-            // Keep multi-vendor vendor feeds isolated from other stores' notes/cancellations.
-            return ev.status === 'PENDING' && !ev.deliveryGroupId;
+            // Keep multi-vendor vendor feeds isolated from other stores' notes/cancellations,
+            // while still preserving whole-order placement and whole-order cancellation actor events.
+            return (
+              (ev.status === 'PENDING' && !ev.deliveryGroupId) ||
+              ev.status === 'CANCELLED'
+            );
           }
           return true;
         })
@@ -1238,6 +1242,7 @@ export class OrderRoleProjector {
     return {
       fulfillmentId: f.id,
       vendorId: f.vendorId,
+      vendorLogo: f.vendor?.logo ?? null,
       vendorName:
         f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name ?? 'Store',
       vendorNameEn:

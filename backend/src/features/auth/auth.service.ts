@@ -187,6 +187,7 @@ export class AuthService {
         driver: {
           select: {
             isApproved: true,
+            avatar: true,
           },
         },
       },
@@ -254,8 +255,13 @@ export class AuthService {
 
     this.logger.log(`Login success: ${dto.email}`);
     const tokens = await this.createSession(user.id, user.role, true, meta);
-    const { password: _, ...userWithoutPassword } = user;
-    return { ...tokens, user: userWithoutPassword };
+    const { password: _, ...userWithoutPassword } = user as any;
+    const coalescedAvatar =
+      userWithoutPassword.avatar ?? userWithoutPassword.driver?.avatar ?? null;
+    return {
+      ...tokens,
+      user: { ...userWithoutPassword, avatar: coalescedAvatar },
+    };
   }
 
   private async verifyGoogleToken(
@@ -477,8 +483,13 @@ export class AuthService {
 
     // 5. Success
     const tokens = await this.createSession(user.id, user.role, true, meta);
-    const { password: _, ...userWithoutPassword } = user;
-    return { ...tokens, user: userWithoutPassword };
+    const { password: _, ...userWithoutPassword } = user as any;
+    const coalescedAvatar =
+      userWithoutPassword.avatar ?? userWithoutPassword.driver?.avatar ?? null;
+    return {
+      ...tokens,
+      user: { ...userWithoutPassword, avatar: coalescedAvatar },
+    };
   }
 
   async linkSocialAccount(userId: string, dto: SocialLoginDto) {
@@ -681,6 +692,7 @@ export class AuthService {
             id: true,
             role: true,
             name: true,
+            avatar: true,
             isBanned: true,
             banReason: true,
             isEmailVerified: true,
@@ -710,7 +722,7 @@ export class AuthService {
 
     const driverProfile = await this.prisma.driver.findUnique({
       where: { userId: payload.sub },
-      select: { isApproved: true },
+      select: { isApproved: true, avatar: true },
     });
 
     const user = session.user;
@@ -797,10 +809,12 @@ export class AuthService {
     });
 
     const { password: _, ...userWithoutPassword } = user as any;
+    const coalescedAvatar =
+      userWithoutPassword.avatar ?? driverProfile?.avatar ?? null;
     const responsePayload = {
       access_token,
       refresh_token,
-      user: userWithoutPassword,
+      user: { ...userWithoutPassword, avatar: coalescedAvatar },
     };
 
     if (updateResult.count === 0) {

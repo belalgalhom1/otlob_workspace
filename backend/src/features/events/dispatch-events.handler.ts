@@ -47,6 +47,8 @@ export class DispatchEventsHandler {
         expiresAt: event.expiresAt,
         pickupLocationName: event.pickupLocationName,
         dropoffLocationName: event.dropoffLocationName,
+        pickupLocationLogo: event.pickupLocationLogo ?? null,
+        dropoffCustomerAvatar: event.dropoffCustomerAvatar ?? null,
         isStacked: event.isStacked,
       },
     );

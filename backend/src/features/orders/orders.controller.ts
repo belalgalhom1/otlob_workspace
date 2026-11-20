@@ -488,7 +488,7 @@ export class OrdersController {
     @Param('orderId') orderId: string,
     @Body() dto?: CancelOrderDto,
   ) {
-    const reason = dto?.reason?.trim() || 'Cancelled by user';
+    const reason = dto?.reason?.trim() || '';
     const order = await this.stateService.cancelOrder(
       actor,
       orderId,

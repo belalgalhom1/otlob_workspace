@@ -28,6 +28,10 @@ import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.disp
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
 import { OrderErrors } from '../../common/constants/response.constants';
 import {
+  recordOrderStatusEventIdempotent,
+  systemActorSnapshot,
+} from '../orders/helpers/order-actor.helper';
+import {
   DispatchBroadcastPayload,
   DispatchCandidateOffer,
   DispatchRepository,
@@ -772,14 +776,14 @@ export class DispatchLifecycleService {
         });
         assignedRevision = updatedOrder.revision;
 
-        await tx.orderStatusEvent.create({
-          data: {
-            orderId: order.id,
-            deliveryGroupId: groupId,
-            status: nextOrderStatus,
-            note: `Driver assigned to delivery. ${nextOrderStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`,
-            createdBy: 'system',
-          },
+        await recordOrderStatusEventIdempotent(tx, {
+          orderId: order.id,
+          deliveryGroupId: groupId,
+          eventKey: `dispatch_assigned:${order.id}:${groupId}:${driverId}:${dispatchId}`,
+          status: nextOrderStatus,
+          note: `Driver assigned to delivery. ${nextOrderStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`.trim(),
+          createdBy: 'system',
+          actor: systemActorSnapshot(),
         });
 
         await this.outbox.record(tx, {

@@ -24,7 +24,10 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { VendorMember } from 'src/common/decorators/vendor-member.decorator';
 import { Role, Permission, VendorMemberRole } from '@prisma/client';
-import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
+import {
+  ApiArrayResponse,
+  ApiStandardResponse,
+} from '../../common/decorators/api-response.decorator';
 import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import {
   MobileWalletResponseDto,
@@ -147,7 +150,7 @@ export class WalletController {
 
   // ─── Driver Endpoints ───────────────────────────────────────────────────────
 
-  @ApiStandardResponse(DriverWalletTransactionResponseDto)
+  @ApiArrayResponse(DriverWalletTransactionResponseDto)
   @Get('driver/me/transactions')
   @Roles(Role.DRIVER)
   @ApiOperation({ summary: 'Get my personal driver wallet transactions' })

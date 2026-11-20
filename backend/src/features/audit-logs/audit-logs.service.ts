@@ -57,10 +57,10 @@ export class AuditLogsService {
         orderBy: { createdAt: 'desc' },
         include: {
           user: {
-            select: { id: true, name: true, email: true },
+            select: { id: true, name: true, email: true, avatar: true, role: true },
           },
           vendor: {
-            select: { id: true, storeName: true },
+            select: { id: true, storeName: true, storeNameAr: true, logo: true },
           },
           session: {
             select: { id: true, ipAddress: true, userAgent: true },

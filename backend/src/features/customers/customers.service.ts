@@ -354,7 +354,7 @@ export class CustomersService {
         paymentMethod: true,
         createdAt: true,
         vendorFulfillments: {
-          select: { vendor: { select: { id: true, storeName: true } } },
+          select: { vendor: { select: { id: true, storeName: true, logo: true } } },
         },
       },
     });
@@ -369,6 +369,7 @@ export class CustomersService {
                 storeName: vendorFulfillments
                   .map((f) => f.vendor.storeName)
                   .join(' + '),
+                logo: vendorFulfillments[0].vendor?.logo ?? null,
               }
             : null,
     }));
@@ -413,7 +414,7 @@ export class CustomersService {
       where: { id: customerId },
       data: { canOrder },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, avatar: true } },
       },
     });
 
@@ -480,29 +481,47 @@ export class CustomersService {
           },
           deliveryGroups: {
             orderBy: { sequence: 'asc' },
-            select: { primaryDriver: { select: { id: true, name: true } } },
+            select: {
+              primaryDriver: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true,
+                  user: { select: { avatar: true } },
+                },
+              },
+            },
           },
         },
       }),
       this.prisma.order.count({ where: { customerId } }),
     ]);
 
-    const orders = rawOrders.map(({ vendorFulfillments, deliveryGroups, ...o }) => ({
-      ...o,
-      vendor:
-        vendorFulfillments.length === 1
-          ? vendorFulfillments[0].vendor
-          : vendorFulfillments.length > 1
-            ? {
-                id: 'multi-vendor',
-                storeName: vendorFulfillments
-                  .map((f) => f.vendor.storeName)
-                  .join(' + '),
-                logo: null,
-              }
-            : null,
-      driver: deliveryGroups.find((g) => g.primaryDriver)?.primaryDriver ?? null,
-    }));
+    const orders = rawOrders.map(({ vendorFulfillments, deliveryGroups, ...o }) => {
+      const driverRaw = deliveryGroups.find((g) => g.primaryDriver)?.primaryDriver ?? null;
+      return {
+        ...o,
+        vendor:
+          vendorFulfillments.length === 1
+            ? vendorFulfillments[0].vendor
+            : vendorFulfillments.length > 1
+              ? {
+                  id: 'multi-vendor',
+                  storeName: vendorFulfillments
+                    .map((f) => f.vendor.storeName)
+                    .join(' + '),
+                  logo: vendorFulfillments[0].vendor?.logo ?? null,
+                }
+              : null,
+        driver: driverRaw
+          ? {
+              id: driverRaw.id,
+              name: driverRaw.name,
+              avatar: driverRaw.avatar ?? driverRaw.user?.avatar ?? null,
+            }
+          : null,
+      };
+    });
 
     return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };
   }

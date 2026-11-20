@@ -89,6 +89,8 @@ export class StatisticsAnalyticsRepository {
 
     const select = {
       id: true,
+      name: true,
+      avatar: true,
       totalOrders: true,
       walletBalance: true,
       tier: true,
@@ -129,16 +131,32 @@ export class StatisticsAnalyticsRepository {
       const byId = new Map(drivers.map((d) => [d.id, d]));
       return raw
         .filter((r) => byId.has(r.driverId))
-        .map((r) => ({
-          ...byId.get(r.driverId),
-          totalOrders: r.totalOrders,
-        }));
+        .map((r) => {
+          const d = byId.get(r.driverId)!;
+          const coalescedAvatar = d.avatar ?? d.user?.avatar ?? null;
+          return {
+            ...d,
+            name: d.name ?? d.user?.name,
+            avatar: coalescedAvatar,
+            user: d.user ? { ...d.user, avatar: coalescedAvatar } : d.user,
+            totalOrders: r.totalOrders,
+          };
+        });
     }
 
-    return this.prisma.driver.findMany({
+    const drivers = await this.prisma.driver.findMany({
       orderBy: { totalOrders: 'desc' },
       take: limit,
       select,
+    });
+    return drivers.map((d) => {
+      const coalescedAvatar = d.avatar ?? d.user?.avatar ?? null;
+      return {
+        ...d,
+        name: d.name ?? d.user?.name,
+        avatar: coalescedAvatar,
+        user: d.user ? { ...d.user, avatar: coalescedAvatar } : d.user,
+      };
     });
   }
 
@@ -795,6 +813,8 @@ export class StatisticsAnalyticsRepository {
         },
         select: {
           id: true,
+          name: true,
+          avatar: true,
           tier: true,
           status: true,
           user: { select: { name: true, phone: true, avatar: true } },
@@ -857,9 +877,9 @@ export class StatisticsAnalyticsRepository {
         const stats = perDriver.get(driver.id) ?? emptyBucket();
         return {
           driverId: driver.id,
-          name: driver.user?.name ?? null,
+          name: driver.name ?? driver.user?.name ?? null,
           phone: driver.user?.phone ?? null,
-          avatar: driver.user?.avatar ?? null,
+          avatar: driver.avatar ?? driver.user?.avatar ?? null,
           tier: driver.tier,
           status: driver.status,
           ...stats,

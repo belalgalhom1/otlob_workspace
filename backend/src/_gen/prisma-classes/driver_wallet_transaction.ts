@@ -33,6 +33,12 @@ export class DriverWalletTransaction {
   description?: string;
 
   @ApiPropertyOptional({ type: String })
+  note?: string;
+
+  @ApiProperty({ type: Boolean })
+  isManualAdjustment: boolean = false;
+
+  @ApiPropertyOptional({ type: String })
   referenceId?: string;
 
   @ApiProperty({ type: Date })

@@ -27,6 +27,11 @@ import {
   DriverErrors,
   OrderErrors,
 } from '../../../common/constants/response.constants';
+import {
+  formatFulfillmentStoreLabel,
+  recordOrderStatusEventIdempotent,
+  resolveOrderActorSnapshot,
+} from '../helpers/order-actor.helper';
 
 /**
  * Manages per-vendor fulfillment transitions (`PREPARING`, `READY_FOR_PICKUP`,
@@ -184,23 +189,72 @@ export class FulfillmentTransitionService {
       });
     }
 
-    await this.prisma.orderStatusEvent.create({
-      data: {
-        orderId: order.id,
-        deliveryGroupId: group.id,
+    let groupBecameReady = false;
+    if (wantedReady) {
+      groupBecameReady = await this.markGroupReadyIfAllPortionsReady(group.id);
+    }
+
+    const orderFulfillments = ((order as any).vendorFulfillments ?? []) as any[];
+    let targetFulfillment = orderFulfillments.find(
+      (f) => f.id === fulfillment.id,
+    );
+    if (!targetFulfillment && this.prisma?.orderVendorFulfillment?.findUnique) {
+      targetFulfillment = await this.prisma.orderVendorFulfillment.findUnique({
+        where: { id: fulfillment.id },
+        select: {
+          id: true,
+          vendorId: true,
+          vendor: { select: { storeName: true, storeNameAr: true, logo: true } },
+          vendorBranch: { select: { name: true, nameAr: true } },
+        },
+      });
+    }
+    const storeLabel = formatFulfillmentStoreLabel(targetFulfillment);
+    const liveFulfillments = orderFulfillments.filter(
+      (f) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
+    );
+    const isSinglePortionOrder = liveFulfillments.length <= 1;
+
+    const eventStatus = wantedReady
+      ? groupBecameReady || isSinglePortionOrder
+        ? OrderStatus.READY_FOR_PICKUP
+        : OrderStatus.PREPARING
+      : OrderStatus.PREPARING;
+    const eventNote = storeLabel
+      ? wantedReady
+        ? `${storeLabel}: ready for pickup`
+        : `${storeLabel}: started preparing`
+      : wantedReady
+        ? `Delivery ${group.sequence}: vendor portion ready for pickup`
+        : `Delivery ${group.sequence}: vendor portion started preparing`;
+
+    const actorSnapshot = await resolveOrderActorSnapshot(
+      this.prisma,
+      actor.sub,
+      {
         fulfillmentId: fulfillment.id,
-        status: order.status,
-        note: wantedReady
-          ? `Delivery ${group.sequence}: vendor portion ready for pickup`
-          : `Delivery ${group.sequence}: vendor portion started preparing`,
-        createdBy: actor.sub,
+        vendorId: targetFulfillment?.vendorId ?? null,
+        orderId: order.id,
       },
+    );
+
+    await recordOrderStatusEventIdempotent(this.prisma, {
+      orderId: order.id,
+      deliveryGroupId: group.id,
+      fulfillmentId: fulfillment.id,
+      eventKey: `fulfillment_${wantedReady ? 'ready' : 'preparing'}:${fulfillment.id}`,
+      status: eventStatus,
+      note: eventNote,
+      createdBy: actor.sub,
+      actor: actorSnapshot,
     });
 
-    if (wantedReady) {
-      await this.markGroupReadyIfAllPortionsReady(group.id);
-    }
-    await this.recomputeVendorReadinessStatus(actor.sub, order.id, group.id);
+    await this.recomputeVendorReadinessStatus(
+      actor.sub,
+      order.id,
+      group.id,
+      isSinglePortionOrder ? { skipStatusEvent: true } : undefined,
+    );
 
     const fresh = await this.ordersRepository.findById(order.id);
     try {
@@ -298,6 +352,8 @@ export class FulfillmentTransitionService {
     const fulfillment = await this.prisma.orderVendorFulfillment.findFirst({
       where: { id: fulfillmentId, orderId },
       include: {
+        vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true } },
+        vendorBranch: { select: { id: true, name: true, nameAr: true } },
         groups: {
           include: {
             deliveryGroup: true,
@@ -433,6 +489,40 @@ export class FulfillmentTransitionService {
                 status: DeliveryGroupStatus.PARTIALLY_PICKED_UP,
               },
         });
+        const stopLabel = formatFulfillmentStoreLabel(fulfillment);
+        const driverActorSnapshot = await resolveOrderActorSnapshot(
+          this.prisma,
+          actor.sub,
+          { orderId },
+        );
+        const allGroupsWillBePickedUp =
+          allPickedUp &&
+          ((order.deliveryGroups ?? []) as any[])
+            .filter(
+              (g) =>
+                g.id !== groupItem.deliveryGroupId &&
+                g.status !== DeliveryGroupStatus.CANCELLED,
+            )
+            .every(
+              (g) =>
+                g.status === DeliveryGroupStatus.PICKED_UP ||
+                g.status === DeliveryGroupStatus.DELIVERED,
+            );
+        await recordOrderStatusEventIdempotent(this.prisma, {
+          orderId,
+          fulfillmentId,
+          deliveryGroupId: groupItem.deliveryGroupId,
+          eventKey: `fulfillment_pickup:${fulfillmentId}`,
+          status: allGroupsWillBePickedUp
+            ? OrderStatus.PICKED_UP
+            : OrderStatus.PARTIALLY_PICKED_UP,
+          note: stopLabel
+            ? `Driver picked up from ${stopLabel}`
+            : `Driver picked up fulfillment stop ${fulfillmentId}`,
+          createdBy: actor.sub,
+          actor: driverActorSnapshot,
+        });
+
         await this.deliveryGroupTransitions.recomputeGroupedOrderStatus(
           actor,
           order,
@@ -516,20 +606,25 @@ export class FulfillmentTransitionService {
           throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
         }
         await onLegacyNoGroupFallback(imageUrl);
+        const fallbackOrder = await this.ordersRepository.findById(orderId);
+        const driverActorSnapshot = await resolveOrderActorSnapshot(
+          this.prisma,
+          actor.sub,
+          { orderId },
+        );
+        await recordOrderStatusEventIdempotent(this.prisma, {
+          orderId,
+          fulfillmentId,
+          deliveryGroupId: null,
+          eventKey: `fulfillment_pickup:${fulfillmentId}`,
+          status: fallbackOrder.status,
+          note: `Driver picked up fulfillment stop ${fulfillmentId}`,
+          createdBy: actor.sub,
+          actor: driverActorSnapshot,
+        });
       }
 
       const finalOrder = await this.ordersRepository.findById(orderId);
-      await this.prisma.orderStatusEvent.create({
-        data: {
-          orderId,
-          fulfillmentId,
-          deliveryGroupId: groupItem?.deliveryGroupId ?? null,
-          status: finalOrder.status,
-          note: `Driver picked up fulfillment stop ${fulfillmentId}`,
-          createdBy: actor.sub,
-        },
-      });
-
       return finalOrder;
     } catch (error) {
       await this.storage.delete(imageUrl);
@@ -572,6 +667,7 @@ export class FulfillmentTransitionService {
     actorUserId: string,
     orderId: string,
     changedGroupId: string,
+    options?: { skipStatusEvent?: boolean },
   ) {
     const groups = await this.prisma.orderDeliveryGroup.findMany({
       where: { orderId },
@@ -655,16 +751,28 @@ export class FulfillmentTransitionService {
 
     let updatedRevision = fresh.revision;
     try {
-      const updated = await this.ordersRepository.updateStatus(
-        orderId,
-        target,
-        actorUserId,
+      const readinessNote =
         target === OrderStatus.READY_FOR_PICKUP
           ? 'All vendor portions ready for pickup'
-          : 'Vendor portion started preparing',
-        undefined,
-        fresh.status,
-      );
+          : 'Vendor portion started preparing';
+      const updated = options?.skipStatusEvent
+        ? await this.ordersRepository.updateStatus(
+            orderId,
+            target,
+            actorUserId,
+            readinessNote,
+            undefined,
+            fresh.status,
+            { skipStatusEvent: true },
+          )
+        : await this.ordersRepository.updateStatus(
+            orderId,
+            target,
+            actorUserId,
+            readinessNote,
+            undefined,
+            fresh.status,
+          );
       updatedRevision = updated.revision;
     } catch {
       return;

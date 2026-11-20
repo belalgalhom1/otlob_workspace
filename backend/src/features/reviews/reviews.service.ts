@@ -242,7 +242,7 @@ export class ReviewsService {
         include: {
           customer: {
             select: {
-              user: { select: { name: true } },
+              user: { select: { id: true, name: true, avatar: true } },
             },
           },
           fulfillment: {
@@ -309,7 +309,7 @@ export class ReviewsService {
         include: {
           customer: {
             select: {
-              user: { select: { name: true } },
+              user: { select: { id: true, name: true, avatar: true } },
             },
           },
         },

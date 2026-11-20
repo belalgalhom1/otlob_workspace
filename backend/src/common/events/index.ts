@@ -36,6 +36,7 @@ export class ChatMessageSentEvent {
     public readonly senderTitle?: string | null,
     public readonly senderTitleAr?: string | null,
     public readonly orderId?: string | null,
+    public readonly senderAvatar?: string | null,
   ) {}
 }
 
@@ -152,6 +153,10 @@ export class OrderCancelledEvent {
     // legacy single-vendor orders this is just [driverId] (or []).
     public readonly driverIds: string[] = [],
     public readonly revision?: number,
+    public readonly cancelledByName?: string | null,
+    public readonly cancelledByNameAr?: string | null,
+    public readonly cancelledByRole?: string | null,
+    public readonly cancelledByAvatar?: string | null,
   ) {}
 }
 
@@ -187,6 +192,8 @@ export class OrderDispatchSentEvent {
     public readonly dropoffLocationName?: string,
     public readonly isStacked: boolean = false,
     public readonly deliveryFee?: number,
+    public readonly pickupLocationLogo?: string | null,
+    public readonly dropoffCustomerAvatar?: string | null,
   ) {}
 }
 

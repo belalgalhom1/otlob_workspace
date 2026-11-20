@@ -10,6 +10,10 @@ import {
 } from '@prisma/client';
 import { DriverErrors } from 'src/common/constants/response.constants';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from '../../common/orders/order-status.constants';
+import {
+  DRIVER_WALLET_TX_SELECT,
+  sanitizeDriverWalletTransactionForDriver,
+} from '../wallet/helpers/driver-wallet-tx.helper';
 
 @Injectable()
 export class DriversRepository {
@@ -32,7 +36,7 @@ export class DriversRepository {
           include: {
             driverManager: {
               include: {
-                user: { select: { id: true, name: true, email: true, phone: true } },
+                user: { select: { id: true, name: true, email: true, phone: true, avatar: true } },
               },
             },
           },
@@ -134,7 +138,10 @@ export class DriversRepository {
   async updateAvatar(driverId: string, avatarUrl: string) {
     return this.prisma.driver.update({
       where: { id: driverId },
-      data: { avatar: avatarUrl },
+      data: {
+        avatar: avatarUrl,
+        user: { update: { avatar: avatarUrl } },
+      },
     });
   }
 
@@ -292,12 +299,12 @@ export class DriversRepository {
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, name: true, email: true, phone: true } },
+          user: { select: { id: true, name: true, email: true, phone: true, avatar: true } },
           managerAssignment: {
             include: {
               driverManager: {
                 include: {
-                  user: { select: { id: true, name: true, email: true, phone: true } },
+                  user: { select: { id: true, name: true, email: true, phone: true, avatar: true } },
                 },
               },
             },
@@ -326,6 +333,7 @@ export class DriversRepository {
             name: true,
             email: true,
             phone: true,
+            avatar: true,
             isBanned: true,
           },
         },
@@ -336,6 +344,7 @@ export class DriversRepository {
     const { primaryGroups, shifts } = driver._count;
     return {
       ...driver,
+      avatar: driver.avatar ?? driver.user?.avatar ?? null,
       _count: {
         orders: primaryGroups,
         primaryGroups,
@@ -500,13 +509,14 @@ export class DriversRepository {
   async getWalletTransactions(driverId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
 
-    const [transactions, total] = await Promise.all([
+    const [rawTransactions, total] = await Promise.all([
       this.prisma.driverWalletTransaction.findMany({
         where: { driverId },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
-        include: {
+        select: {
+          ...DRIVER_WALLET_TX_SELECT,
           order: { select: { id: true, orderNumber: true } },
         },
       }),
@@ -514,7 +524,9 @@ export class DriversRepository {
     ]);
 
     return {
-      transactions,
+      transactions: rawTransactions.map((tx) =>
+        sanitizeDriverWalletTransactionForDriver(tx),
+      ),
       total,
       page,
       limit,
@@ -599,7 +611,7 @@ export class DriversRepository {
   }
 
   async findPendingBreaks(take = 50) {
-    return this.prisma.driverBreak.findMany({
+    const rows = await this.prisma.driverBreak.findMany({
       where: { status: 'PENDING' },
       orderBy: { createdAt: 'asc' },
       take,
@@ -608,13 +620,23 @@ export class DriversRepository {
           select: {
             id: true,
             name: true,
+            avatar: true,
             vehicleType: true,
             status: true,
-            user: { select: { name: true, phone: true } },
+            user: { select: { name: true, phone: true, avatar: true } },
           },
         },
       },
     });
+    return rows.map((row) => ({
+      ...row,
+      driver: row.driver
+        ? {
+            ...row.driver,
+            avatar: row.driver.avatar ?? row.driver.user?.avatar ?? null,
+          }
+        : row.driver,
+    }));
   }
 
   async findPendingDispatchForDriver(driverId: string) {

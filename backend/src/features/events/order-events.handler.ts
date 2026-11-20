@@ -270,20 +270,41 @@ export class OrderEventsHandler {
           status: 'CANCELLED',
           note: event.reason,
           reason: event.reason,
+          cancelledByUserId: event.cancelledByUserId ?? null,
+          cancelledByName: event.cancelledByName ?? null,
+          cancelledByNameAr: event.cancelledByNameAr ?? null,
+          cancelledByRole: event.cancelledByRole ?? null,
+          cancelledByAvatar: event.cancelledByAvatar ?? null,
           revision: event.revision ?? null,
         }),
       ),
     );
 
     if (customerUserId) {
+      const actorEn = event.cancelledByName?.trim() || 'User';
+      const actorAr = event.cancelledByNameAr?.trim() || actorEn;
+      const cleanReason = event.reason?.trim();
+      const bodyEn = cleanReason
+        ? `Canceled by ${actorEn}: ${cleanReason}`
+        : `Canceled by ${actorEn}`;
+      const bodyAr = cleanReason
+        ? `تم الإلغاء بواسطة ${actorAr}: ${cleanReason}`
+        : `تم الإلغاء بواسطة ${actorAr}`;
       await this.notificationsService.create({
         userId: customerUserId,
         title: 'Order Cancelled',
         titleAr: 'تم إلغاء الطلب',
-        body: event.reason,
-        bodyAr: event.reason,
+        body: bodyEn,
+        bodyAr: bodyAr,
         type: NotificationType.ORDER_UPDATE,
-        data: { orderId: event.orderId, orderNumber: event.orderNumber },
+        data: {
+          orderId: event.orderId,
+          orderNumber: event.orderNumber,
+          cancelledByUserId: event.cancelledByUserId ?? null,
+          cancelledByName: actorEn,
+          cancelledByNameAr: actorAr,
+          cancelledByRole: event.cancelledByRole ?? null,
+        },
       });
     }
 

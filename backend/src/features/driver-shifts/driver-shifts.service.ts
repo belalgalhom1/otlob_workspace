@@ -163,6 +163,8 @@ export class DriverShiftsService {
               driver: {
                 select: {
                   id: true,
+                  name: true,
+                  avatar: true,
                   user: {
                     select: {
                       id: true,
@@ -1099,7 +1101,14 @@ export class DriverShiftsService {
       include: {
         driverShift: {
           include: {
-            driver: { select: { name: true, vehicleType: true } },
+            driver: {
+              select: {
+                name: true,
+                avatar: true,
+                vehicleType: true,
+                user: { select: { avatar: true } },
+              },
+            },
             zone: true,
           },
         },
@@ -1246,7 +1255,7 @@ export class DriverShiftsService {
             name: true,
             avatar: true,
             tier: true,
-            user: { select: { id: true, name: true, phone: true } },
+            user: { select: { id: true, name: true, phone: true, avatar: true } },
           },
         },
       },
@@ -1257,7 +1266,12 @@ export class DriverShiftsService {
       position: index + 1,
       joinedAt: entry.createdAt,
       driverId: entry.driverId,
-      driver: entry.driver,
+      driver: entry.driver
+        ? {
+            ...entry.driver,
+            avatar: entry.driver.avatar ?? entry.driver.user?.avatar ?? null,
+          }
+        : entry.driver,
     }));
   }
 

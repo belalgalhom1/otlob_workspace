@@ -28,6 +28,11 @@ import { OrderErrors } from '../../../common/constants/response.constants';
 import { StockService } from '../helpers/stock.service';
 import { OrderRejectionRecomputor } from '../helpers/order-rejection-recomputor';
 import { OrderCancellationService } from './order-cancellation.service';
+import {
+  recordOrderStatusEventIdempotent,
+  resolveOrderActorSnapshot,
+  systemActorSnapshot,
+} from '../helpers/order-actor.helper';
 
 export interface DeliveryGroupSummary {
   id: string;
@@ -257,13 +262,24 @@ export class DeliveryGroupTransitionService {
       }
     }
 
-    await this.prisma.orderStatusEvent.create({
-      data: {
-        orderId: order.id,
-        status: order.status,
-        note: `Delivery ${group.sequence}: ${group.status} → ${dto.status}`,
-        createdBy: actor.sub,
-      },
+    const driverActorSnapshot = await resolveOrderActorSnapshot(
+      this.prisma,
+      actor.sub,
+      { orderId: order.id },
+    );
+    await recordOrderStatusEventIdempotent(this.prisma, {
+      orderId: order.id,
+      deliveryGroupId: group.id,
+      eventKey: `group_transition:${group.id}:${group.status}:${dto.status}`,
+      status:
+        dto.status === OrderStatus.DELIVERED
+          ? OrderStatus.DELIVERED
+          : dto.status === OrderStatus.PICKED_UP
+            ? OrderStatus.PICKED_UP
+            : order.status,
+      note: `Delivery ${group.sequence}: ${group.status} → ${dto.status}`,
+      createdBy: actor.sub,
+      actor: driverActorSnapshot,
     });
 
     await this.recomputeGroupedOrderStatus(actor, order);
@@ -874,14 +890,14 @@ export class DeliveryGroupTransitionService {
         await stock.restoreForItems(tx, itemsToRestore);
       }
 
-      await tx.orderStatusEvent.create({
-        data: {
-          orderId,
-          deliveryGroupId,
-          status: group.order.status,
-          note: `Delivery ${group.sequence} cancelled: ${reason}`,
-          createdBy: 'system',
-        },
+      await recordOrderStatusEventIdempotent(tx, {
+        orderId,
+        deliveryGroupId,
+        eventKey: `group_cancelled:${deliveryGroupId}`,
+        status: group.order.status,
+        note: `Delivery ${group.sequence} cancelled: ${reason}`,
+        createdBy: 'system',
+        actor: systemActorSnapshot(),
       });
 
       const remainingActiveCount = await tx.orderDeliveryGroup.count({

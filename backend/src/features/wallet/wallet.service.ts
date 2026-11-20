@@ -25,6 +25,10 @@ import { DriverStatusChangedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { DriverStatus } from '@prisma/client';
 import { DriverManagersService } from '../drivers/driver-managers.service';
+import {
+  DRIVER_WALLET_TX_SELECT,
+  sanitizeDriverWalletTransactionForDriver,
+} from './helpers/driver-wallet-tx.helper';
 
 @Injectable()
 export class WalletService {
@@ -158,16 +162,29 @@ export class WalletService {
   // ─── Admin: Review Top-Ups ────────────────────────────────────────────────
 
   async getPendingTopUpRequests() {
-    return this.prisma.walletTopUpRequest.findMany({
+    const requests = await this.prisma.walletTopUpRequest.findMany({
       where: { status: 'PENDING' },
       include: {
         driver: {
-          include: { user: { select: { id: true, name: true, phone: true } } },
+          include: {
+            user: {
+              select: { id: true, name: true, phone: true, avatar: true },
+            },
+          },
         },
         platformWallet: true,
       },
       orderBy: { createdAt: 'asc' },
     });
+    return requests.map((r: any) => ({
+      ...r,
+      driver: r.driver
+        ? {
+            ...r.driver,
+            avatar: r.driver.avatar ?? r.driver.user?.avatar ?? null,
+          }
+        : r.driver,
+    }));
   }
 
   async reviewTopUpRequest(
@@ -544,13 +561,17 @@ export class WalletService {
         }
       }
 
+      const trimmedNote = (dto.note ?? dto.description)?.trim() || null;
+
       return tx.driverWalletTransaction.create({
         data: {
           driverId,
           type: type as WalletTransactionType,
           amount: dto.amount,
           balanceAfter: updatedDriver.walletBalance,
-          description: dto.description || 'Manual Admin Transaction',
+          description: trimmedNote || 'Manual Admin Transaction',
+          note: trimmedNote,
+          isManualAdjustment: true,
           orderId,
           referenceId,
           idempotencyKey: effectiveIdempotencyKey,
@@ -572,12 +593,19 @@ export class WalletService {
 
   async getDriverTransactions(userId: string, skip = 0, take = 50) {
     const driver = await this.getDriver(userId);
-    return this.prisma.driverWalletTransaction.findMany({
+    const transactions = await this.prisma.driverWalletTransaction.findMany({
       where: { driverId: driver.id },
       orderBy: { createdAt: 'desc' },
       skip,
       take,
+      select: {
+        ...DRIVER_WALLET_TX_SELECT,
+        order: { select: { id: true, orderNumber: true } },
+      },
     });
+    return transactions.map((tx) =>
+      sanitizeDriverWalletTransactionForDriver(tx),
+    );
   }
 
   // ─── Private Helpers ──────────────────────────────────────────────────────

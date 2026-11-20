@@ -1,7 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DeliveryGroupStatus, OrderStatus, Prisma } from '@prisma/client';
+import { DeliveryGroupStatus, OrderStatus, Prisma, Role } from '@prisma/client';
 import { OrderErrors } from '../../../common/constants/response.constants';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import {
+  normalizeLegacyEventNote,
+  OrderCancelledBySummary,
+  resolveEventActorSummary,
+  sanitizeCancelReason,
+} from '../helpers/order-actor.helper';
 
 export interface VendorOrderScope {
   vendorId: string;
@@ -216,7 +222,7 @@ const ORDER_DRIVER_SELECT = {
   rating: true,
   ratingCount: true,
   userId: true,
-  user: { select: { id: true, phone: true } },
+  user: { select: { id: true, name: true, phone: true, avatar: true } },
   mobileWallets: {
     where: { isActive: true },
   },
@@ -283,10 +289,52 @@ const ORDER_DELIVERY_GROUPS_INCLUDE = {
   },
 } as const;
 
+const ORDER_STATUS_EVENTS_INCLUDE = {
+  orderBy: [
+    { createdAt: 'desc' },
+    { id: 'desc' },
+  ] satisfies Prisma.OrderStatusEventOrderByWithRelationInput[],
+  include: {
+    fulfillment: {
+      select: {
+        id: true,
+        vendorId: true,
+        vendor: {
+          select: { id: true, storeName: true, storeNameAr: true, logo: true },
+        },
+        vendorBranch: {
+          select: { id: true, name: true, nameAr: true },
+        },
+      },
+    },
+    actorUser: {
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        avatar: true,
+        driver: { select: { id: true, name: true, avatar: true } },
+      },
+    },
+    actorVendor: {
+      select: { id: true, storeName: true, storeNameAr: true, logo: true },
+    },
+  },
+};
+
 export const ORDER_INCLUDE = {
   customer: {
     include: {
       user: { select: { id: true, name: true, phone: true, avatar: true } },
+    },
+  },
+  cancelledByUser: {
+    select: {
+      id: true,
+      name: true,
+      role: true,
+      avatar: true,
+      driver: { select: { id: true, name: true, avatar: true } },
     },
   },
   items: {
@@ -295,8 +343,8 @@ export const ORDER_INCLUDE = {
   vendorFulfillments: ORDER_VENDOR_FULFILLMENTS_INCLUDE,
   deliveryGroups: ORDER_DELIVERY_GROUPS_INCLUDE,
   statusEvents: {
-    orderBy: { createdAt: 'desc' as const },
-    take: 10,
+    ...ORDER_STATUS_EVENTS_INCLUDE,
+    take: 50,
   },
   assistRequests: {
     orderBy: { createdAt: 'desc' as const },
@@ -321,6 +369,7 @@ export class OrderQueriesRepository {
     if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
 
     await this.hydrateLocations([order]);
+    await this.hydrateIdentities([order]);
     return order;
   }
 
@@ -456,9 +505,10 @@ export class OrderQueriesRepository {
           },
           vendorFulfillments: ORDER_VENDOR_FULFILLMENTS_INCLUDE,
           deliveryGroups: ORDER_DELIVERY_GROUPS_INCLUDE,
+          cancelledByUser: ORDER_INCLUDE.cancelledByUser,
           statusEvents: {
-            orderBy: { createdAt: 'desc' },
-            take: 10,
+            ...ORDER_STATUS_EVENTS_INCLUDE,
+            take: 25,
           },
           items: {
             include: ORDER_ITEMS_INCLUDE,
@@ -471,9 +521,289 @@ export class OrderQueriesRepository {
 
     if (orders.length > 0) {
       await this.hydrateLocations(orders);
+      await this.hydrateIdentities(orders);
     }
 
     return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  private async hydrateIdentities(orders: any[]): Promise<void> {
+    if (orders.length === 0) return;
+
+    const missingUserIds = new Set<string>();
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    for (const order of orders) {
+      for (const group of (order.deliveryGroups ?? []) as any[]) {
+        if (group.primaryDriver) {
+          group.primaryDriver.avatar =
+            group.primaryDriver.avatar ?? group.primaryDriver.user?.avatar ?? null;
+        }
+        if (group.assistDriver) {
+          group.assistDriver.avatar =
+            group.assistDriver.avatar ?? group.assistDriver.user?.avatar ?? null;
+        }
+      }
+
+      if (order.cancelledByUserId && !order.cancelledByUser && uuidRe.test(order.cancelledByUserId)) {
+        missingUserIds.add(order.cancelledByUserId);
+      }
+      for (const ev of (order.statusEvents ?? []) as any[]) {
+        const uid = ev.actorUserId ?? (uuidRe.test(ev.createdBy ?? '') ? ev.createdBy : null);
+        if (uid && !ev.actorUser) {
+          missingUserIds.add(uid);
+        }
+      }
+      for (const ff of (order.vendorFulfillments ?? []) as any[]) {
+        if (ff.decidedByUserId && uuidRe.test(ff.decidedByUserId)) {
+          missingUserIds.add(ff.decidedByUserId);
+        }
+      }
+    }
+
+    const userLookup = new Map<string, any>();
+    if (missingUserIds.size > 0 && this.prisma?.user?.findMany) {
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: Array.from(missingUserIds) } },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          avatar: true,
+          driver: { select: { id: true, name: true, avatar: true } },
+          vendorMemberships: {
+            select: {
+              vendorId: true,
+              vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true } },
+            },
+          },
+        },
+      });
+      for (const u of users) {
+        userLookup.set(u.id, u);
+      }
+    }
+
+    for (const order of orders) {
+      const fulfillmentsById = new Map<string, any>();
+      for (const ff of (order.vendorFulfillments ?? []) as any[]) {
+        if (ff.id) fulfillmentsById.set(ff.id, ff);
+      }
+
+      // Deduplicate defensively on read using explicit eventKey or full contextual tuple
+      // (never deduplicate by status alone so separate legitimate events are preserved).
+      const rawEvents = Array.isArray(order.statusEvents) ? order.statusEvents : [];
+      const sortedAsc = [...rawEvents].sort((a, b) => {
+        const ta = new Date(a?.createdAt ?? 0).getTime();
+        const tb = new Date(b?.createdAt ?? 0).getTime();
+        if (ta !== tb) return ta - tb;
+        return String(a?.id ?? '').localeCompare(String(b?.id ?? ''));
+      });
+
+      const seenKeys = new Set<string>();
+      const deduped: any[] = [];
+      for (const ev of sortedAsc) {
+        if (!ev) continue;
+        if (!ev.fulfillment && ev.fulfillmentId && fulfillmentsById.has(ev.fulfillmentId)) {
+          ev.fulfillment = fulfillmentsById.get(ev.fulfillmentId);
+        }
+        const normalizedNote = normalizeLegacyEventNote(ev);
+        const actor = resolveEventActorSummary(ev, userLookup);
+
+        // If a historical event was recorded by a vendor member without fulfillmentId,
+        // still attach their store identity when available.
+        if (
+          actor.role === Role.VENDOR_MEMBER &&
+          !actor.vendorId &&
+          actor.id &&
+          userLookup.get(actor.id)?.vendorMemberships?.length
+        ) {
+          const matchedVendor =
+            userLookup
+              .get(actor.id)
+              .vendorMemberships.find((m: any) =>
+                (order.vendorFulfillments ?? []).some(
+                  (ff: any) => ff.vendorId === m.vendorId,
+                ),
+              )?.vendor ?? userLookup.get(actor.id).vendorMemberships[0]?.vendor;
+          if (matchedVendor) {
+            actor.vendorId = matchedVendor.id;
+            actor.name = matchedVendor.storeName || actor.name;
+            actor.nameAr = matchedVendor.storeNameAr || matchedVendor.storeName || null;
+            actor.avatar = matchedVendor.logo ?? actor.avatar;
+          }
+        }
+
+        const key = ev.eventKey
+          ? `k:${ev.eventKey}`
+          : `t:${ev.fulfillmentId ?? ''}|${ev.deliveryGroupId ?? ''}|${ev.status ?? ''}|${normalizedNote ?? ''}|${actor.id ?? (actor.isSystem ? 'system' : '')}`;
+
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+
+        deduped.push({
+          ...ev,
+          note: normalizedNote,
+          actor,
+          actorUserId: actor.id,
+          actorRole: actor.role,
+          actorName: actor.name,
+          actorNameAr: actor.nameAr,
+          actorAvatar: actor.avatar,
+          actorVendorId: actor.vendorId,
+        });
+      }
+
+      // Present newest-first chronologically
+      deduped.reverse();
+      order.statusEvents = deduped;
+
+      if (order.status === OrderStatus.CANCELLED) {
+        order.cancelledBy = this.resolveOrderCancelledBy(
+          order,
+          deduped,
+          userLookup,
+        );
+      } else {
+        order.cancelledBy = null;
+      }
+    }
+  }
+
+  private resolveOrderCancelledBy(
+    order: any,
+    eventsDesc: any[],
+    userLookup: Map<string, any>,
+  ): OrderCancelledBySummary {
+    const cancelEv = eventsDesc.find((e) => e?.status === OrderStatus.CANCELLED);
+    const reason =
+      sanitizeCancelReason(order.cancelReason) ??
+      sanitizeCancelReason(cancelEv?.note) ??
+      null;
+    const cancelledAt = order.cancelledAt ?? cancelEv?.createdAt ?? order.updatedAt ?? null;
+
+    if (order.cancelledByUserId || order.cancelledByName || order.cancelledByUser) {
+      const syntheticEv = {
+        actorUserId: order.cancelledByUserId ?? null,
+        actorRole: order.cancelledByRole ?? order.cancelledByUser?.role ?? null,
+        actorName: order.cancelledByName ?? order.cancelledByUser?.name ?? null,
+        actorNameAr: order.cancelledByNameAr ?? null,
+        actorAvatar:
+          order.cancelledByAvatar ??
+          order.cancelledByUser?.driver?.avatar ??
+          order.cancelledByUser?.avatar ??
+          null,
+        actorVendorId: null,
+        actorUser: order.cancelledByUser ?? null,
+        createdBy: order.cancelledByUserId ?? 'system',
+      };
+      const actor = resolveEventActorSummary(syntheticEv, userLookup);
+      if (
+        actor.role === Role.VENDOR_MEMBER &&
+        actor.id &&
+        userLookup.get(actor.id)?.vendorMemberships?.length
+      ) {
+        const matchedVendor =
+          userLookup
+            .get(actor.id)
+            .vendorMemberships.find((m: any) =>
+              (order.vendorFulfillments ?? []).some(
+                (ff: any) => ff.vendorId === m.vendorId,
+              ),
+            )?.vendor ?? userLookup.get(actor.id).vendorMemberships[0]?.vendor;
+        if (matchedVendor) {
+          actor.vendorId = matchedVendor.id;
+          actor.name = matchedVendor.storeName || actor.name;
+          actor.nameAr = matchedVendor.storeNameAr || matchedVendor.storeName || null;
+          actor.avatar = matchedVendor.logo ?? actor.avatar;
+        }
+      }
+      return {
+        userId: actor.id,
+        name: actor.name,
+        nameAr: actor.nameAr,
+        role: actor.role,
+        avatar: actor.avatar,
+        vendorId: actor.vendorId,
+        reason,
+        cancelledAt,
+        isSystem: actor.isSystem,
+      };
+    }
+
+    if (cancelEv?.actor && !cancelEv.actor.isSystem) {
+      return {
+        userId: cancelEv.actor.id,
+        name: cancelEv.actor.name,
+        nameAr: cancelEv.actor.nameAr,
+        role: cancelEv.actor.role,
+        avatar: cancelEv.actor.avatar,
+        vendorId: cancelEv.actor.vendorId,
+        reason,
+        cancelledAt,
+        isSystem: false,
+      };
+    }
+
+    // Legacy fallback: check whether all/last vendor fulfillment was explicitly rejected by a vendor/admin user
+    const rejectedFulfillments = ((order.vendorFulfillments ?? []) as any[])
+      .filter((f) => f?.status === 'REJECTED' && f?.decidedByUserId)
+      .sort(
+        (a, b) =>
+          new Date(b.decidedAt ?? 0).getTime() -
+          new Date(a.decidedAt ?? 0).getTime(),
+      );
+    const lastRejected = rejectedFulfillments[0];
+    if (lastRejected?.decidedByUserId) {
+      const decidedUser = userLookup.get(lastRejected.decidedByUserId);
+      const rejectionReason =
+        sanitizeCancelReason(lastRejected.rejectionReason) ??
+        sanitizeCancelReason(lastRejected.rejectionReasonAr) ??
+        reason;
+      const role = decidedUser?.role ?? Role.VENDOR_MEMBER;
+      if (role === Role.VENDOR_MEMBER && lastRejected.vendor) {
+        return {
+          userId: lastRejected.decidedByUserId,
+          name: lastRejected.vendor.storeName || decidedUser?.name || 'Vendor',
+          nameAr:
+            lastRejected.vendor.storeNameAr ||
+            lastRejected.vendor.storeName ||
+            null,
+          role: Role.VENDOR_MEMBER,
+          avatar: lastRejected.vendor.logo ?? decidedUser?.avatar ?? null,
+          vendorId: lastRejected.vendor.id ?? lastRejected.vendorId ?? null,
+          reason: rejectionReason,
+          cancelledAt,
+          isSystem: false,
+        };
+      }
+      if (decidedUser) {
+        return {
+          userId: decidedUser.id,
+          name: decidedUser.driver?.name ?? decidedUser.name,
+          nameAr: null,
+          role,
+          avatar: decidedUser.driver?.avatar ?? decidedUser.avatar ?? null,
+          vendorId: null,
+          reason: rejectionReason,
+          cancelledAt,
+          isSystem: false,
+        };
+      }
+    }
+
+    return {
+      userId: null,
+      name: 'System',
+      nameAr: 'النظام',
+      role: null,
+      avatar: null,
+      vendorId: null,
+      reason,
+      cancelledAt,
+      isSystem: true,
+    };
   }
 
   private async hydrateLocations(orders: any[]): Promise<void> {

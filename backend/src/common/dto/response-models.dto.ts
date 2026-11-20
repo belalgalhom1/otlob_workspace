@@ -1,5 +1,7 @@
-import { IntersectionType, PartialType } from '@nestjs/swagger';
+import { ApiProperty, IntersectionType, PartialType } from '@nestjs/swagger';
 import { PrismaModel } from '../../_gen/prisma-classes/index';
+export { OrderActorSummaryDto } from '../../_gen/prisma-classes/order_status_event_relations';
+export { OrderCancelledByDto } from '../../_gen/prisma-classes/order_relations';
 
 export class AccountResponseDto extends IntersectionType(
   PrismaModel.Account,
@@ -249,3 +251,28 @@ export class WalletTopUpRequestResponseDto extends IntersectionType(
   PrismaModel.WalletTopUpRequest,
   PartialType(PrismaModel.WalletTopUpRequestRelations),
 ) {}
+
+export class DriverWalletBalanceResponseDto {
+  @ApiProperty({ type: Number })
+  walletBalance!: number;
+}
+
+export class DriverWalletTransactionsResponseDto {
+  @ApiProperty({ type: Number })
+  walletBalance!: number;
+
+  @ApiProperty({ type: () => DriverWalletTransactionResponseDto, isArray: true })
+  transactions!: DriverWalletTransactionResponseDto[];
+
+  @ApiProperty({ type: Number })
+  total!: number;
+
+  @ApiProperty({ type: Number })
+  page!: number;
+
+  @ApiProperty({ type: Number })
+  limit!: number;
+
+  @ApiProperty({ type: Number })
+  totalPages!: number;
+}

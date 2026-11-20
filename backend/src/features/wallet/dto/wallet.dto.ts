@@ -63,6 +63,15 @@ export class ProcessManualTransactionDto {
   @IsOptional()
   description?: string;
 
+  @ApiProperty({
+    example: 'Bonus for weekend surge deliveries',
+    required: false,
+    description: 'Driver-facing note for manual wallet adjustments',
+  })
+  @IsString()
+  @IsOptional()
+  note?: string;
+
   @ApiProperty({ example: 'order-123', required: false })
   @IsString()
   @IsOptional()

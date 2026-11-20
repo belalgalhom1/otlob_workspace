@@ -137,12 +137,14 @@ export class DriverManagersService {
                   select: {
                     id: true,
                     name: true,
+                    avatar: true,
                     status: true,
                     user: {
                       select: {
                         name: true,
                         phone: true,
                         email: true,
+                        avatar: true,
                       },
                     },
                   },
@@ -172,6 +174,7 @@ export class DriverManagersService {
         assignedDrivers: (dm?.assignedDrivers ?? []).map((a) => ({
           driverId: a.driverId,
           name: a.driver.name,
+          avatar: a.driver.avatar ?? a.driver.user?.avatar ?? null,
           status: a.driver.status,
           phone: a.driver.user?.phone,
         })),

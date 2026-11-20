@@ -162,6 +162,10 @@ export class UsersService {
       where: { id: userId },
       data: { avatar: avatarUrl },
     });
+    await this.prisma.driver?.updateMany?.({
+      where: { userId },
+      data: { avatar: avatarUrl },
+    });
 
     return { avatar: avatarUrl, message: CommonSuccess.RESOURCE_UPDATED };
   }
@@ -422,6 +426,7 @@ export class UsersService {
         driver: {
           select: {
             id: true,
+            avatar: true,
             status: true,
             vehicleType: true,
             rating: true,

@@ -791,9 +791,10 @@ export class DriverAssistService {
           id: true,
           userId: true,
           name: true,
+          avatar: true,
           vehicleType: true,
           status: true,
-          user: { select: { name: true, phone: true } },
+          user: { select: { name: true, phone: true, avatar: true } },
         },
       },
       assignedDriver: {
@@ -801,9 +802,10 @@ export class DriverAssistService {
           id: true,
           userId: true,
           name: true,
+          avatar: true,
           vehicleType: true,
           status: true,
-          user: { select: { name: true, phone: true } },
+          user: { select: { name: true, phone: true, avatar: true } },
         },
       },
       order: { select: { id: true, orderNumber: true, status: true } },
@@ -823,6 +825,8 @@ export class DriverAssistService {
 
   private formatAssistRequest<
     T extends {
+      driver?: { avatar?: string | null; user?: { avatar?: string | null } | null } | null;
+      assignedDriver?: { avatar?: string | null; user?: { avatar?: string | null } | null } | null;
       deliveryGroup?: {
         deliveryFee?: unknown;
         assistFee?: unknown;
@@ -831,6 +835,23 @@ export class DriverAssistService {
   >(r: T): T & { proposedAssistFee: number } {
     return {
       ...r,
+      ...(r.driver
+        ? {
+            driver: {
+              ...r.driver,
+              avatar: r.driver.avatar ?? r.driver.user?.avatar ?? null,
+            },
+          }
+        : {}),
+      ...(r.assignedDriver
+        ? {
+            assignedDriver: {
+              ...r.assignedDriver,
+              avatar:
+                r.assignedDriver.avatar ?? r.assignedDriver.user?.avatar ?? null,
+            },
+          }
+        : {}),
       proposedAssistFee: Number(
         r.deliveryGroup?.assistFee ?? r.deliveryGroup?.deliveryFee ?? 0,
       ),

@@ -2,8 +2,14 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ReviewTargetType } from '@prisma/client';
 
 class ReviewCustomerUserDto {
+  @ApiPropertyOptional({ example: 'user-uuid' })
+  id?: string;
+
   @ApiProperty({ example: 'John Doe' })
   name!: string;
+
+  @ApiPropertyOptional({ example: '/media/avatars/abc.webp' })
+  avatar?: string | null;
 }
 
 class ReviewCustomerDto {
