@@ -103,18 +103,20 @@ SET
   "actorName" = CASE WHEN u."role" = 'VENDOR_MEMBER' THEN v."storeName" ELSE u."name" END,
   "actorNameAr" = CASE WHEN u."role" = 'VENDOR_MEMBER' THEN v."storeNameAr" ELSE NULL END,
   "actorAvatar" = CASE WHEN u."role" = 'VENDOR_MEMBER' THEN COALESCE(v."logo", u."avatar") ELSE u."avatar" END
-FROM LATERAL (
-  SELECT f."decidedByUserId", f."vendorId"
+FROM (
+  SELECT DISTINCT ON (f."orderId")
+    f."orderId",
+    f."decidedByUserId",
+    f."vendorId"
   FROM "order_vendor_fulfillments" AS f
-  WHERE f."orderId" = e."orderId"
-    AND f."status" = 'REJECTED'
+  WHERE f."status" = 'REJECTED'
     AND f."decidedByUserId" IS NOT NULL
-  ORDER BY f."decidedAt" DESC NULLS LAST
-  LIMIT 1
+  ORDER BY f."orderId", f."decidedAt" DESC NULLS LAST, f."id" DESC
 ) AS lf
 JOIN "users" AS u ON u."id" = lf."decidedByUserId"
 JOIN "vendors" AS v ON v."id" = lf."vendorId"
-WHERE e."status" = 'CANCELLED'
+WHERE e."orderId" = lf."orderId"
+  AND e."status" = 'CANCELLED'
   AND e."createdBy" = 'system'
   AND e."actorUserId" IS NULL;
 
@@ -155,15 +157,22 @@ SET
     ELSE ce."note"
   END,
   "cancelledAt" = ce."createdAt"
-FROM LATERAL (
-  SELECT e."actorUserId", e."actorRole", e."actorName", e."actorNameAr", e."actorAvatar", e."note", e."createdAt"
+FROM (
+  SELECT DISTINCT ON (e."orderId")
+    e."orderId",
+    e."actorUserId",
+    e."actorRole",
+    e."actorName",
+    e."actorNameAr",
+    e."actorAvatar",
+    e."note",
+    e."createdAt"
   FROM "order_status_events" AS e
-  WHERE e."orderId" = o."id"
-    AND e."status" = 'CANCELLED'
-  ORDER BY e."createdAt" DESC
-  LIMIT 1
+  WHERE e."status" = 'CANCELLED'
+  ORDER BY e."orderId", e."createdAt" DESC, e."id" DESC
 ) AS ce
-WHERE o."status" = 'CANCELLED'
+WHERE o."id" = ce."orderId"
+  AND o."status" = 'CANCELLED'
   AND o."cancelledByUserId" IS NULL
   AND o."cancelledAt" IS NULL;
 
