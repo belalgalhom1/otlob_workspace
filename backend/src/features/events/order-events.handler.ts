@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DeliveryGroupStatus, NotificationType, OrderStatus } from '@prisma/client';
+import {
+  DeliveryGroupStatus,
+  NotificationType,
+  OrderStatus,
+} from '@prisma/client';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StatisticsService } from '../statistics/statistics.service';
@@ -216,7 +220,11 @@ export class OrderEventsHandler {
     }
 
     await this.syncOrderConversationLifecycle(event);
-    await this.syncLiveTrackingForDrivers(event, groupDriverRows, driverUserById);
+    await this.syncLiveTrackingForDrivers(
+      event,
+      groupDriverRows,
+      driverUserById,
+    );
   }
 
   async handleOrderCancelled(event: OrderCancelledEvent) {
@@ -503,10 +511,7 @@ export class OrderEventsHandler {
     const remainingGroups = await this.prisma.orderDeliveryGroup.findMany({
       where: {
         status: {
-          notIn: [
-            DeliveryGroupStatus.CANCELLED,
-            DeliveryGroupStatus.DELIVERED,
-          ],
+          notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
         },
         order: { status: { in: DRIVER_ACTIVE_ORDER_STATUSES } },
         OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],

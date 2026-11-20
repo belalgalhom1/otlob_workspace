@@ -39,11 +39,9 @@ export class ZonesController {
   @ApiStandardResponse()
   @Get()
   @ApiBearerAuth()
-  @RequirePermissions(
-    Permission.MANAGE_SETTINGS,
-    Permission.MANAGE_DRIVERS,
-    { mode: 'any' },
-  )
+  @RequirePermissions(Permission.MANAGE_SETTINGS, Permission.MANAGE_DRIVERS, {
+    mode: 'any',
+  })
   @ApiOperation({ summary: 'List all delivery zones' })
   findAll() {
     return this.zonesService.getAllZones();
@@ -61,11 +59,9 @@ export class ZonesController {
   @ApiStandardResponse()
   @Get(':id')
   @ApiBearerAuth()
-  @RequirePermissions(
-    Permission.MANAGE_SETTINGS,
-    Permission.MANAGE_DRIVERS,
-    { mode: 'any' },
-  )
+  @RequirePermissions(Permission.MANAGE_SETTINGS, Permission.MANAGE_DRIVERS, {
+    mode: 'any',
+  })
   @ApiOperation({ summary: 'Get a specific zone by ID' })
   findOne(@Param('id') id: string) {
     return this.zonesService.getZoneById(id);

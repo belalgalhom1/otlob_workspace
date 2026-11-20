@@ -85,7 +85,9 @@ export class DeliveryFeeCalculator {
         : Number(settings.baseDeliveryFee);
 
     let perKm =
-      perKmOverride != null ? Number(perKmOverride) : Number(settings.pricePerKm);
+      perKmOverride != null
+        ? Number(perKmOverride)
+        : Number(settings.pricePerKm);
 
     if (settings.driverShiftsEnabled && isStandardOrder) {
       perKm += Number(settings.goldTierBonusPerKm ?? 0);
@@ -125,5 +127,50 @@ export class DeliveryFeeCalculator {
     }
 
     return Math.round(fee * 100) / 100;
+  }
+
+  /**
+   * Option 1: Calculates delivery fee for a delivery group's stops.
+   * - Single-stop trip (single store or split route): standard distance fee.
+   * - Multi-stop trip (2+ stores sharing 1 driver): sum of individual distance
+   *   fees discounted by multiVendorDeliveryDiscountPercent, floored at minDeliveryFee.
+   */
+  calculateGroupDeliveryFee(
+    settings: PlatformSetting,
+    stopsDistancesKm: number[],
+    zoneBaseDeliveryFeeOverride?: number | null,
+  ): number {
+    if (stopsDistancesKm.length === 0) {
+      return 0;
+    }
+    const minFee = Number(settings.minDeliveryFee ?? 15);
+    if (stopsDistancesKm.length === 1) {
+      const dist = stopsDistancesKm[0] ?? 0;
+      const base = this.calculateDeliveryFee(settings, {
+        distanceKm: dist,
+        zoneBaseDeliveryFeeOverride,
+        isStandardOrder: true,
+      });
+      return Math.max(minFee, Math.round(base));
+    }
+
+    const discountPercent = Number(
+      settings.multiVendorDeliveryDiscountPercent ?? 20,
+    );
+    const discountMultiplier =
+      Math.max(0, Math.min(100, discountPercent)) / 100;
+
+    let rawSum = 0;
+    for (const dist of stopsDistancesKm) {
+      const fee = this.calculateDeliveryFee(settings, {
+        distanceKm: dist,
+        zoneBaseDeliveryFeeOverride,
+        isStandardOrder: true,
+      });
+      rawSum += fee;
+    }
+
+    const discounted = Math.round(rawSum * (1 - discountMultiplier));
+    return Math.max(minFee, discounted);
   }
 }

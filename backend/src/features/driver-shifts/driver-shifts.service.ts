@@ -6,7 +6,10 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
-import { CommonErrors, DriverErrors } from 'src/common/constants/response.constants';
+import {
+  CommonErrors,
+  DriverErrors,
+} from 'src/common/constants/response.constants';
 import { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
@@ -39,12 +42,7 @@ import {
   DriverTier,
   Prisma,
 } from '@prisma/client';
-import {
-  endOfDay,
-  startOfDay,
-  getDay,
-  parseISO,
-} from 'date-fns';
+import { endOfDay, startOfDay, getDay, parseISO } from 'date-fns';
 import { wallToUtc, appTimeZone } from 'src/common/utils/timezone';
 import { randomUUID } from 'crypto';
 
@@ -93,13 +91,7 @@ export class DriverShiftsService {
         startHour,
         startMin,
       );
-      let shiftEnd = wallToUtc(
-        curYear,
-        curMonth,
-        curDay,
-        endHour,
-        endMin,
-      );
+      let shiftEnd = wallToUtc(curYear, curMonth, curDay, endHour, endMin);
 
       // Handle cross-midnight shifts
       if (shiftEnd <= shiftStart) {
@@ -111,7 +103,8 @@ export class DriverShiftsService {
         batchId,
         title: dto.title?.trim() || null,
         titleAr: dto.titleAr?.trim() || null,
-        zoneId: dto.zoneId && dto.zoneId.trim().length > 0 ? dto.zoneId.trim() : null,
+        zoneId:
+          dto.zoneId && dto.zoneId.trim().length > 0 ? dto.zoneId.trim() : null,
         shiftDate: new Date(Date.UTC(curYear, curMonth - 1, curDay)),
         startTime: shiftStart,
         endTime: shiftEnd,
@@ -229,8 +222,12 @@ export class DriverShiftsService {
     // Changing the window recomposes wall-clock times on the pool's own day and
     // propagates to every already-booked shift so drivers see the new hours.
     if (dto.startTime || dto.endTime) {
-      const [sh, sm] = (dto.startTime ?? this.toHm(pool.startTime)).split(':').map(Number);
-      const [eh, em] = (dto.endTime ?? this.toHm(pool.endTime)).split(':').map(Number);
+      const [sh, sm] = (dto.startTime ?? this.toHm(pool.startTime))
+        .split(':')
+        .map(Number);
+      const [eh, em] = (dto.endTime ?? this.toHm(pool.endTime))
+        .split(':')
+        .map(Number);
       const day = pool.shiftDate;
 
       const shiftStart = wallToUtc(
@@ -470,7 +467,10 @@ export class DriverShiftsService {
     return shift;
   }
 
-  async adminAssignShiftBulk(dto: AdminBulkAssignShiftsDto, actor?: JwtAccessPayload) {
+  async adminAssignShiftBulk(
+    dto: AdminBulkAssignShiftsDto,
+    actor?: JwtAccessPayload,
+  ) {
     if (actor?.role === Role.DRIVER_MANAGER) {
       await this.assertManagesDriver(actor.sub, dto.driverId);
     }
@@ -693,7 +693,10 @@ export class DriverShiftsService {
     };
   }
 
-  async adminBookWeeklyShifts(dto: AdminBookWeeklyShiftsDto, actor?: JwtAccessPayload) {
+  async adminBookWeeklyShifts(
+    dto: AdminBookWeeklyShiftsDto,
+    actor?: JwtAccessPayload,
+  ) {
     if (actor?.role === Role.DRIVER_MANAGER) {
       await this.assertManagesDriver(actor.sub, dto.driverId);
     }
@@ -1255,7 +1258,9 @@ export class DriverShiftsService {
             name: true,
             avatar: true,
             tier: true,
-            user: { select: { id: true, name: true, phone: true, avatar: true } },
+            user: {
+              select: { id: true, name: true, phone: true, avatar: true },
+            },
           },
         },
       },
@@ -1361,8 +1366,8 @@ export class DriverShiftsService {
       const in30Mins = new Date(now.getTime() + 30 * 60 * 1000);
 
       // Find shifts starting in <= 30 mins that haven't been warned.
-        // Bounded per tick so backlogs drain over successive runs instead of
-        // overlapping the next tick.
+      // Bounded per tick so backlogs drain over successive runs instead of
+      // overlapping the next tick.
       const upcomingShifts = await this.prisma.driverShift.findMany({
         where: {
           status: DriverShiftStatus.SCHEDULED,

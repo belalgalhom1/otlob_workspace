@@ -85,7 +85,11 @@ export class OrderRoleProjector {
   async projectForDriver(
     order: any,
     actor: JwtAccessPayload,
-    ctx?: { driverId?: string | null; driverTier?: string | null; settings?: any },
+    ctx?: {
+      driverId?: string | null;
+      driverTier?: string | null;
+      settings?: any;
+    },
   ): Promise<any> {
     const isPrepaid =
       order.paymentMethod !== 'CASH_ON_DELIVERY' &&
@@ -146,13 +150,16 @@ export class OrderRoleProjector {
           )
         : 0;
 
-    const settings = ctx?.settings ?? (await this.platformSettings.getSettings());
+    const settings =
+      ctx?.settings ?? (await this.platformSettings.getSettings());
 
     const activeDeliveryGroups = (
       Array.isArray(order.deliveryGroups) ? order.deliveryGroups : []
     )
       .filter((g: any) => g.status !== 'CANCELLED')
-      .sort((a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0));
+      .sort(
+        (a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0),
+      );
     const collectorGroup =
       activeDeliveryGroups.find((g: any) => g.isPaymentCollector === true) ??
       activeDeliveryGroups[0] ??
@@ -180,7 +187,8 @@ export class OrderRoleProjector {
     let projectedStatus = order.status;
     let projectedDriverId: string | null =
       collectorGroup?.primaryDriverId ??
-      activeDeliveryGroups.find((g: any) => g.primaryDriverId)?.primaryDriverId ??
+      activeDeliveryGroups.find((g: any) => g.primaryDriverId)
+        ?.primaryDriverId ??
       null;
     let isPrimaryDriver = true;
     let isAssistDriver = false;
@@ -244,12 +252,11 @@ export class OrderRoleProjector {
           projectedDriverId = activeGroup?.primaryDriverId ?? myDriver.id;
           isAssistDriver = Boolean(
             activeGroup &&
-              activeGroup.assistDriverId === myDriver.id &&
-              activeGroup.primaryDriverId !== myDriver.id,
+            activeGroup.assistDriverId === myDriver.id &&
+            activeGroup.primaryDriverId !== myDriver.id,
           );
           isPrimaryDriver = !isAssistDriver;
-          projectedPickedUpAt =
-            activeGroup?.pickedUpAt ?? projectedPickedUpAt;
+          projectedPickedUpAt = activeGroup?.pickedUpAt ?? projectedPickedUpAt;
           projectedPickupImageUrl =
             activeGroup?.pickupImageUrl ?? projectedPickupImageUrl;
           projectedDeliveryImageUrl =
@@ -301,7 +308,11 @@ export class OrderRoleProjector {
 
           const groupItemMetaByFulfillmentId = new Map<
             string,
-            { deliveryGroupId: string; stopSequence: number; groupSequence: number }
+            {
+              deliveryGroupId: string;
+              stopSequence: number;
+              groupSequence: number;
+            }
           >();
           for (const g of scopedGroups) {
             const gSeq = Number(g.sequence ?? 0);
@@ -319,9 +330,7 @@ export class OrderRoleProjector {
             ? activeGroup.items
             : [];
           const activeGroupFulfillmentIds = new Set(
-            activeGroupItems
-              .map((it: any) => it.fulfillmentId)
-              .filter(Boolean),
+            activeGroupItems.map((it: any) => it.fulfillmentId).filter(Boolean),
           );
 
           if (order.vendorFulfillments) {
@@ -336,11 +345,15 @@ export class OrderRoleProjector {
             myFulfillments.sort((a, b) => {
               const metaA = groupItemMetaByFulfillmentId.get(a.id);
               const metaB = groupItemMetaByFulfillmentId.get(b.id);
-              const isActiveA = a.id && activeGroupFulfillmentIds.has(a.id) ? 0 : 1;
-              const isActiveB = b.id && activeGroupFulfillmentIds.has(b.id) ? 0 : 1;
+              const isActiveA =
+                a.id && activeGroupFulfillmentIds.has(a.id) ? 0 : 1;
+              const isActiveB =
+                b.id && activeGroupFulfillmentIds.has(b.id) ? 0 : 1;
               if (isActiveA !== isActiveB) return isActiveA - isActiveB;
               if ((metaA?.groupSequence ?? 0) !== (metaB?.groupSequence ?? 0)) {
-                return (metaA?.groupSequence ?? 0) - (metaB?.groupSequence ?? 0);
+                return (
+                  (metaA?.groupSequence ?? 0) - (metaB?.groupSequence ?? 0)
+                );
               }
               return (metaA?.stopSequence ?? 0) - (metaB?.stopSequence ?? 0);
             });
@@ -435,8 +448,8 @@ export class OrderRoleProjector {
 
             const isCollectorGroup = Boolean(
               !isAssistDriver &&
-                collectorGroup &&
-                scopedGroups.some((g: any) => g.id === collectorGroup.id),
+              collectorGroup &&
+              scopedGroups.some((g: any) => g.id === collectorGroup.id),
             );
             projectedUpfrontAmount = isCollectorGroup ? upfrontAmount : 0;
             if (isAssistDriver || isOrderSettledPrepaid) {
@@ -454,7 +467,8 @@ export class OrderRoleProjector {
                 const gItems = Array.isArray(g.items) ? g.items : [];
                 for (const it of gItems) {
                   if (it?.fulfillmentId) {
-                    gGoods += subtotalByFulfillmentId.get(it.fulfillmentId) ?? 0;
+                    gGoods +=
+                      subtotalByFulfillmentId.get(it.fulfillmentId) ?? 0;
                   }
                 }
                 goodsByGroup.set(g.id, gGoods);
@@ -565,7 +579,11 @@ export class OrderRoleProjector {
       viewingDriverId: myDriver?.id ?? projectedDriverId,
       status: projectedStatus,
       isStacked: projectedIsStacked,
-      vendor: groupVendor ?? (normalizedScopedFulfillments?.length === 1 ? order.vendor ?? null : null),
+      vendor:
+        groupVendor ??
+        (normalizedScopedFulfillments?.length === 1
+          ? (order.vendor ?? null)
+          : null),
       vendorBranch: groupVendorBranch,
       pickupLocation: groupPickupLocation,
       pickupAddress: groupPickupAddress,
@@ -616,7 +634,10 @@ export class OrderRoleProjector {
     const fulfillments = Array.isArray(order.vendorFulfillments)
       ? order.vendorFulfillments
       : [];
-    if (actor.role === Role.VENDOR_MEMBER && ctx?.memberBranchId === undefined) {
+    if (
+      actor.role === Role.VENDOR_MEMBER &&
+      ctx?.memberBranchId === undefined
+    ) {
       const portionVendorIds: string[] = vendorId
         ? [vendorId]
         : Array.from(
@@ -750,7 +771,8 @@ export class OrderRoleProjector {
           (f: any) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
         );
         const isAllDeadPortion =
-          vendorFulfillments.length > 0 && activeVendorFulfillments.length === 0;
+          vendorFulfillments.length > 0 &&
+          activeVendorFulfillments.length === 0;
         const subtotalBasis =
           activeVendorFulfillments.length > 0
             ? activeVendorFulfillments
@@ -765,22 +787,20 @@ export class OrderRoleProjector {
         const totalCalculatedCommission = isAllDeadPortion
           ? 0
           : subtotalBasis.reduce((sum: number, f: any) => {
-            const fContracted =
-              f.isContracted ??
-              f.vendorBranch?.isContracted ??
-              f.vendor?.isContracted ??
-              false;
-            if (!fContracted) return sum;
-            const fRate = Number(
-              f.commissionRate ??
-                f.vendorBranch?.commissionRate ??
-                f.vendor?.commissionRate ??
-                10,
-            );
-            return sum + Math.round(Number(f.subtotal ?? 0) * (fRate / 100));
-          },
-          0,
-        );
+              const fContracted =
+                f.isContracted ??
+                f.vendorBranch?.isContracted ??
+                f.vendor?.isContracted ??
+                false;
+              if (!fContracted) return sum;
+              const fRate = Number(
+                f.commissionRate ??
+                  f.vendorBranch?.commissionRate ??
+                  f.vendor?.commissionRate ??
+                  10,
+              );
+              return sum + Math.round(Number(f.subtotal ?? 0) * (fRate / 100));
+            }, 0);
         commissionRate =
           vendorSubtotal > 0 && totalCalculatedCommission > 0
             ? Number(
@@ -799,9 +819,7 @@ export class OrderRoleProjector {
             f.vendor?.isContracted ??
             false,
         );
-        const myFulfillmentIds = new Set(
-          subtotalBasis.map((f: any) => f.id),
-        );
+        const myFulfillmentIds = new Set(subtotalBasis.map((f: any) => f.id));
         const directItems = subtotalBasis
           .flatMap((f: any) => (Array.isArray(f.items) ? f.items : []))
           .filter((i: any) => i.rejectedAt == null);
@@ -909,7 +927,9 @@ export class OrderRoleProjector {
       nonCancelledGroups.find(
         (g: any) =>
           Array.isArray(g.items) &&
-          g.items.some((it: any) => myVendorFulfillmentIds.has(it?.fulfillmentId)),
+          g.items.some((it: any) =>
+            myVendorFulfillmentIds.has(it?.fulfillmentId),
+          ),
       ) ??
       nonCancelledGroups.find((g: any) => g.isPaymentCollector === true) ??
       nonCancelledGroups.find(
@@ -971,11 +991,13 @@ export class OrderRoleProjector {
       order.paymentMethod !== 'MOBILE_WALLET';
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
-    const cashToPayAtDoor = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+    const cashToPayAtDoor = isPrepaid
+      ? 0
+      : Math.max(0, grandTotal - upfrontAmount);
     const driverBonusPaidByCustomer = Boolean(
       order.driverBonusPaidByCustomer ??
-        ctx?.settings?.driverBonusPaidByCustomer ??
-        false,
+      ctx?.settings?.driverBonusPaidByCustomer ??
+      false,
     );
     const customerDriverBonusFee = driverBonusPaidByCustomer
       ? Number(order.driverBonusFee ?? 0)
@@ -1004,40 +1026,44 @@ export class OrderRoleProjector {
         Array.isArray(g.items) ? g.items : [],
       );
 
-      sanitized.vendorFulfillments = sanitized.vendorFulfillments.map((f: any) => {
-        const safeF: any = omitKeys(f, ['commissionRate']);
-        if (safeF.vendor) {
-          safeF.vendor = omitKeys(safeF.vendor, [
-            'commissionRate',
-            'walletBalance',
-          ]);
-        }
-        if (safeF.vendorBranch) {
-          safeF.vendorBranch = omitKeys(safeF.vendorBranch, ['commissionRate']);
-        }
-        const stage =
-          f.status === 'REJECTED' || f.status === 'CANCELLED'
-            ? f.status
-            : f.pickedUpAt || f.status === 'PICKED_UP'
-              ? 'PICKED_UP'
-              : f.readyAt || f.status === 'READY_FOR_PICKUP'
-                ? 'READY_FOR_PICKUP'
-                : f.preparingAt || f.status === 'PREPARING'
-                  ? 'PREPARING'
-                  : f.status;
-        return {
-          ...safeF,
-          stage,
-        };
-      });
+      sanitized.vendorFulfillments = sanitized.vendorFulfillments.map(
+        (f: any) => {
+          const safeF: any = omitKeys(f, ['commissionRate']);
+          if (safeF.vendor) {
+            safeF.vendor = omitKeys(safeF.vendor, [
+              'commissionRate',
+              'walletBalance',
+            ]);
+          }
+          if (safeF.vendorBranch) {
+            safeF.vendorBranch = omitKeys(safeF.vendorBranch, [
+              'commissionRate',
+            ]);
+          }
+          const stage =
+            f.status === 'REJECTED' || f.status === 'CANCELLED'
+              ? f.status
+              : f.pickedUpAt || f.status === 'PICKED_UP'
+                ? 'PICKED_UP'
+                : f.readyAt || f.status === 'READY_FOR_PICKUP'
+                  ? 'READY_FOR_PICKUP'
+                  : f.preparingAt || f.status === 'PREPARING'
+                    ? 'PREPARING'
+                    : f.status;
+          return {
+            ...safeF,
+            stage,
+          };
+        },
+      );
 
       sanitized.vendorFulfillments.sort((a: any, b: any) => {
         const seqA =
-          allGroupItems.find((it: any) => it.fulfillmentId === a.id)?.sequence ??
-          0;
+          allGroupItems.find((it: any) => it.fulfillmentId === a.id)
+            ?.sequence ?? 0;
         const seqB =
-          allGroupItems.find((it: any) => it.fulfillmentId === b.id)?.sequence ??
-          0;
+          allGroupItems.find((it: any) => it.fulfillmentId === b.id)
+            ?.sequence ?? 0;
         return seqA - seqB;
       });
 
@@ -1087,7 +1113,9 @@ export class OrderRoleProjector {
       Array.isArray(order.deliveryGroups) ? order.deliveryGroups : []
     )
       .filter((g: any) => g.status !== 'CANCELLED')
-      .sort((a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0));
+      .sort(
+        (a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0),
+      );
     const collectorGroup =
       activeDeliveryGroups.find((g: any) => g.isPaymentCollector === true) ??
       activeDeliveryGroups[0] ??
@@ -1130,13 +1158,17 @@ export class OrderRoleProjector {
       order.paymentMethod !== 'MOBILE_WALLET';
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
-    const cashToCollect = isPrepaid ? 0 : Math.max(0, grandTotal - upfrontAmount);
+    const cashToCollect = isPrepaid
+      ? 0
+      : Math.max(0, grandTotal - upfrontAmount);
 
     const activeDeliveryGroups = (
       Array.isArray(order.deliveryGroups) ? order.deliveryGroups : []
     )
       .filter((g: any) => g.status !== 'CANCELLED')
-      .sort((a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0));
+      .sort(
+        (a: any, b: any) => Number(a.sequence ?? 0) - Number(b.sequence ?? 0),
+      );
     const collectorGroup =
       activeDeliveryGroups.find((g: any) => g.isPaymentCollector === true) ??
       activeDeliveryGroups[0] ??
@@ -1180,8 +1212,8 @@ export class OrderRoleProjector {
 
     const isMultiVendorOrder = Boolean(
       order.isMultiVendor ||
-        fulfillments.length > 1 ||
-        activeDeliveryGroups.length > 1,
+      fulfillments.length > 1 ||
+      activeDeliveryGroups.length > 1,
     );
 
     const storePayments = fulfillments.map((f: any) => ({
@@ -1300,9 +1332,15 @@ export class OrderRoleProjector {
       vendorId: f.vendorId,
       vendorLogo: f.vendor?.logo ?? null,
       vendorName:
-        f.vendor?.storeNameAr ?? f.vendor?.storeName ?? f.vendor?.name ?? 'Store',
+        f.vendor?.storeNameAr ??
+        f.vendor?.storeName ??
+        f.vendor?.name ??
+        'Store',
       vendorNameEn:
-        f.vendor?.storeName ?? f.vendor?.storeNameAr ?? f.vendor?.name ?? 'Store',
+        f.vendor?.storeName ??
+        f.vendor?.storeNameAr ??
+        f.vendor?.name ??
+        'Store',
       branchName: f.vendorBranch?.nameAr ?? f.vendorBranch?.name ?? '',
       address: f.vendorBranch?.address ?? f.vendor?.address ?? '',
       phone:

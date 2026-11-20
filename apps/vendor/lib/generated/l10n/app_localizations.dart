@@ -3212,11 +3212,11 @@ abstract class AppLocalizations {
   /// **'Base Delivery Fee'**
   String get baseDeliveryFee;
 
-  /// No description provided for @extraVendorDeliveryFee.
+  /// No description provided for @multiVendorDeliveryDiscountPercent.
   ///
   /// In en, this message translates to:
-  /// **'Extra Vendor Delivery Fee'**
-  String get extraVendorDeliveryFee;
+  /// **'Multi-Vendor Delivery Discount (%)'**
+  String get multiVendorDeliveryDiscountPercent;
 
   /// No description provided for @pricePerKm.
   ///

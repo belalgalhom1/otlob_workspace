@@ -30,7 +30,12 @@ import { Permission, Role, VendorMemberRole } from '@prisma/client';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
 
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 
 @ApiTags('Vendors - Core Management')
 @Controller('vendors')
@@ -51,7 +56,11 @@ export class VendorsController {
   @ApiStandardResponse()
   @Get('by-slug/:slug')
   @ApiOperation({ summary: 'Find a vendor by its slug' })
-  @ApiQuery({ name: 'branchId', required: false, description: 'Optional branch UUID to filter menu for a specific branch' })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'Optional branch UUID to filter menu for a specific branch',
+  })
   findBySlug(
     @Param('slug') slug: string,
     @Query('branchId') branchId?: string,
@@ -82,7 +91,11 @@ export class VendorsController {
   @ApiStandardResponse()
   @Get(':vendorId')
   @ApiOperation({ summary: 'Get a specific vendor by ID' })
-  @ApiQuery({ name: 'branchId', required: false, description: 'Optional branch UUID to filter menu for a specific branch' })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'Optional branch UUID to filter menu for a specific branch',
+  })
   findOne(
     @Param('vendorId') vendorId: string,
     @Query('branchId') branchId?: string,
@@ -95,10 +108,7 @@ export class VendorsController {
   @ApiBearerAuth()
   @RequirePermissions(Permission.MANAGE_VENDORS)
   @ApiOperation({ summary: 'Create a new vendor (Admin)' })
-  create(
-    @Body() dto: CreateVendorDto,
-    @CurrentUser() user: JwtAccessPayload,
-  ) {
+  create(@Body() dto: CreateVendorDto, @CurrentUser() user: JwtAccessPayload) {
     // Commission rate is a platform-level commercial term: only SUPER_ADMIN
     // may set it. Other roles fall back to the platform default.
     if (user?.role !== Role.SUPER_ADMIN) {

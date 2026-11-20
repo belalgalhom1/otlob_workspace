@@ -14,9 +14,7 @@ import { DeliveryGroupTransitionService } from './transitions/delivery-group-tra
  * delivery groups without depending on `OrdersModule` internals.
  */
 @Injectable()
-export class OrdersDispatchWorkflowAdapter
-  implements DispatchOrderWorkflowPort
-{
+export class OrdersDispatchWorkflowAdapter implements DispatchOrderWorkflowPort {
   constructor(
     private readonly ordersRepository: OrdersRepository,
     private readonly eventEmitter: EventEmitter2,
@@ -48,9 +46,11 @@ export class OrdersDispatchWorkflowAdapter
 
     const uniqueVendorIds = Array.from(
       new Set(
-        (((fullOrder as any)?.vendorFulfillments ?? []) as Array<{
-          vendorId: string;
-        }>).map((f) => f.vendorId),
+        (
+          ((fullOrder as any)?.vendorFulfillments ?? []) as Array<{
+            vendorId: string;
+          }>
+        ).map((f) => f.vendorId),
       ),
     );
     const singleVendorId =

@@ -429,7 +429,7 @@ export class CartService {
             ).map((o) => o.optionId);
 
       this.validateOptions(
-        product as CartProduct,
+        product,
         mergedOptionIds,
         cartItem.variantId ?? undefined,
       );
@@ -471,7 +471,8 @@ export class CartService {
             where: { id: duplicateItem.id },
             data: {
               quantity: { increment: newQuantity },
-              specialRequest: dto.specialRequest ?? duplicateItem.specialRequest,
+              specialRequest:
+                dto.specialRequest ?? duplicateItem.specialRequest,
               updatedAt: new Date(),
             },
           });
@@ -590,7 +591,7 @@ export class CartService {
         const itemQty = isStripProduct
           ? item.selectedUnit === 'strip'
             ? item.quantity
-            : item.quantity * Number(item.product!.stripsPerPackage)
+            : item.quantity * Number(item.product.stripsPerPackage)
           : item.quantity;
         productQuantities.set(
           item.productId,
@@ -629,9 +630,7 @@ export class CartService {
             },
           })
         : [];
-    const checkoutProductById = new Map(
-      checkoutProducts.map((p) => [p.id, p as CartProduct]),
-    );
+    const checkoutProductById = new Map(checkoutProducts.map((p) => [p.id, p]));
 
     for (const item of formatted.items) {
       if (item.productId) {
@@ -651,9 +650,7 @@ export class CartService {
           throw new BadRequestException(CartErrors.PRODUCT_UNAVAILABLE);
         }
         if (!item.variantId && catalogProduct.hasVariants) {
-          throw new BadRequestException(
-            OrderErrors.VARIANT_SELECTION_REQUIRED,
-          );
+          throw new BadRequestException(OrderErrors.VARIANT_SELECTION_REQUIRED);
         }
         this.validateOptions(
           catalogProduct,
@@ -1058,9 +1055,9 @@ export class CartService {
         product: resolvedProduct,
         variant: resolvedVariant,
         options: item.selectedOptions.map((so) => ({
-        ...so.option,
-        groupName: so.option.group?.name ?? null,
-      })),
+          ...so.option,
+          groupName: so.option.group?.name ?? null,
+        })),
         quantity: item.quantity,
         selectedUnit: item.selectedUnit,
         specialRequest: item.specialRequest,

@@ -83,8 +83,7 @@ export class OrdersCheckoutService {
     const { customerId, coinBalance, cart } =
       await this.cartService.validateForCheckout(actor.sub, dto.vendorId);
 
-    const activeOrderPolicy =
-      await this.validateActiveOrderLimit(customerId);
+    const activeOrderPolicy = await this.validateActiveOrderLimit(customerId);
 
     const money = await this.computeStandardOrderMoney(
       dto.vendorId,
@@ -105,7 +104,9 @@ export class OrdersCheckoutService {
       );
     }
     if (money.requiresMultiBranch) {
-      throw new BadRequestException(OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH);
+      throw new BadRequestException(
+        OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH,
+      );
     }
 
     await this.cartService.assertItemsAvailableAtBranch(
@@ -226,10 +227,15 @@ export class OrdersCheckoutService {
     );
 
     if (money.requiresMultiBranch && this.multiVendorService) {
-      return this.multiVendorService.estimateSingleVendorMultiBranch(actor, dto);
+      return this.multiVendorService.estimateSingleVendorMultiBranch(
+        actor,
+        dto,
+      );
     }
     if (money.requiresMultiBranch) {
-      throw new BadRequestException(OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH);
+      throw new BadRequestException(
+        OrderErrors.PRODUCT_NOT_AVAILABLE_AT_BRANCH,
+      );
     }
 
     await this.cartService.assertItemsAvailableAtBranch(
@@ -338,7 +344,11 @@ export class OrdersCheckoutService {
     // customer's delivery zone, so a returned branch is always in that zone.
     // It also requires every cart product to be available at that branch.
     if (!branch) {
-      if (allowMultiBranchFallback && productIds.length > 0 && this.multiVendorService) {
+      if (
+        allowMultiBranchFallback &&
+        productIds.length > 0 &&
+        this.multiVendorService
+      ) {
         return { requiresMultiBranch: true as const };
       }
       if (productIds.length > 0) {
@@ -386,12 +396,12 @@ export class OrdersCheckoutService {
     const vendorCommission =
       branchCommission != null
         ? branchCommission
-        : (vendor.commissionRate != null
-            ? Number(vendor.commissionRate)
-            : Number(settings.defaultCommissionRate ?? 10));
+        : vendor.commissionRate != null
+          ? Number(vendor.commissionRate)
+          : Number(settings.defaultCommissionRate ?? 10);
     const commissionRate = vendorCommission / 100;
     const isContracted =
-      (typeof branch !== 'undefined' && branch?.isContracted != null)
+      typeof branch !== 'undefined' && branch?.isContracted != null
         ? branch.isContracted
         : vendor.isContracted;
 
@@ -652,8 +662,7 @@ export class OrdersCheckoutService {
       throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
     const customerId = customer.id;
 
-    const activeOrderPolicy =
-      await this.validateActiveOrderLimit(customerId);
+    const activeOrderPolicy = await this.validateActiveOrderLimit(customerId);
 
     const money = await this.computeCustomOrderMoney(dto, customer.coinBalance);
     const {
@@ -798,8 +807,7 @@ export class OrdersCheckoutService {
     if (!customer)
       throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
 
-    const activeOrderPolicy =
-      await this.validateActiveOrderLimit(customer.id);
+    const activeOrderPolicy = await this.validateActiveOrderLimit(customer.id);
 
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: dto.vendorId },
@@ -811,8 +819,12 @@ export class OrdersCheckoutService {
       dto.deliveryLocation.length === 2 &&
       Number.isFinite(Number(dto.deliveryLocation[0])) &&
       Number.isFinite(Number(dto.deliveryLocation[1]));
-    const deliveryLng = hasDeliveryCoords ? Number(dto.deliveryLocation![0]) : 0;
-    const deliveryLat = hasDeliveryCoords ? Number(dto.deliveryLocation![1]) : 0;
+    const deliveryLng = hasDeliveryCoords
+      ? Number(dto.deliveryLocation![0])
+      : 0;
+    const deliveryLat = hasDeliveryCoords
+      ? Number(dto.deliveryLocation![1])
+      : 0;
 
     const zone = hasDeliveryCoords
       ? await this.ordersRepository.getZoneAtLocation(deliveryLng, deliveryLat)

@@ -33,7 +33,8 @@ export class LegalDocumentsController {
   @ApiStandardResponse()
   @Get('active/:type')
   @ApiOperation({
-    summary: 'Get the currently active, published legal document (Terms or Privacy)',
+    summary:
+      'Get the currently active, published legal document (Terms or Privacy)',
   })
   getActiveDocument(@Param('type') type: LegalDocumentType) {
     return this.service.getActiveDocument(type);
@@ -43,7 +44,8 @@ export class LegalDocumentsController {
   @ApiStandardResponse()
   @Get('acceptance-status')
   @ApiOperation({
-    summary: 'Check if authenticated user needs to accept the latest Terms of Use',
+    summary:
+      'Check if authenticated user needs to accept the latest Terms of Use',
   })
   getAcceptanceStatus(@CurrentUser('sub') userId: string) {
     return this.service.getAcceptanceStatus(userId);
@@ -53,7 +55,8 @@ export class LegalDocumentsController {
   @ApiStandardResponse()
   @Post('accept')
   @ApiOperation({
-    summary: 'Accept a legal document version (records user acceptance and timestamp)',
+    summary:
+      'Accept a legal document version (records user acceptance and timestamp)',
   })
   acceptDocument(
     @CurrentUser('sub') userId: string,
@@ -63,7 +66,7 @@ export class LegalDocumentsController {
     const rawIp = req?.headers ? req.headers['x-forwarded-for'] : null;
     const ipAddress = Array.isArray(rawIp)
       ? rawIp[0]
-      : (rawIp?.split(',')[0].trim() || req?.socket?.remoteAddress);
+      : rawIp?.split(',')[0].trim() || req?.socket?.remoteAddress;
     const userAgent = req?.headers ? req.headers['user-agent'] : null;
 
     return this.service.acceptDocument(userId, dto, {
@@ -79,7 +82,8 @@ export class LegalDocumentsController {
   @RequirePermissions(Permission.MANAGE_SETTINGS)
   @Get('admin/all')
   @ApiOperation({
-    summary: 'List all legal documents (drafts, published, archived) with stats (Admin)',
+    summary:
+      'List all legal documents (drafts, published, archived) with stats (Admin)',
   })
   getAllDocuments(@Query() query: LegalDocumentQueryDto) {
     return this.service.getAllDocuments(query.type);
@@ -152,7 +156,8 @@ export class LegalDocumentsController {
   @RequirePermissions(Permission.MANAGE_SETTINGS)
   @Get('admin/:id/stats')
   @ApiOperation({
-    summary: 'Get user acceptance metrics and role breakdown for a document (Admin)',
+    summary:
+      'Get user acceptance metrics and role breakdown for a document (Admin)',
   })
   getDocumentStats(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.getDocumentStats(id);

@@ -1,6 +1,15 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { CommonErrors, DriverErrors, UserErrors, DriverManagerErrors } from '../../common/constants/response.constants';
+import {
+  CommonErrors,
+  DriverErrors,
+  UserErrors,
+  DriverManagerErrors,
+} from '../../common/constants/response.constants';
 import { AssignDriversToManagerDto } from './dto/driver-manager.dto';
 
 @Injectable()
@@ -67,11 +76,12 @@ export class DriverManagersService {
   async getMyWallet(userId: string) {
     const manager = await this.getManager(userId);
 
-    const transactions = await this.prisma.driverManagerWalletTransaction.findMany({
-      where: { managerId: manager.id },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
+    const transactions =
+      await this.prisma.driverManagerWalletTransaction.findMany({
+        where: { managerId: manager.id },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
 
     return {
       walletBalance: manager.walletBalance,

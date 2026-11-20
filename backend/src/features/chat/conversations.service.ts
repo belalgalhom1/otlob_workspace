@@ -102,7 +102,9 @@ export class ConversationsService {
       where: { orderId },
       select: { vendorId: true },
     });
-    const uniqueVendorIds = Array.from(new Set(portions.map((p) => p.vendorId)));
+    const uniqueVendorIds = Array.from(
+      new Set(portions.map((p) => p.vendorId)),
+    );
     return uniqueVendorIds.length === 1 ? uniqueVendorIds[0] : null;
   }
 
@@ -223,8 +225,7 @@ export class ConversationsService {
 
     const staleDriverParticipants = conversation.participants.filter(
       (p) =>
-        p.user.role === Role.DRIVER &&
-        !currentDriverUserIds.includes(p.userId),
+        p.user.role === Role.DRIVER && !currentDriverUserIds.includes(p.userId),
     );
 
     if (staleDriverParticipants.length > 0) {
@@ -850,7 +851,11 @@ export class ConversationsService {
         titleAr?: string | null;
         vendorMemberships: { role: string }[];
       } | null;
-      vendor: { storeName: string; storeNameAr: string | null; logo?: string | null } | null;
+      vendor: {
+        storeName: string;
+        storeNameAr: string | null;
+        logo?: string | null;
+      } | null;
       order: { orderNumber: string } | null;
       _count: { messages: number } | null;
     };

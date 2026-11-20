@@ -11,16 +11,12 @@ describe('OrdersService financial projections & vendor isolation', () => {
       customer: { findUnique: jest.fn() },
     };
 
-    ordersService = new OrdersService(
-      {} as any,
-      mockPrisma,
-      {
-        getSettings: jest.fn().mockResolvedValue({
-          deliveryCommissionRate: 20,
-          driverManagerCommissionRate: 10,
-        }),
-      } as any,
-    );
+    ordersService = new OrdersService({} as any, mockPrisma, {
+      getSettings: jest.fn().mockResolvedValue({
+        deliveryCommissionRate: 20,
+        driverManagerCommissionRate: 10,
+      }),
+    } as any);
   });
 
   describe('projectForDriver', () => {
@@ -84,21 +80,28 @@ describe('OrdersService financial projections & vendor isolation', () => {
         items: [],
       };
 
-      const projected = await (ordersService as any).projectForDriver(mockOrder, actor);
+      const projected = await (ordersService as any).projectForDriver(
+        mockOrder,
+        actor,
+      );
 
       expect(projected.financials).toBeDefined();
       const storePayments = projected.financials.storePayments;
       expect(storePayments).toHaveLength(2);
 
       // Contracted store: 500 EGP - 20% (100 EGP) = 400 EGP
-      const contractedPayment = storePayments.find((p: any) => p.fulfillmentId === 'ff-contracted');
+      const contractedPayment = storePayments.find(
+        (p: any) => p.fulfillmentId === 'ff-contracted',
+      );
       expect(contractedPayment.isContracted).toBe(true);
       expect(contractedPayment.subtotal).toBe(500);
       expect(contractedPayment.commissionAmount).toBe(100);
       expect(contractedPayment.cashToPay).toBe(400);
 
       // Uncontracted store: 300 EGP full cashToPay
-      const uncontractedPayment = storePayments.find((p: any) => p.fulfillmentId === 'ff-uncontracted');
+      const uncontractedPayment = storePayments.find(
+        (p: any) => p.fulfillmentId === 'ff-uncontracted',
+      );
       expect(uncontractedPayment.isContracted).toBe(false);
       expect(uncontractedPayment.subtotal).toBe(300);
       expect(uncontractedPayment.commissionAmount).toBe(0);
@@ -160,7 +163,10 @@ describe('OrdersService financial projections & vendor isolation', () => {
         ],
       };
 
-      const projected = await (ordersService as any).projectForDriver(mockOrder, actor);
+      const projected = await (ordersService as any).projectForDriver(
+        mockOrder,
+        actor,
+      );
 
       expect(projected.vendorFulfillments).toHaveLength(2);
       expect(projected.financials.storePayments).toHaveLength(2);
@@ -170,7 +176,10 @@ describe('OrdersService financial projections & vendor isolation', () => {
     });
     it('calculates driverEarnings matching dispatch and settlement commission rates (net 70%)', async () => {
       const actor = { sub: 'user-driver-1' } as any;
-      mockPrisma.driver.findUnique.mockResolvedValue({ id: 'driver-1', tier: 'GOLD' });
+      mockPrisma.driver.findUnique.mockResolvedValue({
+        id: 'driver-1',
+        tier: 'GOLD',
+      });
 
       const mockOrder = {
         id: 'order-single',
@@ -181,7 +190,10 @@ describe('OrdersService financial projections & vendor isolation', () => {
         grandTotal: 130,
       };
 
-      const projected = await (ordersService as any).projectForDriver(mockOrder, actor);
+      const projected = await (ordersService as any).projectForDriver(
+        mockOrder,
+        actor,
+      );
 
       // 30 deliveryFee * (1 - 0.20 platform - 0.10 supervisor) = 21 EGP
       expect(projected.driverEarnings).toBe(21);
@@ -205,7 +217,15 @@ describe('OrdersService financial projections & vendor isolation', () => {
             commissionRate: 20,
             vendor: { name: 'My Bakery', isContracted: true },
             vendorBranch: { name: 'Branch Downtown', isContracted: true },
-            items: [{ id: 'item-1', name: 'Croissant', price: 50, quantity: 10, fulfillmentId: 'ff-vendor-1' }],
+            items: [
+              {
+                id: 'item-1',
+                name: 'Croissant',
+                price: 50,
+                quantity: 10,
+                fulfillmentId: 'ff-vendor-1',
+              },
+            ],
           },
           {
             id: 'ff-vendor-2',
@@ -214,15 +234,31 @@ describe('OrdersService financial projections & vendor isolation', () => {
             commissionRate: 15,
             vendor: { name: 'Secret Other Store', isContracted: false },
             vendorBranch: { name: 'Branch Other', isContracted: false },
-            items: [{ id: 'item-2', name: 'Secret Perfume', price: 900, quantity: 1, fulfillmentId: 'ff-vendor-2' }],
+            items: [
+              {
+                id: 'item-2',
+                name: 'Secret Perfume',
+                price: 900,
+                quantity: 1,
+                fulfillmentId: 'ff-vendor-2',
+              },
+            ],
           },
         ],
         deliveryGroups: [
-          { id: 'group-internal', sequence: 1, details: 'secret route coordinates' },
+          {
+            id: 'group-internal',
+            sequence: 1,
+            details: 'secret route coordinates',
+          },
         ],
         items: [
           { id: 'item-1', name: 'Croissant', fulfillmentId: 'ff-vendor-1' },
-          { id: 'item-2', name: 'Secret Perfume', fulfillmentId: 'ff-vendor-2' },
+          {
+            id: 'item-2',
+            name: 'Secret Perfume',
+            fulfillmentId: 'ff-vendor-2',
+          },
         ],
       };
 
@@ -271,8 +307,17 @@ describe('OrdersService financial projections & vendor isolation', () => {
             status: 'PENDING',
             subtotal: 600,
             commissionRate: 20,
-            vendor: { storeName: 'Burger Joint', storeNameAr: 'برجر جوينت', isContracted: true },
-            vendorBranch: { name: 'Main Branch', nameAr: 'الفرع الرئيسي', address: 'Cairo', isContracted: true },
+            vendor: {
+              storeName: 'Burger Joint',
+              storeNameAr: 'برجر جوينت',
+              isContracted: true,
+            },
+            vendorBranch: {
+              name: 'Main Branch',
+              nameAr: 'الفرع الرئيسي',
+              address: 'Cairo',
+              isContracted: true,
+            },
           },
           {
             id: 'ff-2',
@@ -280,26 +325,43 @@ describe('OrdersService financial projections & vendor isolation', () => {
             status: 'PENDING',
             subtotal: 400,
             commissionRate: 10,
-            vendor: { storeName: 'Juice Bar', storeNameAr: 'عصائر النعيم', isContracted: false },
-            vendorBranch: { name: 'Branch 2', nameAr: 'فرع 2', address: 'Giza', isContracted: false },
+            vendor: {
+              storeName: 'Juice Bar',
+              storeNameAr: 'عصائر النعيم',
+              isContracted: false,
+            },
+            vendorBranch: {
+              name: 'Branch 2',
+              nameAr: 'فرع 2',
+              address: 'Giza',
+              isContracted: false,
+            },
           },
         ],
       };
 
-      const adminEnriched = await (ordersService as any).enrichWithAdminHelpers(mockOrder);
+      const adminEnriched = await (ordersService as any).enrichWithAdminHelpers(
+        mockOrder,
+      );
 
       expect(adminEnriched.isMultiVendor).toBe(true);
       expect(adminEnriched.vendor).toBeDefined();
       expect(adminEnriched.vendor.isMultiVendor).toBe(true);
-      expect(adminEnriched.vendor.storeNameAr).toBe('برجر جوينت + عصائر النعيم');
+      expect(adminEnriched.vendor.storeNameAr).toBe(
+        'برجر جوينت + عصائر النعيم',
+      );
       expect(adminEnriched.vendor.storeName).toBe('Burger Joint + Juice Bar');
       expect(adminEnriched.vendorBranch).toBeNull();
 
       // Financials breakdown
       expect(adminEnriched.financials.storePayments).toHaveLength(2);
-      expect(adminEnriched.financials.storePayments[0].vendorName).toBe('برجر جوينت');
+      expect(adminEnriched.financials.storePayments[0].vendorName).toBe(
+        'برجر جوينت',
+      );
       expect(adminEnriched.financials.storePayments[0].cashToPay).toBe(480); // 600 - 20%
-      expect(adminEnriched.financials.storePayments[1].vendorName).toBe('عصائر النعيم');
+      expect(adminEnriched.financials.storePayments[1].vendorName).toBe(
+        'عصائر النعيم',
+      );
       expect(adminEnriched.financials.storePayments[1].cashToPay).toBe(400); // uncontracted full 400
       expect(adminEnriched.financials.cashToPayStore).toBe(880);
       expect(adminEnriched.financials.isStorePrepaid).toBe(false); // since one is uncontracted
@@ -314,11 +376,9 @@ describe('OrdersService financial projections & vendor isolation', () => {
         multiVendorDriverManagerCommissionRate: 10,
       });
 
-      const scopedService = new OrdersService(
-        {} as any,
-        mockPrisma,
-        { getSettings: getSettingsMock } as any,
-      );
+      const scopedService = new OrdersService({} as any, mockPrisma, {
+        getSettings: getSettingsMock,
+      } as any);
 
       const prefetched = await getSettingsMock();
       expect(getSettingsMock).toHaveBeenCalledTimes(1);
@@ -366,9 +426,11 @@ describe('OrdersService financial projections & vendor isolation', () => {
     it('projectForVendor resolves portion-specific driver avatar, vendor logo, and product imageUrls cleanly on multi-vendor split deliveries', async () => {
       const actor = { sub: 'user-vendor-b', role: 'VENDOR_MEMBER' } as any;
       mockPrisma.vendorMember = {
-        findMany: jest.fn().mockResolvedValue([
-          { vendorId: 'vendor-b', branchId: null, role: 'OWNER' },
-        ]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { vendorId: 'vendor-b', branchId: null, role: 'OWNER' },
+          ]),
       };
 
       const order = {
@@ -383,9 +445,18 @@ describe('OrdersService financial projections & vendor isolation', () => {
             vendorId: 'vendor-a',
             status: 'PREPARING',
             subtotal: 150,
-            vendor: { id: 'vendor-a', storeName: 'Store A', logo: '/logos/a.png' },
+            vendor: {
+              id: 'vendor-a',
+              storeName: 'Store A',
+              logo: '/logos/a.png',
+            },
             items: [
-              { id: 'item-a1', fulfillmentId: 'ff-a', productName: 'A Burger', product: { imageUrl: '/products/a1.png' } },
+              {
+                id: 'item-a1',
+                fulfillmentId: 'ff-a',
+                productName: 'A Burger',
+                product: { imageUrl: '/products/a1.png' },
+              },
             ],
           },
           {
@@ -393,9 +464,18 @@ describe('OrdersService financial projections & vendor isolation', () => {
             vendorId: 'vendor-b',
             status: 'PREPARING',
             subtotal: 250,
-            vendor: { id: 'vendor-b', storeName: 'Store B', logo: '/logos/b.png' },
+            vendor: {
+              id: 'vendor-b',
+              storeName: 'Store B',
+              logo: '/logos/b.png',
+            },
             items: [
-              { id: 'item-b1', fulfillmentId: 'ff-b', productName: 'B Pizza', product: { imageUrl: '/products/b1.png' } },
+              {
+                id: 'item-b1',
+                fulfillmentId: 'ff-b',
+                productName: 'B Pizza',
+                product: { imageUrl: '/products/b1.png' },
+              },
             ],
           },
         ],
@@ -410,7 +490,12 @@ describe('OrdersService financial projections & vendor isolation', () => {
               id: 'drv-a',
               name: 'Driver A',
               avatar: '/avatars/driver-a.png',
-              user: { id: 'u-da', name: 'Driver A', phone: '0101', avatar: '/avatars/driver-a.png' },
+              user: {
+                id: 'u-da',
+                name: 'Driver A',
+                phone: '0101',
+                avatar: '/avatars/driver-a.png',
+              },
             },
             items: [{ fulfillmentId: 'ff-a', sequence: 1 }],
           },
@@ -424,18 +509,37 @@ describe('OrdersService financial projections & vendor isolation', () => {
               id: 'drv-b',
               name: 'Driver B',
               avatar: null,
-              user: { id: 'u-db', name: 'Driver B', phone: '0102', avatar: '/avatars/user-driver-b.png' },
+              user: {
+                id: 'u-db',
+                name: 'Driver B',
+                phone: '0102',
+                avatar: '/avatars/user-driver-b.png',
+              },
             },
             items: [{ fulfillmentId: 'ff-b', sequence: 1 }],
           },
         ],
         items: [
-          { id: 'item-a1', fulfillmentId: 'ff-a', productName: 'A Burger', product: { imageUrl: '/products/a1.png' } },
-          { id: 'item-b1', fulfillmentId: 'ff-b', productName: 'B Pizza', product: { imageUrl: '/products/b1.png' } },
+          {
+            id: 'item-a1',
+            fulfillmentId: 'ff-a',
+            productName: 'A Burger',
+            product: { imageUrl: '/products/a1.png' },
+          },
+          {
+            id: 'item-b1',
+            fulfillmentId: 'ff-b',
+            productName: 'B Pizza',
+            product: { imageUrl: '/products/b1.png' },
+          },
         ],
       };
 
-      const projectedB = await (ordersService as any).projectForVendor(order, actor, 'vendor-b');
+      const projectedB = await (ordersService as any).projectForVendor(
+        order,
+        actor,
+        'vendor-b',
+      );
 
       expect(projectedB.vendor?.logo).toBe('/logos/b.png');
       expect(projectedB.driverId).toBe('drv-b');
@@ -449,7 +553,10 @@ describe('OrdersService financial projections & vendor isolation', () => {
     });
 
     it('projectForCustomer and projectForDriver preserve per-vendor logos, normalized driver avatar, and product imageUrls', async () => {
-      mockPrisma.driver.findUnique.mockResolvedValue({ id: 'drv-1', tier: 'GOLD' });
+      mockPrisma.driver.findUnique.mockResolvedValue({
+        id: 'drv-1',
+        tier: 'GOLD',
+      });
 
       const order = {
         id: 'mv-img-2',
@@ -463,7 +570,11 @@ describe('OrdersService financial projections & vendor isolation', () => {
             vendorId: 'v-1',
             status: 'READY_FOR_PICKUP',
             subtotal: 200,
-            vendor: { id: 'v-1', storeName: 'Bakery', logo: '/logos/bakery.png' },
+            vendor: {
+              id: 'v-1',
+              storeName: 'Bakery',
+              logo: '/logos/bakery.png',
+            },
             items: [],
           },
           {
@@ -471,7 +582,11 @@ describe('OrdersService financial projections & vendor isolation', () => {
             vendorId: 'v-2',
             status: 'PREPARING',
             subtotal: 270,
-            vendor: { id: 'v-2', storeName: 'Coffee', logo: '/logos/coffee.png' },
+            vendor: {
+              id: 'v-2',
+              storeName: 'Coffee',
+              logo: '/logos/coffee.png',
+            },
             items: [],
           },
         ],
@@ -486,7 +601,12 @@ describe('OrdersService financial projections & vendor isolation', () => {
               id: 'drv-1',
               name: 'Captain Karim',
               avatar: null,
-              user: { id: 'u-1', name: 'Captain Karim', phone: '0109', avatar: '/avatars/karim.png' },
+              user: {
+                id: 'u-1',
+                name: 'Captain Karim',
+                phone: '0109',
+                avatar: '/avatars/karim.png',
+              },
             },
             items: [
               { fulfillmentId: 'ff-1', sequence: 1 },
@@ -495,23 +615,52 @@ describe('OrdersService financial projections & vendor isolation', () => {
           },
         ],
         items: [
-          { id: 'i-1', fulfillmentId: 'ff-1', productName: 'Croissant', product: { imageUrl: '/products/croissant.png' } },
-          { id: 'i-2', fulfillmentId: 'ff-2', productName: 'Latte', product: { imageUrl: '/products/latte.png' } },
+          {
+            id: 'i-1',
+            fulfillmentId: 'ff-1',
+            productName: 'Croissant',
+            product: { imageUrl: '/products/croissant.png' },
+          },
+          {
+            id: 'i-2',
+            fulfillmentId: 'ff-2',
+            productName: 'Latte',
+            product: { imageUrl: '/products/latte.png' },
+          },
         ],
       };
 
       const custProjected = (ordersService as any).projectForCustomer(order);
       expect(custProjected.driver?.avatar).toBe('/avatars/karim.png');
-      expect(custProjected.vendorFulfillments[0].vendor.logo).toBe('/logos/bakery.png');
-      expect(custProjected.vendorFulfillments[1].vendor.logo).toBe('/logos/coffee.png');
-      expect(custProjected.vendorFulfillments[0].items[0].imageUrl).toBe('/products/croissant.png');
-      expect(custProjected.vendorFulfillments[1].items[0].imageUrl).toBe('/products/latte.png');
+      expect(custProjected.vendorFulfillments[0].vendor.logo).toBe(
+        '/logos/bakery.png',
+      );
+      expect(custProjected.vendorFulfillments[1].vendor.logo).toBe(
+        '/logos/coffee.png',
+      );
+      expect(custProjected.vendorFulfillments[0].items[0].imageUrl).toBe(
+        '/products/croissant.png',
+      );
+      expect(custProjected.vendorFulfillments[1].items[0].imageUrl).toBe(
+        '/products/latte.png',
+      );
 
-      const drvProjected = await (ordersService as any).projectForDriver(order, { sub: 'u-1' });
-      expect(drvProjected.vendorFulfillments[0].vendor.logo).toBe('/logos/bakery.png');
-      expect(drvProjected.vendorFulfillments[1].vendor.logo).toBe('/logos/coffee.png');
-      expect(drvProjected.vendorFulfillments[0].items[0].product.imageUrl).toBe('/products/croissant.png');
-      expect(drvProjected.vendorFulfillments[1].items[0].product.imageUrl).toBe('/products/latte.png');
+      const drvProjected = await (ordersService as any).projectForDriver(
+        order,
+        { sub: 'u-1' },
+      );
+      expect(drvProjected.vendorFulfillments[0].vendor.logo).toBe(
+        '/logos/bakery.png',
+      );
+      expect(drvProjected.vendorFulfillments[1].vendor.logo).toBe(
+        '/logos/coffee.png',
+      );
+      expect(drvProjected.vendorFulfillments[0].items[0].product.imageUrl).toBe(
+        '/products/croissant.png',
+      );
+      expect(drvProjected.vendorFulfillments[1].items[0].product.imageUrl).toBe(
+        '/products/latte.png',
+      );
       expect(drvProjected.items.map((i: any) => i.imageUrl)).toEqual([
         '/products/croissant.png',
         '/products/latte.png',

@@ -72,7 +72,10 @@ export class CreateReviewDto {
   @Type(() => DeliveryGroupRatingInputDto)
   deliveryGroupRatings?: DeliveryGroupRatingInputDto[];
 
-  @ApiPropertyOptional({ example: 5, description: 'Rating out of 5 (single-store shorthand)' })
+  @ApiPropertyOptional({
+    example: 5,
+    description: 'Rating out of 5 (single-store shorthand)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -80,7 +83,10 @@ export class CreateReviewDto {
   @Max(5)
   vendorRating?: number;
 
-  @ApiPropertyOptional({ example: 5, description: 'Rating out of 5 (single-driver shorthand)' })
+  @ApiPropertyOptional({
+    example: 5,
+    description: 'Rating out of 5 (single-driver shorthand)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

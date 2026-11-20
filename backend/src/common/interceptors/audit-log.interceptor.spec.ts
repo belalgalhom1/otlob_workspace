@@ -83,7 +83,7 @@ describe('AuditLogInterceptor', () => {
     expect(payload.action).toBe('POST /api/v1/orders/multi-vendor');
     expect(payload.entityType).toBe('Orders');
     expect(payload.entityId).toBe('ord-mv-1');
-    expect((payload.newValues as any)._facts).toEqual({
+    expect(payload.newValues._facts).toEqual({
       Order: 'OTL-MV-101',
       Status: 'PENDING',
       Total: '340 EGP',
@@ -135,7 +135,7 @@ describe('AuditLogInterceptor', () => {
       AuditLogCreatedEvent,
     ];
     expect(payload.vendorId).toBe('v-1');
-    expect((payload.newValues as any)._facts.Stores).toBeUndefined();
+    expect(payload.newValues._facts.Stores).toBeUndefined();
   });
 
   it('skips read-only POST fee-estimate requests and customer non-Orders routes', async () => {
@@ -203,7 +203,9 @@ describe('AuditLogInterceptor', () => {
     });
 
     await firstValueFrom(
-      interceptor.intercept(context, { handle: () => of({ status: 'ACCEPTED' }) }),
+      interceptor.intercept(context, {
+        handle: () => of({ status: 'ACCEPTED' }),
+      }),
     );
 
     expect(eventEmitter.emit).toHaveBeenCalledTimes(1);
@@ -217,7 +219,7 @@ describe('AuditLogInterceptor', () => {
       status: 'PENDING',
       orderStatus: 'PENDING',
     });
-    expect((payload.newValues as any)._facts).toEqual({
+    expect(payload.newValues._facts).toEqual({
       Order: 'OTL-88',
       Status: 'PENDING',
       'Order status': 'PENDING',

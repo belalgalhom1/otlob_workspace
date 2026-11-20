@@ -135,13 +135,13 @@ export class OrdersMultiVendorService {
     return this.formatEstimate(plan);
   }
 
-  private formatEstimate(plan: Awaited<ReturnType<OrdersMultiVendorService['buildPlan']>>) {
-    const uniqueVendorCount = new Set(plan.portions.map((p) => p.vendorId)).size;
+  private formatEstimate(
+    plan: Awaited<ReturnType<OrdersMultiVendorService['buildPlan']>>,
+  ) {
+    const uniqueVendorCount = new Set(plan.portions.map((p) => p.vendorId))
+      .size;
     const distanceKm = this.round2(
-      Math.max(
-        0,
-        ...plan.grouping.groups.map((g) => g.farthestToCustomerKm),
-      ),
+      Math.max(0, ...plan.grouping.groups.map((g) => g.farthestToCustomerKm)),
     );
 
     return {
@@ -328,10 +328,7 @@ export class OrdersMultiVendorService {
       }
 
       const orderDistanceKm = this.round2(
-        Math.max(
-          0,
-          ...plan.grouping.groups.map((g) => g.farthestToCustomerKm),
-        ),
+        Math.max(0, ...plan.grouping.groups.map((g) => g.farthestToCustomerKm)),
       );
 
       await tx.$executeRaw`
@@ -444,7 +441,6 @@ export class OrdersMultiVendorService {
 
       // Items carry their owning portion (null keeps legacy rows compatible).
       for (const { portion, fulfillmentId } of plannedPortions) {
-
         // Allocate an id per item up-front so its options can be attached
         // deterministically (createMany does not preserve/return input order).
         const itemRows = portion.items.map((item) => ({
@@ -709,9 +705,7 @@ export class OrdersMultiVendorService {
         where: { id: { in: allocatedBranchIds } },
         select: { id: true, isContracted: true, commissionRate: true },
       });
-      const branchOverrideMap = new Map(
-        branchOverrides.map((b) => [b.id, b]),
-      );
+      const branchOverrideMap = new Map(branchOverrides.map((b) => [b.id, b]));
       for (const p of portions) {
         if (!p.vendorBranchId) continue;
         const b = branchOverrideMap.get(p.vendorBranchId);
@@ -772,47 +766,47 @@ export class OrdersMultiVendorService {
     // When 2+ vendor stops share the same delivery trip (1 driver), their individual
     // distance fees are summed and discounted by multiVendorDeliveryDiscountPercent.
     // For single-stop trips (isolated or split deliveries), no bundle discount applies.
-    const discountPercent = Number(
-      (settings as any).multiVendorDeliveryDiscountPercent ?? 20,
-    );
-    const discountMultiplier =
-      Math.max(0, Math.min(100, discountPercent)) / 100;
-    const minFee = Number(settings.minDeliveryFee ?? 15);
-
     const groupFees: number[] = [];
     for (const g of grouping.groups) {
-      if (g.stops.length <= 1) {
-        const stop = g.stops[0];
-        const dist = stop
-          ? haversineKm(stop, { lng: deliveryLng, lat: deliveryLat })
-          : g.farthestToCustomerKm;
-        const base = await this.platformSettings.calculateDeliveryFee(
-          dist,
-          zone.baseDeliveryFeeOverride ?? null,
-          null,
-          true,
-          settings,
-        );
-        groupFees.push(Math.round(base));
-      } else {
-        let rawSum = 0;
-        for (const stop of g.stops) {
-          const stopDist = haversineKm(stop, {
-            lng: deliveryLng,
-            lat: deliveryLat,
-          });
-          const stopFee = await this.platformSettings.calculateDeliveryFee(
-            stopDist,
-            zone.baseDeliveryFeeOverride ?? null,
-            null,
-            true,
-            settings,
-          );
-          rawSum += stopFee;
-        }
-        const discounted = Math.round(rawSum * (1 - discountMultiplier));
-        groupFees.push(Math.max(minFee, discounted));
-      }
+      const stopDists =
+        g.stops.length > 0
+          ? g.stops.map((stop) =>
+              haversineKm(stop, { lng: deliveryLng, lat: deliveryLat }),
+            )
+          : [g.farthestToCustomerKm];
+      const fee =
+        typeof this.platformSettings.calculateGroupDeliveryFee === 'function'
+          ? await this.platformSettings.calculateGroupDeliveryFee(
+              stopDists,
+              zone.baseDeliveryFeeOverride ?? null,
+              settings,
+            )
+          : await (async () => {
+              let rawSum = 0;
+              for (const d of stopDists) {
+                rawSum += await this.platformSettings.calculateDeliveryFee(
+                  d,
+                  zone.baseDeliveryFeeOverride ?? null,
+                  null,
+                  true,
+                  settings,
+                );
+              }
+              if (stopDists.length <= 1) {
+                return Math.max(
+                  Number(settings.minDeliveryFee ?? 15),
+                  Math.round(rawSum),
+                );
+              }
+              const discountPercent = Number(
+                settings.multiVendorDeliveryDiscountPercent ?? 20,
+              );
+              return Math.max(
+                Number(settings.minDeliveryFee ?? 15),
+                Math.round(rawSum * (1 - discountPercent / 100)),
+              );
+            })();
+      groupFees.push(fee);
     }
     const deliveryFee = groupFees.reduce((a, b) => a + b, 0);
 

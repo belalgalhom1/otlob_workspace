@@ -1,5 +1,10 @@
 import { StorageErrors } from '../../common/constants/response.constants';
-import { Injectable, Logger, BadRequestException, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  Optional,
+} from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -73,9 +78,7 @@ export class StorageService {
 
   readonly baseDir = path.join(process.cwd(), 'storage');
 
-  constructor(
-    @Optional() private readonly mediaService?: MediaService,
-  ) {
+  constructor(@Optional() private readonly mediaService?: MediaService) {
     if (!fs.existsSync(this.baseDir)) {
       fs.mkdirSync(this.baseDir, { recursive: true });
     }
@@ -95,7 +98,10 @@ export class StorageService {
 
       // Handle Image Files: Convert strictly to WebP & generate thumbnail
       if (mime.startsWith('image/')) {
-        if (!ALLOWED_IMAGE_MIMES.has(mime) || !validateImageMagicBytes(file.buffer, mime)) {
+        if (
+          !ALLOWED_IMAGE_MIMES.has(mime) ||
+          !validateImageMagicBytes(file.buffer, mime)
+        ) {
           throw new BadRequestException(StorageErrors.INVALID_IMAGE_CONTENT);
         }
 
@@ -103,8 +109,9 @@ export class StorageService {
           ? this.mediaService.detectPreset(folder)
           : 'default';
         const preset =
-          (this.mediaService ? this.mediaService.getPreset(presetName) : null) ||
-          MEDIA_PRESETS.default;
+          (this.mediaService
+            ? this.mediaService.getPreset(presetName)
+            : null) || MEDIA_PRESETS.default;
 
         const mainFileName = `${id}.webp`;
         const thumbFileName = `${id}_thumb.webp`;
@@ -142,7 +149,10 @@ export class StorageService {
 
         // Enqueue background deep compression to BullMQ media worker without blocking API response
         if (this.mediaService) {
-          void this.mediaService.enqueueImageOptimization(mainFilePath, presetName);
+          void this.mediaService.enqueueImageOptimization(
+            mainFilePath,
+            presetName,
+          );
         }
 
         this.logger.log(
@@ -162,7 +172,9 @@ export class StorageService {
       const filePath = path.join(targetDir, fileName);
 
       await fs.promises.writeFile(filePath, file.buffer);
-      this.logger.log(`Uploaded media file: ${cleanFolder}/${fileName} (${file.buffer.length}B)`);
+      this.logger.log(
+        `Uploaded media file: ${cleanFolder}/${fileName} (${file.buffer.length}B)`,
+      );
 
       return `/media/${cleanFolder}/${fileName}`;
     } catch (error: unknown) {
@@ -219,11 +231,15 @@ export class StorageService {
           const thumbStat = await fs.promises.stat(thumbPath);
           bytesFreed += thumbStat.size;
           await fs.promises.unlink(thumbPath);
-          this.logger.log(`Deleted associated thumbnail: ${path.basename(thumbPath)}`);
+          this.logger.log(
+            `Deleted associated thumbnail: ${path.basename(thumbPath)}`,
+          );
         } catch (err: unknown) {
           const error = err as NodeJS.ErrnoException;
           if (error.code !== 'ENOENT') {
-            this.logger.warn(`Failed to delete thumbnail ${thumbPath}: ${error.message}`);
+            this.logger.warn(
+              `Failed to delete thumbnail ${thumbPath}: ${error.message}`,
+            );
           }
         }
       }
@@ -257,7 +273,9 @@ export class StorageService {
         }
       }
     } catch (error: unknown) {
-      this.logger.warn(`Could not remove empty folder ${folderPath}: ${(error as Error).message}`);
+      this.logger.warn(
+        `Could not remove empty folder ${folderPath}: ${(error as Error).message}`,
+      );
     }
   }
 

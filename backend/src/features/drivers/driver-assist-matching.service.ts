@@ -82,14 +82,19 @@ export class DriverAssistMatchingService {
       });
     }
 
-    const driverIds = await this.findNearestEligibleAssistDrivers(request, limit);
+    const driverIds = await this.findNearestEligibleAssistDrivers(
+      request,
+      limit,
+    );
     if (driverIds.length === 0) {
       throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
     }
 
     const orderNumber = request.order?.orderNumber ?? '';
     const proposedAssistFee = Number(
-      request.deliveryGroup?.assistFee ?? request.deliveryGroup?.deliveryFee ?? 0,
+      request.deliveryGroup?.assistFee ??
+        request.deliveryGroup?.deliveryFee ??
+        0,
     );
 
     const ttlSecs = 15;
@@ -165,7 +170,8 @@ export class DriverAssistMatchingService {
 
     const offerKey = `assist:offer:${requestId}`;
     const raw = await this.redis.get(offerKey);
-    if (!raw) throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
+    if (!raw)
+      throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);
     const offer = JSON.parse(raw) as { driverIds: string[]; expiresAt: string };
     if (!offer.driverIds.includes(driver.id)) {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_FOUND);

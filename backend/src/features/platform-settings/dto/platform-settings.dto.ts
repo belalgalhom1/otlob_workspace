@@ -328,21 +328,36 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   driverSearchMaxAttempts?: number;
 
-  @ApiProperty({ example: 200, required: false, description: 'Max candidates to fetch from Redis geo-radius before SQL filtering (headroom for filters).' })
+  @ApiProperty({
+    example: 200,
+    required: false,
+    description:
+      'Max candidates to fetch from Redis geo-radius before SQL filtering (headroom for filters).',
+  })
   @IsNumber()
   @IsPositive()
   @IsOptional()
   @Type(() => Number)
   driverSearchGeoCandidateLimit?: number;
 
-  @ApiProperty({ example: 30, required: false, description: 'Driver location freshness TTL in seconds (how long a position is considered live).' })
+  @ApiProperty({
+    example: 30,
+    required: false,
+    description:
+      'Driver location freshness TTL in seconds (how long a position is considered live).',
+  })
   @IsNumber()
   @IsPositive()
   @IsOptional()
   @Type(() => Number)
   driverLocationFreshnessTtlSecs?: number;
 
-  @ApiProperty({ example: 100, required: false, description: 'Location precision reduction in meters for customer-facing tracking (0 = exact).' })
+  @ApiProperty({
+    example: 100,
+    required: false,
+    description:
+      'Location precision reduction in meters for customer-facing tracking (0 = exact).',
+  })
   @IsNumber()
   @Min(0)
   @IsOptional()

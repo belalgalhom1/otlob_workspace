@@ -170,16 +170,14 @@ export class UsersService {
     return { avatar: avatarUrl, message: CommonSuccess.RESOURCE_UPDATED };
   }
 
-  async changeEmail(
-    userId: string,
-    dto: ChangeEmailDto,
-  ) {
+  async changeEmail(userId: string, dto: ChangeEmailDto) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { password: true, email: true },
     });
     if (!user) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
-    if (!user.password) throw new BadRequestException(UserErrors.PASSWORD_NOT_SET);
+    if (!user.password)
+      throw new BadRequestException(UserErrors.PASSWORD_NOT_SET);
 
     const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
     if (!isMatch) throw new UnauthorizedException(UserErrors.INVALID_PASSWORD);
@@ -482,15 +480,21 @@ export class UsersService {
         }
       }
       const driverUpdate: any = {};
-      if ((dto as any).vehicleType !== undefined) driverUpdate.vehicleType = (dto as any).vehicleType;
-      if ((dto as any).vehiclePlate !== undefined) driverUpdate.vehiclePlate = (dto as any).vehiclePlate;
-      if ((dto as any).licenseNumber !== undefined) driverUpdate.licenseNumber = (dto as any).licenseNumber;
-      if ((dto as any).nationalId !== undefined) driverUpdate.nationalId = (dto as any).nationalId;
+      if ((dto as any).vehicleType !== undefined)
+        driverUpdate.vehicleType = (dto as any).vehicleType;
+      if ((dto as any).vehiclePlate !== undefined)
+        driverUpdate.vehiclePlate = (dto as any).vehiclePlate;
+      if ((dto as any).licenseNumber !== undefined)
+        driverUpdate.licenseNumber = (dto as any).licenseNumber;
+      if ((dto as any).nationalId !== undefined)
+        driverUpdate.nationalId = (dto as any).nationalId;
       await this.prisma.driver.updateMany({
         where: { userId },
         data: driverUpdate,
       });
-      this.logger.log(`Driver manager updated driver vehicle info for user ${userId}`);
+      this.logger.log(
+        `Driver manager updated driver vehicle info for user ${userId}`,
+      );
       const updatedUser = await this.prisma.user.findUnique({
         where: { id: userId },
         select: USER_SELECT,
@@ -506,7 +510,10 @@ export class UsersService {
         throw new ForbiddenException(UserErrors.CANNOT_CREATE_SUPER_ADMIN);
       }
       // Self-escalation guard: an ADMIN cannot modify their own role or permissions
-      if (actor.sub === userId && (dto.role !== undefined || dto.permissions !== undefined)) {
+      if (
+        actor.sub === userId &&
+        (dto.role !== undefined || dto.permissions !== undefined)
+      ) {
         throw new ForbiddenException(CommonErrors.FORBIDDEN);
       }
       // Only SUPER_ADMIN can grant or modify user permissions

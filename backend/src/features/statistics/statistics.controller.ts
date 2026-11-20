@@ -148,14 +148,27 @@ export class StatisticsController {
   @Get('vendors/:vendorId/products')
   @VendorMember({ vendorIdParam: 'vendorId' })
   @ApiOperation({
-    summary: 'Get product-level sales and profit for a vendor (member or admin)',
+    summary:
+      'Get product-level sales and profit for a vendor (member or admin)',
   })
-  @ApiQuery({ name: 'from', required: false, description: 'ISO date (inclusive)' })
-  @ApiQuery({ name: 'to', required: false, description: 'ISO date (inclusive)' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'branchId', required: false, description: 'Filter sales by specific branch UUID' })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'Filter sales by specific branch UUID',
+  })
   @ApiQuery({
     name: 'sortBy',
     required: false,
@@ -213,7 +226,8 @@ export class StatisticsController {
   @Get('drivers/all/managed')
   @Roles(Role.DRIVER_MANAGER, Role.SUPER_ADMIN)
   @ApiOperation({
-    summary: 'Get combined statistics and a per-driver breakdown for all managed drivers',
+    summary:
+      'Get combined statistics and a per-driver breakdown for all managed drivers',
   })
   @ApiQuery({ name: 'period', enum: StatisticPeriod, required: false })
   @ApiQuery({ name: 'from', required: false })
@@ -261,10 +275,22 @@ export class StatisticsController {
   @RequirePermissions(Permission.VIEW_STATISTICS)
   @ApiOperation({ summary: '[Admin] Get top drivers leaderboard' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'from', required: false, description: 'ISO date (inclusive)' })
-  @ApiQuery({ name: 'to', required: false, description: 'ISO date (inclusive)' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
   getTopDrivers(@Query() dto: AnalyticsQueryDto) {
-    return this.statisticsService.getTopDrivers(dto.limit ?? 20, dto.from, dto.to);
+    return this.statisticsService.getTopDrivers(
+      dto.limit ?? 20,
+      dto.from,
+      dto.to,
+    );
   }
 
   @ApiStandardResponse()
@@ -272,10 +298,22 @@ export class StatisticsController {
   @RequirePermissions(Permission.VIEW_STATISTICS)
   @ApiOperation({ summary: '[Admin] Get top customers leaderboard' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'from', required: false, description: 'ISO date (inclusive)' })
-  @ApiQuery({ name: 'to', required: false, description: 'ISO date (inclusive)' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
   getTopCustomers(@Query() dto: AnalyticsQueryDto) {
-    return this.statisticsService.getTopCustomers(dto.limit ?? 20, dto.from, dto.to);
+    return this.statisticsService.getTopCustomers(
+      dto.limit ?? 20,
+      dto.from,
+      dto.to,
+    );
   }
 
   @ApiStandardResponse()
@@ -283,10 +321,22 @@ export class StatisticsController {
   @RequirePermissions(Permission.VIEW_STATISTICS)
   @ApiOperation({ summary: '[Admin] Get top vendors leaderboard' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'from', required: false, description: 'ISO date (inclusive)' })
-  @ApiQuery({ name: 'to', required: false, description: 'ISO date (inclusive)' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
   getTopVendors(@Query() dto: AnalyticsQueryDto) {
-    return this.statisticsService.getTopVendors(dto.limit ?? 20, dto.from, dto.to);
+    return this.statisticsService.getTopVendors(
+      dto.limit ?? 20,
+      dto.from,
+      dto.to,
+    );
   }
 
   @ApiStandardResponse()
@@ -294,9 +344,21 @@ export class StatisticsController {
   @RequirePermissions(Permission.VIEW_STATISTICS)
   @ApiOperation({ summary: '[Admin] Get top products leaderboard' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'from', required: false, description: 'ISO date (inclusive)' })
-  @ApiQuery({ name: 'to', required: false, description: 'ISO date (inclusive)' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: 'ISO date (inclusive)',
+  })
   getTopProducts(@Query() dto: AnalyticsQueryDto) {
-    return this.statisticsService.getTopProducts(dto.limit ?? 20, dto.from, dto.to);
+    return this.statisticsService.getTopProducts(
+      dto.limit ?? 20,
+      dto.from,
+      dto.to,
+    );
   }
 }

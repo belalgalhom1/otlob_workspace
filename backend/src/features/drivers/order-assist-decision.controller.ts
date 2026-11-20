@@ -1,4 +1,11 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { ApiStandardResponse } from 'src/common/decorators/api-response.decorator';
@@ -40,7 +47,8 @@ export class OrderAssistDecisionController {
   @Roles(Role.CUSTOMER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '[Customer] Approve or decline an assisted delivery (single-group order convenience)',
+    summary:
+      '[Customer] Approve or decline an assisted delivery (single-group order convenience)',
   })
   decideAssistOrder(
     @CurrentUser() actor: JwtAccessPayload,

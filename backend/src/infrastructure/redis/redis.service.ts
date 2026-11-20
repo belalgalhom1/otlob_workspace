@@ -91,7 +91,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     const found: string[] = [];
     let cursor = '0';
     do {
-      const [next, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', count);
+      const [next, keys] = await this.client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        count,
+      );
       found.push(...keys);
       cursor = next;
     } while (cursor !== '0');

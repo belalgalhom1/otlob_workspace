@@ -50,7 +50,10 @@ export class DriversProcessor extends WorkerHost implements OnModuleInit {
     await this.queue.add(
       CRON_JOBS.ASSIST_DECISION_TIMEOUT,
       {},
-      { repeat: { pattern: '* * * * *' }, jobId: CRON_JOBS.ASSIST_DECISION_TIMEOUT },
+      {
+        repeat: { pattern: '* * * * *' },
+        jobId: CRON_JOBS.ASSIST_DECISION_TIMEOUT,
+      },
     );
   }
 

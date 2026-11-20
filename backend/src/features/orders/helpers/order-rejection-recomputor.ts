@@ -40,7 +40,6 @@ export class OrderRejectionRecomputor {
     deliveryGroupId: string,
     orderId: string,
     orderStatus: OrderStatus,
-    _deprecatedExtraVendorFee?: number,
   ): Promise<GroupVendorRemovalResult> {
     const group = await tx.orderDeliveryGroup.findUnique({
       where: { id: deliveryGroupId },
@@ -113,69 +112,95 @@ export class OrderRejectionRecomputor {
         select: { vendorBranchId: true, vendorId: true },
       });
 
-      const explicitBranchIds = fulfillments
-        .map((f) => f.vendorBranchId)
-        .filter((id): id is string => Boolean(id));
+      const branchIds: string[] = [];
+      const missingVendorIds: string[] = [];
+      for (const f of fulfillments) {
+        if (f.vendorBranchId) {
+          branchIds.push(f.vendorBranchId);
+        } else if (f.vendorId) {
+          missingVendorIds.push(f.vendorId);
+        }
+      }
 
-      const orderLocs = await tx.$queryRaw<Array<{ lng: number; lat: number }>>`
-        SELECT ST_X("deliveryLocation"::geometry) AS lng, ST_Y("deliveryLocation"::geometry) AS lat
-        FROM orders WHERE id = ${orderId} LIMIT 1
+      const orderLocs = await tx.$queryRaw<
+        Array<{ lng: number | null; lat: number | null; zoneId: string | null }>
+      >`
+        SELECT "zoneId", ST_X("deliveryLocation"::geometry) AS lng, ST_Y("deliveryLocation"::geometry) AS lat
+        FROM orders WHERE id = ${orderId} AND "deliveryLocation" IS NOT NULL LIMIT 1
       `;
 
-      let branchLocs: Array<{ lng: number; lat: number }> = [];
-      if (explicitBranchIds.length > 0) {
-        branchLocs = await tx.$queryRaw<Array<{ lng: number; lat: number }>>`
+      const branchLocs: Array<{ lng: number | null; lat: number | null }> = [];
+      if (branchIds.length > 0) {
+        const rows = await tx.$queryRaw<
+          Array<{ lng: number | null; lat: number | null }>
+        >`
           SELECT ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
-          FROM vendor_branches WHERE id IN (${Prisma.join(explicitBranchIds)})
+          FROM vendor_branches WHERE id IN (${Prisma.join(branchIds)}) AND location IS NOT NULL
         `;
+        branchLocs.push(...rows);
+      }
+      if (missingVendorIds.length > 0) {
+        const rows = await tx.$queryRaw<
+          Array<{ lng: number | null; lat: number | null }>
+        >`
+          SELECT DISTINCT ON ("vendorId") ST_X(location::geometry) AS lng, ST_Y(location::geometry) AS lat
+          FROM vendor_branches WHERE "vendorId" IN (${Prisma.join(missingVendorIds)}) AND location IS NOT NULL
+        `;
+        branchLocs.push(...rows);
       }
 
       const settings = await this.platformSettings.getSettings();
       const minFee = Number(settings.minDeliveryFee ?? 15);
-      const discountPercent = Number(
-        (settings as any).multiVendorDeliveryDiscountPercent ?? 20,
-      );
-      const discountMultiplier =
-        Math.max(0, Math.min(100, discountPercent)) / 100;
 
-      if (orderLocs.length > 0 && branchLocs.length > 0) {
+      const validBranches = branchLocs.filter(
+        (b): b is { lng: number; lat: number } =>
+          b.lng != null && b.lat != null,
+      );
+
+      if (
+        orderLocs.length > 0 &&
+        orderLocs[0].lng != null &&
+        orderLocs[0].lat != null &&
+        validBranches.length > 0 &&
+        validBranches.length === fulfillments.length
+      ) {
         const dest = {
           lng: Number(orderLocs[0].lng),
           lat: Number(orderLocs[0].lat),
         };
-        if (branchLocs.length === 1) {
-          const dist = haversineKm(branchLocs[0], dest);
-          const base = await this.platformSettings.calculateDeliveryFee(
-            dist,
-            null,
-            null,
-            true,
-            settings,
-          );
-          newFee = Math.max(minFee, Math.round(base));
-        } else {
-          let rawSum = 0;
-          for (const stop of branchLocs) {
-            const dist = haversineKm(stop, dest);
-            const fee = await this.platformSettings.calculateDeliveryFee(
-              dist,
-              null,
-              null,
-              true,
-              settings,
-            );
-            rawSum += fee;
-          }
-          const discounted = Math.round(rawSum * (1 - discountMultiplier));
-          newFee = Math.max(minFee, discounted);
+        const stopDists = validBranches.map((stop) =>
+          haversineKm({ lng: Number(stop.lng), lat: Number(stop.lat) }, dest),
+        );
+
+        let zoneBaseDeliveryFeeOverride: number | null = null;
+        if (orderLocs[0].zoneId) {
+          const zone = await tx.zone.findUnique({
+            where: { id: orderLocs[0].zoneId },
+            select: { baseDeliveryFeeOverride: true },
+          });
+          zoneBaseDeliveryFeeOverride = zone?.baseDeliveryFeeOverride ?? null;
         }
+
+        newFee = await this.platformSettings.calculateGroupDeliveryFee(
+          stopDists,
+          zoneBaseDeliveryFeeOverride,
+          settings,
+        );
       } else {
-        // Fallback when coordinates are missing: scale fee proportionally to remaining stops
-        newFee = Math.max(minFee, Math.round((group.deliveryFee * remaining) / (remaining + 1)));
+        // Fallback when coordinates are missing or incomplete: scale fee proportionally to remaining stops
+        newFee = Math.max(
+          minFee,
+          Math.round((group.deliveryFee * remaining) / (remaining + 1)),
+        );
       }
     } catch {
-      const minFee = Number((await this.platformSettings.getSettings()).minDeliveryFee ?? 15);
-      newFee = Math.max(minFee, Math.round((group.deliveryFee * remaining) / (remaining + 1)));
+      const minFee = Number(
+        (await this.platformSettings.getSettings()).minDeliveryFee ?? 15,
+      );
+      newFee = Math.max(
+        minFee,
+        Math.round((group.deliveryFee * remaining) / (remaining + 1)),
+      );
     }
 
     if (newFee === group.deliveryFee) {
@@ -208,7 +233,11 @@ export class OrderRejectionRecomputor {
     serviceFeeDelta = 0,
     fulfillmentId?: string,
   ): Promise<void> {
-    if (rejectedAmount <= 0 && deliveryFeeDelta === 0 && serviceFeeDelta === 0) {
+    if (
+      rejectedAmount <= 0 &&
+      deliveryFeeDelta === 0 &&
+      serviceFeeDelta === 0
+    ) {
       return;
     }
 
@@ -244,7 +273,7 @@ export class OrderRejectionRecomputor {
       });
       if (!order) return;
 
-      const customerBonusFee = Boolean(settings.driverBonusPaidByCustomer)
+      const customerBonusFee = settings.driverBonusPaidByCustomer
         ? order.driverBonusFee
         : 0;
       const newSubtotal = Math.max(0, order.subtotal - rejectedAmount);
@@ -378,7 +407,10 @@ export class OrderRejectionRecomputor {
       // For COD orders, `paymentStatus` can become COMPLETED once the upfront
       // deposit is confirmed, so only `upfrontAmount - newGrandTotal` (when
       // reduced below the paid deposit) was actually pre-collected.
-      if (order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED') {
+      if (
+        order.paymentStatus === 'PAID' ||
+        order.paymentStatus === 'COMPLETED'
+      ) {
         const alreadyPaidCash =
           order.paymentMethod === 'CASH_ON_DELIVERY'
             ? order.upfrontAmount
@@ -388,7 +420,9 @@ export class OrderRejectionRecomputor {
           await recordOrderStatusEventIdempotent(tx, {
             orderId,
             fulfillmentId: fulfillmentId ?? null,
-            eventKey: fulfillmentId ? `refund_obligation:${fulfillmentId}` : null,
+            eventKey: fulfillmentId
+              ? `refund_obligation:${fulfillmentId}`
+              : null,
             status: order.status,
             note: `Refund obligation: ${cashRefundOwed} EGP owed to customer after portion rejection (payment already ${order.paymentStatus})`,
             createdBy: 'system',

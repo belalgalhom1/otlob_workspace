@@ -131,7 +131,9 @@ You have the right to review, update, or request the deletion of your personal a
         });
       }
     } catch (err) {
-      this.logger.warn(`Failed to seed legal documents: ${err?.message || err}`);
+      this.logger.warn(
+        `Failed to seed legal documents: ${err?.message || err}`,
+      );
     }
   }
 

@@ -48,7 +48,12 @@ export class ReviewsService {
           select: { id: true, vendorId: true, status: true },
         },
         deliveryGroups: {
-          select: { id: true, sequence: true, status: true, primaryDriverId: true },
+          select: {
+            id: true,
+            sequence: true,
+            status: true,
+            primaryDriverId: true,
+          },
           orderBy: { sequence: 'asc' },
         },
       },
@@ -65,7 +70,8 @@ export class ReviewsService {
         f.status !== OrderVendorFulfillmentStatus.CANCELLED,
     );
     const deliveredGroups = order.deliveryGroups.filter(
-      (g) => g.status === DeliveryGroupStatus.DELIVERED && g.primaryDriverId != null,
+      (g) =>
+        g.status === DeliveryGroupStatus.DELIVERED && g.primaryDriverId != null,
     );
 
     const existingFulfillmentIds = new Set(
@@ -140,7 +146,9 @@ export class ReviewsService {
 
     if (dto.deliveryGroupRatings?.length) {
       for (const entry of dto.deliveryGroupRatings) {
-        const group = deliveredGroups.find((g) => g.id === entry.deliveryGroupId);
+        const group = deliveredGroups.find(
+          (g) => g.id === entry.deliveryGroupId,
+        );
         if (!group || !group.primaryDriverId) {
           throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
         }

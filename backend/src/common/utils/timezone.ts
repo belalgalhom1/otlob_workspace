@@ -141,9 +141,7 @@ export function tzDayEnd(
   day: number,
   tz = appTimeZone(),
 ): Date {
-  return new Date(
-    wallToUtc(year, month, day, 23, 59, tz).getTime() + 59999,
-  );
+  return new Date(wallToUtc(year, month, day, 23, 59, tz).getTime() + 59999);
 }
 
 function parseYmd(value: string): TzYmd | null {

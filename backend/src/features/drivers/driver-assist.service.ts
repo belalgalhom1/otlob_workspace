@@ -288,10 +288,7 @@ export class DriverAssistService {
         orderId,
         primaryDriverId: driver.id,
         status: {
-          notIn: [
-            DeliveryGroupStatus.CANCELLED,
-            DeliveryGroupStatus.DELIVERED,
-          ],
+          notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
         },
       },
       orderBy: { sequence: 'asc' },
@@ -526,7 +523,8 @@ export class DriverAssistService {
       where: { userId: actor.sub },
       select: { id: true, userId: true },
     });
-    if (!customer) throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
+    if (!customer)
+      throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -622,7 +620,10 @@ export class DriverAssistService {
 
       await this.prisma.driverAssistRequest.updateMany({
         where: { deliveryGroupId, status: DriverAssistRequestStatus.FULFILLED },
-        data: { status: DriverAssistRequestStatus.CANCELLED, resolvedAt: new Date() },
+        data: {
+          status: DriverAssistRequestStatus.CANCELLED,
+          resolvedAt: new Date(),
+        },
       });
 
       try {
@@ -694,8 +695,14 @@ export class DriverAssistService {
         if (claimed.count === 0) continue;
 
         await this.prisma.driverAssistRequest.updateMany({
-          where: { deliveryGroupId: g.id, status: DriverAssistRequestStatus.FULFILLED },
-          data: { status: DriverAssistRequestStatus.CANCELLED, resolvedAt: new Date() },
+          where: {
+            deliveryGroupId: g.id,
+            status: DriverAssistRequestStatus.FULFILLED,
+          },
+          data: {
+            status: DriverAssistRequestStatus.CANCELLED,
+            resolvedAt: new Date(),
+          },
         });
 
         try {
@@ -825,8 +832,14 @@ export class DriverAssistService {
 
   private formatAssistRequest<
     T extends {
-      driver?: { avatar?: string | null; user?: { avatar?: string | null } | null } | null;
-      assignedDriver?: { avatar?: string | null; user?: { avatar?: string | null } | null } | null;
+      driver?: {
+        avatar?: string | null;
+        user?: { avatar?: string | null } | null;
+      } | null;
+      assignedDriver?: {
+        avatar?: string | null;
+        user?: { avatar?: string | null } | null;
+      } | null;
       deliveryGroup?: {
         deliveryFee?: unknown;
         assistFee?: unknown;
@@ -848,7 +861,9 @@ export class DriverAssistService {
             assignedDriver: {
               ...r.assignedDriver,
               avatar:
-                r.assignedDriver.avatar ?? r.assignedDriver.user?.avatar ?? null,
+                r.assignedDriver.avatar ??
+                r.assignedDriver.user?.avatar ??
+                null,
             },
           }
         : {}),

@@ -18,7 +18,10 @@ import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interfa
 import { DriverTrackingService } from '../location/driver-tracking.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { DriverManagersService } from './driver-managers.service';
-import { requireDriverById, requireDriverByUserId } from './driver-lookup.helper';
+import {
+  requireDriverById,
+  requireDriverByUserId,
+} from './driver-lookup.helper';
 import { DriversRepository } from './drivers.repository';
 import { StartBreakDto } from './dto/driver.dto';
 
@@ -38,7 +41,9 @@ export class DriverBreaksService {
     const driver = await requireDriverByUserId(this.driversRepository, userId);
     const fresh = await this.assertCanBreak(driver.id);
 
-    const pendingBreak = await this.driversRepository.findPendingBreak(fresh.id);
+    const pendingBreak = await this.driversRepository.findPendingBreak(
+      fresh.id,
+    );
     if (pendingBreak) {
       throw new ConflictException(DriverErrors.ALREADY_ON_BREAK);
     }
@@ -48,8 +53,9 @@ export class DriverBreaksService {
       throw new BadRequestException(DriverErrors.BREAKS_DISABLED);
     }
 
-    const activeShift =
-      await this.driversRepository.findActiveShiftForDriver(fresh.id);
+    const activeShift = await this.driversRepository.findActiveShiftForDriver(
+      fresh.id,
+    );
 
     if (activeShift) {
       const [breakCount, usedMinutes] = await Promise.all([
@@ -105,7 +111,10 @@ export class DriverBreaksService {
       throw new BadRequestException(DriverErrors.BREAK_NOT_PENDING);
     }
 
-    const driver = await requireDriverById(this.driversRepository, brk.driverId);
+    const driver = await requireDriverById(
+      this.driversRepository,
+      brk.driverId,
+    );
 
     const settings = await this.platformSettings.getSettings();
     if (!settings.breaksEnabled) {
@@ -212,8 +221,9 @@ export class DriverBreaksService {
       await this.driversRepository.cancelBreak(pending.id);
     }
 
-    const activeShift =
-      await this.driversRepository.findActiveShiftForDriver(driver.id);
+    const activeShift = await this.driversRepository.findActiveShiftForDriver(
+      driver.id,
+    );
 
     const created = await this.createBreakSafely({
       driverId: fresh.id,

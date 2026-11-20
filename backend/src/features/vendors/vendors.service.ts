@@ -1007,17 +1007,17 @@ export class VendorsService {
             effectiveComparePrice = minVariant.comparePrice;
           }
 
-return {
-              id: p.id,
-              name: p.name,
-              nameAr: p.nameAr || '',
-              description: p.description,
-              descriptionAr: p.descriptionAr || '',
-              price: effectivePrice,
-              basePrice: basePrice,
-              stock: p.stock,
-              tracksStock: p.tracksStock,
-              comparePrice:
+          return {
+            id: p.id,
+            name: p.name,
+            nameAr: p.nameAr || '',
+            description: p.description,
+            descriptionAr: p.descriptionAr || '',
+            price: effectivePrice,
+            basePrice: basePrice,
+            stock: p.stock,
+            tracksStock: p.tracksStock,
+            comparePrice:
               effectiveComparePrice && effectiveComparePrice > effectivePrice
                 ? effectiveComparePrice
                 : null,
@@ -1044,7 +1044,9 @@ return {
 
     const availableCategories = categories.filter((c) => {
       if (c.branchAvailabilityMode === 'SPECIFIC') {
-        const branchIds = (c.branchAvailability ?? []).map((b: any) => b.branchId);
+        const branchIds = (c.branchAvailability ?? []).map(
+          (b: any) => b.branchId,
+        );
         return branchIds.includes(branchId);
       }
       return true;
@@ -1056,7 +1058,9 @@ return {
         return false;
       }
       if (p.branchAvailabilityMode === 'SPECIFIC') {
-        const branchIds = (p.branchAvailability ?? []).map((b: any) => b.branchId);
+        const branchIds = (p.branchAvailability ?? []).map(
+          (b: any) => b.branchId,
+        );
         return branchIds.includes(branchId);
       }
       return true;
@@ -1069,7 +1073,9 @@ return {
       productCategoryIds.has(c.id),
     );
 
-    const availableProductIds = new Set(availableProducts.map((p: any) => p.id));
+    const availableProductIds = new Set(
+      availableProducts.map((p: any) => p.id),
+    );
     const filteredMenu = Array.isArray(vendor.menu)
       ? vendor.menu.filter((m: any) => availableProductIds.has(m.id))
       : vendor.menu;

@@ -2,12 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import sharp from 'sharp';
-import { QUEUES, MEDIA_JOBS } from '../../infrastructure/queue/queues.constants';
 import {
-  MEDIA_PRESETS,
-  MediaPreset,
-  MediaPresetName,
-} from './media.constants';
+  QUEUES,
+  MEDIA_JOBS,
+} from '../../infrastructure/queue/queues.constants';
+import { MEDIA_PRESETS, MediaPreset, MediaPresetName } from './media.constants';
 
 export interface ProcessedImageResult {
   mainBuffer: Buffer;
@@ -22,9 +21,7 @@ export interface ProcessedImageResult {
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
 
-  constructor(
-    @InjectQueue(QUEUES.MEDIA) private readonly mediaQueue: Queue,
-  ) {}
+  constructor(@InjectQueue(QUEUES.MEDIA) private readonly mediaQueue: Queue) {}
 
   detectPreset(folder: string): MediaPresetName {
     const f = (folder || '').toLowerCase();
@@ -114,7 +111,9 @@ export class MediaService {
         { priority: 3 },
       );
     } catch (err: unknown) {
-      this.logger.warn(`Failed to enqueue image optimization: ${(err as Error).message}`);
+      this.logger.warn(
+        `Failed to enqueue image optimization: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -130,7 +129,9 @@ export class MediaService {
         { priority: 2 },
       );
     } catch (err: unknown) {
-      this.logger.warn(`Failed to enqueue thumbnail generation: ${(err as Error).message}`);
+      this.logger.warn(
+        `Failed to enqueue thumbnail generation: ${(err as Error).message}`,
+      );
     }
   }
 }

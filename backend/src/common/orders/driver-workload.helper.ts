@@ -23,10 +23,7 @@ export class DriverWorkloadHelper {
       where: {
         ...groupOrderFilter,
         status: {
-          notIn: [
-            DeliveryGroupStatus.CANCELLED,
-            DeliveryGroupStatus.DELIVERED,
-          ],
+          notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
         },
         OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
       },

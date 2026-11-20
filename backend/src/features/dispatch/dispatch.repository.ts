@@ -92,7 +92,9 @@ export class DispatchRepository {
     );
   }
 
-  async getBroadcast(dispatchId: string): Promise<DispatchBroadcastPayload | null> {
+  async getBroadcast(
+    dispatchId: string,
+  ): Promise<DispatchBroadcastPayload | null> {
     const raw = await this.redis.get(this.broadcastKey(dispatchId));
     if (!raw) return null;
     try {
@@ -118,7 +120,10 @@ export class DispatchRepository {
     return this.redis.get(this.activeClaimKey(scope));
   }
 
-  async releaseActiveClaim(scope: string, dispatchId: string): Promise<boolean> {
+  async releaseActiveClaim(
+    scope: string,
+    dispatchId: string,
+  ): Promise<boolean> {
     return this.redis.delIfValue(this.activeClaimKey(scope), dispatchId);
   }
 
@@ -227,7 +232,10 @@ export class DispatchRepository {
     await this.redis.expire(key, ttlSecs);
   }
 
-  async removeDriverPending(driverId: string, dispatchId: string): Promise<void> {
+  async removeDriverPending(
+    driverId: string,
+    dispatchId: string,
+  ): Promise<void> {
     await this.redis.srem(this.driverPendingKey(driverId), dispatchId);
   }
 
@@ -254,7 +262,10 @@ export class DispatchRepository {
     return this.redis.sadd(this.rejectedSetKey(dispatchId), driverId);
   }
 
-  async refreshRejectedSetTtl(dispatchId: string, ttlSecs: number): Promise<void> {
+  async refreshRejectedSetTtl(
+    dispatchId: string,
+    ttlSecs: number,
+  ): Promise<void> {
     await this.redis.expire(this.rejectedSetKey(dispatchId), ttlSecs);
   }
 

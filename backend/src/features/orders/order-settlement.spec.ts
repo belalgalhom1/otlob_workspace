@@ -1,10 +1,16 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DriverStatus } from '@prisma/client';
 import { EVENTS } from '../../common/events/event-names';
-import { OrderSettledEvent, DriverStatusChangedEvent } from '../../common/events';
+import {
+  OrderSettledEvent,
+  DriverStatusChangedEvent,
+} from '../../common/events';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
 import { STATS_JOBS } from '../../infrastructure/queue/queues.constants';
-import { OrderSettlementService, SettleOrderPayload } from './order-settlement.service';
+import {
+  OrderSettlementService,
+  SettleOrderPayload,
+} from './order-settlement.service';
 
 describe('OrderSettlementService', () => {
   function makePayload(
@@ -91,7 +97,10 @@ describe('OrderSettlementService', () => {
         }),
         create: jest.fn().mockImplementation(({ data }: any) => {
           walletTxCreates.push(data);
-          return Promise.resolve({ id: `tx-${walletTxCreates.length}`, ...data });
+          return Promise.resolve({
+            id: `tx-${walletTxCreates.length}`,
+            ...data,
+          });
         }),
       },
       orderVendorFulfillment: {
@@ -120,7 +129,10 @@ describe('OrderSettlementService', () => {
           return Promise.resolve({
             id: where.id,
             userId: options?.driverSnapshot?.userId ?? `${where.id}-user`,
-            status: data.status ?? options?.driverSnapshot?.status ?? DriverStatus.ONLINE,
+            status:
+              data.status ??
+              options?.driverSnapshot?.status ??
+              DriverStatus.ONLINE,
             walletBalance: nextBalance,
           });
         }),
@@ -344,7 +356,9 @@ describe('OrderSettlementService', () => {
       amount: 25,
     });
 
-    const jobNames = (h.statsQueue.add as jest.Mock).mock.calls.map((c) => c[0]);
+    const jobNames = (h.statsQueue.add as jest.Mock).mock.calls.map(
+      (c) => c[0],
+    );
     expect(jobNames).toEqual(
       expect.arrayContaining([
         STATS_JOBS.UPDATE_DRIVER,
@@ -675,9 +689,10 @@ describe('OrderSettlementService', () => {
     const h = createHarness();
     await h.service.settleOrder(makePayload());
 
-    const feeLookupCall = h.txClient.driverWalletTransaction.findFirst.mock.calls.find(
-      (c: any[]) => c[0]?.where?.type === 'DELIVERY_FEE',
-    );
+    const feeLookupCall =
+      h.txClient.driverWalletTransaction.findFirst.mock.calls.find(
+        (c: any[]) => c[0]?.where?.type === 'DELIVERY_FEE',
+      );
     expect(feeLookupCall?.[0]?.where?.OR).toEqual([
       { idempotencyKey: null },
       { idempotencyKey: { startsWith: 'settle:' } },

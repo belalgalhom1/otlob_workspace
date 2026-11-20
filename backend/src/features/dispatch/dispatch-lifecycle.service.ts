@@ -122,7 +122,12 @@ export class DispatchLifecycleService {
     const unresponded = candidates.filter(
       (c) => !rejectedBy.includes(c.driverId),
     );
-    await this.recordExpiredRound(unresponded, dispatchData, orderId, dispatchId);
+    await this.recordExpiredRound(
+      unresponded,
+      dispatchData,
+      orderId,
+      dispatchId,
+    );
 
     if (!stillOwner) {
       this.logger.warn(
@@ -157,7 +162,10 @@ export class DispatchLifecycleService {
     dispatchId: string,
     driverId: string,
   ): Promise<boolean> {
-    const validated = await this.validateAcceptanceRequest(dispatchId, driverId);
+    const validated = await this.validateAcceptanceRequest(
+      dispatchId,
+      driverId,
+    );
     if (!validated) return false;
 
     const {
@@ -170,8 +178,10 @@ export class DispatchLifecycleService {
       singleVendorId,
       totalDistanceKm,
     } = validated;
-    const { nextGroupStatus, nextOrderStatus } =
-      this.resolveAcceptanceStatuses(order, group);
+    const { nextGroupStatus, nextOrderStatus } = this.resolveAcceptanceStatuses(
+      order,
+      group,
+    );
     const losingCandidates = (dispatchData.candidates || []).filter(
       (c) => c.driverId !== driverId && !rejectedBy.includes(c.driverId),
     );
@@ -424,7 +434,10 @@ export class DispatchLifecycleService {
     }
   }
 
-  private async validateAcceptanceRequest(dispatchId: string, driverId: string) {
+  private async validateAcceptanceRequest(
+    dispatchId: string,
+    driverId: string,
+  ) {
     const dispatchData = await this.dispatchRepository.getBroadcast(dispatchId);
     if (!dispatchData) {
       this.logger.warn(
@@ -511,9 +524,8 @@ export class DispatchLifecycleService {
       await this.locationRepository.getOrderLocationContext(order.id);
     if (!dispatchContext) return null;
 
-    const pickup = await this.locationRepository.getDeliveryGroupPickupLocation(
-      groupId,
-    );
+    const pickup =
+      await this.locationRepository.getDeliveryGroupPickupLocation(groupId);
     const pickupLng = pickup?.lng ?? dispatchContext.lng;
     const pickupLat = pickup?.lat ?? dispatchContext.lat;
 
@@ -811,7 +823,9 @@ export class DispatchLifecycleService {
           },
         });
 
-        const assignableStatuses: DriverStatus[] = [...DRIVER_ASSIGNABLE_STATUSES];
+        const assignableStatuses: DriverStatus[] = [
+          ...DRIVER_ASSIGNABLE_STATUSES,
+        ];
         if (maxActive > 1) {
           assignableStatuses.push(DriverStatus.ON_DELIVERY);
         }
@@ -833,7 +847,10 @@ export class DispatchLifecycleService {
       });
     } catch (err) {
       try {
-        await this.dispatchRepository.releaseActiveClaim(acceptScope, dispatchId);
+        await this.dispatchRepository.releaseActiveClaim(
+          acceptScope,
+          dispatchId,
+        );
       } catch {
         // best-effort cleanup
       }
@@ -994,7 +1011,9 @@ export class DispatchLifecycleService {
       return;
     }
 
-    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
     if (!order) return;
 
     const state = await this.dispatchRepository.readDispatchState(rejectScope);
@@ -1054,7 +1073,11 @@ export class DispatchLifecycleService {
       for (const candidate of unresponded) {
         this.eventEmitter.emit(
           EVENTS.ORDER_DISPATCH_CANCELLED,
-          new OrderDispatchCancelledEvent(dispatchId, orderId, candidate.userId),
+          new OrderDispatchCancelledEvent(
+            dispatchId,
+            orderId,
+            candidate.userId,
+          ),
         );
       }
     }

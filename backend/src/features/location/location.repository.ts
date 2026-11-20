@@ -62,7 +62,9 @@ export class LocationRepository {
     );
   }
 
-  async getCachedDriverActiveOrderRaw(driverId: string): Promise<string | null> {
+  async getCachedDriverActiveOrderRaw(
+    driverId: string,
+  ): Promise<string | null> {
     return this.redis.get(`${DRIVER_ACTIVE_ORDER_KEY_PREFIX}${driverId}`);
   }
 
@@ -97,7 +99,9 @@ export class LocationRepository {
   }
 
   async isDriverLocationFresh(driverId: string): Promise<boolean> {
-    const ts = await this.redis.get(`${DRIVER_FRESHNESS_KEY_PREFIX}${driverId}`);
+    const ts = await this.redis.get(
+      `${DRIVER_FRESHNESS_KEY_PREFIX}${driverId}`,
+    );
     return ts !== null;
   }
 

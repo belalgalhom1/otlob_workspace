@@ -1,4 +1,8 @@
-import { ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Permission, Role } from '@prisma/client';
 import { PermissionsGuard } from './permissions.guard';
@@ -75,7 +79,9 @@ describe('PermissionsGuard', () => {
     reflector.getAllAndOverride
       .mockReturnValueOnce([Permission.MANAGE_TICKETS])
       .mockReturnValueOnce('all');
-    prisma.user.findUnique.mockResolvedValue({ permissions: [Permission.MANAGE_TICKETS] });
+    prisma.user.findUnique.mockResolvedValue({
+      permissions: [Permission.MANAGE_TICKETS],
+    });
 
     const ctx = createMockContext({ sub: 'dm-1', role: Role.DRIVER_MANAGER });
     expect(await guard.canActivate(ctx)).toBe(true);

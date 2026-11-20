@@ -105,7 +105,10 @@ export class PlatformSettingsController {
   @ApiBearerAuth()
   @RequirePermissions(Permission.MANAGE_SETTINGS)
   @ApiFileUpload({ type: 'IMAGE', required: true })
-  @ApiOperation({ summary: 'Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)' })
+  @ApiOperation({
+    summary:
+      'Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)',
+  })
   uploadVehicleIcon(
     @Param('vehicleType') vehicleType: string,
     @UploadedFile() file: Express.Multer.File,

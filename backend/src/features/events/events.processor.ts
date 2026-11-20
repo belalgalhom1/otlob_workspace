@@ -86,7 +86,10 @@ export class EventsProcessor extends WorkerHost {
       throw error;
     } finally {
       if (lockKey) {
-        await this.redis.getClient().del(lockKey).catch(() => undefined);
+        await this.redis
+          .getClient()
+          .del(lockKey)
+          .catch(() => undefined);
       }
     }
   }

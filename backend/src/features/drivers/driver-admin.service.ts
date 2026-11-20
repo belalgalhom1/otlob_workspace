@@ -8,7 +8,10 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DriverStatus, Role } from '@prisma/client';
 import { DriverErrors } from 'src/common/constants/response.constants';
-import { AuditLogCreatedEvent, DriverStatusChangedEvent } from 'src/common/events';
+import {
+  AuditLogCreatedEvent,
+  DriverStatusChangedEvent,
+} from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -169,8 +172,9 @@ export class DriverAdminService {
   async adminFindAll(dto: QueryDriversDto, actor?: JwtAccessPayload) {
     let allowedDriverIds: string[] | undefined;
     if (actor?.role === Role.DRIVER_MANAGER) {
-      allowedDriverIds =
-        await this.driverManagersService.getManagedDriverIds(actor.sub);
+      allowedDriverIds = await this.driverManagersService.getManagedDriverIds(
+        actor.sub,
+      );
     }
 
     const result = await this.driversRepository.findAll({

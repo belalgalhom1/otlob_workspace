@@ -36,7 +36,15 @@ export class DriversRepository {
           include: {
             driverManager: {
               include: {
-                user: { select: { id: true, name: true, email: true, phone: true, avatar: true } },
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    avatar: true,
+                  },
+                },
               },
             },
           },
@@ -226,7 +234,9 @@ export class DriversRepository {
         فائت: DriverShiftStatus.MISSED,
       };
       const matchedShiftStatus = shiftStatusKeywords[search.toLowerCase()];
-      const isShiftGenericWord = ['shift', 'shifts', 'شفت', 'شفتات'].includes(search.toLowerCase());
+      const isShiftGenericWord = ['shift', 'shifts', 'شفت', 'شفتات'].includes(
+        search.toLowerCase(),
+      );
 
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -259,7 +269,9 @@ export class DriversRepository {
           },
         },
         ...(isShiftGenericWord ? [{ shifts: { some: {} } }] : []),
-        ...(locationDriverIds.length > 0 ? [{ id: { in: locationDriverIds } }] : []),
+        ...(locationDriverIds.length > 0
+          ? [{ id: { in: locationDriverIds } }]
+          : []),
       ];
     }
     if (filters.zoneId && filters.zoneId.trim().length > 0) {
@@ -286,7 +298,9 @@ export class DriversRepository {
     if (filters.driverIds) {
       if (where.id && (where.id as any).in) {
         const allowedSet = new Set(filters.driverIds);
-        where.id = { in: (where.id as any).in.filter((id: string) => allowedSet.has(id)) };
+        where.id = {
+          in: (where.id as any).in.filter((id: string) => allowedSet.has(id)),
+        };
       } else {
         where.id = { in: filters.driverIds };
       }
@@ -299,12 +313,28 @@ export class DriversRepository {
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, name: true, email: true, phone: true, avatar: true } },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              avatar: true,
+            },
+          },
           managerAssignment: {
             include: {
               driverManager: {
                 include: {
-                  user: { select: { id: true, name: true, email: true, phone: true, avatar: true } },
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true,
+                      phone: true,
+                      avatar: true,
+                    },
+                  },
                 },
               },
             },
@@ -488,7 +518,10 @@ export class DriversRepository {
     return this.prisma.orderDeliveryGroup.count({
       where: {
         status: 'DELIVERED',
-        OR: [{ primaryDriverShiftId: shiftId }, { assistDriverShiftId: shiftId }],
+        OR: [
+          { primaryDriverShiftId: shiftId },
+          { assistDriverShiftId: shiftId },
+        ],
       },
     });
   }
@@ -574,10 +607,7 @@ export class DriversRepository {
         deliveryGroups: {
           some: {
             status: { notIn: ['CANCELLED', 'DELIVERED'] },
-            OR: [
-              { primaryDriverId: driverId },
-              { assistDriverId: driverId },
-            ],
+            OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
           },
         },
       },
@@ -754,7 +784,12 @@ export class DriversRepository {
     return this.prisma.driverBreak.findUnique({ where: { id: breakId } });
   }
 
-  async endBreak(breakId: string, endedAt: Date, durationMinutes: number, autoEnded: boolean) {
+  async endBreak(
+    breakId: string,
+    endedAt: Date,
+    durationMinutes: number,
+    autoEnded: boolean,
+  ) {
     const result = await this.prisma.driverBreak.updateMany({
       where: { id: breakId, status: 'APPROVED', endedAt: null },
       data: { status: 'ENDED', endedAt, durationMinutes, autoEnded },

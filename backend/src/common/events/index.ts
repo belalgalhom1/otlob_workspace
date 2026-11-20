@@ -327,10 +327,7 @@ export class ShiftSpotAvailableEvent {
 }
 
 export type DriverAssistDecision =
-  | 'approved'
-  | 'rejected'
-  | 'fulfilled'
-  | 'cancelled';
+  'approved' | 'rejected' | 'fulfilled' | 'cancelled';
 
 export class DriverAssistRequestedEvent {
   constructor(

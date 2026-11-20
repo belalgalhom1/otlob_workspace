@@ -613,6 +613,7 @@
   "highValueOrderThreshold": "حد الطلب عالي القيمة",
   "highValueUpfrontRate": "نسبة الدفع المسبق للطلب عالي القيمة (%)",
   "baseDeliveryFee": "رسوم التوصيل الأساسية",
+  "multiVendorDeliveryDiscountPercent": "نسبة خصم التوصيل المجمع (%)",
   "pricePerKm": "السعر لكل كيلومتر",
   "pricePerKmBicycle": "السعر لكل كيلومتر (دراجة هوائية)",
   "pricePerKmMotorcycle": "السعر لكل كيلومتر (دراجة نارية)",

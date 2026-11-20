@@ -445,9 +445,7 @@ export class StatisticsAnalyticsRepository {
     const sortColumn = Prisma.raw(
       sortColumns[opts.sortBy ?? 'revenue'] ?? sortColumns.revenue,
     );
-    const sortDirection = Prisma.raw(
-      opts.sortOrder === 'asc' ? 'ASC' : 'DESC',
-    );
+    const sortDirection = Prisma.raw(opts.sortOrder === 'asc' ? 'ASC' : 'DESC');
 
     const cte = Prisma.sql`
       WITH vendor_items AS (
@@ -626,7 +624,9 @@ export class StatisticsAnalyticsRepository {
         return `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
       case StatisticPeriod.WEEKLY: {
         const diffToMonday = d.weekday === 0 ? -6 : 1 - d.weekday;
-        const monday = new Date(Date.UTC(d.year, d.month - 1, d.day + diffToMonday));
+        const monday = new Date(
+          Date.UTC(d.year, d.month - 1, d.day + diffToMonday),
+        );
         return tzDateKey(monday);
       }
       case StatisticPeriod.MONTHLY:
@@ -647,9 +647,7 @@ export class StatisticsAnalyticsRepository {
       const next = m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
       return {
         startDate: tzDayStart(y, m, 1),
-        endDate: new Date(
-          tzDayStart(next.y, next.m, 1).getTime() - 1,
-        ),
+        endDate: new Date(tzDayStart(next.y, next.m, 1).getTime() - 1),
       };
     }
     if (period === StatisticPeriod.YEARLY) {

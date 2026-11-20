@@ -58,8 +58,10 @@ export class OrderVendorDecisionService {
     private readonly cancellationService: OrderCancellationService,
     private readonly platformSettings: PlatformSettingsService,
     private readonly eventEmitter: EventEmitter2,
-    @Optional() private readonly fulfillmentTransitions?: FulfillmentTransitionService,
-    @Optional() private readonly deliveryGroupTransitions?: DeliveryGroupTransitionService,
+    @Optional()
+    private readonly fulfillmentTransitions?: FulfillmentTransitionService,
+    @Optional()
+    private readonly deliveryGroupTransitions?: DeliveryGroupTransitionService,
     @Optional() private readonly stockService?: StockService,
     @Optional() private readonly authHelper?: OrderAuthorizationHelper,
     @Optional() private readonly rejectionRecomputor?: OrderRejectionRecomputor,
@@ -82,14 +84,8 @@ export class OrderVendorDecisionService {
 
   // ─── Vendor workflow ───────────────────────────────────────────────────────
 
-  async accept(
-    actor: JwtAccessPayload,
-    fulfillmentId: string,
-  ) {
-    const fulfillment = await this.assertVendorMember(
-      actor,
-      fulfillmentId,
-    );
+  async accept(actor: JwtAccessPayload, fulfillmentId: string) {
+    const fulfillment = await this.assertVendorMember(actor, fulfillmentId);
 
     const order = await this.prisma.order.findUnique({
       where: { id: fulfillment.orderId },
@@ -108,7 +104,10 @@ export class OrderVendorDecisionService {
     }
 
     const claimed = await this.prisma.orderVendorFulfillment.updateMany({
-      where: { id: fulfillmentId, status: OrderVendorFulfillmentStatus.PENDING },
+      where: {
+        id: fulfillmentId,
+        status: OrderVendorFulfillmentStatus.PENDING,
+      },
       data: {
         status: OrderVendorFulfillmentStatus.ACCEPTED,
         decidedByUserId: actor.sub,
@@ -151,10 +150,7 @@ export class OrderVendorDecisionService {
     dto: RejectFulfillmentDto,
   ) {
     const actorSub = actor?.sub ?? 'system';
-    const fulfillment = await this.assertVendorMember(
-      actor,
-      fulfillmentId,
-    );
+    const fulfillment = await this.assertVendorMember(actor, fulfillmentId);
 
     const rejectableStatuses: OrderVendorFulfillmentStatus[] = [
       OrderVendorFulfillmentStatus.PENDING,
@@ -204,7 +200,13 @@ export class OrderVendorDecisionService {
         selectedUnit: true,
         totalPrice: true,
         productName: true,
-        product: { select: { tracksStock: true, sellByStrip: true, stripsPerPackage: true } },
+        product: {
+          select: {
+            tracksStock: true,
+            sellByStrip: true,
+            stripsPerPackage: true,
+          },
+        },
         variant: { select: { tracksStock: true } },
       },
     });
@@ -363,7 +365,10 @@ export class OrderVendorDecisionService {
       select: {
         storeName: true,
         storeNameAr: true,
-        members: { where: { role: VendorMemberRole.OWNER }, select: { userId: true } },
+        members: {
+          where: { role: VendorMemberRole.OWNER },
+          select: { userId: true },
+        },
       },
     });
 
@@ -405,11 +410,18 @@ export class OrderVendorDecisionService {
    * client-supplied id.
    */
   async listPendingForVendor(actor: JwtAccessPayload) {
-    if (actor && (actor.role === 'SUPER_ADMIN' || actor.role === 'ADMIN' || (await this.auth.canManageOrders(actor.sub, actor.role)))) {
+    if (
+      actor &&
+      (actor.role === 'SUPER_ADMIN' ||
+        actor.role === 'ADMIN' ||
+        (await this.auth.canManageOrders(actor.sub, actor.role)))
+    ) {
       return this.prisma.orderVendorFulfillment.findMany({
         where: {
           status: OrderVendorFulfillmentStatus.PENDING,
-          order: { status: { notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED] } },
+          order: {
+            status: { notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED] },
+          },
         },
         orderBy: { createdAt: 'desc' },
         include: this.fulfillmentInclude(),
@@ -435,7 +447,9 @@ export class OrderVendorDecisionService {
       where: {
         OR: membershipConditions,
         status: OrderVendorFulfillmentStatus.PENDING,
-        order: { status: { notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED] } },
+        order: {
+          status: { notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED] },
+        },
       },
       orderBy: { createdAt: 'desc' },
       include: this.fulfillmentInclude(),
@@ -443,7 +457,12 @@ export class OrderVendorDecisionService {
   }
 
   async listForVendor(actor: JwtAccessPayload, vendorId: string) {
-    if (actor && (actor.role === 'SUPER_ADMIN' || actor.role === 'ADMIN' || (await this.auth.canManageOrders(actor.sub, actor.role)))) {
+    if (
+      actor &&
+      (actor.role === 'SUPER_ADMIN' ||
+        actor.role === 'ADMIN' ||
+        (await this.auth.canManageOrders(actor.sub, actor.role)))
+    ) {
       return this.prisma.orderVendorFulfillment.findMany({
         where: { vendorId },
         orderBy: { createdAt: 'desc' },
@@ -466,7 +485,12 @@ export class OrderVendorDecisionService {
       where: {
         vendorId,
         ...(effectiveBranchId
-          ? { OR: [{ vendorBranchId: effectiveBranchId }, { vendorBranchId: null }] }
+          ? {
+              OR: [
+                { vendorBranchId: effectiveBranchId },
+                { vendorBranchId: null },
+              ],
+            }
           : {}),
       },
       orderBy: { createdAt: 'desc' },
@@ -523,7 +547,10 @@ export class OrderVendorDecisionService {
       if (!canManage) {
         const member = await this.prisma.vendorMember.findUnique({
           where: {
-            vendorId_userId: { vendorId: fulfillment.vendorId, userId: actor.sub },
+            vendorId_userId: {
+              vendorId: fulfillment.vendorId,
+              userId: actor.sub,
+            },
           },
           select: { id: true, branchId: true, role: true },
         });
@@ -587,7 +614,13 @@ export class OrderVendorDecisionService {
       groups: {
         select: {
           deliveryGroup: {
-            select: { id: true, sequence: true, status: true, primaryDriverId: true, assistDriverId: true },
+            select: {
+              id: true,
+              sequence: true,
+              status: true,
+              primaryDriverId: true,
+              assistDriverId: true,
+            },
           },
         },
       },
@@ -759,9 +792,11 @@ export class OrderVendorDecisionService {
 
       const vendorIds = Array.from(
         new Set(
-          (((updated as any).vendorFulfillments ?? []) as Array<{
-            vendorId: string;
-          }>).map((f) => f.vendorId),
+          (
+            ((updated as any).vendorFulfillments ?? []) as Array<{
+              vendorId: string;
+            }>
+          ).map((f) => f.vendorId),
         ),
       );
       const singleVendorId = vendorIds.length === 1 ? vendorIds[0] : null;

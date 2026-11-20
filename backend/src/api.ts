@@ -30,7 +30,6 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
-
   const configService = app.get(ConfigService);
 
   app.use(

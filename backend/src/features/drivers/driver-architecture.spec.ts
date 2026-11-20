@@ -270,13 +270,19 @@ describe('Drivers & Assist Clean Architecture', () => {
       };
       const driversRepository: any = {
         findByUserId: jest.fn().mockResolvedValue(driver),
-        findById: jest.fn().mockResolvedValue({ ...driver, status: DriverStatus.ON_BREAK }),
+        findById: jest
+          .fn()
+          .mockResolvedValue({ ...driver, status: DriverStatus.ON_BREAK }),
         findActiveBreak: jest.fn().mockResolvedValue(null),
         findActiveOrderForDriver: jest.fn().mockResolvedValue(null),
         findPendingDispatchForDriver: jest.fn().mockResolvedValue(null),
         findPendingBreak: jest.fn().mockResolvedValue(null),
-        findActiveShiftForDriver: jest.fn().mockResolvedValue({ id: 'shift-1' }),
-        countShiftBreaks: jest.fn().mockResolvedValue(overrides?.breakCount ?? 0),
+        findActiveShiftForDriver: jest
+          .fn()
+          .mockResolvedValue({ id: 'shift-1' }),
+        countShiftBreaks: jest
+          .fn()
+          .mockResolvedValue(overrides?.breakCount ?? 0),
         sumShiftBreakMinutes: jest
           .fn()
           .mockResolvedValue(overrides?.usedMinutes ?? 0),
@@ -285,23 +291,31 @@ describe('Drivers & Assist Clean Architecture', () => {
           driverId: 'drv-1',
           reason: DriverBreakReason.REST,
         }),
-        findOpenBreaks: jest.fn().mockResolvedValue(overrides?.openBreaks ?? []),
-        findBreakById: jest.fn().mockImplementation((id: string) =>
-          Promise.resolve(
-            (overrides?.openBreaks ?? []).find((b) => b.id === id) ?? null,
+        findOpenBreaks: jest
+          .fn()
+          .mockResolvedValue(overrides?.openBreaks ?? []),
+        findBreakById: jest
+          .fn()
+          .mockImplementation((id: string) =>
+            Promise.resolve(
+              (overrides?.openBreaks ?? []).find((b) => b.id === id) ?? null,
+            ),
           ),
-        ),
-        endBreak: jest.fn().mockImplementation((id: string) =>
-          Promise.resolve({ id, status: 'ENDED' }),
-        ),
+        endBreak: jest
+          .fn()
+          .mockImplementation((id: string) =>
+            Promise.resolve({ id, status: 'ENDED' }),
+          ),
         updateStatus: jest.fn().mockResolvedValue(undefined),
         incrementShiftBreakMinutes: jest.fn().mockResolvedValue(undefined),
         findStalePendingBreaks: jest
           .fn()
           .mockResolvedValue(overrides?.staleBreaks ?? []),
-        rejectBreak: jest.fn().mockImplementation((id: string) =>
-          Promise.resolve({ id, driverId: 'drv-1', status: 'REJECTED' }),
-        ),
+        rejectBreak: jest
+          .fn()
+          .mockImplementation((id: string) =>
+            Promise.resolve({ id, driverId: 'drv-1', status: 'REJECTED' }),
+          ),
       };
       // During assertCanBreak inside startBreak, driver status must be ONLINE (not ON_BREAK).
       driversRepository.findById.mockImplementation((id: string) => {
@@ -460,7 +474,9 @@ describe('Drivers & Assist Clean Architecture', () => {
       };
 
       const driverTracking: any = {
-        getDriverLocation: jest.fn().mockResolvedValue({ lng: 31.2, lat: 30.0 }),
+        getDriverLocation: jest
+          .fn()
+          .mockResolvedValue({ lng: 31.2, lat: 30.0 }),
         removeDriverLocation: jest.fn().mockResolvedValue(undefined),
       };
 
@@ -532,7 +548,9 @@ describe('Drivers & Assist Clean Architecture', () => {
         31.2,
         30.0,
       );
-      expect(h.driverTracking.removeDriverLocation).toHaveBeenCalledWith('drv-1');
+      expect(h.driverTracking.removeDriverLocation).toHaveBeenCalledWith(
+        'drv-1',
+      );
       expect(h.driversRepository.update).toHaveBeenCalledWith('drv-1', {
         tier: 'SILVER',
       });
@@ -594,7 +612,11 @@ describe('Drivers & Assist Clean Architecture', () => {
       );
       const assignSpy = jest.spyOn(assist, 'assignDriver');
 
-      const res = await assist.respondToAssistOffer(driverActor, 'req-1', false);
+      const res = await assist.respondToAssistOffer(
+        driverActor,
+        'req-1',
+        false,
+      );
 
       expect(res).toEqual({ declined: true });
       expect(redis.set).toHaveBeenCalledWith(
@@ -720,7 +742,10 @@ describe('Drivers & Assist Clean Architecture', () => {
         driver: {
           findMany: jest
             .fn()
-            .mockResolvedValue([{ userId: 'u-cand-1' }, { userId: 'u-cand-2' }]),
+            .mockResolvedValue([
+              { userId: 'u-cand-1' },
+              { userId: 'u-cand-2' },
+            ]),
         },
       };
       const redis: any = {
@@ -779,13 +804,11 @@ describe('Drivers & Assist Clean Architecture', () => {
           findUnique: jest.fn().mockResolvedValue({ userId: 'cust-user-1' }),
         },
         driver: {
-          findUnique: jest
-            .fn()
-            .mockImplementation(({ where }: any) =>
-              Promise.resolve({
-                userId: where.id === 'drv-p' ? 'u-p' : 'u-a',
-              }),
-            ),
+          findUnique: jest.fn().mockImplementation(({ where }: any) =>
+            Promise.resolve({
+              userId: where.id === 'drv-p' ? 'u-p' : 'u-a',
+            }),
+          ),
         },
         driverAssistRequest: {
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -1001,7 +1024,11 @@ describe('Drivers & Assist Clean Architecture', () => {
 
     it('rejects declining assist on PARTIALLY_PICKED_UP group with ASSIST_DELIVERY_ALREADY_STARTED', async () => {
       const prisma: any = {
-        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', userId: 'cust-user-1' }) },
+        customer: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ id: 'cust-1', userId: 'cust-user-1' }),
+        },
         order: {
           findUnique: jest.fn().mockResolvedValue({
             id: 'ord-a-1',
@@ -1046,7 +1073,9 @@ describe('Drivers & Assist Clean Architecture', () => {
         $executeRaw: executeRaw,
         walletTopUpRequest: {
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          findUnique: jest.fn().mockResolvedValue({ id: 'req-1', status: 'APPROVED' }),
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ id: 'req-1', status: 'APPROVED' }),
         },
         driver: {
           findUnique: jest.fn().mockResolvedValue({
@@ -1062,7 +1091,9 @@ describe('Drivers & Assist Clean Architecture', () => {
           }),
         },
         platformSetting: {
-          findFirst: jest.fn().mockResolvedValue({ maxNegativeDriverBalance: 500 }),
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({ maxNegativeDriverBalance: 500 }),
         },
         driverWalletTransaction: { create: createWalletTx },
       };
@@ -1124,7 +1155,11 @@ describe('Drivers & Assist Clean Architecture', () => {
         },
       };
       const prisma: any = {
-        driver: { findUnique: jest.fn().mockResolvedValue({ id: 'drv-1', walletBalance: 50 }) },
+        driver: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ id: 'drv-1', walletBalance: 50 }),
+        },
         $transaction: jest.fn((cb: any) => cb(tx)),
       };
       const wallet = new WalletService(
@@ -1140,12 +1175,14 @@ describe('Drivers & Assist Clean Architecture', () => {
           amount: 100,
           idempotencyKey: 'settle:order-1:BONUS:drv-1',
         } as any),
-      ).rejects.toThrow(new BadRequestException(WalletErrors.INVALID_TRANSACTION_TYPE));
+      ).rejects.toThrow(
+        new BadRequestException(WalletErrors.INVALID_TRANSACTION_TYPE),
+      );
 
       await wallet.processDriverTransaction('drv-1', {
         type: 'BONUS',
         amount: 100,
-      } as any);
+      });
 
       expect(queryRaw).toHaveBeenCalledTimes(1);
       expect(createWalletTx).toHaveBeenCalledWith({

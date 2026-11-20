@@ -34,7 +34,8 @@ export class VendorCacheService {
     cacheKey: string,
     loader: () => Promise<Record<string, unknown>>,
   ): Promise<Record<string, unknown>> {
-    const cached = await this.cacheManager.get<Record<string, unknown>>(cacheKey);
+    const cached =
+      await this.cacheManager.get<Record<string, unknown>>(cacheKey);
     if (cached) return cached;
 
     const loaded = await loader();

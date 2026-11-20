@@ -57,7 +57,11 @@ export class OrderListener {
         }),
         this.workflowDispatcher.onOrderCreated(event),
       ]);
-      await this.outboxService.markProcessed('ORDER', event.orderId, event.revision);
+      await this.outboxService.markProcessed(
+        'ORDER',
+        event.orderId,
+        event.revision,
+      );
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue order.created event: ${error instanceof Error ? error.message : String(error)}`,
@@ -115,7 +119,11 @@ export class OrderListener {
         }),
         this.workflowDispatcher.onOrderStatusChanged(event),
       ]);
-      await this.outboxService.markProcessed('ORDER', event.orderId, event.revision);
+      await this.outboxService.markProcessed(
+        'ORDER',
+        event.orderId,
+        event.revision,
+      );
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue order.status_changed event: ${error instanceof Error ? error.message : String(error)}`,
@@ -137,7 +145,11 @@ export class OrderListener {
         this.workflowDispatcher.onOrderCancelled(event),
       ]);
       if (typeof event.revision === 'number') {
-        await this.outboxService.markProcessed('ORDER', event.orderId, event.revision);
+        await this.outboxService.markProcessed(
+          'ORDER',
+          event.orderId,
+          event.revision,
+        );
       }
     } catch (error: unknown) {
       this.logger.error(
@@ -354,5 +366,4 @@ export class OrderListener {
         .catch(() => {});
     });
   }
-
 }

@@ -174,7 +174,10 @@ describe('Location Feature Architecture (Zero Business Logic in Infrastructure)'
       const zrem = jest.fn().mockResolvedValue(undefined);
 
       const tracking = new DriverTrackingService(
-        new LocationRepository({ driver: { findUnique } } as any, { zrem } as any),
+        new LocationRepository(
+          { driver: { findUnique } } as any,
+          { zrem } as any,
+        ),
         {} as any,
         { emit: jest.fn() } as any,
       );

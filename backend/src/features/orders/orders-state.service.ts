@@ -232,11 +232,7 @@ export class OrdersStateService {
       }
       if (dto.status === OrderStatus.CANCELLED) {
         if (!isMember && canManage && !dto.fulfillmentId) {
-          return this.cancelOrder(
-            actor,
-            orderId,
-            dto.note?.trim() || '',
-          );
+          return this.cancelOrder(actor, orderId, dto.note?.trim() || '');
         }
         for (const f of targetFulfillments) {
           if (f.status !== 'REJECTED' && f.status !== 'CANCELLED') {
@@ -276,11 +272,7 @@ export class OrdersStateService {
     }
 
     if (dto.status === OrderStatus.CANCELLED) {
-      return this.cancelOrder(
-        actor,
-        orderId,
-        dto.note?.trim() || '',
-      );
+      return this.cancelOrder(actor, orderId, dto.note?.trim() || '');
     }
 
     const allowed = VENDOR_ALLOWED_TRANSITIONS[order.status];
@@ -378,8 +370,7 @@ export class OrdersStateService {
           (g: any) =>
             g.status !== DeliveryGroupStatus.CANCELLED &&
             g.status !== DeliveryGroupStatus.DELIVERED &&
-            (g.primaryDriverId === driver.id ||
-              g.assistDriverId === driver.id),
+            (g.primaryDriverId === driver.id || g.assistDriverId === driver.id),
         );
         const myGroupItems = myGroups
           .flatMap((g: any) => (Array.isArray(g.items) ? g.items : []))
@@ -395,9 +386,7 @@ export class OrdersStateService {
       }
       const nextUnpicked = candidateFulfillments.find(
         (f: any) =>
-          f.status !== 'REJECTED' &&
-          f.status !== 'CANCELLED' &&
-          !f.pickedUpAt,
+          f.status !== 'REJECTED' && f.status !== 'CANCELLED' && !f.pickedUpAt,
       );
       if (nextUnpicked) {
         return this.driverConfirmFulfillmentPickup(
@@ -641,7 +630,11 @@ export class OrdersStateService {
 
     const distinctVendorIds = Array.from(
       new Set(
-        (((order as any).vendorFulfillments ?? []) as Array<{ vendorId: string }>)
+        (
+          ((order as any).vendorFulfillments ?? []) as Array<{
+            vendorId: string;
+          }>
+        )
           .map((f) => f.vendorId)
           .filter(Boolean),
       ),
@@ -655,7 +648,8 @@ export class OrdersStateService {
     const customerUser = (order as { customer?: { user?: { id: string } } })
       .customer?.user;
 
-    const emittedStatus = (updated?.status as OrderStatus | undefined) ?? nextStatus;
+    const emittedStatus =
+      (updated?.status as OrderStatus | undefined) ?? nextStatus;
     this.eventEmitter.emit(
       EVENTS.ORDER_STATUS_CHANGED,
       new OrderStatusChangedEvent(

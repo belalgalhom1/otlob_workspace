@@ -103,9 +103,13 @@ describe('order-financials.helper', () => {
       const g2 = allocations.get('g2')!;
       const g3 = allocations.get('g3')!;
 
-      expect(g1.doorCashToCollect + g2.doorCashToCollect + g3.doorCashToCollect).toBe(150);
       expect(
-        g1.totalCollectedByDriver + g2.totalCollectedByDriver + g3.totalCollectedByDriver,
+        g1.doorCashToCollect + g2.doorCashToCollect + g3.doorCashToCollect,
+      ).toBe(150);
+      expect(
+        g1.totalCollectedByDriver +
+          g2.totalCollectedByDriver +
+          g3.totalCollectedByDriver,
       ).toBe(250);
       expect(g1.doorCashToCollect).toBe(0);
       expect(g1.totalCollectedByDriver).toBe(100);
@@ -182,8 +186,18 @@ describe('order-financials.helper', () => {
         ],
       });
       expect(twoDrivers).toEqual([
-        { driverId: 'd1', driverShiftId: 's1', deliveryGroupId: 'g1', amount: 5 },
-        { driverId: 'd2', driverShiftId: 's2', deliveryGroupId: 'g2', amount: 10 },
+        {
+          driverId: 'd1',
+          driverShiftId: 's1',
+          deliveryGroupId: 'g1',
+          amount: 5,
+        },
+        {
+          driverId: 'd2',
+          driverShiftId: 's2',
+          deliveryGroupId: 'g2',
+          amount: 10,
+        },
       ]);
 
       const oneDriverTwoGroups = allocateDriverBonus({
@@ -208,7 +222,12 @@ describe('order-financials.helper', () => {
         ],
       });
       expect(oneDriverTwoGroups).toEqual([
-        { driverId: 'd1', driverShiftId: 's1', deliveryGroupId: 'g2', amount: 15 },
+        {
+          driverId: 'd1',
+          driverShiftId: 's1',
+          deliveryGroupId: 'g2',
+          amount: 15,
+        },
       ]);
     });
   });

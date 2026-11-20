@@ -14,7 +14,10 @@ import {
 } from '@nestjs/common';
 import { ApiFileUpload } from 'src/common/decorators/api-file-upload.decorator';
 import { UsersService } from './users.service';
-import { UserErrors, CommonErrors } from 'src/common/constants/response.constants';
+import {
+  UserErrors,
+  CommonErrors,
+} from 'src/common/constants/response.constants';
 import {
   UpdateUserDto,
   UpdateNotificationSettingsDto,
@@ -98,7 +101,9 @@ export class UsersController {
   @ApiStandardResponse()
   @Post('me/set-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Set a password for social-only accounts (no password yet)' })
+  @ApiOperation({
+    summary: 'Set a password for social-only accounts (no password yet)',
+  })
   setPassword(
     @CurrentUser() actor: JwtAccessPayload,
     @Body() dto: SetPasswordDto,

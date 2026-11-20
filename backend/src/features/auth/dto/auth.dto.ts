@@ -10,7 +10,10 @@ import {
 } from 'class-validator';
 import { Role } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
-import { ValidationErrors, AuthErrors } from '../../../common/constants/response.constants';
+import {
+  ValidationErrors,
+  AuthErrors,
+} from '../../../common/constants/response.constants';
 
 export class LoginDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -134,7 +137,9 @@ export class LogoutDto {
 
 export class SocialLoginDto {
   @ApiProperty({ example: 'GOOGLE', enum: ['GOOGLE', 'APPLE'] })
-  @IsIn(['GOOGLE', 'APPLE'], { message: AuthErrors.UNSUPPORTED_SOCIAL_PROVIDER })
+  @IsIn(['GOOGLE', 'APPLE'], {
+    message: AuthErrors.UNSUPPORTED_SOCIAL_PROVIDER,
+  })
   @IsNotEmpty()
   provider!: string;
 

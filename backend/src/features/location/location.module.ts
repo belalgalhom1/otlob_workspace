@@ -17,10 +17,6 @@ import { LocationRepository } from './location.repository';
     DriverTrackingService,
     DriverGeoSearchService,
   ],
-  exports: [
-    LocationRepository,
-    DriverTrackingService,
-    DriverGeoSearchService,
-  ],
+  exports: [LocationRepository, DriverTrackingService, DriverGeoSearchService],
 })
 export class LocationModule {}

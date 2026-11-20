@@ -476,7 +476,7 @@ class L10nErrorHelper {
       case 'highValueOrderThreshold': return l10n.highValueOrderThreshold;
       case 'highValueUpfrontRate': return l10n.highValueUpfrontRate;
       case 'baseDeliveryFee': return l10n.baseDeliveryFee;
-      case 'extraVendorDeliveryFee': return l10n.extraVendorDeliveryFee;
+      case 'multiVendorDeliveryDiscountPercent': return l10n.multiVendorDeliveryDiscountPercent;
       case 'pricePerKm': return l10n.pricePerKm;
       case 'pricePerKmBicycle': return l10n.pricePerKmBicycle;
       case 'pricePerKmMotorcycle': return l10n.pricePerKmMotorcycle;

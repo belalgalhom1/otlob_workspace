@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { DispatchStatus, OrderStatus } from '@prisma/client';
-import { QUEUES, ORDER_JOBS } from '../../infrastructure/queue/queues.constants';
+import {
+  QUEUES,
+  ORDER_JOBS,
+} from '../../infrastructure/queue/queues.constants';
 import { EVENTS } from '../events/event-names';
 import {
   OrderCancelledEvent,
@@ -80,7 +83,10 @@ export class OrderWorkflowDispatcher {
   }
 
   async onDispatchResponded(
-    event: Pick<OrderDispatchRespondedEvent, 'dispatchId' | 'driverId' | 'status'>,
+    event: Pick<
+      OrderDispatchRespondedEvent,
+      'dispatchId' | 'driverId' | 'status'
+    >,
   ): Promise<void> {
     if (event.status === DispatchStatus.ACCEPTED) {
       await this.dispatchQueue.add(

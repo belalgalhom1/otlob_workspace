@@ -14,10 +14,7 @@ import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../../infrastructure/storage/storage.service';
 import { VendorCacheService } from '../helpers/vendor-cache.service';
 import { assertVendorExists } from '../helpers/vendor-lookup.helper';
-import {
-  Prisma,
-  ProductBranchAvailabilityMode,
-} from '@prisma/client';
+import { Prisma, ProductBranchAvailabilityMode } from '@prisma/client';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -237,7 +234,8 @@ export class ProductsService implements OnModuleInit {
           nameAr: dto.nameAr ?? null,
           description: dto.description ?? null,
           descriptionAr: dto.descriptionAr ?? null,
-          hasVariants: (dto.hasVariants ?? false) || Boolean(dto.variants?.length),
+          hasVariants:
+            (dto.hasVariants ?? false) || Boolean(dto.variants?.length),
           basePrice: dto.basePrice ?? null,
           comparePrice: dto.comparePrice ?? null,
           sku,
@@ -951,8 +949,7 @@ export class ProductsService implements OnModuleInit {
 
   private async invalidateVendorCaches(vendorId: string) {
     await (
-      this.vendorCache ??
-      new VendorCacheService(this.prisma, this.cacheManager)
+      this.vendorCache ?? new VendorCacheService(this.prisma, this.cacheManager)
     ).invalidateVendorDetails(vendorId);
   }
 }

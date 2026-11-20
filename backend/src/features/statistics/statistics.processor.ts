@@ -5,7 +5,10 @@ import { StatisticPeriod } from '@prisma/client';
 import { StatisticsRepository } from './statistics.repository';
 import { getStatsPeriodsForDate } from '../../common/queues/stats-queue.helper';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { QUEUES, STATS_JOBS } from '../../infrastructure/queue/queues.constants';
+import {
+  QUEUES,
+  STATS_JOBS,
+} from '../../infrastructure/queue/queues.constants';
 
 interface SerializedPeriod {
   period: string;

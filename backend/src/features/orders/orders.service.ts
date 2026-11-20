@@ -66,7 +66,10 @@ export class OrdersService {
     ]);
     if (!customer)
       return { orders: [], total: 0, page: 1, limit: 20, totalPages: 0 };
-    const result = await this.ordersRepository.findMany({ ...dto, customerId: customer.id });
+    const result = await this.ordersRepository.findMany({
+      ...dto,
+      customerId: customer.id,
+    });
     result.orders = await Promise.all(
       result.orders.map((o: any) =>
         this.projectOrderForRole(o, actor, undefined, { canManage, settings }),
@@ -112,8 +115,17 @@ export class OrdersService {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VENDOR);
     }
 
-    if ((!targetVendorId || targetVendorId === 'my') && memberships.length === 0) {
-      return { orders: [], total: 0, page: dto.page ?? 1, limit: dto.limit ?? 20, totalPages: 0 };
+    if (
+      (!targetVendorId || targetVendorId === 'my') &&
+      memberships.length === 0
+    ) {
+      return {
+        orders: [],
+        total: 0,
+        page: dto.page ?? 1,
+        limit: dto.limit ?? 20,
+        totalPages: 0,
+      };
     }
 
     const vendorScopes =
@@ -133,7 +145,9 @@ export class OrdersService {
         : memberships.map((m) => ({
             vendorId: m.vendorId,
             branchId:
-              !canManage && m.role !== 'OWNER' && m.branchId ? m.branchId : null,
+              !canManage && m.role !== 'OWNER' && m.branchId
+                ? m.branchId
+                : null,
           }));
 
     const result =
@@ -186,7 +200,10 @@ export class OrdersService {
       this.platformSettings.getSettings(),
     ]);
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
-    const result = await this.ordersRepository.findMany({ ...dto, driverId: driver.id });
+    const result = await this.ordersRepository.findMany({
+      ...dto,
+      driverId: driver.id,
+    });
     result.orders = await Promise.all(
       result.orders.map((o: any) =>
         this.projectOrderForRole(o, actor, undefined, {
@@ -381,7 +398,11 @@ export class OrdersService {
   private projectForDriver(
     order: any,
     actor: JwtAccessPayload,
-    ctx?: { driverId?: string | null; driverTier?: string | null; settings?: any },
+    ctx?: {
+      driverId?: string | null;
+      driverTier?: string | null;
+      settings?: any;
+    },
   ): Promise<any> {
     return this.projector.projectForDriver(order, actor, ctx);
   }

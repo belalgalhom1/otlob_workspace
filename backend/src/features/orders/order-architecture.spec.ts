@@ -45,12 +45,16 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         user: { findUnique },
       } as any);
 
-      expect(await helper.canManageOrders('u1', Role.DRIVER_MANAGER)).toBe(false);
+      expect(await helper.canManageOrders('u1', Role.DRIVER_MANAGER)).toBe(
+        false,
+      );
       expect(await helper.canManageOrders('u2', Role.SUPER_ADMIN)).toBe(true);
       expect(await helper.canManageOrders('u3', Role.ADMIN)).toBe(true);
       expect(findUnique).not.toHaveBeenCalled();
 
-      findUnique.mockResolvedValueOnce({ permissions: [Permission.MANAGE_ORDERS] });
+      findUnique.mockResolvedValueOnce({
+        permissions: [Permission.MANAGE_ORDERS],
+      });
       expect(await helper.canManageOrders('u4', Role.VENDOR_MEMBER)).toBe(true);
 
       findUnique.mockResolvedValueOnce({ permissions: [] });
@@ -113,7 +117,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       const stockService = new StockService();
       const tx: any = {
         productVariant: {
-          findMany: jest.fn().mockResolvedValue([{ id: 'var-1', tracksStock: true }]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: 'var-1', tracksStock: true }]),
         },
         product: {
           findMany: jest.fn().mockResolvedValue([
@@ -129,9 +135,24 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       };
 
       await stockService.decrementForItems(tx, [
-        { productId: 'prod-1', variantId: 'var-1', quantity: 2, selectedUnit: null },
-        { productId: 'prod-1', variantId: null, quantity: 4, selectedUnit: 'strip' },
-        { productId: 'prod-1', variantId: null, quantity: 1, selectedUnit: 'package' },
+        {
+          productId: 'prod-1',
+          variantId: 'var-1',
+          quantity: 2,
+          selectedUnit: null,
+        },
+        {
+          productId: 'prod-1',
+          variantId: null,
+          quantity: 4,
+          selectedUnit: 'strip',
+        },
+        {
+          productId: 'prod-1',
+          variantId: null,
+          quantity: 1,
+          selectedUnit: 'package',
+        },
       ]);
 
       // 2 raw updates: variant qty=2 and product qty = ceil(4/3) + 1 = 3
@@ -142,7 +163,12 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       tx.$executeRaw.mockResolvedValueOnce(0);
       await expect(
         stockService.decrementForItems(tx, [
-          { productId: 'prod-1', variantId: 'var-1', quantity: 1, selectedUnit: null },
+          {
+            productId: 'prod-1',
+            variantId: 'var-1',
+            quantity: 1,
+            selectedUnit: null,
+          },
         ]),
       ).rejects.toThrow(BadRequestException);
     });
@@ -165,7 +191,12 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       };
 
       await stockService.restoreForItems(tx, [
-        { productId: 'prod-2', variantId: null, quantity: 3, selectedUnit: 'strip' },
+        {
+          productId: 'prod-2',
+          variantId: null,
+          quantity: 3,
+          selectedUnit: 'strip',
+        },
       ]);
 
       expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
@@ -195,9 +226,11 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       };
       const mockPrisma: any = {
         orderDeliveryGroup: {
-          findMany: jest.fn().mockResolvedValue([
-            { primaryDriverId: 'd-1', assistDriverId: 'd-2' },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              { primaryDriverId: 'd-1', assistDriverId: 'd-2' },
+            ]),
         },
       };
       const mockEmitter: any = { emit: jest.fn() };
@@ -209,10 +242,18 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       );
 
       await expect(
-        svc.cancelOrder({ sub: 'u-d', role: Role.DRIVER } as any, 'ord-1', 'reason'),
+        svc.cancelOrder(
+          { sub: 'u-d', role: Role.DRIVER } as any,
+          'ord-1',
+          'reason',
+        ),
       ).rejects.toThrow(ForbiddenException);
 
-      await svc.cancelOrder({ sub: 'u-cust', role: Role.CUSTOMER } as any, 'ord-1', 'Changed mind');
+      await svc.cancelOrder(
+        { sub: 'u-cust', role: Role.CUSTOMER } as any,
+        'ord-1',
+        'Changed mind',
+      );
       expect(mockRepo.cancelOrder).toHaveBeenCalledWith(
         'ord-1',
         'u-cust',
@@ -245,7 +286,10 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       const mockPrisma: any = {
         orderVendorFulfillment: {
           findMany: jest.fn().mockResolvedValue([
-            { status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP, readyAt: new Date() },
+            {
+              status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+              readyAt: new Date(),
+            },
             { status: OrderVendorFulfillmentStatus.REJECTED, readyAt: null },
           ]),
         },
@@ -318,7 +362,10 @@ describe('Order & Dispatch Clean Architecture Units', () => {
     it('routes workflow jobs to QUEUES.DISPATCH and QUEUES.ORDERS and recovers from outbox', async () => {
       const dispatchQueue: any = { add: jest.fn().mockResolvedValue({}) };
       const ordersQueue: any = { add: jest.fn().mockResolvedValue({}) };
-      const dispatcher = new OrderWorkflowDispatcher(dispatchQueue, ordersQueue);
+      const dispatcher = new OrderWorkflowDispatcher(
+        dispatchQueue,
+        ordersQueue,
+      );
 
       await dispatcher.triggerForOutboxRow(EVENTS.ORDER_STATUS_CHANGED, {
         orderId: 'o1',
@@ -360,7 +407,10 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       const eventsQueue: any = { add: jest.fn().mockResolvedValue({}) };
       const dispatchQueue: any = { add: jest.fn().mockResolvedValue({}) };
       const ordersQueue: any = { add: jest.fn().mockResolvedValue({}) };
-      const dispatcher = new OrderWorkflowDispatcher(dispatchQueue, ordersQueue);
+      const dispatcher = new OrderWorkflowDispatcher(
+        dispatchQueue,
+        ordersQueue,
+      );
       const tx: any = {
         $queryRaw: jest.fn().mockResolvedValue([
           {
@@ -381,7 +431,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         ]),
         $executeRaw: jest.fn().mockResolvedValue(1),
       };
-      const prisma: any = { $transaction: jest.fn((cb: any) => Promise.resolve(cb(tx))) };
+      const prisma: any = {
+        $transaction: jest.fn((cb: any) => Promise.resolve(cb(tx))),
+      };
       const outbox = new OutboxService(prisma, eventsQueue, dispatcher);
 
       const res = await outbox.relayPending();
@@ -396,7 +448,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
 
     it('DispatchProcessor uses DispatchOrderWorkflowPort and enqueues CANCEL_ORDER on max attempts', async () => {
       const orderWorkflowPort = {
-        transitionAcceptedOrderToSearching: jest.fn().mockResolvedValue(undefined),
+        transitionAcceptedOrderToSearching: jest
+          .fn()
+          .mockResolvedValue(undefined),
         handleUndispatchableDeliveryGroup: jest
           .fn()
           .mockResolvedValue({ groupCancelled: false, orderCancelled: false }),
@@ -416,7 +470,11 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         } as any,
         orderWorkflowPort,
         workflowDispatcher,
-        { getSettings: jest.fn().mockResolvedValue({ driverSearchMaxAttempts: 3 }) } as any,
+        {
+          getSettings: jest
+            .fn()
+            .mockResolvedValue({ driverSearchMaxAttempts: 3 }),
+        } as any,
         {
           order: {
             findUnique: jest.fn().mockResolvedValue({
@@ -549,7 +607,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       };
 
       const settingsSvc: any = {
-        getSettings: jest.fn().mockResolvedValue({ maxActiveOrdersPerDriver: 1 }),
+        getSettings: jest
+          .fn()
+          .mockResolvedValue({ maxActiveOrdersPerDriver: 1 }),
       };
       const emitter: any = { emit: jest.fn() };
       const dispatchQueue: any = { add: jest.fn() };
@@ -578,9 +638,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         dispatchQueue,
       );
 
-      await expect(service.handleAcceptance('disp-acc-1', 'drv-1')).resolves.toBe(
-        true,
-      );
+      await expect(
+        service.handleAcceptance('disp-acc-1', 'drv-1'),
+      ).resolves.toBe(true);
 
       expect(eventsQueue.add).toHaveBeenCalledWith(
         EVENT_JOBS.ORDER_STATUS_CHANGED,
@@ -598,7 +658,11 @@ describe('Order & Dispatch Clean Architecture Units', () => {
           revision: 2,
         }),
       );
-      expect(outbox.markProcessed).toHaveBeenCalledWith('ORDER', 'ord-acc-1', 2);
+      expect(outbox.markProcessed).toHaveBeenCalledWith(
+        'ORDER',
+        'ord-acc-1',
+        2,
+      );
     });
 
     it('DispatchService.resolveDispatchTarget queries group items/fulfillment and prefetches totalGroupsCount in parallel', async () => {
@@ -638,8 +702,18 @@ describe('Order & Dispatch Clean Architecture Units', () => {
               id: 'ff-1',
               vendorId: 'v-1',
               subtotal: 120,
-              vendor: { id: 'v-1', storeName: 'V1', storeNameAr: 'م1', zoneId: 'z1' },
-              vendorBranch: { id: 'b-1', name: 'B1', nameAr: 'ف1', zoneId: 'z1' },
+              vendor: {
+                id: 'v-1',
+                storeName: 'V1',
+                storeNameAr: 'م1',
+                zoneId: 'z1',
+              },
+              vendorBranch: {
+                id: 'b-1',
+                name: 'B1',
+                nameAr: 'ف1',
+                zoneId: 'z1',
+              },
             },
           },
         ],
@@ -651,7 +725,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       };
 
       const settingsSvc: any = {
-        getSettings: jest.fn().mockResolvedValue({ deliveryCommissionRate: 20 }),
+        getSettings: jest
+          .fn()
+          .mockResolvedValue({ deliveryCommissionRate: 20 }),
       };
       const service = new DispatchService(
         {} as any,
@@ -718,9 +794,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
           DeliveryGroupStatus.PICKED_UP,
         ]),
       );
-      expect(ORDER_INCLUDE.deliveryGroups.include.primaryDriver.select.tier).toBe(
-        true,
-      );
+      expect(
+        ORDER_INCLUDE.deliveryGroups.include.primaryDriver.select.tier,
+      ).toBe(true);
     });
 
     it('recomputes pre-pickup order status & re-elects payment collector in transaction after group cancel', async () => {
@@ -830,7 +906,9 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       };
       const createMany = jest
         .fn()
-        .mockRejectedValue(Object.assign(new Error('Unique'), { code: 'P2002' }));
+        .mockRejectedValue(
+          Object.assign(new Error('Unique'), { code: 'P2002' }),
+        );
 
       const prisma: any = {
         customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1' }) },

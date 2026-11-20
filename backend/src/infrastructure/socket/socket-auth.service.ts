@@ -70,15 +70,17 @@ export class SocketAuthService {
         if (!manager) return false;
         if (manager.manageAllDrivers) return true;
 
-        const assignment = await this.prisma.driverManagerAssignment.findUnique({
-          where: {
-            driverManagerId_driverId: {
-              driverManagerId: manager.id,
-              driverId,
+        const assignment = await this.prisma.driverManagerAssignment.findUnique(
+          {
+            where: {
+              driverManagerId_driverId: {
+                driverManagerId: manager.id,
+                driverId,
+              },
             },
+            select: { id: true },
           },
-          select: { id: true },
-        });
+        );
         return Boolean(assignment);
       }
 

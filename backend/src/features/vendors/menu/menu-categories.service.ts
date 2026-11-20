@@ -131,7 +131,9 @@ export class MenuCategoriesService {
           ? {
               branchAvailability: {
                 createMany: {
-                  data: availability.branchIds.map((branchId) => ({ branchId })),
+                  data: availability.branchIds.map((branchId) => ({
+                    branchId,
+                  })),
                 },
               },
             }
@@ -188,7 +190,9 @@ export class MenuCategoriesService {
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.nameAr !== undefined && { nameAr: dto.nameAr }),
-          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
           ...(dto.descriptionAr !== undefined && {
             descriptionAr: dto.descriptionAr,
           }),
@@ -287,8 +291,7 @@ export class MenuCategoriesService {
 
   private async invalidateVendorCaches(vendorId: string) {
     await (
-      this.vendorCache ??
-      new VendorCacheService(this.prisma, this.cacheManager)
+      this.vendorCache ?? new VendorCacheService(this.prisma, this.cacheManager)
     ).invalidateVendorDetails(vendorId);
   }
 
@@ -309,13 +312,17 @@ export class MenuCategoriesService {
 
     if (resolvedMode === ProductBranchAvailabilityMode.ALL) {
       if (uniqueBranchIds.length > 0) {
-        throw new BadRequestException(MenuCategoryErrors.BRANCH_IDS_MUST_BE_EMPTY_FOR_ALL);
+        throw new BadRequestException(
+          MenuCategoryErrors.BRANCH_IDS_MUST_BE_EMPTY_FOR_ALL,
+        );
       }
       return { mode: ProductBranchAvailabilityMode.ALL, branchIds: [] };
     }
 
     if (uniqueBranchIds.length === 0) {
-      throw new BadRequestException(MenuCategoryErrors.AT_LEAST_ONE_BRANCH_REQUIRED);
+      throw new BadRequestException(
+        MenuCategoryErrors.AT_LEAST_ONE_BRANCH_REQUIRED,
+      );
     }
 
     const branches = await this.prisma.vendorBranch.findMany({
@@ -326,7 +333,9 @@ export class MenuCategoriesService {
       select: { id: true },
     });
     if (branches.length !== uniqueBranchIds.length) {
-      throw new BadRequestException(MenuCategoryErrors.BRANCHES_DO_NOT_BELONG_TO_VENDOR);
+      throw new BadRequestException(
+        MenuCategoryErrors.BRANCHES_DO_NOT_BELONG_TO_VENDOR,
+      );
     }
 
     return {
@@ -355,7 +364,9 @@ export class MenuCategoriesService {
         select: { branchId: true },
       });
       if (existing.length === 0) {
-        throw new BadRequestException(MenuCategoryErrors.AT_LEAST_ONE_BRANCH_REQUIRED);
+        throw new BadRequestException(
+          MenuCategoryErrors.AT_LEAST_ONE_BRANCH_REQUIRED,
+        );
       }
       return this.resolveBranchAvailability(
         vendorId,
@@ -376,7 +387,9 @@ export class MenuCategoriesService {
       select: { id: true },
     });
     if (!branch) {
-      throw new BadRequestException(MenuCategoryErrors.BRANCH_DOES_NOT_BELONG_TO_VENDOR);
+      throw new BadRequestException(
+        MenuCategoryErrors.BRANCH_DOES_NOT_BELONG_TO_VENDOR,
+      );
     }
   }
 }

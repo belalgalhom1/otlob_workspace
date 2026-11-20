@@ -45,7 +45,7 @@ export class PlaceMultiVendorOrderDto {
   deliveryAddress: string;
 
   @ApiProperty({
-    example: [31.3300, 30.0444],
+    example: [31.33, 30.0444],
     description: '[longitude, latitude]',
     type: [Number],
   })

@@ -15,8 +15,7 @@ export interface NearestBranchLocationResult {
   phone?: string | null;
 }
 
-export interface BranchWithProductCoverage
-  extends NearestBranchLocationResult {
+export interface BranchWithProductCoverage extends NearestBranchLocationResult {
   coveredProductIds: string[];
 }
 
@@ -96,9 +95,7 @@ export class OrderGeoRepository {
               )
           )`
         : Prisma.empty;
-    const rows = await this.prisma.$queryRaw<
-      NearestBranchLocationResult[]
-    >`
+    const rows = await this.prisma.$queryRaw<NearestBranchLocationResult[]>`
       SELECT
         id,
         name,
@@ -137,9 +134,7 @@ export class OrderGeoRepository {
     productIds: string[] = [],
   ): Promise<BranchWithProductCoverage[]> {
     const zoneFilter = this.buildZoneFilter(zoneId);
-    const branches = await this.prisma.$queryRaw<
-      NearestBranchLocationResult[]
-    >`
+    const branches = await this.prisma.$queryRaw<NearestBranchLocationResult[]>`
       SELECT
         id,
         name,

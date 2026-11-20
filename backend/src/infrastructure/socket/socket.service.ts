@@ -22,8 +22,8 @@ export class SocketService implements OnModuleInit {
       publish: (channel: string, message: string) => {
         try {
           const result = redisClient.publish(channel, message);
-          if (result && typeof (result as Promise<number>).catch === 'function') {
-            (result as Promise<number>).catch((error: unknown) => {
+          if (result && typeof result.catch === 'function') {
+            result.catch((error: unknown) => {
               this.logger.error(
                 `Failed to publish socket message on ${channel}: ${
                   error instanceof Error ? error.message : String(error)
@@ -79,7 +79,9 @@ export class SocketService implements OnModuleInit {
   }
 
   emitToSocket(socketId: string, event: string, data: unknown): Promise<void> {
-    this.safely(() => this.emitter.of('/events').to(socketId).emit(event, data));
+    this.safely(() =>
+      this.emitter.of('/events').to(socketId).emit(event, data),
+    );
     return Promise.resolve();
   }
 

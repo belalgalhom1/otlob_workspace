@@ -85,9 +85,7 @@ export function isVendorScheduleOpen(
       return currentMinutes >= t.openMinutes;
     }
 
-    return (
-      currentMinutes >= t.openMinutes && currentMinutes <= t.closeMinutes
-    );
+    return currentMinutes >= t.openMinutes && currentMinutes <= t.closeMinutes;
   } catch {
     return false;
   }

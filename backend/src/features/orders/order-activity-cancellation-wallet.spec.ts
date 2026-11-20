@@ -190,13 +190,13 @@ describe('Order Activity Log Deduplication, Cancellation Actor, Avatars & Driver
         { sub: 'u-v1', role: Role.VENDOR_MEMBER } as any,
         orderGraph,
         { id: 'ff-1', status: OrderVendorFulfillmentStatus.PREPARING },
-        { status: OrderStatus.READY_FOR_PICKUP } as any,
+        { status: OrderStatus.READY_FOR_PICKUP },
       );
       await service.applyFulfillmentProductionTransition(
         { sub: 'u-v1', role: Role.VENDOR_MEMBER } as any,
         orderGraph,
         { id: 'ff-2', status: OrderVendorFulfillmentStatus.PREPARING },
-        { status: OrderStatus.READY_FOR_PICKUP } as any,
+        { status: OrderStatus.READY_FOR_PICKUP },
       );
 
       expect(createdEvents).toHaveLength(2);
@@ -605,12 +605,12 @@ describe('Order Activity Log Deduplication, Cancellation Actor, Avatars & Driver
         type: 'BONUS',
         amount: 50,
         description: '  Weekend rain surge bonus  ',
-      } as any);
+      });
       await wallet.processDriverTransaction('drv-own', {
         type: 'ADJUSTMENT',
         amount: 20,
         description: '',
-      } as any);
+      });
 
       expect(createdPayloads[0]).toMatchObject({
         note: 'Weekend rain surge bonus',
@@ -648,12 +648,10 @@ describe('Order Activity Log Deduplication, Cancellation Actor, Avatars & Driver
           update: jest.fn().mockResolvedValue({}),
         },
         driver: {
-          update: jest
-            .fn()
-            .mockResolvedValue({
-              id: 'drv-1',
-              avatar: '/media/avatars/new.webp',
-            }),
+          update: jest.fn().mockResolvedValue({
+            id: 'drv-1',
+            avatar: '/media/avatars/new.webp',
+          }),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
       };

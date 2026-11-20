@@ -1621,7 +1621,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get baseDeliveryFee => 'رسوم التوصيل الأساسية';
 
   @override
-  String get extraVendorDeliveryFee => 'Extra Vendor Delivery Fee';
+  String get multiVendorDeliveryDiscountPercent =>
+      'نسبة خصم التوصيل المجمع (%)';
 
   @override
   String get pricePerKm => 'السعر لكل كيلومتر';

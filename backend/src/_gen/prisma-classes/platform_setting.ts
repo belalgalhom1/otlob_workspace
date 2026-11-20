@@ -28,7 +28,6 @@ export class PlatformSetting {
   @ApiProperty({ type: Number })
   baseDeliveryFee: number = 15;
 
-
   @ApiProperty({ type: Number })
   multiVendorDeliveryDiscountPercent: number = 20;
 

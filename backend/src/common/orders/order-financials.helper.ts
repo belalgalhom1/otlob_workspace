@@ -30,8 +30,8 @@ export function computeIsMultiVendorOrder(params: {
 }): boolean {
   return Boolean(
     params.orderIsMultiVendor ||
-      params.activeGroupsCount > 1 ||
-      params.activeFulfillmentsCount > 1,
+    params.activeGroupsCount > 1 ||
+    params.activeFulfillmentsCount > 1,
   );
 }
 
@@ -53,7 +53,9 @@ export function allocateIntegerProportional(
     weightSum > 0 ? normalizedWeights : normalizedWeights.map(() => 1);
   const effectiveSum = effectiveWeights.reduce((acc, w) => acc + w, 0);
 
-  const exactShares = effectiveWeights.map((w) => (safeTotal * w) / effectiveSum);
+  const exactShares = effectiveWeights.map(
+    (w) => (safeTotal * w) / effectiveSum,
+  );
   const floors = exactShares.map((v) => Math.floor(v));
   let remainder = safeTotal - floors.reduce((acc, v) => acc + v, 0);
 
@@ -226,7 +228,8 @@ export function allocateDriverBonus(params: {
       existing.feeWeight += fee;
       if (isCollector && !existing.isCollectorDriver) {
         existing.deliveryGroupId = g.id;
-        existing.driverShiftId = g.primaryDriverShiftId ?? existing.driverShiftId;
+        existing.driverShiftId =
+          g.primaryDriverShiftId ?? existing.driverShiftId;
         existing.isCollectorDriver = true;
       }
     } else {
@@ -254,7 +257,9 @@ export function allocateDriverBonus(params: {
   }
 
   // Collector driver goes first so largest-remainder +1 prefers collector cleanly on ties.
-  entries.sort((a, b) => Number(b.isCollectorDriver) - Number(a.isCollectorDriver));
+  entries.sort(
+    (a, b) => Number(b.isCollectorDriver) - Number(a.isCollectorDriver),
+  );
   const shares = allocateIntegerProportional(
     safeBonus,
     entries.map((e) => e.feeWeight),

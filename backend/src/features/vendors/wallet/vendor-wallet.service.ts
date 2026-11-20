@@ -3,10 +3,7 @@ import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { QueryVendorWalletDto } from './dto/vendor-wallet.dto';
 import { VendorErrors } from 'src/common/constants/response.constants';
 import { Prisma } from '@prisma/client';
-import {
-  parseDateEnd,
-  parseDateStart,
-} from 'src/common/utils/timezone';
+import { parseDateEnd, parseDateStart } from 'src/common/utils/timezone';
 
 @Injectable()
 export class VendorWalletService {
@@ -86,28 +83,30 @@ export class VendorWalletService {
       this.prisma.vendorWalletTransaction.count({ where }),
     ]);
 
-    const transactions = rawTransactions.map(({ fulfillment, order, ...tx }) => {
-      const resolvedBranch =
-        fulfillment?.vendorBranch ??
-        order?.vendorFulfillments?.[0]?.vendorBranch ??
-        null;
-      const resolvedBranchId =
-        fulfillment?.vendorBranchId ??
-        order?.vendorFulfillments?.[0]?.vendorBranchId ??
-        null;
-      return {
-        ...tx,
-        fulfillmentId: tx.fulfillmentId,
-        order: order
-          ? {
-              id: order.id,
-              orderNumber: order.orderNumber,
-              vendorBranchId: resolvedBranchId,
-              vendorBranch: resolvedBranch,
-            }
-          : null,
-      };
-    });
+    const transactions = rawTransactions.map(
+      ({ fulfillment, order, ...tx }) => {
+        const resolvedBranch =
+          fulfillment?.vendorBranch ??
+          order?.vendorFulfillments?.[0]?.vendorBranch ??
+          null;
+        const resolvedBranchId =
+          fulfillment?.vendorBranchId ??
+          order?.vendorFulfillments?.[0]?.vendorBranchId ??
+          null;
+        return {
+          ...tx,
+          fulfillmentId: tx.fulfillmentId,
+          order: order
+            ? {
+                id: order.id,
+                orderNumber: order.orderNumber,
+                vendorBranchId: resolvedBranchId,
+                vendorBranch: resolvedBranch,
+              }
+            : null,
+        };
+      },
+    );
 
     return {
       walletBalance: vendor.walletBalance,

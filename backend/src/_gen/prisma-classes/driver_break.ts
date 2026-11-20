@@ -1,4 +1,8 @@
-import { DriverBreakReason, DriverBreakStatus, DriverStatus } from '@prisma/client';
+import {
+  DriverBreakReason,
+  DriverBreakStatus,
+  DriverStatus,
+} from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class DriverBreak {

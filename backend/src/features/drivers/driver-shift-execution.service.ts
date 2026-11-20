@@ -302,9 +302,8 @@ export class DriverShiftExecutionService {
       return undefined;
     }
 
-    const endedStatus = (
-      await this.driversRepository.findById(params.driverId)
-    )?.status;
+    const endedStatus = (await this.driversRepository.findById(params.driverId))
+      ?.status;
     if (endedStatus && endedStatus !== DriverStatus.OFFLINE) {
       await this.driversRepository.updateStatus(
         params.driverId,

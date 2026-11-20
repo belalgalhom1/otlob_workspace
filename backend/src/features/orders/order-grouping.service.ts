@@ -195,9 +195,16 @@ export class OrderGroupingService {
     }
 
     // Safeguard for uncalibrated / (0,0) coordinates:
-    const stopHasCoords = Boolean(stop.lat && stop.lng && (stop.lat !== 0 || stop.lng !== 0));
+    const stopHasCoords = Boolean(
+      stop.lat && stop.lng && (stop.lat !== 0 || stop.lng !== 0),
+    );
     const anchor = group[0];
-    const anchorHasCoords = Boolean(anchor && anchor.lat && anchor.lng && (anchor.lat !== 0 || anchor.lng !== 0));
+    const anchorHasCoords = Boolean(
+      anchor &&
+      anchor.lat &&
+      anchor.lng &&
+      (anchor.lat !== 0 || anchor.lng !== 0),
+    );
     if (!stopHasCoords || !anchorHasCoords) {
       return true;
     }

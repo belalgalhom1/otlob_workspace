@@ -241,11 +241,7 @@ export class DriverTrackingService {
     }
 
     if (row.lastLng != null && row.lastLat != null) {
-      return applyPrecisionReduction(
-        row.lastLng,
-        row.lastLat,
-        precisionMeters,
-      );
+      return applyPrecisionReduction(row.lastLng, row.lastLat, precisionMeters);
     }
 
     return null;

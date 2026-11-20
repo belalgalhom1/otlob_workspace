@@ -264,9 +264,13 @@ export class AuthService {
     };
   }
 
-  private async verifyGoogleToken(
-    idToken: string,
-  ): Promise<{ sub: string; email?: string; name?: string; emailVerified?: boolean; exp?: number }> {
+  private async verifyGoogleToken(idToken: string): Promise<{
+    sub: string;
+    email?: string;
+    name?: string;
+    emailVerified?: boolean;
+    exp?: number;
+  }> {
     try {
       const googleClientIds =
         this.config.get<string>('GOOGLE_CLIENT_IDS')?.split(',') || [];
@@ -290,9 +294,12 @@ export class AuthService {
     }
   }
 
-  private async verifyAppleToken(
-    idToken: string,
-  ): Promise<{ sub: string; email?: string; emailVerified?: boolean; exp?: number }> {
+  private async verifyAppleToken(idToken: string): Promise<{
+    sub: string;
+    email?: string;
+    emailVerified?: boolean;
+    exp?: number;
+  }> {
     try {
       const appleClientIds =
         this.config.get<string>('APPLE_CLIENT_IDS')?.split(',') || [];

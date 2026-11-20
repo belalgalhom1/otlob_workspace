@@ -28,7 +28,9 @@ export class VendorWalletController {
   @ApiStandardResponse()
   @Get('transactions')
   @VendorMember()
-  @ApiOperation({ summary: "List the vendor's wallet transactions (any member)" })
+  @ApiOperation({
+    summary: "List the vendor's wallet transactions (any member)",
+  })
   listTransactions(
     @Param('vendorId') vendorId: string,
     @Query() dto: QueryVendorWalletDto,
@@ -85,7 +87,9 @@ export class VendorWalletController {
   @RequirePermissions(Permission.VIEW_FINANCIALS, Permission.MANAGE_FINANCE, {
     mode: 'any',
   })
-  @ApiOperation({ summary: "Get any vendor's wallet summary statistics (Admin)" })
+  @ApiOperation({
+    summary: "Get any vendor's wallet summary statistics (Admin)",
+  })
   adminGetSummary(
     @Param('vendorId') vendorId: string,
     @Query() dto: QueryVendorWalletDto,

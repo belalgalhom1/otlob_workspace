@@ -111,13 +111,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       ) {
         // Our custom ValidationPipe exceptionFactory produces a dictionary
         messageKey = CommonErrors.VALIDATION_ERROR;
-        errors = res.message as Record<string, string[]>;
+        errors = res.message;
       } else if (Array.isArray(res.message)) {
         // Fallback for default array validation errors
         messageKey = CommonErrors.VALIDATION_ERROR;
         errors = this.parseValidationErrors(res.message);
       } else if (res.message) {
-        messageKey = res.message as string;
+        messageKey = res.message;
       }
 
       // Custom structured details (e.g. which branches block a zone delete)

@@ -174,7 +174,9 @@ export class AuthController {
   @Delete('social/unlink/:provider')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Unlink a Google/Apple account from the current user' })
+  @ApiOperation({
+    summary: 'Unlink a Google/Apple account from the current user',
+  })
   @ApiStandardResponse()
   unlinkSocialAccount(
     @CurrentUser('sub') userId: string,

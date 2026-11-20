@@ -309,8 +309,7 @@ export const DriverErrors = {
   ASSIST_DELIVERY_ALREADY_STARTED:
     'driver.error.assist_delivery_already_started',
   ASSIST_DRIVER_NOT_ELIGIBLE: 'driver.error.assist_driver_not_eligible',
-  ASSIST_DRIVER_ALREADY_ASSIGNED:
-    'driver.error.assist_driver_already_assigned',
+  ASSIST_DRIVER_ALREADY_ASSIGNED: 'driver.error.assist_driver_already_assigned',
   ASSIST_REASON_REQUIRED: 'driver.error.assist_reason_required',
   SHIFT_POOL_IDS_MUST_BE_UNIQUE: 'driver.error.shift_pool_ids_must_be_unique',
   INVALID_LOCATION: 'driver.error.invalid_location',

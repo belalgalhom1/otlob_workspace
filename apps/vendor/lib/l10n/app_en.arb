@@ -623,7 +623,7 @@
   "highValueOrderThreshold": "High Value Order Threshold",
   "highValueUpfrontRate": "High Value Upfront Rate (%)",
   "baseDeliveryFee": "Base Delivery Fee",
-  "extraVendorDeliveryFee": "Extra Vendor Delivery Fee",
+  "multiVendorDeliveryDiscountPercent": "Multi-Vendor Delivery Discount (%)",
   "pricePerKm": "Price Per Km",
   "pricePerKmBicycle": "Price per Km (Bicycle)",
   "pricePerKmMotorcycle": "Price per Km (Motorcycle)",

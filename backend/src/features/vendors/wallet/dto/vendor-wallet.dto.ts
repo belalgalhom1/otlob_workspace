@@ -17,7 +17,11 @@ export class QueryVendorWalletDto {
   @IsOptional()
   type?: VendorTransactionType;
 
-  @ApiProperty({ example: 'uuid', required: false, description: 'Filter transactions by vendor branch ID' })
+  @ApiProperty({
+    example: 'uuid',
+    required: false,
+    description: 'Filter transactions by vendor branch ID',
+  })
   @IsUUID()
   @IsOptional()
   branchId?: string;

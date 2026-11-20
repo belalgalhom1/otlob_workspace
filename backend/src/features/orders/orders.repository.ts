@@ -203,11 +203,16 @@ export class OrdersRepository {
         }
         if (requirePriorDelivery && liveActiveCount > 0) {
           const hasCompletedOrder = await tx.order.findFirst({
-            where: { customerId: data.customerId, status: OrderStatus.DELIVERED },
+            where: {
+              customerId: data.customerId,
+              status: OrderStatus.DELIVERED,
+            },
             select: { id: true },
           });
           if (!hasCompletedOrder) {
-            throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
+            throw new BadRequestException(
+              OrderErrors.MAX_ACTIVE_ORDERS_REACHED,
+            );
           }
         }
       }
@@ -461,9 +466,13 @@ export class OrdersRepository {
       // whole packages (ceil), because stock is tracked in packages.
       await this.stock.decrementForItems(tx, items);
 
-      const actorSnapshot = await resolveOrderActorSnapshot(this.prisma, actorUserId, {
-        orderId: created.id,
-      });
+      const actorSnapshot = await resolveOrderActorSnapshot(
+        this.prisma,
+        actorUserId,
+        {
+          orderId: created.id,
+        },
+      );
       await recordOrderStatusEventIdempotent(tx, {
         orderId: created.id,
         eventKey: `order_created:${created.id}`,
@@ -552,12 +561,13 @@ export class OrdersRepository {
         throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
       }
 
-      written.revision = (
-        await tx.order.findUnique({
-          where: { id: orderId },
-          select: { revision: true },
-        })
-      )?.revision ?? null;
+      written.revision =
+        (
+          await tx.order.findUnique({
+            where: { id: orderId },
+            select: { revision: true },
+          })
+        )?.revision ?? null;
 
       await recordOrderStatusEventIdempotent(tx, {
         orderId,
@@ -622,7 +632,10 @@ export class OrdersRepository {
         where: {
           orderId,
           status: {
-            notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+            notIn: [
+              DeliveryGroupStatus.CANCELLED,
+              DeliveryGroupStatus.DELIVERED,
+            ],
           },
         },
         data: { status: DeliveryGroupStatus.CANCELLED },
@@ -646,7 +659,13 @@ export class OrdersRepository {
       // hand their groups to different drivers (primary and assistant), and a
       // cancelled group must not leave any of them stuck ON_DELIVERY.
       for (const driverId of driverIds) {
-        if ((await this.driverWorkload.countActiveUnits(tx, driverId, orderId)) === 0) {
+        if (
+          (await this.driverWorkload.countActiveUnits(
+            tx,
+            driverId,
+            orderId,
+          )) === 0
+        ) {
           await tx.driver.update({
             where: { id: driverId },
             data: { status: DriverStatus.ONLINE },
@@ -733,10 +752,10 @@ export class OrdersRepository {
     const actorSnapshot = options?.skipStatusEvent
       ? null
       : (options?.actor ??
-          (await resolveOrderActorSnapshot(this.prisma, actorUserId, {
-            orderId,
-            fulfillmentId: options?.fulfillmentId ?? null,
-          })));
+        (await resolveOrderActorSnapshot(this.prisma, actorUserId, {
+          orderId,
+          fulfillmentId: options?.fulfillmentId ?? null,
+        })));
     // Revision written by THIS transition. Captured inside the transaction so
     // the event identity can never collide with a transition that commits
     // between this commit and the post-commit aggregate read.
@@ -758,12 +777,13 @@ export class OrdersRepository {
         });
       }
 
-      written.revision = (
-        await tx.order.findUnique({
-          where: { id: orderId },
-          select: { revision: true },
-        })
-      )?.revision ?? null;
+      written.revision =
+        (
+          await tx.order.findUnique({
+            where: { id: orderId },
+            select: { revision: true },
+          })
+        )?.revision ?? null;
 
       if (!options?.skipStatusEvent) {
         const eventKey =
@@ -915,7 +935,10 @@ export class OrdersRepository {
 
       // Cancel any pending dispatches for the target delivery group
       await tx.orderDispatch.updateMany({
-        where: { deliveryGroupId: targetGroup.id, status: DispatchStatus.PENDING },
+        where: {
+          deliveryGroupId: targetGroup.id,
+          status: DispatchStatus.PENDING,
+        },
         data: { status: DispatchStatus.CANCELLED },
       });
 
@@ -932,7 +955,8 @@ export class OrdersRepository {
       const groupNextStatus =
         nextStatus === OrderStatus.PENDING_PAYMENT
           ? DeliveryGroupStatus.PENDING_PAYMENT
-          : allGroupReady || targetGroup.status === DeliveryGroupStatus.READY_FOR_PICKUP
+          : allGroupReady ||
+              targetGroup.status === DeliveryGroupStatus.READY_FOR_PICKUP
             ? DeliveryGroupStatus.READY_FOR_PICKUP
             : anyGroupPreparingOrReady ||
                 targetGroup.status === DeliveryGroupStatus.PREPARING
@@ -997,9 +1021,13 @@ export class OrdersRepository {
         })
       ).revision;
 
-      const assignActor = await resolveOrderActorSnapshot(this.prisma, actorUserId, {
-        orderId,
-      });
+      const assignActor = await resolveOrderActorSnapshot(
+        this.prisma,
+        actorUserId,
+        {
+          orderId,
+        },
+      );
       await recordOrderStatusEventIdempotent(tx, {
         orderId,
         deliveryGroupId: targetGroup.id,
@@ -1032,7 +1060,9 @@ export class OrdersRepository {
   }
 
   async freeDriver(driverId: string) {
-    if ((await this.driverWorkload.countActiveUnits(this.prisma, driverId)) === 0) {
+    if (
+      (await this.driverWorkload.countActiveUnits(this.prisma, driverId)) === 0
+    ) {
       return this.prisma.driver.update({
         where: { id: driverId },
         data: { status: DriverStatus.ONLINE },

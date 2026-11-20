@@ -79,7 +79,9 @@ export class DriverShiftsController {
   @Post('admin/assign-bulk')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '[Admin] Assign a driver to a generated group of shift pools' })
+  @ApiOperation({
+    summary: '[Admin] Assign a driver to a generated group of shift pools',
+  })
   adminAssignShiftBulk(
     @CurrentUser() actor: JwtAccessPayload,
     @Body() dto: AdminBulkAssignShiftsDto,
@@ -105,7 +107,9 @@ export class DriverShiftsController {
   @Post('admin/book-week')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '[Admin] Book a full weekly shift schedule for a driver' })
+  @ApiOperation({
+    summary: '[Admin] Book a full weekly shift schedule for a driver',
+  })
   adminBookWeeklyShifts(
     @CurrentUser() actor: JwtAccessPayload,
     @Body() dto: AdminBookWeeklyShiftsDto,

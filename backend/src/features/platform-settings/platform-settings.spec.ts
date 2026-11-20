@@ -57,9 +57,7 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
     it('calculates base + perKm, zone override, and short-trip fixed fee', () => {
       const s = makeSettings();
 
-      expect(
-        calculator.calculateDeliveryFee(s, { distanceKm: 5 }),
-      ).toBe(40); // 15 + 5*5
+      expect(calculator.calculateDeliveryFee(s, { distanceKm: 5 })).toBe(40); // 15 + 5*5
 
       expect(
         calculator.calculateDeliveryFee(s, {
@@ -68,9 +66,7 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
         }),
       ).toBe(50); // 25 + 5*5
 
-      expect(
-        calculator.calculateDeliveryFee(s, { distanceKm: 1.2 }),
-      ).toBe(18); // below minOrderKm=2 -> minDistanceFixedPrice=18
+      expect(calculator.calculateDeliveryFee(s, { distanceKm: 1.2 })).toBe(18); // below minOrderKm=2 -> minDistanceFixedPrice=18
     });
 
     it('adds gold tier bonus only when driverShiftsEnabled and standard order', () => {
@@ -119,6 +115,23 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
       expect(calculator.getVehiclePerKm(s, 'motor_tricycle')).toBe(4.5);
       expect(calculator.getVehiclePerKm(s, 'TRUCK')).toBe(14);
       expect(calculator.getVehiclePerKm(s, 'helicopter')).toBeNull();
+    });
+
+    it('Option 1: calculateGroupDeliveryFee calculates independent distance fees for multi-stops and applies bundle discount', () => {
+      const s = makeSettings({
+        minDeliveryFee: 15,
+        multiVendorDeliveryDiscountPercent: 20,
+      });
+
+      // Single-stop: distance 5km -> base 15 + 5*5 = 40 (undiscounted)
+      expect(calculator.calculateGroupDeliveryFee(s, [5])).toBe(40);
+
+      // Multi-stop (combined): stop 1 (5km -> 40) + stop 2 (3km -> 30) = 70
+      // 70 * (1 - 0.20) = 56
+      expect(calculator.calculateGroupDeliveryFee(s, [5, 3])).toBe(56);
+
+      // Floors at minDeliveryFee: 2 very short stops (18 + 18 = 36 * 0.8 = 28.8 -> 29)
+      expect(calculator.calculateGroupDeliveryFee(s, [1.2, 1.2])).toBe(29);
     });
   });
 
@@ -212,22 +225,30 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
 
       expect(
         await validate(
-          plainToInstance(UpdatePlatformSettingsDto, { maxMultiVendorVendors: 3 }),
+          plainToInstance(UpdatePlatformSettingsDto, {
+            maxMultiVendorVendors: 3,
+          }),
         ),
       ).toHaveLength(0);
       expect(
         await validate(
-          plainToInstance(UpdatePlatformSettingsDto, { maxMultiVendorVendors: 1 }),
+          plainToInstance(UpdatePlatformSettingsDto, {
+            maxMultiVendorVendors: 1,
+          }),
         ),
       ).toHaveLength(0);
       expect(
         await validate(
-          plainToInstance(UpdatePlatformSettingsDto, { maxMultiVendorVendors: 0 }),
+          plainToInstance(UpdatePlatformSettingsDto, {
+            maxMultiVendorVendors: 0,
+          }),
         ),
       ).not.toHaveLength(0);
       expect(
         await validate(
-          plainToInstance(UpdatePlatformSettingsDto, { maxMultiVendorVendors: 21 }),
+          plainToInstance(UpdatePlatformSettingsDto, {
+            maxMultiVendorVendors: 21,
+          }),
         ),
       ).not.toHaveLength(0);
       expect(

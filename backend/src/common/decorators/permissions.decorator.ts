@@ -30,7 +30,9 @@ export const RequirePermissions = (
     (a): a is RequirePermissionsOptions =>
       typeof a === 'object' && a !== null && !('length' in a),
   );
-  const permissions = args.filter((a): a is Permission => typeof a === 'string');
+  const permissions = args.filter(
+    (a): a is Permission => typeof a === 'string',
+  );
 
   return applyDecorators(
     SetMetadata(PERMISSIONS_KEY, permissions),

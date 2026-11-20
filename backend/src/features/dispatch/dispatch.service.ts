@@ -10,7 +10,10 @@ import {
   OrderVendorFulfillmentStatus,
   Prisma,
 } from '@prisma/client';
-import { QUEUES, ORDER_JOBS } from '../../infrastructure/queue/queues.constants';
+import {
+  QUEUES,
+  ORDER_JOBS,
+} from '../../infrastructure/queue/queues.constants';
 import { EVENTS } from '../../common/events/event-names';
 import { OrderDispatchSentEvent } from '../../common/events';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -35,10 +38,7 @@ export interface DispatchAttemptPayload {
 }
 
 export type DispatchOutcome =
-  | 'dispatched'
-  | 'no_drivers'
-  | 'in_flight'
-  | 'invalid';
+  'dispatched' | 'no_drivers' | 'in_flight' | 'invalid';
 
 export const MAX_DISPATCH_BATCH_SIZE = 20;
 
@@ -250,7 +250,9 @@ export class DispatchService implements DispatchPort {
     );
     if (!candidate) return null;
 
-    if (await this.dispatchRepository.isCandidateRejected(dispatchId, driverId)) {
+    if (
+      await this.dispatchRepository.isCandidateRejected(dispatchId, driverId)
+    ) {
       return null;
     }
 
@@ -264,8 +266,9 @@ export class DispatchService implements DispatchPort {
     });
     if (!driver) return [];
 
-    const dispatchIds =
-      await this.dispatchRepository.getDriverPendingIds(driver.id);
+    const dispatchIds = await this.dispatchRepository.getDriverPendingIds(
+      driver.id,
+    );
 
     const results = await Promise.all(
       dispatchIds.map(async (dispatchId) => {
@@ -379,7 +382,9 @@ export class DispatchService implements DispatchPort {
           type: true,
           pickupAddress: true,
           deliveryFee: true,
-          customer: { select: { user: { select: { name: true, avatar: true } } } },
+          customer: {
+            select: { user: { select: { name: true, avatar: true } } },
+          },
         },
       }),
       this.prisma.orderDeliveryGroup.count({
@@ -417,7 +422,9 @@ export class DispatchService implements DispatchPort {
       !order ||
       order.status === OrderStatus.CANCELLED ||
       order.status === OrderStatus.DELIVERED;
-    const groupDispatchable = DISPATCHABLE_GROUP_STATUSES.includes(group.status);
+    const groupDispatchable = DISPATCHABLE_GROUP_STATUSES.includes(
+      group.status,
+    );
     const alreadyAssigned = Boolean(group.primaryDriverId);
 
     if (
@@ -444,9 +451,8 @@ export class DispatchService implements DispatchPort {
     }
 
     if (order.type === 'STANDARD') {
-      const pickup = await this.locationRepository.getDeliveryGroupPickupLocation(
-        group.id,
-      );
+      const pickup =
+        await this.locationRepository.getDeliveryGroupPickupLocation(group.id);
       if (!pickup) {
         this.logger.error(
           `No pickup branch found for delivery group ${group.id} on order ${orderNumber}`,
@@ -518,7 +524,9 @@ export class DispatchService implements DispatchPort {
     order: {
       type: string;
       pickupAddress: string | null;
-      customer: { user: { name: string; avatar?: string | null } | null } | null;
+      customer: {
+        user: { name: string; avatar?: string | null } | null;
+      } | null;
     };
     group: {
       id: string;
@@ -527,8 +535,16 @@ export class DispatchService implements DispatchPort {
         sequence: number;
         fulfillment: {
           id: string;
-          vendorBranch: { name: string; nameAr: string | null; address: string } | null;
-          vendor: { storeName: string; storeNameAr: string | null; logo?: string | null };
+          vendorBranch: {
+            name: string;
+            nameAr: string | null;
+            address: string;
+          } | null;
+          vendor: {
+            storeName: string;
+            storeNameAr: string | null;
+            logo?: string | null;
+          };
         };
       }>;
     };
@@ -664,7 +680,11 @@ export class DispatchService implements DispatchPort {
       dropoffCustomerAvatar: candidates[0]?.dropoffCustomerAvatar ?? null,
     };
 
-    await this.dispatchRepository.saveBroadcast(dispatchId, dispatchData, redisTtl);
+    await this.dispatchRepository.saveBroadcast(
+      dispatchId,
+      dispatchData,
+      redisTtl,
+    );
 
     const claimed = await this.dispatchRepository.acquireActiveClaim(
       dispatchScope,
@@ -717,7 +737,10 @@ export class DispatchService implements DispatchPort {
         ),
       );
     } catch (err) {
-      await this.dispatchRepository.releaseActiveClaim(dispatchScope, dispatchId);
+      await this.dispatchRepository.releaseActiveClaim(
+        dispatchScope,
+        dispatchId,
+      );
       await this.dispatchRepository.deleteBroadcast(dispatchId);
       throw err;
     }

@@ -37,15 +37,23 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
     let mockVendorDecisionService: any;
 
     const driverActor = { sub: 'user-driver-1', role: Role.DRIVER } as any;
-    const vendorOwnerA = { sub: 'user-owner-a', role: Role.VENDOR_MEMBER } as any;
-    const superAdminActor = { sub: 'user-admin', role: Role.SUPER_ADMIN } as any;
+    const vendorOwnerA = {
+      sub: 'user-owner-a',
+      role: Role.VENDOR_MEMBER,
+    } as any;
+    const superAdminActor = {
+      sub: 'user-admin',
+      role: Role.SUPER_ADMIN,
+    } as any;
 
     beforeEach(() => {
       mockOrdersRepo = {
         findById: jest.fn(),
         updateStatus: jest.fn().mockResolvedValue({ revision: 2 }),
         freeDriver: jest.fn().mockResolvedValue(undefined),
-        getOrderVendorUserIds: jest.fn().mockResolvedValue(['user-owner-a', 'user-owner-b']),
+        getOrderVendorUserIds: jest
+          .fn()
+          .mockResolvedValue(['user-owner-a', 'user-owner-b']),
         assignDriver: jest.fn(),
       };
       mockVendorDecisionService = {
@@ -58,7 +66,11 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         delete: jest.fn().mockResolvedValue(undefined),
       };
       mockPrisma = {
-        driver: { findUnique: jest.fn().mockResolvedValue({ id: 'driver-1', userId: 'user-driver-1' }) },
+        driver: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ id: 'driver-1', userId: 'user-driver-1' }),
+        },
         vendorMember: {
           findUnique: jest.fn().mockResolvedValue(null),
           findMany: jest.fn().mockResolvedValue([]),
@@ -254,13 +266,22 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         groups: [
           {
             deliveryGroupId: 'grp-1',
-            deliveryGroup: { id: 'grp-1', primaryDriverId: 'driver-1', assistDriverId: null },
+            deliveryGroup: {
+              id: 'grp-1',
+              primaryDriverId: 'driver-1',
+              assistDriverId: null,
+            },
           },
         ],
       });
 
       await expect(
-        stateService.driverConfirmFulfillmentPickup(driverActor, 'ord-mv-2', 'ff-1', {} as any),
+        stateService.driverConfirmFulfillmentPickup(
+          driverActor,
+          'ord-mv-2',
+          'ff-1',
+          {} as any,
+        ),
       ).rejects.toThrow(BadRequestException);
       expect(mockStorage.upload).not.toHaveBeenCalled();
     });
@@ -297,7 +318,11 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         groups: [
           {
             deliveryGroupId: 'grp-1',
-            deliveryGroup: { id: 'grp-1', primaryDriverId: 'driver-1', assistDriverId: null },
+            deliveryGroup: {
+              id: 'grp-1',
+              primaryDriverId: 'driver-1',
+              assistDriverId: null,
+            },
           },
         ],
       });
@@ -305,17 +330,30 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         {
           fulfillmentId: 'ff-1',
           sequence: 1,
-          fulfillment: { id: 'ff-1', status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP, pickedUpAt: null },
+          fulfillment: {
+            id: 'ff-1',
+            status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+            pickedUpAt: null,
+          },
         },
         {
           fulfillmentId: 'ff-2',
           sequence: 2,
-          fulfillment: { id: 'ff-2', status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP, pickedUpAt: null },
+          fulfillment: {
+            id: 'ff-2',
+            status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+            pickedUpAt: null,
+          },
         },
       ]);
 
       await expect(
-        stateService.driverConfirmFulfillmentPickup(driverActor, 'ord-mv-2', 'ff-2', {} as any),
+        stateService.driverConfirmFulfillmentPickup(
+          driverActor,
+          'ord-mv-2',
+          'ff-2',
+          {} as any,
+        ),
       ).rejects.toThrow('Earlier vendor pickup stop must be completed first');
 
       // Trying to mark order DELIVERED directly from PARTIALLY_PICKED_UP
@@ -331,12 +369,22 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         {
           fulfillmentId: 'ff-1',
           sequence: 1,
-          fulfillment: { id: 'ff-1', status: OrderVendorFulfillmentStatus.PICKED_UP, readyAt: new Date(), pickedUpAt: new Date() },
+          fulfillment: {
+            id: 'ff-1',
+            status: OrderVendorFulfillmentStatus.PICKED_UP,
+            readyAt: new Date(),
+            pickedUpAt: new Date(),
+          },
         },
         {
           fulfillmentId: 'ff-2',
           sequence: 2,
-          fulfillment: { id: 'ff-2', status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP, readyAt: new Date(), pickedUpAt: null },
+          fulfillment: {
+            id: 'ff-2',
+            status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+            readyAt: new Date(),
+            pickedUpAt: null,
+          },
         },
       ]);
       await expect(
@@ -344,7 +392,9 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
           status: OrderStatus.PICKED_UP,
           pickupImageUrl: 'https://cdn.test/pick.jpg',
         }),
-      ).rejects.toThrow('All vendor pickup stops must be collected before marking group picked up');
+      ).rejects.toThrow(
+        'All vendor pickup stops must be collected before marking group picked up',
+      );
     });
 
     it('3-vendor order: sequential collection Stop 1 -> Stop 2 -> Stop 3 transitions PARTIALLY_PICKED_UP -> PICKED_UP -> DELIVERED', async () => {
@@ -363,12 +413,19 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         customer: { userId: 'user-cust-1' },
       };
 
-      const makeStop = (id: string, seq: number, pickedUp: boolean, branchName: string) => ({
+      const makeStop = (
+        id: string,
+        seq: number,
+        pickedUp: boolean,
+        branchName: string,
+      ) => ({
         fulfillmentId: id,
         sequence: seq,
         fulfillment: {
           id,
-          status: pickedUp ? OrderVendorFulfillmentStatus.PICKED_UP : OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
+          status: pickedUp
+            ? OrderVendorFulfillmentStatus.PICKED_UP
+            : OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
           readyAt: new Date(),
           pickedUpAt: pickedUp ? new Date() : null,
           vendorBranch: { name: branchName, nameAr: branchName },
@@ -376,27 +433,64 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       });
 
       // Stop 1 pickup -> PARTIALLY_PICKED_UP
-      mockOrdersRepo.findById.mockResolvedValue({ ...baseOrder, revision: 2, status: OrderStatus.PARTIALLY_PICKED_UP });
+      mockOrdersRepo.findById.mockResolvedValue({
+        ...baseOrder,
+        revision: 2,
+        status: OrderStatus.PARTIALLY_PICKED_UP,
+      });
       mockPrisma.orderVendorFulfillment.findFirst.mockResolvedValue({
         id: 'ff-1',
         orderId: 'ord-mv-3',
         status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
         readyAt: new Date(),
         pickedUpAt: null,
-        groups: [{ deliveryGroupId: 'grp-1', deliveryGroup: { id: 'grp-1', primaryDriverId: 'driver-1', assistDriverId: null } }],
+        groups: [
+          {
+            deliveryGroupId: 'grp-1',
+            deliveryGroup: {
+              id: 'grp-1',
+              primaryDriverId: 'driver-1',
+              assistDriverId: null,
+            },
+          },
+        ],
       });
       mockPrisma.orderDeliveryGroupItem.findMany
-        .mockResolvedValueOnce([makeStop('ff-1', 1, false, 'Branch 1'), makeStop('ff-2', 2, false, 'Branch 2'), makeStop('ff-3', 3, false, 'Branch 3')])
-        .mockResolvedValueOnce([makeStop('ff-1', 1, true, 'Branch 1'), makeStop('ff-2', 2, false, 'Branch 2'), makeStop('ff-3', 3, false, 'Branch 3')]);
+        .mockResolvedValueOnce([
+          makeStop('ff-1', 1, false, 'Branch 1'),
+          makeStop('ff-2', 2, false, 'Branch 2'),
+          makeStop('ff-3', 3, false, 'Branch 3'),
+        ])
+        .mockResolvedValueOnce([
+          makeStop('ff-1', 1, true, 'Branch 1'),
+          makeStop('ff-2', 2, false, 'Branch 2'),
+          makeStop('ff-3', 3, false, 'Branch 3'),
+        ]);
       mockPrisma.orderDeliveryGroup.findMany.mockResolvedValue([
-        { id: 'grp-1', status: DeliveryGroupStatus.PARTIALLY_PICKED_UP, primaryDriverId: 'driver-1', assistDriverId: null },
+        {
+          id: 'grp-1',
+          status: DeliveryGroupStatus.PARTIALLY_PICKED_UP,
+          primaryDriverId: 'driver-1',
+          assistDriverId: null,
+        },
       ]);
-      mockPrisma.order.findUnique.mockResolvedValue({ ...baseOrder, status: OrderStatus.READY_FOR_PICKUP, revision: 1 });
+      mockPrisma.order.findUnique.mockResolvedValue({
+        ...baseOrder,
+        status: OrderStatus.READY_FOR_PICKUP,
+        revision: 1,
+      });
       mockOrdersRepo.updateStatus.mockResolvedValue({ revision: 2 });
 
-      await stateService.driverConfirmFulfillmentPickup(driverActor, 'ord-mv-3', 'ff-1', {} as any);
+      await stateService.driverConfirmFulfillmentPickup(
+        driverActor,
+        'ord-mv-3',
+        'ff-1',
+        {} as any,
+      );
       expect(mockPrisma.orderDeliveryGroup.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { status: DeliveryGroupStatus.PARTIALLY_PICKED_UP } }),
+        expect.objectContaining({
+          data: { status: DeliveryGroupStatus.PARTIALLY_PICKED_UP },
+        }),
       );
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
         'order.fulfillment.updated',
@@ -414,29 +508,69 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
 
       // Stop 3 pickup (Stops 1 & 2 already picked up) -> PICKED_UP
       jest.clearAllMocks();
-      mockPrisma.driver.findUnique.mockResolvedValue({ id: 'driver-1', userId: 'user-driver-1' });
-      mockOrdersRepo.findById.mockResolvedValue({ ...baseOrder, revision: 4, status: OrderStatus.PICKED_UP });
+      mockPrisma.driver.findUnique.mockResolvedValue({
+        id: 'driver-1',
+        userId: 'user-driver-1',
+      });
+      mockOrdersRepo.findById.mockResolvedValue({
+        ...baseOrder,
+        revision: 4,
+        status: OrderStatus.PICKED_UP,
+      });
       mockPrisma.orderVendorFulfillment.findFirst.mockResolvedValue({
         id: 'ff-3',
         orderId: 'ord-mv-3',
         status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
         readyAt: new Date(),
         pickedUpAt: null,
-        groups: [{ deliveryGroupId: 'grp-1', deliveryGroup: { id: 'grp-1', primaryDriverId: 'driver-1', assistDriverId: null } }],
+        groups: [
+          {
+            deliveryGroupId: 'grp-1',
+            deliveryGroup: {
+              id: 'grp-1',
+              primaryDriverId: 'driver-1',
+              assistDriverId: null,
+            },
+          },
+        ],
       });
       mockPrisma.orderDeliveryGroupItem.findMany
-        .mockResolvedValueOnce([makeStop('ff-1', 1, true, 'Branch 1'), makeStop('ff-2', 2, true, 'Branch 2'), makeStop('ff-3', 3, false, 'Branch 3')])
-        .mockResolvedValueOnce([makeStop('ff-1', 1, true, 'Branch 1'), makeStop('ff-2', 2, true, 'Branch 2'), makeStop('ff-3', 3, true, 'Branch 3')]);
+        .mockResolvedValueOnce([
+          makeStop('ff-1', 1, true, 'Branch 1'),
+          makeStop('ff-2', 2, true, 'Branch 2'),
+          makeStop('ff-3', 3, false, 'Branch 3'),
+        ])
+        .mockResolvedValueOnce([
+          makeStop('ff-1', 1, true, 'Branch 1'),
+          makeStop('ff-2', 2, true, 'Branch 2'),
+          makeStop('ff-3', 3, true, 'Branch 3'),
+        ]);
       mockPrisma.orderDeliveryGroup.findMany.mockResolvedValue([
-        { id: 'grp-1', status: DeliveryGroupStatus.PICKED_UP, primaryDriverId: 'driver-1', assistDriverId: null },
+        {
+          id: 'grp-1',
+          status: DeliveryGroupStatus.PICKED_UP,
+          primaryDriverId: 'driver-1',
+          assistDriverId: null,
+        },
       ]);
-      mockPrisma.order.findUnique.mockResolvedValue({ ...baseOrder, status: OrderStatus.PARTIALLY_PICKED_UP, revision: 3 });
+      mockPrisma.order.findUnique.mockResolvedValue({
+        ...baseOrder,
+        status: OrderStatus.PARTIALLY_PICKED_UP,
+        revision: 3,
+      });
       mockOrdersRepo.updateStatus.mockResolvedValue({ revision: 4 });
 
-      await stateService.driverConfirmFulfillmentPickup(driverActor, 'ord-mv-3', 'ff-3', {} as any);
+      await stateService.driverConfirmFulfillmentPickup(
+        driverActor,
+        'ord-mv-3',
+        'ff-3',
+        {} as any,
+      );
       expect(mockPrisma.orderDeliveryGroup.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: DeliveryGroupStatus.PICKED_UP }),
+          data: expect.objectContaining({
+            status: DeliveryGroupStatus.PICKED_UP,
+          }),
         }),
       );
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
@@ -460,13 +594,27 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         status: OrderStatus.DRIVER_ASSIGNED,
         vendorId: null,
         vendorFulfillments: [
-          { id: 'ff-a', vendorId: 'vendor-a', vendorBranchId: 'br-a', status: OrderVendorFulfillmentStatus.ACCEPTED },
-          { id: 'ff-b', vendorId: 'vendor-b', vendorBranchId: 'br-b', status: OrderVendorFulfillmentStatus.ACCEPTED },
+          {
+            id: 'ff-a',
+            vendorId: 'vendor-a',
+            vendorBranchId: 'br-a',
+            status: OrderVendorFulfillmentStatus.ACCEPTED,
+          },
+          {
+            id: 'ff-b',
+            vendorId: 'vendor-b',
+            vendorBranchId: 'br-b',
+            status: OrderVendorFulfillmentStatus.ACCEPTED,
+          },
         ],
       };
       mockOrdersRepo.findById.mockResolvedValue(mvOrder);
-      mockPrisma.user.findUnique.mockResolvedValue({ permissions: ['MANAGE_ORDERS'] });
-      mockPrisma.orderDeliveryGroupItem.findFirst.mockResolvedValue({ deliveryGroupId: 'grp-1' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        permissions: ['MANAGE_ORDERS'],
+      });
+      mockPrisma.orderDeliveryGroupItem.findFirst.mockResolvedValue({
+        deliveryGroupId: 'grp-1',
+      });
       mockPrisma.orderDeliveryGroup.findUnique.mockResolvedValue({
         id: 'grp-1',
         sequence: 1,
@@ -489,19 +637,33 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         fulfillmentId: 'ff-b',
       });
 
-      expect(mockPrisma.orderVendorFulfillment.updateMany).toHaveBeenCalledTimes(1);
+      expect(
+        mockPrisma.orderVendorFulfillment.updateMany,
+      ).toHaveBeenCalledTimes(1);
       expect(mockPrisma.orderVendorFulfillment.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ id: 'ff-b' }) }),
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'ff-b' }),
+        }),
       );
 
       // Branch-scoped manager at Branch A cannot update Branch B of the same vendor
       mockPrisma.vendorMember.findMany.mockResolvedValue([
-        { id: 'vm-a', vendorId: 'vendor-a', branchId: 'br-a', role: VendorMemberRole.MANAGER },
+        {
+          id: 'vm-a',
+          vendorId: 'vendor-a',
+          branchId: 'br-a',
+          role: VendorMemberRole.MANAGER,
+        },
       ]);
       mockOrdersRepo.findById.mockResolvedValue({
         ...mvOrder,
         vendorFulfillments: [
-          { id: 'ff-a2', vendorId: 'vendor-a', vendorBranchId: 'br-a2', status: OrderVendorFulfillmentStatus.ACCEPTED },
+          {
+            id: 'ff-a2',
+            vendorId: 'vendor-a',
+            vendorBranchId: 'br-a2',
+            status: OrderVendorFulfillmentStatus.ACCEPTED,
+          },
         ],
       });
       await expect(
@@ -516,7 +678,11 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
   describe('2. Multi-vendor coordinate normalization & single-order creation (OrdersMultiVendorService)', () => {
     it('coerces stringified deliveryLocation coordinates from client API DTOs into numeric coordinates', async () => {
       const mockPrisma: any = {
-        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', coinBalance: 0 }) },
+        customer: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ id: 'cust-1', coinBalance: 0 }),
+        },
         vendor: {
           findUnique: jest.fn().mockResolvedValue({
             id: 'v1',
@@ -536,8 +702,18 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         getZoneAtLocation: jest.fn().mockResolvedValue({ id: 'zone-1' }),
         getNearestOpenBranchLocation: jest
           .fn()
-          .mockResolvedValueOnce({ id: 'b1', lng: 31.2, lat: 30.0, commissionRate: 15 })
-          .mockResolvedValueOnce({ id: 'b2', lng: 31.21, lat: 30.01, commissionRate: 10 }),
+          .mockResolvedValueOnce({
+            id: 'b1',
+            lng: 31.2,
+            lat: 30.0,
+            commissionRate: 15,
+          })
+          .mockResolvedValueOnce({
+            id: 'b2',
+            lng: 31.21,
+            lat: 30.01,
+            commissionRate: 10,
+          }),
       };
       const mockCart: any = {
         validateForCheckout: jest.fn().mockResolvedValue({
@@ -566,7 +742,12 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
               sequence: 1,
               stops: [
                 { vendorId: 'v1', vendorBranchId: 'b1', lng: 31.2, lat: 30.0 },
-                { vendorId: 'v2', vendorBranchId: 'b2', lng: 31.21, lat: 30.01 },
+                {
+                  vendorId: 'v2',
+                  vendorBranchId: 'b2',
+                  lng: 31.21,
+                  lat: 30.01,
+                },
               ],
               farthestToCustomerKm: 4.5,
               extraVendorCount: 1,
@@ -695,6 +876,14 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
           multiVendorDeliveryDiscountPercent: 20,
         }),
         calculateDeliveryFee: calcFeeMock,
+        calculateGroupDeliveryFee: jest
+          .fn()
+          .mockImplementation(async (dists: number[]) => {
+            const fees = await Promise.all(dists.map((d) => calcFeeMock(d)));
+            if (fees.length <= 1) return fees[0] ?? 15;
+            const rawSum = fees.reduce((a, b) => a + b, 0);
+            return Math.max(15, Math.round(rawSum * 0.8));
+          }),
       };
 
       const svcCombined = new OrdersMultiVendorService(
@@ -858,8 +1047,16 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
     it('excludes rejected vendor payout from Super Admin cashToPayStore while showing all 3 vendors & items', async () => {
       const ordersService = new OrdersService(
         {} as any,
-        { vendorMember: { findMany: jest.fn() }, driver: { findUnique: jest.fn() } } as any,
-        { getSettings: jest.fn().mockResolvedValue({ deliveryCommissionRate: 20, driverManagerCommissionRate: 10 }) } as any,
+        {
+          vendorMember: { findMany: jest.fn() },
+          driver: { findUnique: jest.fn() },
+        } as any,
+        {
+          getSettings: jest.fn().mockResolvedValue({
+            deliveryCommissionRate: 20,
+            driverManagerCommissionRate: 10,
+          }),
+        } as any,
       );
 
       const enriched = await (ordersService as any).enrichWithAdminHelpers({
@@ -880,7 +1077,11 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
             status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
             subtotal: 500,
             commissionRate: 20,
-            vendor: { storeName: 'Store 1', storeNameAr: 'متجر 1', isContracted: true },
+            vendor: {
+              storeName: 'Store 1',
+              storeNameAr: 'متجر 1',
+              isContracted: true,
+            },
             vendorBranch: { name: 'B1', isContracted: true },
           },
           {
@@ -889,7 +1090,11 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
             status: OrderVendorFulfillmentStatus.READY_FOR_PICKUP,
             subtotal: 200,
             commissionRate: 10,
-            vendor: { storeName: 'Store 2', storeNameAr: 'متجر 2', isContracted: false },
+            vendor: {
+              storeName: 'Store 2',
+              storeNameAr: 'متجر 2',
+              isContracted: false,
+            },
             vendorBranch: { name: 'B2', isContracted: false },
           },
           {
@@ -898,7 +1103,11 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
             status: OrderVendorFulfillmentStatus.REJECTED,
             subtotal: 300,
             commissionRate: 10,
-            vendor: { storeName: 'Store 3', storeNameAr: 'متجر 3', isContracted: false },
+            vendor: {
+              storeName: 'Store 3',
+              storeNameAr: 'متجر 3',
+              isContracted: false,
+            },
             vendorBranch: { name: 'B3', isContracted: false },
           },
         ],
@@ -916,11 +1125,13 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       const store = new Map<string, string>();
       const mockRedisClient: any = {
         get: jest.fn((k: string) => Promise.resolve(store.get(k) ?? null)),
-        set: jest.fn((k: string, v: string, _ex?: string, _ttl?: number, nx?: string) => {
-          if (nx === 'NX' && store.has(k)) return Promise.resolve(null);
-          store.set(k, v);
-          return Promise.resolve('OK');
-        }),
+        set: jest.fn(
+          (k: string, v: string, _ex?: string, _ttl?: number, nx?: string) => {
+            if (nx === 'NX' && store.has(k)) return Promise.resolve(null);
+            store.set(k, v);
+            return Promise.resolve('OK');
+          },
+        ),
         del: jest.fn((k: string) => {
           store.delete(k);
           return Promise.resolve(1);
@@ -999,10 +1210,12 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
             commissionRate: 10,
             pickedUpAt: null,
           }),
-          findMany: jest.fn().mockResolvedValue([
-            { status: OrderVendorFulfillmentStatus.REJECTED },
-            { status: OrderVendorFulfillmentStatus.REJECTED },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              { status: OrderVendorFulfillmentStatus.REJECTED },
+              { status: OrderVendorFulfillmentStatus.REJECTED },
+            ]),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
         order: {
@@ -1058,13 +1271,19 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       const mockCancellationService: any = {
         cancelOrder: jest
           .fn()
-          .mockRejectedValue(new BadRequestException('Order already cancelled')),
+          .mockRejectedValue(
+            new BadRequestException('Order already cancelled'),
+          ),
       };
       const mockDecision = new OrderVendorDecisionService(
         mockPrisma,
         mockOrdersRepo,
         mockCancellationService,
-        { getSettings: jest.fn().mockResolvedValue({ multiVendorDeliveryDiscountPercent: 20 }) } as any,
+        {
+          getSettings: jest
+            .fn()
+            .mockResolvedValue({ multiVendorDeliveryDiscountPercent: 20 }),
+        } as any,
         { emit: jest.fn() } as any,
       );
       jest.spyOn(mockDecision, 'findById').mockResolvedValue({
@@ -1077,7 +1296,10 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
           code: 'TIMEOUT',
           reason: 'Timed out',
         }),
-      ).resolves.toMatchObject({ id: 'ff-2', status: OrderVendorFulfillmentStatus.REJECTED });
+      ).resolves.toMatchObject({
+        id: 'ff-2',
+        status: OrderVendorFulfillmentStatus.REJECTED,
+      });
     });
 
     it('normalizes and validates PlaceMultiVendorOrderDto coordinates for numbers and legacy string tuples', async () => {
@@ -1117,7 +1339,9 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
 
       expect(add).toHaveBeenCalledWith(
         EVENT_JOBS.NOTIFY,
-        expect.objectContaining({ dto: expect.objectContaining({ userId: 'cust-u-1' }) }),
+        expect.objectContaining({
+          dto: expect.objectContaining({ userId: 'cust-u-1' }),
+        }),
       );
 
       const notifSvc = new NotificationsService(
@@ -1135,11 +1359,17 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
             }),
           },
           user: {
-            findUnique: jest.fn().mockRejectedValue(new Error('Push lookup transient error')),
+            findUnique: jest
+              .fn()
+              .mockRejectedValue(new Error('Push lookup transient error')),
           },
         } as any,
         {} as any,
-        { emitToUser: jest.fn().mockRejectedValue(new Error('Socket transient error')) } as any,
+        {
+          emitToUser: jest
+            .fn()
+            .mockRejectedValue(new Error('Socket transient error')),
+        } as any,
       );
 
       await expect(
@@ -1178,41 +1408,32 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       );
 
       await expect(
-        svc.estimate(
-          { sub: 'user-cust', role: Role.CUSTOMER } as any,
-          {
-            vendorIds: ['v1', 'v2', 'v3'],
-            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
-            deliveryAddress: 'Nasr City',
-            deliveryLocation: [31.33, 30.0444],
-          },
-        ),
+        svc.estimate({ sub: 'user-cust', role: Role.CUSTOMER } as any, {
+          vendorIds: ['v1', 'v2', 'v3'],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Nasr City',
+          deliveryLocation: [31.33, 30.0444],
+        }),
       ).rejects.toThrow(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
 
       await expect(
-        svc.placeOrder(
-          { sub: 'user-cust', role: Role.CUSTOMER } as any,
-          {
-            vendorIds: ['v1', 'v2', 'v3'],
-            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
-            deliveryAddress: 'Nasr City',
-            deliveryLocation: [31.33, 30.0444],
-          },
-        ),
+        svc.placeOrder({ sub: 'user-cust', role: Role.CUSTOMER } as any, {
+          vendorIds: ['v1', 'v2', 'v3'],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Nasr City',
+          deliveryLocation: [31.33, 30.0444],
+        }),
       ).rejects.toThrow(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
 
       // Setting maxMultiVendorVendors = 1 disables multi-vendor checkout (>= 2)
       mockSettings.getSettings.mockResolvedValue({ maxMultiVendorVendors: 1 });
       await expect(
-        svc.estimate(
-          { sub: 'user-cust', role: Role.CUSTOMER } as any,
-          {
-            vendorIds: ['v1', 'v2'],
-            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
-            deliveryAddress: 'Nasr City',
-            deliveryLocation: [31.33, 30.0444],
-          },
-        ),
+        svc.estimate({ sub: 'user-cust', role: Role.CUSTOMER } as any, {
+          vendorIds: ['v1', 'v2'],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Nasr City',
+          deliveryLocation: [31.33, 30.0444],
+        }),
       ).rejects.toThrow(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
 
       expect(mockPrisma.customer.findUnique).not.toHaveBeenCalled();
@@ -1427,7 +1648,11 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       };
 
       const mockPrisma: any = {
-        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', coinBalance: 0 }) },
+        customer: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ id: 'cust-1', coinBalance: 0 }),
+        },
         vendor: {
           findUnique: jest.fn().mockResolvedValue({
             id: 'v1',
@@ -1436,9 +1661,11 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
             isContracted: true,
             commissionRate: 10,
           }),
-          findMany: jest.fn().mockResolvedValue([
-            { id: 'v1', isContracted: true, commissionRate: 10 },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([
+              { id: 'v1', isContracted: true, commissionRate: 10 },
+            ]),
         },
         vendorBranch: {
           findMany: jest.fn().mockResolvedValue([
@@ -1511,7 +1738,9 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       const placed = await checkoutSvc.placeOrder(actor, dto);
       expect(placed).toEqual({ id: 'order-split-1' });
       expect(createdFulfillments).toHaveLength(2);
-      expect(createdFulfillments.map((f) => [f.vendorId, f.vendorBranchId])).toEqual([
+      expect(
+        createdFulfillments.map((f) => [f.vendorId, f.vendorBranchId]),
+      ).toEqual([
         ['v1', 'b1'],
         ['v1', 'b2'],
       ]);
@@ -1531,8 +1760,9 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
           baseDeliveryFeeOverride: null,
           minOrderAmountOverride: 0,
         }),
-        getNearestOpenBranchLocation: jest.fn().mockImplementation(
-          async (vendorId: string) =>
+        getNearestOpenBranchLocation: jest
+          .fn()
+          .mockImplementation(async (vendorId: string) =>
             vendorId === 'v2'
               ? {
                   id: 'b2',
@@ -1542,7 +1772,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
                   isContracted: true,
                 }
               : null,
-        ),
+          ),
         getOpenBranchesWithProductAvailability: jest.fn().mockResolvedValue([
           {
             id: 'b1a',
@@ -1572,14 +1802,32 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
               ? {
                   subtotal: 100,
                   items: [
-                    { productId: 'p1', unitPrice: 50, quantity: 1, totalPrice: 50, options: [] },
-                    { productId: 'p2', unitPrice: 50, quantity: 1, totalPrice: 50, options: [] },
+                    {
+                      productId: 'p1',
+                      unitPrice: 50,
+                      quantity: 1,
+                      totalPrice: 50,
+                      options: [],
+                    },
+                    {
+                      productId: 'p2',
+                      unitPrice: 50,
+                      quantity: 1,
+                      totalPrice: 50,
+                      options: [],
+                    },
                   ],
                 }
               : {
                   subtotal: 60,
                   items: [
-                    { productId: 'p3', unitPrice: 60, quantity: 1, totalPrice: 60, options: [] },
+                    {
+                      productId: 'p3',
+                      unitPrice: 60,
+                      quantity: 1,
+                      totalPrice: 60,
+                      options: [],
+                    },
                   ],
                 },
         })),
@@ -1599,9 +1847,17 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       };
 
       const mockPrisma: any = {
-        customer: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', coinBalance: 0 }) },
+        customer: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ id: 'cust-1', coinBalance: 0 }),
+        },
         vendor: {
-          findUnique: jest.fn().mockResolvedValue({ status: 'OPEN', deletedAt: null, isContracted: true }),
+          findUnique: jest.fn().mockResolvedValue({
+            status: 'OPEN',
+            deletedAt: null,
+            isContracted: true,
+          }),
           findMany: jest.fn().mockResolvedValue([
             { id: 'v1', isContracted: true },
             { id: 'v2', isContracted: true },
@@ -1648,15 +1904,12 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
 
       // 2 unique vendors, 3 unique branches > max 2 -> rejected!
       await expect(
-        svc.estimate(
-          { sub: 'user-cust', role: Role.CUSTOMER } as any,
-          {
-            vendorIds: ['v1', 'v2'],
-            paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
-            deliveryAddress: 'Nasr City',
-            deliveryLocation: [31.33, 30.0444],
-          },
-        ),
+        svc.estimate({ sub: 'user-cust', role: Role.CUSTOMER } as any, {
+          vendorIds: ['v1', 'v2'],
+          paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
+          deliveryAddress: 'Nasr City',
+          deliveryLocation: [31.33, 30.0444],
+        }),
       ).rejects.toThrow(OrderErrors.MULTI_VENDOR_LIMIT_EXCEEDED);
 
       // Raising limit to 3 allows the 2-vendor / 3-branch checkout
@@ -1695,22 +1948,42 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
             vendorId: 'v1',
             subtotal: 100,
             status: 'PENDING',
-            vendor: { storeName: 'Al Baik', storeNameAr: 'البيك', isContracted: true },
-            vendorBranch: { name: 'Nasr City', nameAr: 'مدينة نصر', isContracted: true },
+            vendor: {
+              storeName: 'Al Baik',
+              storeNameAr: 'البيك',
+              isContracted: true,
+            },
+            vendorBranch: {
+              name: 'Nasr City',
+              nameAr: 'مدينة نصر',
+              isContracted: true,
+            },
           },
           {
             id: 'f2',
             vendorId: 'v1',
             subtotal: 70,
             status: 'PENDING',
-            vendor: { storeName: 'Al Baik', storeNameAr: 'البيك', isContracted: true },
-            vendorBranch: { name: 'Maadi', nameAr: 'المعادي', isContracted: true },
+            vendor: {
+              storeName: 'Al Baik',
+              storeNameAr: 'البيك',
+              isContracted: true,
+            },
+            vendorBranch: {
+              name: 'Maadi',
+              nameAr: 'المعادي',
+              isContracted: true,
+            },
           },
         ],
       });
 
-      expect(enriched.vendor.storeName).toBe('Al Baik (Nasr City) + Al Baik (Maadi)');
-      expect(enriched.vendor.storeNameAr).toBe('البيك (مدينة نصر) + البيك (المعادي)');
+      expect(enriched.vendor.storeName).toBe(
+        'Al Baik (Nasr City) + Al Baik (Maadi)',
+      );
+      expect(enriched.vendor.storeNameAr).toBe(
+        'البيك (مدينة نصر) + البيك (المعادي)',
+      );
     });
 
     it('resolves branch, commission override, distanceKm, decidedByUserId, and branch vendor users in adminPlaceDirectOrder', async () => {
@@ -1720,8 +1993,12 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         status: OrderStatus.ACCEPTED,
         created: true,
       });
-      const getVendorUserIdsMock = jest.fn().mockResolvedValue(['u-branch-mgr']);
-      const fulfillmentUpdateManyMock = jest.fn().mockResolvedValue({ count: 1 });
+      const getVendorUserIdsMock = jest
+        .fn()
+        .mockResolvedValue(['u-branch-mgr']);
+      const fulfillmentUpdateManyMock = jest
+        .fn()
+        .mockResolvedValue({ count: 1 });
       const groupUpdateManyMock = jest.fn().mockResolvedValue({ count: 1 });
 
       const checkoutSvc = new OrdersCheckoutService(
@@ -1754,7 +2031,9 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         { emit: jest.fn() } as any,
         {
           customer: {
-            findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', userId: 'u-cust-1' }),
+            findUnique: jest
+              .fn()
+              .mockResolvedValue({ id: 'cust-1', userId: 'u-cust-1' }),
           },
           order: {
             count: jest.fn().mockResolvedValue(0),
@@ -1812,9 +2091,15 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
     it('accumulates owner notification subtotals across owned stores/branches and syncs late-accepted Group 2+ drivers into chat', async () => {
       const emitToUser = jest.fn().mockResolvedValue(undefined);
       const createMany = jest.fn().mockResolvedValue({ count: 2 });
-      const addParticipantToOrderConversation = jest.fn().mockResolvedValue(undefined);
-      const syncOrderDriverParticipants = jest.fn().mockResolvedValue(undefined);
-      const createSystemOrderConversation = jest.fn().mockResolvedValue(undefined);
+      const addParticipantToOrderConversation = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      const syncOrderDriverParticipants = jest
+        .fn()
+        .mockResolvedValue(undefined);
+      const createSystemOrderConversation = jest
+        .fn()
+        .mockResolvedValue(undefined);
 
       const prisma: any = {
         orderVendorFulfillment: {
@@ -1825,10 +2110,30 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         },
         vendorMember: {
           findMany: jest.fn().mockResolvedValue([
-            { userId: 'u-shared-owner', vendorId: 'v-1', role: 'OWNER', branchId: null },
-            { userId: 'u-shared-owner', vendorId: 'v-2', role: 'OWNER', branchId: null },
-            { userId: 'u-staff-b', vendorId: 'v-2', role: 'STAFF', branchId: 'br-2' },
-            { userId: 'u-other-branch', vendorId: 'v-2', role: 'STAFF', branchId: 'br-other' },
+            {
+              userId: 'u-shared-owner',
+              vendorId: 'v-1',
+              role: 'OWNER',
+              branchId: null,
+            },
+            {
+              userId: 'u-shared-owner',
+              vendorId: 'v-2',
+              role: 'OWNER',
+              branchId: null,
+            },
+            {
+              userId: 'u-staff-b',
+              vendorId: 'v-2',
+              role: 'STAFF',
+              branchId: 'br-2',
+            },
+            {
+              userId: 'u-other-branch',
+              vendorId: 'v-2',
+              role: 'STAFF',
+              branchId: 'br-other',
+            },
           ]),
         },
         order: {
@@ -1856,7 +2161,9 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
           syncOrderDriverParticipants,
         } as any,
         prisma,
-        { syncDriverActiveOrders: jest.fn().mockResolvedValue(undefined) } as any,
+        {
+          syncDriverActiveOrders: jest.fn().mockResolvedValue(undefined),
+        } as any,
       );
 
       await handler.handleOrderCreated({
@@ -1870,7 +2177,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         paymentMethod: PaymentMethod.CASH_ON_DELIVERY,
         orderType: 'STANDARD',
         revision: 0,
-      } as any);
+      });
 
       expect(emitToUser).toHaveBeenCalledWith(
         'u-shared-owner',
@@ -1946,15 +2253,31 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       await reviews.submitReview(
         { sub: 'u-cust-1', role: Role.CUSTOMER } as any,
         'ord-rev-mv',
-        { vendorRating: 5, driverRating: 4, comment: 'Great' } as any,
+        { vendorRating: 5, driverRating: 4, comment: 'Great' },
       );
 
       expect(createMany).toHaveBeenCalledWith({
         data: expect.arrayContaining([
-          expect.objectContaining({ fulfillmentId: 'ff-1', vendorId: 'v-1', rating: 5 }),
-          expect.objectContaining({ fulfillmentId: 'ff-2', vendorId: 'v-2', rating: 5 }),
-          expect.objectContaining({ deliveryGroupId: 'grp-1', driverId: 'drv-1', rating: 4 }),
-          expect.objectContaining({ deliveryGroupId: 'grp-2', driverId: 'drv-2', rating: 4 }),
+          expect.objectContaining({
+            fulfillmentId: 'ff-1',
+            vendorId: 'v-1',
+            rating: 5,
+          }),
+          expect.objectContaining({
+            fulfillmentId: 'ff-2',
+            vendorId: 'v-2',
+            rating: 5,
+          }),
+          expect.objectContaining({
+            deliveryGroupId: 'grp-1',
+            driverId: 'drv-1',
+            rating: 4,
+          }),
+          expect.objectContaining({
+            deliveryGroupId: 'grp-2',
+            driverId: 'drv-2',
+            rating: 4,
+          }),
         ]),
       });
     });
@@ -1965,7 +2288,15 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
           {
             id: 'ord-b1',
             status: OrderStatus.PENDING,
-            vendorFulfillments: [{ id: 'ff-b1', vendorId: 'v-b', vendorBranchId: 'br-b', status: 'PENDING', subtotal: 90 }],
+            vendorFulfillments: [
+              {
+                id: 'ff-b1',
+                vendorId: 'v-b',
+                vendorBranchId: 'br-b',
+                status: 'PENDING',
+                subtotal: 90,
+              },
+            ],
           },
         ],
         total: 1,
@@ -1983,11 +2314,9 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
         user: { findUnique: jest.fn().mockResolvedValue({ permissions: [] }) },
       };
       const ordersRepo: any = { findMany };
-      const ordersSvc = new OrdersService(
-        ordersRepo,
-        prisma,
-        { getSettings: jest.fn().mockResolvedValue({}) } as any,
-      );
+      const ordersSvc = new OrdersService(ordersRepo, prisma, {
+        getSettings: jest.fn().mockResolvedValue({}),
+      } as any);
       const projectSpy = jest
         .spyOn(ordersSvc, 'projectOrderForRole')
         .mockImplementation(async (o) => o);
@@ -1995,7 +2324,7 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
       const res = await ordersSvc.getVendorOrders(
         { sub: 'u-multi', role: Role.VENDOR_MEMBER } as any,
         'my',
-        {} as any,
+        {},
       );
 
       expect(res.total).toBe(1);

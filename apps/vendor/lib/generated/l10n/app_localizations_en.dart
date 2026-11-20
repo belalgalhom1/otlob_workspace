@@ -1638,7 +1638,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get baseDeliveryFee => 'Base Delivery Fee';
 
   @override
-  String get extraVendorDeliveryFee => 'Extra Vendor Delivery Fee';
+  String get multiVendorDeliveryDiscountPercent =>
+      'Multi-Vendor Delivery Discount (%)';
 
   @override
   String get pricePerKm => 'Price Per Km';

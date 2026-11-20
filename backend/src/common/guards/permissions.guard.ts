@@ -8,7 +8,11 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Permission } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { PERMISSIONS_KEY, PERMISSIONS_MODE_KEY, PermissionsMode } from '../decorators/permissions.decorator';
+import {
+  PERMISSIONS_KEY,
+  PERMISSIONS_MODE_KEY,
+  PermissionsMode,
+} from '../decorators/permissions.decorator';
 import { JwtAccessPayload } from '../interfaces/jwt-payload.interface';
 import { Role } from '@prisma/client';
 import { CommonErrors } from '../constants/response.constants';
@@ -45,8 +49,7 @@ export class PermissionsGuard implements CanActivate {
         select: { permissions: true },
       });
 
-      if (!dbUser)
-        throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
+      if (!dbUser) throw new UnauthorizedException(CommonErrors.UNAUTHORIZED);
 
       const effectivePermissions = new Set<Permission>(dbUser.permissions);
       if (user.role === Role.DRIVER_MANAGER) {

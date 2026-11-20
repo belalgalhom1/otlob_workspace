@@ -150,7 +150,7 @@ export class PlatformSettingsService {
       defaultTaxRate: s.defaultTaxRate,
       baseDeliveryFee: s.baseDeliveryFee,
       multiVendorDeliveryDiscountPercent:
-        (s as any).multiVendorDeliveryDiscountPercent ?? 20,
+        s.multiVendorDeliveryDiscountPercent ?? 20,
       maxMultiVendorVendors: s.maxMultiVendorVendors,
       customOrderPlatformFee: s.customOrderPlatformFee,
       pricePerKm: s.pricePerKm,
@@ -299,6 +299,19 @@ export class PlatformSettingsService {
       isStandardOrder,
       vehicleType,
     });
+  }
+
+  async calculateGroupDeliveryFee(
+    stopsDistancesKm: number[],
+    zoneBaseDeliveryFeeOverride?: number | null,
+    prefetchedSettings?: PlatformSetting,
+  ): Promise<number> {
+    const s = prefetchedSettings ?? (await this.getSettings());
+    return this.fees.calculateGroupDeliveryFee(
+      s,
+      stopsDistancesKm,
+      zoneBaseDeliveryFeeOverride,
+    );
   }
 
   async getVehiclePerKm(vehicleType: string): Promise<number | null> {

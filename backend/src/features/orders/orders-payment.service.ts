@@ -51,15 +51,23 @@ export class OrdersPaymentService {
     ) {
       throw new BadRequestException(OrderErrors.NOT_MOBILE_WALLET);
     }
-    const groups = (((order as any).deliveryGroups ?? []) as Array<{
-      id: string;
-      sequence: number;
-      status: DeliveryGroupStatus;
-      isPaymentCollector?: boolean;
-      primaryDriverId: string | null;
-      primaryDriver?: { userId?: string | null; user?: { id?: string } | null } | null;
-      assistDriver?: { userId?: string | null; user?: { id?: string } | null } | null;
-    }>).filter(Boolean);
+    const groups = (
+      ((order as any).deliveryGroups ?? []) as Array<{
+        id: string;
+        sequence: number;
+        status: DeliveryGroupStatus;
+        isPaymentCollector?: boolean;
+        primaryDriverId: string | null;
+        primaryDriver?: {
+          userId?: string | null;
+          user?: { id?: string } | null;
+        } | null;
+        assistDriver?: {
+          userId?: string | null;
+          user?: { id?: string } | null;
+        } | null;
+      }>
+    ).filter(Boolean);
     const hasPendingPaymentGroup = groups.some(
       (g) => g.status === DeliveryGroupStatus.PENDING_PAYMENT,
     );
@@ -112,7 +120,9 @@ export class OrdersPaymentService {
     );
 
     const activePaidGroups = groups
-      .filter((g) => g.status !== DeliveryGroupStatus.CANCELLED && g.primaryDriverId)
+      .filter(
+        (g) => g.status !== DeliveryGroupStatus.CANCELLED && g.primaryDriverId,
+      )
       .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
     const collectorGroup =
       activePaidGroups.find((g) => g.isPaymentCollector) ??
@@ -180,21 +190,29 @@ export class OrdersPaymentService {
     // deny the order's payment. Secondary drivers must never confirm or deny
     // payment for the order or alter the primary collector's delivery.
     const groups = (
-      (((order as any).deliveryGroups ?? []) as Array<{
+      ((order as any).deliveryGroups ?? []) as Array<{
         id: string;
         sequence: number;
         status: DeliveryGroupStatus;
         isPaymentCollector?: boolean;
         primaryDriverId: string | null;
-        primaryDriver?: { userId?: string | null; user?: { id?: string } | null } | null;
-        assistDriver?: { userId?: string | null; user?: { id?: string } | null } | null;
+        primaryDriver?: {
+          userId?: string | null;
+          user?: { id?: string } | null;
+        } | null;
+        assistDriver?: {
+          userId?: string | null;
+          user?: { id?: string } | null;
+        } | null;
         pickedUpAt: Date | null;
         items?: any[];
-      }>)
+      }>
     ).filter(Boolean);
 
     const activeGroups = groups
-      .filter((g) => g.status !== DeliveryGroupStatus.CANCELLED && g.primaryDriverId)
+      .filter(
+        (g) => g.status !== DeliveryGroupStatus.CANCELLED && g.primaryDriverId,
+      )
       .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
 
     const collectorGroup =
@@ -217,7 +235,11 @@ export class OrdersPaymentService {
     );
     const distinctVendorIds = Array.from(
       new Set(
-        (((order as any).vendorFulfillments ?? []) as Array<{ vendorId: string }>)
+        (
+          ((order as any).vendorFulfillments ?? []) as Array<{
+            vendorId: string;
+          }>
+        )
           .map((f) => f.vendorId)
           .filter(Boolean),
       ),

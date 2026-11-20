@@ -354,25 +354,29 @@ export class CustomersService {
         paymentMethod: true,
         createdAt: true,
         vendorFulfillments: {
-          select: { vendor: { select: { id: true, storeName: true, logo: true } } },
+          select: {
+            vendor: { select: { id: true, storeName: true, logo: true } },
+          },
         },
       },
     });
-    const recentOrders = rawRecentOrders.map(({ vendorFulfillments, ...o }) => ({
-      ...o,
-      vendor:
-        vendorFulfillments.length === 1
-          ? vendorFulfillments[0].vendor
-          : vendorFulfillments.length > 1
-            ? {
-                id: 'multi-vendor',
-                storeName: vendorFulfillments
-                  .map((f) => f.vendor.storeName)
-                  .join(' + '),
-                logo: vendorFulfillments[0].vendor?.logo ?? null,
-              }
-            : null,
-    }));
+    const recentOrders = rawRecentOrders.map(
+      ({ vendorFulfillments, ...o }) => ({
+        ...o,
+        vendor:
+          vendorFulfillments.length === 1
+            ? vendorFulfillments[0].vendor
+            : vendorFulfillments.length > 1
+              ? {
+                  id: 'multi-vendor',
+                  storeName: vendorFulfillments
+                    .map((f) => f.vendor.storeName)
+                    .join(' + '),
+                  logo: vendorFulfillments[0].vendor?.logo ?? null,
+                }
+              : null,
+      }),
+    );
 
     return { ...customer, recentOrders };
   }
@@ -477,7 +481,9 @@ export class CustomersService {
           createdAt: true,
           actualDeliveryTime: true,
           vendorFulfillments: {
-            select: { vendor: { select: { id: true, storeName: true, logo: true } } },
+            select: {
+              vendor: { select: { id: true, storeName: true, logo: true } },
+            },
           },
           deliveryGroups: {
             orderBy: { sequence: 'asc' },
@@ -497,31 +503,34 @@ export class CustomersService {
       this.prisma.order.count({ where: { customerId } }),
     ]);
 
-    const orders = rawOrders.map(({ vendorFulfillments, deliveryGroups, ...o }) => {
-      const driverRaw = deliveryGroups.find((g) => g.primaryDriver)?.primaryDriver ?? null;
-      return {
-        ...o,
-        vendor:
-          vendorFulfillments.length === 1
-            ? vendorFulfillments[0].vendor
-            : vendorFulfillments.length > 1
-              ? {
-                  id: 'multi-vendor',
-                  storeName: vendorFulfillments
-                    .map((f) => f.vendor.storeName)
-                    .join(' + '),
-                  logo: vendorFulfillments[0].vendor?.logo ?? null,
-                }
-              : null,
-        driver: driverRaw
-          ? {
-              id: driverRaw.id,
-              name: driverRaw.name,
-              avatar: driverRaw.avatar ?? driverRaw.user?.avatar ?? null,
-            }
-          : null,
-      };
-    });
+    const orders = rawOrders.map(
+      ({ vendorFulfillments, deliveryGroups, ...o }) => {
+        const driverRaw =
+          deliveryGroups.find((g) => g.primaryDriver)?.primaryDriver ?? null;
+        return {
+          ...o,
+          vendor:
+            vendorFulfillments.length === 1
+              ? vendorFulfillments[0].vendor
+              : vendorFulfillments.length > 1
+                ? {
+                    id: 'multi-vendor',
+                    storeName: vendorFulfillments
+                      .map((f) => f.vendor.storeName)
+                      .join(' + '),
+                    logo: vendorFulfillments[0].vendor?.logo ?? null,
+                  }
+                : null,
+          driver: driverRaw
+            ? {
+                id: driverRaw.id,
+                name: driverRaw.name,
+                avatar: driverRaw.avatar ?? driverRaw.user?.avatar ?? null,
+              }
+            : null,
+        };
+      },
+    );
 
     return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };
   }

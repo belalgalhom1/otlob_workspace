@@ -18,7 +18,12 @@ import {
   ProcessManualTransactionDto,
 } from './dto/wallet.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { VendorTransactionType, WalletTransactionType, Prisma, Role } from '@prisma/client';
+import {
+  VendorTransactionType,
+  WalletTransactionType,
+  Prisma,
+  Role,
+} from '@prisma/client';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { CommonSuccess } from 'src/common/constants/response.constants';
 import { DriverStatusChangedEvent } from 'src/common/events';
@@ -441,10 +446,7 @@ export class WalletService {
     if (actor?.role === Role.DRIVER_MANAGER) {
       // A driver manager may only touch the drivers assigned to them, not any
       // driver in the platform.
-      await this.driverManagersService.assertManagesDriver(
-        actor.sub,
-        driverId,
-      );
+      await this.driverManagersService.assertManagesDriver(actor.sub, driverId);
       const normalized = (dto.type || '').toString().toUpperCase();
       // Driver managers cannot adjust wallets - they can ONLY penalize / punish (deduct from wallet)
       if (normalized !== 'PENALTY') {
@@ -639,7 +641,8 @@ export class WalletService {
       (ownerType === 'vendor'
         ? order.vendorFulfillments.some((f) => f.vendorId === ownerId)
         : order.deliveryGroups.some(
-            (g) => g.primaryDriverId === ownerId || g.assistDriverId === ownerId,
+            (g) =>
+              g.primaryDriverId === ownerId || g.assistDriverId === ownerId,
           ))
     ) {
       return { orderId: order.id, referenceId: null };

@@ -252,10 +252,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         orderId: data.orderId,
         primaryDriverId: null,
         status: {
-          notIn: [
-            DeliveryGroupStatus.CANCELLED,
-            DeliveryGroupStatus.DELIVERED,
-          ],
+          notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
         },
       },
       select: { id: true },

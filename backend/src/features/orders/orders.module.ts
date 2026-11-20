@@ -29,11 +29,7 @@ import { DISPATCH_ORDER_WORKFLOW_PORT } from '../../common/orders/order-dispatch
 import { ORDER_ASSIST_CANCELLATION_PORT } from '../../common/orders/order-assist.ports';
 
 @Module({
-  imports: [
-    CartModule,
-    DispatchModule,
-    OrderSharedModule,
-  ],
+  imports: [CartModule, DispatchModule, OrderSharedModule],
   controllers: [OrdersController],
   providers: [
     OrdersService,

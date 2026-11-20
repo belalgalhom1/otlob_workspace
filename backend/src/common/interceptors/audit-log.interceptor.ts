@@ -82,7 +82,9 @@ export class AuditLogInterceptor implements NestInterceptor {
       new Set(
         fulfillments
           .map((f) => f.vendorId)
-          .filter((id): id is string => typeof id === 'string' && id.length > 0),
+          .filter(
+            (id): id is string => typeof id === 'string' && id.length > 0,
+          ),
       ),
     );
     if (
@@ -196,22 +198,16 @@ export class AuditLogInterceptor implements NestInterceptor {
 
               // Determine action type
               let actionType: AuditActionType = AuditActionType.OTHER;
-              if (method === 'POST')
-                actionType = AuditActionType.CREATE;
+              if (method === 'POST') actionType = AuditActionType.CREATE;
               else if (method === 'PUT' || method === 'PATCH')
                 actionType = AuditActionType.UPDATE;
-              else if (method === 'DELETE')
-                actionType = AuditActionType.DELETE;
+              else if (method === 'DELETE') actionType = AuditActionType.DELETE;
 
               let entityId = 'unknown';
               if (params && params.id) {
                 entityId = params.id;
-              } else if (
-                response &&
-                (response as Record<string, unknown>).id
-              ) {
-                entityId = (response as Record<string, unknown>)
-                  .id as string;
+              } else if (response && (response as Record<string, unknown>).id) {
+                entityId = (response as Record<string, unknown>).id as string;
               }
               if ((!entityId || entityId === 'unknown') && targetId) {
                 entityId = targetId;
@@ -228,8 +224,8 @@ export class AuditLogInterceptor implements NestInterceptor {
                   : null;
 
               const tokenVendorId =
-                (user as JwtAccessPayload & { vendorId?: string })
-                  .vendorId || null;
+                (user as JwtAccessPayload & { vendorId?: string }).vendorId ||
+                null;
               const vendorId =
                 snapshot?.vendorId !== undefined
                   ? snapshot.vendorId
@@ -308,9 +304,7 @@ export class AuditLogInterceptor implements NestInterceptor {
     const tokens =
       url
         .split('?')[0]
-        .match(
-          /[0-9a-fA-F]{8}-[0-9a-fA-F-]{10,}|[0-9a-fA-F-]{20,}/g,
-        ) ?? [];
+        .match(/[0-9a-fA-F]{8}-[0-9a-fA-F-]{10,}|[0-9a-fA-F-]{20,}/g) ?? [];
     if (tokens.length > 0) return tokens[tokens.length - 1];
     if (params) {
       for (const value of Object.values(params)) {
@@ -387,7 +381,7 @@ export class AuditLogInterceptor implements NestInterceptor {
       const select = Object.fromEntries(keys.map((k) => [k, true]));
       const current = await this.prisma.platformSetting.findUnique({
         where: { id: 'default' },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         select: select as any,
       });
       if (!current) return null;
@@ -549,7 +543,8 @@ export class AuditLogInterceptor implements NestInterceptor {
                 product.category?.name,
                 product.category?.nameAr,
               ),
-              Price: product.basePrice != null ? String(product.basePrice) : '—',
+              Price:
+                product.basePrice != null ? String(product.basePrice) : '—',
             },
           };
         }
@@ -747,10 +742,7 @@ export class AuditLogInterceptor implements NestInterceptor {
             oldValues: { name: this.bi(variant.name, variant.nameAr) },
             facts: {
               Variant: this.bi(variant.name, variant.nameAr),
-              Product: this.bi(
-                variant.product?.name,
-                variant.product?.nameAr,
-              ),
+              Product: this.bi(variant.product?.name, variant.product?.nameAr),
               Vendor: this.bi(
                 variant.product?.vendor?.storeName,
                 variant.product?.vendor?.storeNameAr,
@@ -779,15 +771,16 @@ export class AuditLogInterceptor implements NestInterceptor {
               product.vendor?.storeNameAr,
             ),
             Category: this.bi(product.category?.name, product.category?.nameAr),
-            Price:
-              product.basePrice != null ? String(product.basePrice) : '—',
+            Price: product.basePrice != null ? String(product.basePrice) : '—',
           },
         };
       }
       case 'MenuCategories': {
         const category = await this.prisma.menuCategory.findUnique({
           where: { id: targetId },
-          include: { vendor: { select: { storeName: true, storeNameAr: true } } },
+          include: {
+            vendor: { select: { storeName: true, storeNameAr: true } },
+          },
         });
         if (!category) return null;
         return {

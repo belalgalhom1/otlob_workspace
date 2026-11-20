@@ -4,7 +4,10 @@ import { Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
-import { QUEUES, MEDIA_JOBS } from '../../infrastructure/queue/queues.constants';
+import {
+  QUEUES,
+  MEDIA_JOBS,
+} from '../../infrastructure/queue/queues.constants';
 import { MEDIA_PRESETS, MediaPresetName } from './media.constants';
 
 export interface OptimizeImageJobPayload {
@@ -27,14 +30,18 @@ export class MediaProcessor extends WorkerHost {
       case MEDIA_JOBS.OPTIMIZE_IMAGE:
         return this.handleOptimizeImage(job.data as OptimizeImageJobPayload);
       case MEDIA_JOBS.GENERATE_THUMBNAIL:
-        return this.handleGenerateThumbnail(job.data as GenerateThumbnailJobPayload);
+        return this.handleGenerateThumbnail(
+          job.data as GenerateThumbnailJobPayload,
+        );
       default:
         this.logger.warn(`Unknown media job received: ${job.name}`);
         return null;
     }
   }
 
-  private async handleOptimizeImage(payload: OptimizeImageJobPayload): Promise<void> {
+  private async handleOptimizeImage(
+    payload: OptimizeImageJobPayload,
+  ): Promise<void> {
     const { filePath, presetName = 'default' } = payload;
     if (!filePath || !fs.existsSync(filePath)) {
       this.logger.warn(`Optimization skipped: file not found at ${filePath}`);
@@ -76,10 +83,14 @@ export class MediaProcessor extends WorkerHost {
     }
   }
 
-  private async handleGenerateThumbnail(payload: GenerateThumbnailJobPayload): Promise<void> {
+  private async handleGenerateThumbnail(
+    payload: GenerateThumbnailJobPayload,
+  ): Promise<void> {
     const { filePath, thumbPath, presetName = 'default' } = payload;
     if (!filePath || !fs.existsSync(filePath)) {
-      this.logger.warn(`Thumbnail skipped: source file not found at ${filePath}`);
+      this.logger.warn(
+        `Thumbnail skipped: source file not found at ${filePath}`,
+      );
       return;
     }
 

@@ -155,10 +155,7 @@ export class DriversController {
   @Roles(Role.DRIVER)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request a break (pending admin approval)' })
-  startBreak(
-    @CurrentUser('sub') userId: string,
-    @Body() dto?: StartBreakDto,
-  ) {
+  startBreak(@CurrentUser('sub') userId: string, @Body() dto?: StartBreakDto) {
     return this.driverBreaksService.startBreak(userId, dto);
   }
 
@@ -232,8 +229,7 @@ export class DriversController {
     @UploadedFile() file: Express.Multer.File,
     @Body() body?: { latitude?: number; longitude?: number },
   ) {
-    const latitude =
-      body?.latitude != null ? Number(body.latitude) : undefined;
+    const latitude = body?.latitude != null ? Number(body.latitude) : undefined;
     const longitude =
       body?.longitude != null ? Number(body.longitude) : undefined;
     return this.driverShiftExecutionService.startShift(
@@ -361,7 +357,9 @@ export class DriversController {
   @Post('breaks/:breakId/approve')
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '[Admin] Approve a break request (driver ON_BREAK)' })
+  @ApiOperation({
+    summary: '[Admin] Approve a break request (driver ON_BREAK)',
+  })
   adminApproveBreak(
     @CurrentUser('sub') reviewerId: string,
     @Param('breakId') breakId: string,
@@ -470,7 +468,8 @@ export class DriversController {
   @RequirePermissions(Permission.MANAGE_DRIVERS)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '[Admin] Grant a break manually (no request needed, quota bypassed)',
+    summary:
+      '[Admin] Grant a break manually (no request needed, quota bypassed)',
   })
   adminGrantBreak(
     @CurrentUser('sub') reviewerId: string,
@@ -478,7 +477,12 @@ export class DriversController {
     @Body() dto?: StartBreakDto,
     @CurrentUser() actor?: JwtAccessPayload,
   ) {
-    return this.driverBreaksService.adminGrantBreak(driverId, reviewerId, dto, actor);
+    return this.driverBreaksService.adminGrantBreak(
+      driverId,
+      reviewerId,
+      dto,
+      actor,
+    );
   }
 
   @ApiArrayResponse(DriverBreak)
@@ -510,7 +514,12 @@ export class DriversController {
     @Param('deliveryGroupId') deliveryGroupId: string,
     @Body() dto: RequestAssistDriverDto,
   ) {
-    return this.driverAssistService.requestAssist(actor, orderId, deliveryGroupId, dto);
+    return this.driverAssistService.requestAssist(
+      actor,
+      orderId,
+      deliveryGroupId,
+      dto,
+    );
   }
 
   @ApiStandardResponse()
@@ -541,7 +550,9 @@ export class DriversController {
   @Patch('assist/:requestId/cancel')
   @Roles(Role.DRIVER)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '[Driver] Withdraw my own pending assistance request' })
+  @ApiOperation({
+    summary: '[Driver] Withdraw my own pending assistance request',
+  })
   cancelAssistRequest(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('requestId') requestId: string,
@@ -605,8 +616,7 @@ export class DriversController {
   })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary:
-      '[Admin] Auto-assign the nearest eligible driver as the assistant',
+    summary: '[Admin] Auto-assign the nearest eligible driver as the assistant',
   })
   autoAssignAssistDriver(
     @CurrentUser() actor: JwtAccessPayload,
@@ -657,7 +667,8 @@ export class DriversController {
   @Get('assist/offers/pending')
   @Roles(Role.DRIVER)
   @ApiOperation({
-    summary: '[Driver] Pending assist offers (HTTP fallback when socket is down)',
+    summary:
+      '[Driver] Pending assist offers (HTTP fallback when socket is down)',
   })
   pendingAssistOffers(@CurrentUser() actor: JwtAccessPayload) {
     return this.driverAssistService.getPendingAssistOffers(actor);

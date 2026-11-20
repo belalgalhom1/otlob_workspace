@@ -64,7 +64,10 @@ export class FulfillmentTransitionService {
     },
     dto: UpdateOrderStatusDto,
   ) {
-    if (fulfillment.status !== 'ACCEPTED' && fulfillment.status !== 'PREPARING') {
+    if (
+      fulfillment.status !== 'ACCEPTED' &&
+      fulfillment.status !== 'PREPARING'
+    ) {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
     }
 
@@ -194,7 +197,7 @@ export class FulfillmentTransitionService {
       groupBecameReady = await this.markGroupReadyIfAllPortionsReady(group.id);
     }
 
-    const orderFulfillments = ((order as any).vendorFulfillments ?? []) as any[];
+    const orderFulfillments = (order.vendorFulfillments ?? []) as any[];
     let targetFulfillment = orderFulfillments.find(
       (f) => f.id === fulfillment.id,
     );
@@ -204,7 +207,9 @@ export class FulfillmentTransitionService {
         select: {
           id: true,
           vendorId: true,
-          vendor: { select: { storeName: true, storeNameAr: true, logo: true } },
+          vendor: {
+            select: { storeName: true, storeNameAr: true, logo: true },
+          },
           vendorBranch: { select: { name: true, nameAr: true } },
         },
       });
@@ -277,7 +282,8 @@ export class FulfillmentTransitionService {
         groupWithDriver?.primaryDriver?.userId,
         groupWithDriver?.assistDriver?.userId,
       ].filter((id): id is string => Boolean(id));
-      const allFulfillments = ((fresh as any).vendorFulfillments ?? []) as any[];
+      const allFulfillments = ((fresh as any).vendorFulfillments ??
+        []) as any[];
       const liveFulfillments = allFulfillments.filter(
         (f) => f.status !== 'REJECTED' && f.status !== 'CANCELLED',
       );
@@ -352,7 +358,9 @@ export class FulfillmentTransitionService {
     const fulfillment = await this.prisma.orderVendorFulfillment.findFirst({
       where: { id: fulfillmentId, orderId },
       include: {
-        vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true } },
+        vendor: {
+          select: { id: true, storeName: true, storeNameAr: true, logo: true },
+        },
         vendorBranch: { select: { id: true, name: true, nameAr: true } },
         groups: {
           include: {

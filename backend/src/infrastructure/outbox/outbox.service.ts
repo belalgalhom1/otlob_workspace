@@ -81,20 +81,21 @@ export class OutboxService {
    */
   async relayPending(batchSize = 50): Promise<{ relayed: number }> {
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const rows = await tx.$queryRaw<
-          Array<{
-            id: string;
-            aggregateType: string;
-            aggregateId: string;
-            version: number;
-            eventType: string;
-            jobName: string;
-            dedupeKey: string | null;
-            queueName: string | null;
-            payload: any;
-          }>
-        >`
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const rows = await tx.$queryRaw<
+            Array<{
+              id: string;
+              aggregateType: string;
+              aggregateId: string;
+              version: number;
+              eventType: string;
+              jobName: string;
+              dedupeKey: string | null;
+              queueName: string | null;
+              payload: any;
+            }>
+          >`
           SELECT "id", "aggregateType", "aggregateId", "version", "eventType", "jobName", "dedupeKey", "queueName", "payload"
           FROM "outbox"
           WHERE "processedAt" IS NULL
@@ -104,71 +105,75 @@ export class OutboxService {
           FOR UPDATE SKIP LOCKED
         `;
 
-        if (!rows || rows.length === 0) {
-          return { relayed: 0 };
-        }
+          if (!rows || rows.length === 0) {
+            return { relayed: 0 };
+          }
 
-        let count = 0;
-        for (const row of rows) {
-          try {
-            if (!row.jobName) {
-              await tx.$executeRaw`
+          let count = 0;
+          for (const row of rows) {
+            try {
+              if (!row.jobName) {
+                await tx.$executeRaw`
                 UPDATE "outbox" SET "processedAt" = NOW() WHERE "id" = ${row.id}
               `;
-              continue;
-            }
-
-            let payload = row.payload;
-            if (typeof payload === 'string') {
-              try {
-                payload = JSON.parse(payload);
-              } catch {
-                this.logger.error(`Bad JSON payload in outbox row ${row.id}`);
-                await tx.$executeRaw`
-                  UPDATE "outbox" SET "processedAt" = NOW() WHERE "id" = ${row.id}
-                `;
                 continue;
               }
-            }
 
-            const jobId = row.dedupeKey
-              ? row.dedupeKey.replace(/:/g, '_')
-              : undefined;
+              let payload = row.payload;
+              if (typeof payload === 'string') {
+                try {
+                  payload = JSON.parse(payload);
+                } catch {
+                  this.logger.error(`Bad JSON payload in outbox row ${row.id}`);
+                  await tx.$executeRaw`
+                  UPDATE "outbox" SET "processedAt" = NOW() WHERE "id" = ${row.id}
+                `;
+                  continue;
+                }
+              }
 
-            await this.eventsQueue.add(row.jobName, payload, {
-              jobId,
-              attempts: 3,
-              backoff: { type: 'exponential', delay: 2_000 },
-            });
+              const jobId = row.dedupeKey
+                ? row.dedupeKey.replace(/:/g, '_')
+                : undefined;
 
-            if (row.aggregateType === 'ORDER' && this.workflowDispatcher) {
-              await this.workflowDispatcher.triggerForOutboxRow(
-                row.eventType,
-                payload,
-              );
-            }
+              await this.eventsQueue.add(row.jobName, payload, {
+                jobId,
+                attempts: 3,
+                backoff: { type: 'exponential', delay: 2_000 },
+              });
 
-            await tx.$executeRaw`
+              if (row.aggregateType === 'ORDER' && this.workflowDispatcher) {
+                await this.workflowDispatcher.triggerForOutboxRow(
+                  row.eventType,
+                  payload,
+                );
+              }
+
+              await tx.$executeRaw`
               UPDATE "outbox"
               SET "processedAt" = NOW()
               WHERE "id" = ${row.id}
             `;
-            count++;
-          } catch (rowErr) {
-            this.logger.warn(
-              `Failed to relay outbox row ${row.id}: ${
-                rowErr instanceof Error ? rowErr.message : String(rowErr)
-              }`,
+              count++;
+            } catch (rowErr) {
+              this.logger.warn(
+                `Failed to relay outbox row ${row.id}: ${
+                  rowErr instanceof Error ? rowErr.message : String(rowErr)
+                }`,
+              );
+            }
+          }
+
+          if (count > 0) {
+            this.logger.log(
+              `Outbox: swept and relayed ${count} pending events`,
             );
           }
-        }
 
-        if (count > 0) {
-          this.logger.log(`Outbox: swept and relayed ${count} pending events`);
-        }
-
-        return { relayed: count };
-      }, { timeout: 30000, maxWait: 5000 });
+          return { relayed: count };
+        },
+        { timeout: 30000, maxWait: 5000 },
+      );
     } catch (err) {
       this.logger.error(
         `Failed to relay pending outbox events: ${

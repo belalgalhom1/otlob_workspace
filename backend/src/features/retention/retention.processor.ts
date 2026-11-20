@@ -6,10 +6,7 @@ import { PlatformSettingsService } from '../platform-settings/platform-settings.
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { StatisticsRepository } from '../statistics/statistics.repository';
-import {
-  QUEUES,
-  CRON_JOBS,
-} from '../../infrastructure/queue/queues.constants';
+import { QUEUES, CRON_JOBS } from '../../infrastructure/queue/queues.constants';
 
 /**
  * Every scheduled data-retention / cleanup task lives here, on its own queue,

@@ -20,7 +20,9 @@ export class OrderActivePolicyHelper {
     private readonly platformSettings: PlatformSettingsService,
   ) {}
 
-  async validateActiveOrderLimit(customerId: string): Promise<ActiveOrderPolicy> {
+  async validateActiveOrderLimit(
+    customerId: string,
+  ): Promise<ActiveOrderPolicy> {
     const settings = await this.platformSettings.getSettings();
 
     const policy: ActiveOrderPolicy = {

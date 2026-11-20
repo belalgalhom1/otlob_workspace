@@ -16,7 +16,10 @@ import {
 import { EVENTS } from '../../common/events/event-names';
 import { ChatListener } from '../../common/listeners/chat.listener';
 import { OrderListener } from '../../common/listeners/order.listener';
-import { EVENT_JOBS, CRON_JOBS } from '../../infrastructure/queue/queues.constants';
+import {
+  EVENT_JOBS,
+  CRON_JOBS,
+} from '../../infrastructure/queue/queues.constants';
 import { SOCKET_EVENTS } from '../notifications/notifications.service';
 import { DriverAssistMatchingService } from '../drivers/driver-assist-matching.service';
 import { CancelOrderDto } from './dto/order.dto';
@@ -54,7 +57,12 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
     const auth = new OrderAuthorizationHelper(prisma);
     const earnings = new OrderEarningsCalculator(platformSettings);
     return {
-      projector: new OrderRoleProjector(prisma, platformSettings, auth, earnings),
+      projector: new OrderRoleProjector(
+        prisma,
+        platformSettings,
+        auth,
+        earnings,
+      ),
       settings,
     };
   }
@@ -222,10 +230,9 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
 
       expect(proj.activeDeliveryGroupId).toBe('grp-2');
       expect(proj.status).toBe('PICKED_UP');
-      expect(proj.vendorFulfillments.map((f: any) => f.deliveryGroupId)).toEqual([
-        'grp-2',
-        'grp-1',
-      ]);
+      expect(
+        proj.vendorFulfillments.map((f: any) => f.deliveryGroupId),
+      ).toEqual(['grp-2', 'grp-1']);
       expect(proj.financials.storePayments[0].deliveryGroupId).toBeDefined();
     });
 
@@ -341,15 +348,15 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
         $transaction: jest.fn((cb: any) => cb(prisma)),
       };
       const ordersRepo: any = {
-        findById: jest.fn().mockResolvedValue({ id: 'ord-1', status: OrderStatus.PICKED_UP }),
+        findById: jest
+          .fn()
+          .mockResolvedValue({ id: 'ord-1', status: OrderStatus.PICKED_UP }),
         updateStatus: jest.fn().mockResolvedValue({ revision: 2 }),
         getOrderVendorUserIds: jest.fn().mockResolvedValue([]),
       };
-      const svc = new DeliveryGroupTransitionService(
-        prisma,
-        ordersRepo,
-        { emit: jest.fn() } as any,
-      );
+      const svc = new DeliveryGroupTransitionService(prisma, ordersRepo, {
+        emit: jest.fn(),
+      } as any);
 
       const order = {
         id: 'ord-1',
@@ -423,11 +430,15 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
           }),
         },
         platformSetting: {
-          findUnique: jest.fn().mockResolvedValue({ maxActiveOrdersPerDriver: 2 }),
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ maxActiveOrdersPerDriver: 2 }),
         },
         driverShift: { findFirst: jest.fn().mockResolvedValue(null) },
         order: {
-          findUnique: jest.fn().mockResolvedValue({ status: OrderStatus.DRIVER_ASSIGNED }),
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ status: OrderStatus.DRIVER_ASSIGNED }),
         },
         orderDeliveryGroup: {
           findMany: jest.fn().mockResolvedValue([
@@ -469,7 +480,7 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
         undefined,
         undefined,
         undefined,
-        { countActiveUnits: jest.fn().mockResolvedValue(0) } as any,
+        { countActiveUnits: jest.fn().mockResolvedValue(0) },
       );
 
       await svc.adminForceAssignDriver(
@@ -483,12 +494,14 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
     });
 
     it('validates CancelOrderDto optional reason cleanly', async () => {
-      expect(
-        await validate(plainToInstance(CancelOrderDto, {})),
-      ).toHaveLength(0);
+      expect(await validate(plainToInstance(CancelOrderDto, {}))).toHaveLength(
+        0,
+      );
       expect(
         await validate(
-          plainToInstance(CancelOrderDto, { reason: 'Customer requested cancellation' }),
+          plainToInstance(CancelOrderDto, {
+            reason: 'Customer requested cancellation',
+          }),
         ),
       ).toHaveLength(0);
     });
@@ -556,7 +569,9 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
           findMany: jest.fn().mockImplementation(async (args: any) => {
             callOrder.push('advance');
             if (args?.select?.status) {
-              return [{ id: 'ff-1', status: OrderVendorFulfillmentStatus.ACCEPTED }];
+              return [
+                { id: 'ff-1', status: OrderVendorFulfillmentStatus.ACCEPTED },
+              ];
             }
             return [];
           }),
@@ -588,15 +603,13 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
         {} as any,
         { emit: emitMock } as any,
       );
-      jest
-        .spyOn(decisionSvc as any, 'assertVendorMember')
-        .mockResolvedValue({
-          id: 'ff-1',
-          orderId: 'ord-1',
-          vendorId: 'v-1',
-          vendorBranchId: 'br-1',
-          status: OrderVendorFulfillmentStatus.PENDING,
-        });
+      jest.spyOn(decisionSvc as any, 'assertVendorMember').mockResolvedValue({
+        id: 'ff-1',
+        orderId: 'ord-1',
+        vendorId: 'v-1',
+        vendorBranchId: 'br-1',
+        status: OrderVendorFulfillmentStatus.PENDING,
+      });
       jest
         .spyOn(decisionSvc as any, 'maybeAdvanceToDispatch')
         .mockImplementation(async () => {
@@ -620,7 +633,9 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
         }),
       );
 
-      const socketService: any = { emitToUser: jest.fn().mockResolvedValue(undefined) };
+      const socketService: any = {
+        emitToUser: jest.fn().mockResolvedValue(undefined),
+      };
       const orderListener = new OrderListener(
         socketService,
         { add: jest.fn() } as any,
@@ -658,7 +673,9 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
     });
 
     it('includes orderId in ChatListener socket payload and queued CHAT_MESSAGE notification data', async () => {
-      const socketService: any = { emitToUser: jest.fn().mockResolvedValue(undefined) };
+      const socketService: any = {
+        emitToUser: jest.fn().mockResolvedValue(undefined),
+      };
       const eventsQueue: any = { add: jest.fn().mockResolvedValue(undefined) };
       const chatListener = new ChatListener(socketService, eventsQueue);
 
@@ -811,7 +828,15 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
                   isContracted: true,
                   deliveredAt: null,
                   vendor: { storeName: 'Bakery B', storeNameAr: 'مخبز ب' },
-                  items: [{ productId: 'p2', variantId: null, productName: 'Croissant', quantity: 2, selectedUnit: null }],
+                  items: [
+                    {
+                      productId: 'p2',
+                      variantId: null,
+                      productName: 'Croissant',
+                      quantity: 2,
+                      selectedUnit: null,
+                    },
+                  ],
                 },
               },
             ],
@@ -819,11 +844,21 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           count: jest.fn().mockResolvedValue(1),
           findMany: jest.fn().mockResolvedValue([
-            { id: 'grp-1', sequence: 1, status: DeliveryGroupStatus.PICKED_UP, primaryDriverId: 'drv-1', isPaymentCollector: true },
+            {
+              id: 'grp-1',
+              sequence: 1,
+              status: DeliveryGroupStatus.PICKED_UP,
+              primaryDriverId: 'drv-1',
+              isPaymentCollector: true,
+            },
           ]),
         },
-        orderDispatch: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
-        orderVendorFulfillment: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        orderDispatch: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        orderVendorFulfillment: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
         orderItem: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
         orderStatusEvent: { create: jest.fn().mockResolvedValue({}) },
         order: {
@@ -833,7 +868,14 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
             status: OrderStatus.PARTIALLY_PICKED_UP,
             revision: 4,
             deliveryGroups: [
-              { id: 'grp-1', sequence: 1, status: DeliveryGroupStatus.PICKED_UP, primaryDriverId: 'drv-1', pickupImageUrl: null, deliveryImageUrl: null },
+              {
+                id: 'grp-1',
+                sequence: 1,
+                status: DeliveryGroupStatus.PICKED_UP,
+                primaryDriverId: 'drv-1',
+                pickupImageUrl: null,
+                deliveryImageUrl: null,
+              },
             ],
           }),
         },
@@ -843,8 +885,12 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
         getVendorUserIds: jest.fn().mockResolvedValue(['u-v2']),
         getOrderVendorUserIds: jest.fn().mockResolvedValue(['u-v1', 'u-v2']),
       };
-      const stockSvc: any = { restoreForItems: jest.fn().mockResolvedValue(undefined) };
-      const recomputor: any = { recomputeTotalsAfterRejection: jest.fn().mockResolvedValue(undefined) };
+      const stockSvc: any = {
+        restoreForItems: jest.fn().mockResolvedValue(undefined),
+      };
+      const recomputor: any = {
+        recomputeTotalsAfterRejection: jest.fn().mockResolvedValue(undefined),
+      };
 
       const svc = new DeliveryGroupTransitionService(
         prisma,
@@ -912,7 +958,9 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
           }),
         },
         platformSetting: {
-          findUnique: jest.fn().mockResolvedValue({ maxActiveOrdersPerDriver: 2 }),
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ maxActiveOrdersPerDriver: 2 }),
         },
         orderDeliveryGroup: {
           count: jest.fn().mockResolvedValue(0),
@@ -929,7 +977,9 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
         },
         driverShift: { findFirst: jest.fn().mockResolvedValue({ id: 'sh-1' }) },
         order: {
-          findUnique: jest.fn().mockResolvedValue({ status: OrderStatus.PENDING_PAYMENT }),
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ status: OrderStatus.PENDING_PAYMENT }),
         },
       };
 
@@ -945,7 +995,7 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
       await svc.adminForceAssignDriver(
         { sub: 'admin-1', role: Role.SUPER_ADMIN } as any,
         'ord-force-1',
-        { driverId: 'drv-9', deliveryGroupId: 'grp-2' } as any,
+        { driverId: 'drv-9', deliveryGroupId: 'grp-2' },
       );
 
       expect(eventEmitter.emit).toHaveBeenCalledWith(
@@ -969,7 +1019,11 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
         { cancelOrder: jest.fn() } as any,
         {} as any,
         {} as any,
-        { getSettings: jest.fn().mockResolvedValue({ mobileWalletTimeoutMins: 15 }) } as any,
+        {
+          getSettings: jest
+            .fn()
+            .mockResolvedValue({ mobileWalletTimeoutMins: 15 }),
+        } as any,
         prisma,
         {} as any,
         { add: jest.fn() } as any,
@@ -985,6 +1039,163 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
           paymentStatus: 'PENDING',
         }),
       );
+    });
+
+    describe('OrderRejectionRecomputor.syncDeliveryGroupAfterVendorRemoved', () => {
+      it('cancels group and sets deliveryFee to 0 when remaining items are 0', async () => {
+        const txPrisma: any = {
+          orderDeliveryGroup: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'grp-rem-0',
+              deliveryFee: 40,
+              sequence: 1,
+              primaryDriverId: 'drv-1',
+              assistDriverId: null,
+            }),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          orderDeliveryGroupItem: {
+            count: jest.fn().mockResolvedValue(0),
+          },
+          orderDispatch: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          orderStatusEvent: {
+            findUnique: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+        const settingsSvc: any = {
+          getSettings: jest.fn().mockResolvedValue({ minDeliveryFee: 15 }),
+        };
+
+        const recomputor = new OrderRejectionRecomputor(txPrisma, settingsSvc);
+        const res = await recomputor.syncDeliveryGroupAfterVendorRemoved(
+          txPrisma,
+          'grp-rem-0',
+          'ord-1',
+          OrderStatus.PENDING,
+        );
+
+        expect(res).toEqual({
+          deliveryFeeDelta: -40,
+          freedDriverIds: ['drv-1'],
+        });
+        expect(txPrisma.orderDeliveryGroup.updateMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ id: 'grp-rem-0' }),
+            data: { status: DeliveryGroupStatus.CANCELLED, deliveryFee: 0 },
+          }),
+        );
+      });
+
+      it('recomputes deliveryFee using calculateGroupDeliveryFee when remaining > 0 and coordinates exist', async () => {
+        const txPrisma: any = {
+          orderDeliveryGroup: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'grp-rem-1',
+              deliveryFee: 36,
+              sequence: 1,
+              primaryDriverId: 'drv-1',
+              assistDriverId: null,
+            }),
+            update: jest.fn().mockResolvedValue({}),
+          },
+          orderDeliveryGroupItem: {
+            count: jest.fn().mockResolvedValue(1),
+            findMany: jest.fn().mockResolvedValue([{ fulfillmentId: 'ff-1' }]),
+          },
+          orderVendorFulfillment: {
+            findMany: jest.fn().mockResolvedValue([
+              { vendorBranchId: 'br-1', vendorId: 'v-1' },
+            ]),
+          },
+          zone: {
+            findUnique: jest.fn().mockResolvedValue({ baseDeliveryFeeOverride: null }),
+          },
+          $queryRaw: jest
+            .fn()
+            .mockImplementation((strings: TemplateStringsArray) => {
+              const text = strings.join(' ');
+              if (text.includes('FROM orders')) {
+                return Promise.resolve([{ lng: 31.2, lat: 30.0, zoneId: 'zone-1' }]);
+              }
+              if (text.includes('FROM vendor_branches')) {
+                return Promise.resolve([{ lng: 31.22, lat: 30.01 }]);
+              }
+              return Promise.resolve([]);
+            }),
+        };
+        const settingsSvc: any = {
+          getSettings: jest.fn().mockResolvedValue({
+            minDeliveryFee: 15,
+            multiVendorDeliveryDiscountPercent: 20,
+          }),
+          calculateGroupDeliveryFee: jest.fn().mockResolvedValue(25),
+        };
+
+        const recomputor = new OrderRejectionRecomputor(txPrisma, settingsSvc);
+        const res = await recomputor.syncDeliveryGroupAfterVendorRemoved(
+          txPrisma,
+          'grp-rem-1',
+          'ord-1',
+          OrderStatus.PENDING,
+        );
+
+        expect(settingsSvc.calculateGroupDeliveryFee).toHaveBeenCalledWith(
+          expect.any(Array),
+          null,
+          expect.any(Object),
+        );
+        expect(txPrisma.orderDeliveryGroup.update).toHaveBeenCalledWith({
+          where: { id: 'grp-rem-1' },
+          data: { deliveryFee: 25 },
+        });
+        expect(res).toEqual({
+          deliveryFeeDelta: -11, // 25 - 36
+          freedDriverIds: [],
+        });
+      });
+
+      it('falls back to proportional fee scaling when PostGIS query throws or coordinates are unavailable', async () => {
+        const txPrisma: any = {
+          orderDeliveryGroup: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'grp-rem-2',
+              deliveryFee: 40,
+              sequence: 1,
+              primaryDriverId: 'drv-1',
+              assistDriverId: null,
+            }),
+            update: jest.fn().mockResolvedValue({}),
+          },
+          orderDeliveryGroupItem: {
+            count: jest.fn().mockResolvedValue(1),
+            findMany: jest.fn().mockRejectedValue(new Error('DB disconnect')),
+          },
+        };
+        const settingsSvc: any = {
+          getSettings: jest.fn().mockResolvedValue({ minDeliveryFee: 15 }),
+        };
+
+        const recomputor = new OrderRejectionRecomputor(txPrisma, settingsSvc);
+        const res = await recomputor.syncDeliveryGroupAfterVendorRemoved(
+          txPrisma,
+          'grp-rem-2',
+          'ord-1',
+          OrderStatus.PENDING,
+        );
+
+        // remaining = 1, so (40 * 1) / (1 + 1) = 20
+        expect(txPrisma.orderDeliveryGroup.update).toHaveBeenCalledWith({
+          where: { id: 'grp-rem-2' },
+          data: { deliveryFee: 20 },
+        });
+        expect(res).toEqual({
+          deliveryFeeDelta: -20, // 20 - 40
+          freedDriverIds: [],
+        });
+      });
     });
   });
 });

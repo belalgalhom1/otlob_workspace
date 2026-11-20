@@ -17,7 +17,10 @@ export class OrderVendorFulfillment {
   @ApiPropertyOptional({ type: String })
   vendorBranchId?: string;
 
-  @ApiProperty({ enum: OrderVendorFulfillmentStatus, enumName: 'OrderVendorFulfillmentStatus' })
+  @ApiProperty({
+    enum: OrderVendorFulfillmentStatus,
+    enumName: 'OrderVendorFulfillmentStatus',
+  })
   status: OrderVendorFulfillmentStatus = OrderVendorFulfillmentStatus.PENDING;
 
   @ApiPropertyOptional({ type: String })

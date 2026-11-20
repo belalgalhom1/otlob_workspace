@@ -38,8 +38,12 @@ export class StockService {
       }
     }
 
-    const { variantQtyById, trackedVariantIds, productPackageQtyById, trackedProductIds } =
-      await this.aggregateTrackedQuantities(tx, items);
+    const {
+      variantQtyById,
+      trackedVariantIds,
+      productPackageQtyById,
+      trackedProductIds,
+    } = await this.aggregateTrackedQuantities(tx, items);
 
     for (const [variantId, qty] of variantQtyById) {
       if (qty <= 0 || !trackedVariantIds.has(variantId)) continue;
@@ -80,8 +84,12 @@ export class StockService {
     const validItems = items.filter((item) => item.quantity > 0);
     if (validItems.length === 0) return;
 
-    const { variantQtyById, trackedVariantIds, productPackageQtyById, trackedProductIds } =
-      await this.aggregateTrackedQuantities(tx, validItems);
+    const {
+      variantQtyById,
+      trackedVariantIds,
+      productPackageQtyById,
+      trackedProductIds,
+    } = await this.aggregateTrackedQuantities(tx, validItems);
 
     for (const [variantId, qty] of variantQtyById) {
       if (qty <= 0 || !trackedVariantIds.has(variantId)) continue;
@@ -111,7 +119,11 @@ export class StockService {
     const variantQtyById = new Map<string, number>();
     const rawProductMeta = new Map<
       string,
-      { tracksStock: boolean; sellByStrip: boolean | null; stripsPerPackage: number | null }
+      {
+        tracksStock: boolean;
+        sellByStrip: boolean | null;
+        stripsPerPackage: number | null;
+      }
     >();
     const rawVariantTracked = new Map<string, boolean>();
     const packageQtyByProductId = new Map<string, number>();
@@ -125,7 +137,10 @@ export class StockService {
           (variantQtyById.get(item.variantId) ?? 0) + item.quantity,
         );
         if (item.variant != null) {
-          rawVariantTracked.set(item.variantId, Boolean(item.variant.tracksStock));
+          rawVariantTracked.set(
+            item.variantId,
+            Boolean(item.variant.tracksStock),
+          );
         }
       } else if (item.productId) {
         allProductIds.add(item.productId);

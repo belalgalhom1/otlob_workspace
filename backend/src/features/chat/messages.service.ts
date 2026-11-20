@@ -39,7 +39,13 @@ const REPLY_TO_INCLUDE = {
     mediaUrl: true,
     deletedAt: true,
     sender: {
-      select: { id: true, name: true, avatar: true, title: true, titleAr: true },
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+        title: true,
+        titleAr: true,
+      },
     },
   },
 };
@@ -458,7 +464,11 @@ export class MessagesService {
 
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
-      select: { vendorId: true, orderId: true, participants: { select: { userId: true } } },
+      select: {
+        vendorId: true,
+        orderId: true,
+        participants: { select: { userId: true } },
+      },
     });
 
     const isAdmin = await this.canManageConversations(actor.sub, actor.role);
@@ -691,13 +701,14 @@ export class MessagesService {
             throw new BadRequestException(OrderErrors.INVALID_PRODUCT_MESSAGE);
           }
         } else if (conversation.orderId) {
-          const participant = await this.prisma.orderVendorFulfillment.findFirst({
-            where: {
-              orderId: conversation.orderId,
-              vendorId: existing.vendorId,
-            },
-            select: { id: true },
-          });
+          const participant =
+            await this.prisma.orderVendorFulfillment.findFirst({
+              where: {
+                orderId: conversation.orderId,
+                vendorId: existing.vendorId,
+              },
+              select: { id: true },
+            });
           if (!participant) {
             throw new BadRequestException(OrderErrors.INVALID_PRODUCT_MESSAGE);
           }
@@ -731,7 +742,13 @@ export class MessagesService {
         text: string | null;
         mediaUrl: string | null;
         deletedAt: Date | null;
-        sender: { id: string; name: string; avatar: string | null; title?: string | null; titleAr?: string | null } | null;
+        sender: {
+          id: string;
+          name: string;
+          avatar: string | null;
+          title?: string | null;
+          titleAr?: string | null;
+        } | null;
       } | null;
     };
     return {

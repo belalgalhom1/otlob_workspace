@@ -173,8 +173,7 @@ export class DriverListener {
         title: 'Break request expired',
         titleAr: 'انتهت صلاحية طلب الاستراحة',
         body: 'Your break request expired without admin approval. You can request again.',
-        bodyAr:
-          'انتهت صلاحية طلب الاستراحة دون موافقة. يمكنك الطلب مرة أخرى.',
+        bodyAr: 'انتهت صلاحية طلب الاستراحة دون موافقة. يمكنك الطلب مرة أخرى.',
       },
     };
 

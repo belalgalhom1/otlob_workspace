@@ -446,7 +446,9 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         if (groups.length > 0) {
           for (const group of groups) {
             await this.dispatchRepository.clearStaleDispatchClaim(group.id);
-            const state = await this.dispatchRepository.readDispatchState(group.id);
+            const state = await this.dispatchRepository.readDispatchState(
+              group.id,
+            );
             await this.dispatchQueue.add(
               ORDER_JOBS.DISPATCH,
               {

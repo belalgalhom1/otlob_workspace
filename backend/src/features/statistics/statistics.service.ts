@@ -3,11 +3,7 @@ import { CommonErrors } from '../../common/constants/response.constants';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import {
-  StatisticPeriod,
-  DriverStatus,
-  Role,
-} from '@prisma/client';
+import { StatisticPeriod, DriverStatus, Role } from '@prisma/client';
 import { DriverStatusChangedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';

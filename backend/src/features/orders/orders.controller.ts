@@ -81,7 +81,11 @@ export class OrdersController {
     @Body() dto: PlaceOrderDto,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    const order = await this.checkoutService.placeOrder(actor, dto, idempotencyKey);
+    const order = await this.checkoutService.placeOrder(
+      actor,
+      dto,
+      idempotencyKey,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
@@ -98,7 +102,11 @@ export class OrdersController {
     @Body() dto: PlaceCustomOrderDto,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    const order = await this.checkoutService.placeCustomOrder(actor, dto, idempotencyKey);
+    const order = await this.checkoutService.placeCustomOrder(
+      actor,
+      dto,
+      idempotencyKey,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
@@ -192,7 +200,11 @@ export class OrdersController {
     @Param('orderId') orderId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const order = await this.paymentService.customerMarkPaid(actor, orderId, file);
+    const order = await this.paymentService.customerMarkPaid(
+      actor,
+      orderId,
+      file,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
@@ -228,7 +240,11 @@ export class OrdersController {
     @Param('orderId') orderId: string,
     @Body() dto: UpdateOrderStatusDto,
   ) {
-    const order = await this.stateService.driverUpdateStatus(actor, orderId, dto);
+    const order = await this.stateService.driverUpdateStatus(
+      actor,
+      orderId,
+      dto,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
@@ -247,7 +263,12 @@ export class OrdersController {
     @UploadedFile() file: Express.Multer.File,
     @Query('fulfillmentId') fulfillmentId?: string,
   ) {
-    const order = await this.stateService.driverConfirmPickup(actor, orderId, file, fulfillmentId);
+    const order = await this.stateService.driverConfirmPickup(
+      actor,
+      orderId,
+      file,
+      fulfillmentId,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
@@ -257,7 +278,8 @@ export class OrdersController {
   @ApiFileUpload({ type: 'IMAGE' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Driver confirms pickup for a specific vendor fulfillment stop with photo',
+    summary:
+      'Driver confirms pickup for a specific vendor fulfillment stop with photo',
   })
   async driverConfirmFulfillmentPickup(
     @CurrentUser() actor: JwtAccessPayload,
@@ -265,7 +287,12 @@ export class OrdersController {
     @Param('fulfillmentId') fulfillmentId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const order = await this.stateService.driverConfirmFulfillmentPickup(actor, orderId, fulfillmentId, file);
+    const order = await this.stateService.driverConfirmFulfillmentPickup(
+      actor,
+      orderId,
+      fulfillmentId,
+      file,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
@@ -275,7 +302,8 @@ export class OrdersController {
   @ApiFileUpload({ type: 'IMAGE' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)',
+    summary:
+      'Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)',
   })
   async driverConfirmDelivery(
     @CurrentUser() actor: JwtAccessPayload,
@@ -283,7 +311,12 @@ export class OrdersController {
     @UploadedFile() file: Express.Multer.File,
     @Query('deliveryGroupId') deliveryGroupId?: string,
   ) {
-    const order = await this.stateService.driverConfirmDelivery(actor, orderId, file, deliveryGroupId);
+    const order = await this.stateService.driverConfirmDelivery(
+      actor,
+      orderId,
+      file,
+      deliveryGroupId,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
@@ -313,7 +346,11 @@ export class OrdersController {
     @Param('orderId') orderId: string,
     @Body() dto: UpdateOrderStatusDto,
   ) {
-    const order = await this.stateService.vendorUpdateStatus(actor, orderId, dto);
+    const order = await this.stateService.vendorUpdateStatus(
+      actor,
+      orderId,
+      dto,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
@@ -387,8 +424,12 @@ export class OrdersController {
 
   @ApiArrayResponse()
   @Get('vendor-decisions/order/:orderId')
-  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_VENDORS, { mode: 'any' })
-  @ApiOperation({ summary: '[Admin] Vendor portions and their states for an order' })
+  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_VENDORS, {
+    mode: 'any',
+  })
+  @ApiOperation({
+    summary: '[Admin] Vendor portions and their states for an order',
+  })
   listOrderDecisions(@Param('orderId') orderId: string) {
     return this.vendorDecisionService.listForOrder(orderId);
   }
@@ -398,8 +439,7 @@ export class OrdersController {
   @Roles(Role.VENDOR_MEMBER, Role.ADMIN, Role.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary:
-      '[Vendor] Accept ONLY my portion — other vendors are unaffected',
+    summary: '[Vendor] Accept ONLY my portion — other vendors are unaffected',
   })
   acceptFulfillment(
     @CurrentUser() actor: JwtAccessPayload,
@@ -458,7 +498,11 @@ export class OrdersController {
     @Body() dto: PlaceMultiVendorOrderDto,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    const order = await this.multiVendorService.placeOrder(actor, dto, idempotencyKey);
+    const order = await this.multiVendorService.placeOrder(
+      actor,
+      dto,
+      idempotencyKey,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
@@ -489,22 +533,16 @@ export class OrdersController {
     @Body() dto?: CancelOrderDto,
   ) {
     const reason = dto?.reason?.trim() || '';
-    const order = await this.stateService.cancelOrder(
-      actor,
-      orderId,
-      reason,
-    );
+    const order = await this.stateService.cancelOrder(actor, orderId, reason);
     return this.ordersService.projectOrderForRole(order, actor);
   }
 
   @ApiStandardResponse(OrderResponseDto)
   @Post(':orderId/assign-driver')
   @HttpCode(HttpStatus.OK)
-  @RequirePermissions(
-    Permission.MANAGE_ORDERS,
-    Permission.MANAGE_DRIVERS,
-    { mode: 'any' },
-  )
+  @RequirePermissions(Permission.MANAGE_ORDERS, Permission.MANAGE_DRIVERS, {
+    mode: 'any',
+  })
   @ApiOperation({ summary: '[Admin] Force-assign a driver to an order' })
   async adminForceAssignDriver(
     @CurrentUser() actor: JwtAccessPayload,
@@ -512,12 +550,18 @@ export class OrdersController {
     @Body() dto: AdminAssignDriverDto,
   ) {
     if (actor.role === Role.DRIVER_MANAGER) {
-      const managed = await this.ordersService.getManagedDriverIdsForUser(actor.sub);
+      const managed = await this.ordersService.getManagedDriverIdsForUser(
+        actor.sub,
+      );
       if (!managed.includes(dto.driverId)) {
         throw new ForbiddenException(CommonErrors.FORBIDDEN);
       }
     }
-    const order = await this.stateService.adminForceAssignDriver(actor, orderId, dto);
+    const order = await this.stateService.adminForceAssignDriver(
+      actor,
+      orderId,
+      dto,
+    );
     return this.ordersService.projectOrderForRole(order, actor);
   }
 }

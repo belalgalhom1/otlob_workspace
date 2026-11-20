@@ -168,9 +168,11 @@ export class OrderResponseDto extends IntersectionType(
   PartialType(PrismaModel.OrderRelations),
 ) {}
 
-export class OrderVendorFulfillmentResponseDto extends PrismaModel.OrderVendorFulfillment {}
+export class OrderVendorFulfillmentResponseDto
+  extends PrismaModel.OrderVendorFulfillment {}
 
-export class OrderDeliveryGroupResponseDto extends PrismaModel.OrderDeliveryGroup {}
+export class OrderDeliveryGroupResponseDto
+  extends PrismaModel.OrderDeliveryGroup {}
 
 export class OrderStatusEventResponseDto extends IntersectionType(
   PrismaModel.OrderStatusEvent,
@@ -261,7 +263,10 @@ export class DriverWalletTransactionsResponseDto {
   @ApiProperty({ type: Number })
   walletBalance!: number;
 
-  @ApiProperty({ type: () => DriverWalletTransactionResponseDto, isArray: true })
+  @ApiProperty({
+    type: () => DriverWalletTransactionResponseDto,
+    isArray: true,
+  })
   transactions!: DriverWalletTransactionResponseDto[];
 
   @ApiProperty({ type: Number })

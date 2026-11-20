@@ -244,9 +244,7 @@ describe('Vendors Architecture & Shared Helpers', () => {
       };
       const locationRepository = {
         isPointInZone: jest.fn().mockResolvedValue(false),
-        findContainingActiveZone: jest
-          .fn()
-          .mockResolvedValue({ id: 'z-auto' }),
+        findContainingActiveZone: jest.fn().mockResolvedValue({ id: 'z-auto' }),
       };
 
       const service = new VendorBranchesService(
@@ -270,9 +268,10 @@ describe('Vendors Architecture & Shared Helpers', () => {
         29.96,
         { activeOnly: true },
       );
-      expect(
-        locationRepository.findContainingActiveZone,
-      ).toHaveBeenCalledWith(31.25, 29.96);
+      expect(locationRepository.findContainingActiveZone).toHaveBeenCalledWith(
+        31.25,
+        29.96,
+      );
       expect(vendorCache.invalidateVendorDetails).toHaveBeenCalledWith('v1');
     });
 
@@ -283,7 +282,9 @@ describe('Vendors Architecture & Shared Helpers', () => {
       };
 
       const service = new VendorBranchesService(
-        { vendor: { findFirst: jest.fn().mockResolvedValue({ id: 'v1' }) } } as any,
+        {
+          vendor: { findFirst: jest.fn().mockResolvedValue({ id: 'v1' }) },
+        } as any,
         { del: jest.fn() } as any,
         undefined,
         locationRepository as any,

@@ -393,7 +393,12 @@ export class OrderQueriesRepository {
     });
     const fulfillmentBranchClause: Prisma.OrderVendorFulfillmentWhereInput =
       filters.branchId
-        ? { OR: [{ vendorBranchId: filters.branchId }, { vendorBranchId: null }] }
+        ? {
+            OR: [
+              { vendorBranchId: filters.branchId },
+              { vendorBranchId: null },
+            ],
+          }
         : {};
 
     const driverIdsFilter =
@@ -500,7 +505,9 @@ export class OrderQueriesRepository {
         include: {
           customer: {
             include: {
-              user: { select: { id: true, name: true, phone: true, avatar: true } },
+              user: {
+                select: { id: true, name: true, phone: true, avatar: true },
+              },
             },
           },
           vendorFulfillments: ORDER_VENDOR_FULFILLMENTS_INCLUDE,
@@ -538,19 +545,29 @@ export class OrderQueriesRepository {
       for (const group of (order.deliveryGroups ?? []) as any[]) {
         if (group.primaryDriver) {
           group.primaryDriver.avatar =
-            group.primaryDriver.avatar ?? group.primaryDriver.user?.avatar ?? null;
+            group.primaryDriver.avatar ??
+            group.primaryDriver.user?.avatar ??
+            null;
         }
         if (group.assistDriver) {
           group.assistDriver.avatar =
-            group.assistDriver.avatar ?? group.assistDriver.user?.avatar ?? null;
+            group.assistDriver.avatar ??
+            group.assistDriver.user?.avatar ??
+            null;
         }
       }
 
-      if (order.cancelledByUserId && !order.cancelledByUser && uuidRe.test(order.cancelledByUserId)) {
+      if (
+        order.cancelledByUserId &&
+        !order.cancelledByUser &&
+        uuidRe.test(order.cancelledByUserId)
+      ) {
         missingUserIds.add(order.cancelledByUserId);
       }
       for (const ev of (order.statusEvents ?? []) as any[]) {
-        const uid = ev.actorUserId ?? (uuidRe.test(ev.createdBy ?? '') ? ev.createdBy : null);
+        const uid =
+          ev.actorUserId ??
+          (uuidRe.test(ev.createdBy ?? '') ? ev.createdBy : null);
         if (uid && !ev.actorUser) {
           missingUserIds.add(uid);
         }
@@ -575,7 +592,14 @@ export class OrderQueriesRepository {
           vendorMemberships: {
             select: {
               vendorId: true,
-              vendor: { select: { id: true, storeName: true, storeNameAr: true, logo: true } },
+              vendor: {
+                select: {
+                  id: true,
+                  storeName: true,
+                  storeNameAr: true,
+                  logo: true,
+                },
+              },
             },
           },
         },
@@ -593,7 +617,9 @@ export class OrderQueriesRepository {
 
       // Deduplicate defensively on read using explicit eventKey or full contextual tuple
       // (never deduplicate by status alone so separate legitimate events are preserved).
-      const rawEvents = Array.isArray(order.statusEvents) ? order.statusEvents : [];
+      const rawEvents = Array.isArray(order.statusEvents)
+        ? order.statusEvents
+        : [];
       const sortedAsc = [...rawEvents].sort((a, b) => {
         const ta = new Date(a?.createdAt ?? 0).getTime();
         const tb = new Date(b?.createdAt ?? 0).getTime();
@@ -605,7 +631,11 @@ export class OrderQueriesRepository {
       const deduped: any[] = [];
       for (const ev of sortedAsc) {
         if (!ev) continue;
-        if (!ev.fulfillment && ev.fulfillmentId && fulfillmentsById.has(ev.fulfillmentId)) {
+        if (
+          !ev.fulfillment &&
+          ev.fulfillmentId &&
+          fulfillmentsById.has(ev.fulfillmentId)
+        ) {
           ev.fulfillment = fulfillmentsById.get(ev.fulfillmentId);
         }
         const normalizedNote = normalizeLegacyEventNote(ev);
@@ -626,11 +656,13 @@ export class OrderQueriesRepository {
                 (order.vendorFulfillments ?? []).some(
                   (ff: any) => ff.vendorId === m.vendorId,
                 ),
-              )?.vendor ?? userLookup.get(actor.id).vendorMemberships[0]?.vendor;
+              )?.vendor ??
+            userLookup.get(actor.id).vendorMemberships[0]?.vendor;
           if (matchedVendor) {
             actor.vendorId = matchedVendor.id;
             actor.name = matchedVendor.storeName || actor.name;
-            actor.nameAr = matchedVendor.storeNameAr || matchedVendor.storeName || null;
+            actor.nameAr =
+              matchedVendor.storeNameAr || matchedVendor.storeName || null;
             actor.avatar = matchedVendor.logo ?? actor.avatar;
           }
         }
@@ -676,14 +708,21 @@ export class OrderQueriesRepository {
     eventsDesc: any[],
     userLookup: Map<string, any>,
   ): OrderCancelledBySummary {
-    const cancelEv = eventsDesc.find((e) => e?.status === OrderStatus.CANCELLED);
+    const cancelEv = eventsDesc.find(
+      (e) => e?.status === OrderStatus.CANCELLED,
+    );
     const reason =
       sanitizeCancelReason(order.cancelReason) ??
       sanitizeCancelReason(cancelEv?.note) ??
       null;
-    const cancelledAt = order.cancelledAt ?? cancelEv?.createdAt ?? order.updatedAt ?? null;
+    const cancelledAt =
+      order.cancelledAt ?? cancelEv?.createdAt ?? order.updatedAt ?? null;
 
-    if (order.cancelledByUserId || order.cancelledByName || order.cancelledByUser) {
+    if (
+      order.cancelledByUserId ||
+      order.cancelledByName ||
+      order.cancelledByUser
+    ) {
       const syntheticEv = {
         actorUserId: order.cancelledByUserId ?? null,
         actorRole: order.cancelledByRole ?? order.cancelledByUser?.role ?? null,
@@ -715,7 +754,8 @@ export class OrderQueriesRepository {
         if (matchedVendor) {
           actor.vendorId = matchedVendor.id;
           actor.name = matchedVendor.storeName || actor.name;
-          actor.nameAr = matchedVendor.storeNameAr || matchedVendor.storeName || null;
+          actor.nameAr =
+            matchedVendor.storeNameAr || matchedVendor.storeName || null;
           actor.avatar = matchedVendor.logo ?? actor.avatar;
         }
       }
@@ -883,11 +923,7 @@ export class OrderQueriesRepository {
         vendorId,
         ...(branchId
           ? {
-              OR: [
-                { role: 'OWNER' },
-                { branchId: null },
-                { branchId },
-              ],
+              OR: [{ role: 'OWNER' }, { branchId: null }, { branchId }],
             }
           : {}),
       },
@@ -910,7 +946,8 @@ export class OrderQueriesRepository {
     orderVendorId: string | null,
     orderBranchId?: string | null,
   ): Promise<string[]> {
-    if (orderVendorId) return this.getVendorUserIds(orderVendorId, orderBranchId);
+    if (orderVendorId)
+      return this.getVendorUserIds(orderVendorId, orderBranchId);
 
     const portions = await this.prisma.orderVendorFulfillment.findMany({
       where: { orderId },

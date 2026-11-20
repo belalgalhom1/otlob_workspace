@@ -10,7 +10,10 @@ import {
   DriverAssistOfferedEvent,
   DriverAssistTimedOutEvent,
 } from '../events';
-import { EVENT_JOBS, QUEUES } from '../../infrastructure/queue/queues.constants';
+import {
+  EVENT_JOBS,
+  QUEUES,
+} from '../../infrastructure/queue/queues.constants';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 
 /**

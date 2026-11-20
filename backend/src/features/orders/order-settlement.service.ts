@@ -17,7 +17,10 @@ import {
   computeIsMultiVendorOrder,
 } from '../../common/orders/order-financials.helper';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { QUEUES, STATS_JOBS } from '../../infrastructure/queue/queues.constants';
+import {
+  QUEUES,
+  STATS_JOBS,
+} from '../../infrastructure/queue/queues.constants';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import {
   enqueueStatsJob,
@@ -169,7 +172,9 @@ export class OrderSettlementService {
       select: { settledAt: true },
     });
     if (orderRow?.settledAt) {
-      this.logger.log(`Order ${payload.orderNumber} already settled; skipping.`);
+      this.logger.log(
+        `Order ${payload.orderNumber} already settled; skipping.`,
+      );
       return;
     }
 
@@ -238,7 +243,8 @@ export class OrderSettlementService {
               false;
             if (!contracted) return sum;
             return (
-              sum + Math.round(p.subtotal * (Number(p.commissionRate ?? 0) / 100))
+              sum +
+              Math.round(p.subtotal * (Number(p.commissionRate ?? 0) / 100))
             );
           }, 0)
         : Math.round(subtotal * (commissionRate / 100));
@@ -264,7 +270,9 @@ export class OrderSettlementService {
       deliveryCommissionRate:
         deliveryCommissionRate ?? settings.deliveryCommissionRate ?? 20,
     };
-    const driverShare = this.earnings.computeDriverShare(effectiveEarningsSettings);
+    const driverShare = this.earnings.computeDriverShare(
+      effectiveEarningsSettings,
+    );
     const stackedDriverShare = this.earnings.computeDriverShare(
       effectiveEarningsSettings,
       { isStacked: true },
@@ -464,7 +472,8 @@ export class OrderSettlementService {
       );
       const resolvedManagers = await Promise.all(
         uniquePrimaryIds.map(
-          async (id) => [id, await this.resolveDriverManager(id, zoneId)] as const,
+          async (id) =>
+            [id, await this.resolveDriverManager(id, zoneId)] as const,
         ),
       );
       const managerByDriverId = new Map(resolvedManagers);
@@ -545,7 +554,9 @@ export class OrderSettlementService {
         (settings as { maxNegativeDriverBalance?: number })
           .maxNegativeDriverBalance ?? 500,
       ),
-      settlementThreshold: Number(settings.driverSettlementOrderThreshold ?? 10),
+      settlementThreshold: Number(
+        settings.driverSettlementOrderThreshold ?? 10,
+      ),
       defaultTaxRate: Number(settings.defaultTaxRate ?? 0),
     };
   }
@@ -694,8 +705,14 @@ export class OrderSettlementService {
     plan: SettlementPlan,
     prefetchedItems?: SettlementGroupItemRow[],
   ): Promise<void> {
-    const { orderId, orderNumber, driverId, driverShiftId, subtotal, isContracted } =
-      payload;
+    const {
+      orderId,
+      orderNumber,
+      driverId,
+      driverShiftId,
+      subtotal,
+      isContracted,
+    } = payload;
 
     if (plan.groups.length > 0) {
       const items =
@@ -883,7 +900,8 @@ export class OrderSettlementService {
       if (existing) {
         existing.amount += payout.amount;
         existing.isAssistOnly = false;
-        if (payout.deliveryGroupId) existing.groupIds.add(payout.deliveryGroupId);
+        if (payout.deliveryGroupId)
+          existing.groupIds.add(payout.deliveryGroupId);
       } else {
         combinedDriverPayouts.set(payout.driverId, {
           driverId: payout.driverId,
@@ -902,7 +920,8 @@ export class OrderSettlementService {
       const existing = combinedDriverPayouts.get(payout.driverId);
       if (existing) {
         existing.amount += payout.amount;
-        if (payout.deliveryGroupId) existing.groupIds.add(payout.deliveryGroupId);
+        if (payout.deliveryGroupId)
+          existing.groupIds.add(payout.deliveryGroupId);
       } else {
         combinedDriverPayouts.set(payout.driverId, {
           driverId: payout.driverId,
@@ -1086,10 +1105,14 @@ export class OrderSettlementService {
     payload: SettleOrderPayload,
     plan: SettlementPlan,
   ): Promise<void> {
-    const { orderId, orderNumber, vendorId, branchName, isContracted } = payload;
+    const { orderId, orderNumber, vendorId, branchName, isContracted } =
+      payload;
 
     const portions = await client.orderVendorFulfillment.findMany({
-      where: { orderId, status: { notIn: ['PENDING', 'REJECTED', 'CANCELLED'] } },
+      where: {
+        orderId,
+        status: { notIn: ['PENDING', 'REJECTED', 'CANCELLED'] },
+      },
       select: {
         id: true,
         vendorId: true,
@@ -1122,7 +1145,9 @@ export class OrderSettlementService {
             .map((p: any) => {
               const rate = Number(p.commissionRate ?? 0);
               const portionComm = Math.round(p.subtotal * (rate / 100));
-              const bName = p.vendorBranch?.name ? ` (${p.vendorBranch.name})` : '';
+              const bName = p.vendorBranch?.name
+                ? ` (${p.vendorBranch.name})`
+                : '';
               return {
                 vendorId: p.vendorId,
                 fulfillmentId: p.id ?? null,
@@ -1302,7 +1327,9 @@ export class OrderSettlementService {
             ? portion.vendorBranch.isContracted
             : (portion.vendor?.isContracted ?? false));
         const portionComm = portionContracted
-          ? Math.round(portion.subtotal * (Number(portion.commissionRate) / 100))
+          ? Math.round(
+              portion.subtotal * (Number(portion.commissionRate) / 100),
+            )
           : 0;
         const existing = vendorStatsByVendor.get(portion.vendorId);
         if (existing) {
