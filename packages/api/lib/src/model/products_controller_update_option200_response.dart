@@ -1,4 +1,4 @@
-﻿//
+//
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
 
@@ -171,4 +171,5 @@ class _$ProductsControllerUpdateOption200ResponseSerializer implements Primitive
     return result.build();
   }
 }
+
 

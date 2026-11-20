@@ -1,4 +1,4 @@
-﻿//
+//
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
 
@@ -171,4 +171,5 @@ class _$DriversControllerGetMyBreaks200ResponseSerializer implements PrimitiveSe
     return result.build();
   }
 }
+
 

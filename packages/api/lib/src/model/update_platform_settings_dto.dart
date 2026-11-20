@@ -19,7 +19,7 @@ part 'update_platform_settings_dto.g.dart';
 /// * [defaultTaxRate] 
 /// * [minOrderAmount] 
 /// * [baseDeliveryFee] 
-/// * [extraVendorDeliveryFee] - Fixed extra delivery fee for each extra vendor in a multi-vendor delivery group (EGP). Default 10.
+/// * [multiVendorDeliveryDiscountPercent] - Percentage discount applied to combined multi-vendor delivery fees in the same delivery group (0-100). Default 20.
 /// * [pricePerKm] 
 /// * [pricePerKmBicycle] 
 /// * [pricePerKmMotorcycle] 
@@ -153,9 +153,9 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'baseDeliveryFee')
   num? get baseDeliveryFee;
 
-  /// Fixed extra delivery fee for each extra vendor in a multi-vendor delivery group (EGP). Default 10.
-  @BuiltValueField(wireName: r'extraVendorDeliveryFee')
-  num? get extraVendorDeliveryFee;
+  /// Percentage discount applied to combined multi-vendor delivery fees in the same delivery group (0-100). Default 20.
+  @BuiltValueField(wireName: r'multiVendorDeliveryDiscountPercent')
+  num? get multiVendorDeliveryDiscountPercent;
 
   @BuiltValueField(wireName: r'pricePerKm')
   num? get pricePerKm;
@@ -613,10 +613,10 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(num),
       );
     }
-    if (object.extraVendorDeliveryFee != null) {
-      yield r'extraVendorDeliveryFee';
+    if (object.multiVendorDeliveryDiscountPercent != null) {
+      yield r'multiVendorDeliveryDiscountPercent';
       yield serializers.serialize(
-        object.extraVendorDeliveryFee,
+        object.multiVendorDeliveryDiscountPercent,
         specifiedType: const FullType(num),
       );
     }
@@ -1448,12 +1448,12 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as num;
           result.baseDeliveryFee = valueDes;
           break;
-        case r'extraVendorDeliveryFee':
+        case r'multiVendorDeliveryDiscountPercent':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.extraVendorDeliveryFee = valueDes;
+          result.multiVendorDeliveryDiscountPercent = valueDes;
           break;
         case r'pricePerKm':
           final valueDes = serializers.deserialize(

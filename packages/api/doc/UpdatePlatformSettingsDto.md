@@ -16,7 +16,7 @@ Name | Type | Description | Notes
 **defaultTaxRate** | **num** |  | [optional] 
 **minOrderAmount** | **num** |  | [optional] 
 **baseDeliveryFee** | **num** |  | [optional] 
-**extraVendorDeliveryFee** | **num** | Fixed extra delivery fee for each extra vendor in a multi-vendor delivery group (EGP). Default 10. | [optional] 
+**multiVendorDeliveryDiscountPercent** | **num** | Percentage discount applied to combined multi-vendor delivery fees in the same delivery group (0-100). Default 20. | [optional] 
 **pricePerKm** | **num** |  | [optional] 
 **pricePerKmBicycle** | **num** |  | [optional] 
 **pricePerKmMotorcycle** | **num** |  | [optional] 

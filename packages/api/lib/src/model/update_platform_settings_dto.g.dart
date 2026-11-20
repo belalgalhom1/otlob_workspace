@@ -24,7 +24,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? baseDeliveryFee;
   @override
-  final num? extraVendorDeliveryFee;
+  final num? multiVendorDeliveryDiscountPercent;
   @override
   final num? pricePerKm;
   @override
@@ -253,7 +253,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.defaultTaxRate,
     this.minOrderAmount,
     this.baseDeliveryFee,
-    this.extraVendorDeliveryFee,
+    this.multiVendorDeliveryDiscountPercent,
     this.pricePerKm,
     this.pricePerKmBicycle,
     this.pricePerKmMotorcycle,
@@ -383,7 +383,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         defaultTaxRate == other.defaultTaxRate &&
         minOrderAmount == other.minOrderAmount &&
         baseDeliveryFee == other.baseDeliveryFee &&
-        extraVendorDeliveryFee == other.extraVendorDeliveryFee &&
+        multiVendorDeliveryDiscountPercent ==
+            other.multiVendorDeliveryDiscountPercent &&
         pricePerKm == other.pricePerKm &&
         pricePerKmBicycle == other.pricePerKmBicycle &&
         pricePerKmMotorcycle == other.pricePerKmMotorcycle &&
@@ -512,7 +513,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, defaultTaxRate.hashCode);
     _$hash = $jc(_$hash, minOrderAmount.hashCode);
     _$hash = $jc(_$hash, baseDeliveryFee.hashCode);
-    _$hash = $jc(_$hash, extraVendorDeliveryFee.hashCode);
+    _$hash = $jc(_$hash, multiVendorDeliveryDiscountPercent.hashCode);
     _$hash = $jc(_$hash, pricePerKm.hashCode);
     _$hash = $jc(_$hash, pricePerKmBicycle.hashCode);
     _$hash = $jc(_$hash, pricePerKmMotorcycle.hashCode);
@@ -635,7 +636,10 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('defaultTaxRate', defaultTaxRate)
           ..add('minOrderAmount', minOrderAmount)
           ..add('baseDeliveryFee', baseDeliveryFee)
-          ..add('extraVendorDeliveryFee', extraVendorDeliveryFee)
+          ..add(
+            'multiVendorDeliveryDiscountPercent',
+            multiVendorDeliveryDiscountPercent,
+          )
           ..add('pricePerKm', pricePerKm)
           ..add('pricePerKmBicycle', pricePerKmBicycle)
           ..add('pricePerKmMotorcycle', pricePerKmMotorcycle)
@@ -815,10 +819,13 @@ class UpdatePlatformSettingsDtoBuilder
   set baseDeliveryFee(num? baseDeliveryFee) =>
       _$this._baseDeliveryFee = baseDeliveryFee;
 
-  num? _extraVendorDeliveryFee;
-  num? get extraVendorDeliveryFee => _$this._extraVendorDeliveryFee;
-  set extraVendorDeliveryFee(num? extraVendorDeliveryFee) =>
-      _$this._extraVendorDeliveryFee = extraVendorDeliveryFee;
+  num? _multiVendorDeliveryDiscountPercent;
+  num? get multiVendorDeliveryDiscountPercent =>
+      _$this._multiVendorDeliveryDiscountPercent;
+  set multiVendorDeliveryDiscountPercent(
+    num? multiVendorDeliveryDiscountPercent,
+  ) => _$this._multiVendorDeliveryDiscountPercent =
+      multiVendorDeliveryDiscountPercent;
 
   num? _pricePerKm;
   num? get pricePerKm => _$this._pricePerKm;
@@ -1380,7 +1387,8 @@ class UpdatePlatformSettingsDtoBuilder
       _defaultTaxRate = $v.defaultTaxRate;
       _minOrderAmount = $v.minOrderAmount;
       _baseDeliveryFee = $v.baseDeliveryFee;
-      _extraVendorDeliveryFee = $v.extraVendorDeliveryFee;
+      _multiVendorDeliveryDiscountPercent =
+          $v.multiVendorDeliveryDiscountPercent;
       _pricePerKm = $v.pricePerKm;
       _pricePerKmBicycle = $v.pricePerKmBicycle;
       _pricePerKmMotorcycle = $v.pricePerKmMotorcycle;
@@ -1522,7 +1530,8 @@ class UpdatePlatformSettingsDtoBuilder
           defaultTaxRate: defaultTaxRate,
           minOrderAmount: minOrderAmount,
           baseDeliveryFee: baseDeliveryFee,
-          extraVendorDeliveryFee: extraVendorDeliveryFee,
+          multiVendorDeliveryDiscountPercent:
+              multiVendorDeliveryDiscountPercent,
           pricePerKm: pricePerKm,
           pricePerKmBicycle: pricePerKmBicycle,
           pricePerKmMotorcycle: pricePerKmMotorcycle,
