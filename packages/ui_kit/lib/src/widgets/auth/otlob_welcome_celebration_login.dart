@@ -90,6 +90,21 @@ class OtlobLoginWelcomeOverlay extends StatefulWidget {
     this.forceAnimateCelebration,
   });
 
+  /// Minimum top padding inside [child]'s [SafeArea] so the brand logo and
+  /// login form start cleanly below the `WELCOME TO OTLOB` banner without
+  /// overlapping it, even under larger accessibility text scaling.
+  static double recommendedTopClearance(
+    BuildContext context, {
+    double signTopOffset = 6.0,
+    double gap = 16.0,
+  }) {
+    final textScale =
+        MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.5);
+    // _CompactWelcomeSign height at 1.0x: vertical padding (12) + border (3.2) + 13.5px*1.25 text (~17) ≈ 34px.
+    const double baseSignHeight = 36.0;
+    return signTopOffset + (baseSignHeight * textScale) + gap;
+  }
+
   @override
   State<OtlobLoginWelcomeOverlay> createState() =>
       OtlobLoginWelcomeOverlayState();
@@ -342,6 +357,7 @@ class _CompactWelcomeSign extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13.5,
+            height: 1.25,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.5,
             color: _CelebrationColors.goldBright,

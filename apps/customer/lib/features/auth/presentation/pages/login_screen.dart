@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -149,10 +151,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     final s = AppStrings.of(context);
+    const signTopOffset = 4.0;
+    final logoTopSpacing = math.max(
+      20.0,
+      OtlobLoginWelcomeOverlay.recommendedTopClearance(
+            context,
+            signTopOffset: signTopOffset,
+            gap: 10.0,
+          ) -
+          24.0,
+    );
+
     return Scaffold(
       appBar: AppBar(title: Text(s.welcomeBack)),
       body: OtlobLoginWelcomeOverlay(
-        signTopOffset: 4,
+        signTopOffset: signTopOffset,
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -161,7 +174,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 20),
+                  SizedBox(height: logoTopSpacing),
 
                   Center(
                     child: OtlobBrandHeroLogo(

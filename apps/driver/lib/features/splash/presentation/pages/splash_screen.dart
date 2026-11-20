@@ -141,6 +141,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = ref.watch(splashProvider);
     if (!_navigated && mounted && (state.hasValue || state.hasError)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -171,7 +172,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                             .currentState
                             ?.continueSpinningWhileWaiting(),
                         child: Image.asset(
-                          'assets/logo_without_background.png',
+                          isDark
+                              ? 'assets/logo_delivery_dark.png'
+                              : 'assets/logo_delivery.png',
                           width: 140,
                           fit: BoxFit.contain,
                         ),

@@ -274,28 +274,47 @@ void main() {
                     textScaler: const TextScaler.linear(1.3),
                   ),
                   child: Scaffold(
-                    body: OtlobLoginWelcomeOverlay(
-                      forceAnimateCelebration: true,
-                      child: SafeArea(
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              OtlobBrandHeroLogo(
-                                child:
-                                    Image.asset('assets/logo.png', height: 120),
+                    body: Builder(
+                      builder: (ctx) {
+                        final topClearance =
+                            OtlobLoginWelcomeOverlay.recommendedTopClearance(
+                          ctx,
+                          gap: 16,
+                        );
+                        return OtlobLoginWelcomeOverlay(
+                          forceAnimateCelebration: true,
+                          child: SafeArea(
+                            child: SingleChildScrollView(
+                              padding: EdgeInsets.fromLTRB(
+                                16,
+                                topClearance,
+                                16,
+                                16,
                               ),
-                              const SizedBox(height: 16),
-                              const TextField(),
-                              const SizedBox(height: 12),
-                              ElevatedButton(
-                                onPressed: () {},
-                                child: const Text('Sign In'),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    OtlobBrandHeroLogo(
+                                      child: Image.asset(
+                                        'assets/logo.png',
+                                        height: 120,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const TextField(),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton(
+                                      onPressed: () {},
+                                      child: const Text('Sign In'),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -306,6 +325,17 @@ void main() {
 
           expect(find.text('WELCOME TO OTLOB'), findsOneWidget);
           expect(find.text('Sign In'), findsOneWidget);
+
+          final signRect = tester.getRect(
+            find
+                .ancestor(
+                  of: find.text('WELCOME TO OTLOB'),
+                  matching: find.byType(Container),
+                )
+                .first,
+          );
+          final logoRect = tester.getRect(find.byType(OtlobBrandHeroLogo));
+          expect(signRect.bottom, lessThanOrEqualTo(logoRect.top));
           expect(tester.takeException(), isNull);
         },
       );

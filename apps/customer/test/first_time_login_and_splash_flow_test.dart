@@ -516,6 +516,17 @@ void main() {
 
         expect(find.text('WELCOME TO OTLOB'), findsOneWidget);
         expect(find.byType(OtlobBrandHeroLogo), findsOneWidget);
+        final signRect = tester.getRect(
+          find
+              .ancestor(
+                of: find.text('WELCOME TO OTLOB'),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        final logoRect = tester.getRect(find.byType(OtlobBrandHeroLogo));
+        expect(signRect.bottom, lessThanOrEqualTo(logoRect.top));
+
         expect(find.byType(TextFormField), findsNWidgets(2));
         expect(find.text('Welcome Back'), findsOneWidget);
         expect(find.text('Login'), findsOneWidget);

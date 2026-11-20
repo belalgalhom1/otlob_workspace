@@ -276,4 +276,62 @@ void main() {
       expect(hangingPush.initCalls, 1);
     },
   );
+
+  testWidgets(
+    'Driver LoginScreen shows delivery brand logo below WELCOME TO OTLOB at 320x568 with 1.3x TextScaler',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _TestAuth()),
+            appPreferencesProvider
+                .overrideWith(() => _TestAppPreferences(const Locale('ar'))),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ar'),
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.dark,
+            home: const MediaQuery(
+              data: MediaQueryData(
+                size: Size(320, 568),
+                padding: EdgeInsets.only(top: 44, bottom: 34),
+                textScaler: TextScaler.linear(1.3),
+              ),
+              child: LoginScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final signRect = tester.getRect(
+        find
+            .ancestor(
+              of: find.text('WELCOME TO OTLOB'),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final logoRect = tester.getRect(find.byType(OtlobBrandHeroLogo));
+      expect(signRect.bottom, lessThanOrEqualTo(logoRect.top));
+      expect(
+        find.descendant(
+          of: find.byType(OtlobBrandHeroLogo),
+          matching: find.byType(Image),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
