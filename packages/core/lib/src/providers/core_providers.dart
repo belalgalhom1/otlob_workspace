@@ -17,9 +17,9 @@ const appIosSecureStorageOptions = IOSOptions(
   accessibility: KeychainAccessibility.first_unlock,
 );
 
-/// Shared [FlutterSecureStorage] instance with consistent iOS Keychain options.
+/// Shared [FlutterSecureStorage] instance with consistent Android/iOS recovery options.
 const appSecureStorage = FlutterSecureStorage(
-  aOptions: AndroidOptions(),
+  aOptions: AndroidOptions(resetOnError: true),
   iOptions: appIosSecureStorageOptions,
 );
 

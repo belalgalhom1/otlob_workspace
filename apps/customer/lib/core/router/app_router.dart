@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:ui_kit/ui_kit.dart'
+    show OtlobLoginEntranceCoordinator, OtlobSplashToLoginTransition;
 
 import '../services/navigation_service.dart';
 import '../../features/auth/presentation/providers/auth_controller.dart';
@@ -66,7 +68,6 @@ class RouterNotifier extends ChangeNotifier {
 
   String? redirect(BuildContext context, GoRouterState state) {
     final authStatus = _ref.read(authControllerProvider);
-    final hasSeenOnboarding = _ref.read(appSettingsProvider).hasSeenOnboarding;
 
     final path = state.matchedLocation.isNotEmpty
         ? state.matchedLocation
@@ -83,7 +84,9 @@ class RouterNotifier extends ChangeNotifier {
     }
 
     // Phone gate: authenticated users without a phone number must complete it.
-    if (path != RoutePaths.completePhone && _ref.read(needsPhoneProvider)) {
+    if (authStatus == AuthStatus.authenticated &&
+        path != RoutePaths.completePhone &&
+        _ref.read(needsPhoneProvider)) {
       return RoutePaths.completePhone;
     }
 
@@ -125,13 +128,12 @@ class RouterNotifier extends ChangeNotifier {
         path.startsWith('/all-vendors');
 
     if (authStatus == AuthStatus.unauthenticated) {
-      if (!hasSeenOnboarding) {
-        return isGoingToOnboarding ? null : RoutePaths.onboarding;
-      }
       if (isGoingToSplash || isGoingToOnboarding) {
-        return RoutePaths.home;
+        return RoutePaths.login;
       }
-      if (!isAuthRoute && !isPublicRoute) return '${RoutePaths.login}?redirect=${state.uri.path}';
+      if (!isAuthRoute && !isPublicRoute) {
+        return '${RoutePaths.login}?redirect=${state.uri.path}';
+      }
       return null;
     }
 
@@ -202,7 +204,23 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: RoutePaths.login,
         name: RouteNames.login,
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) {
+          if (OtlobLoginEntranceCoordinator.isPendingFromSplash) {
+            return CustomTransitionPage<void>(
+              key: state.pageKey,
+              transitionDuration:
+                  OtlobSplashToLoginTransition.effectiveDuration(context),
+              reverseTransitionDuration: Duration.zero,
+              transitionsBuilder:
+                  OtlobSplashToLoginTransition.buildPageTransition,
+              child: const LoginScreen(),
+            );
+          }
+          return MaterialPage<void>(
+            key: state.pageKey,
+            child: const LoginScreen(),
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.register,

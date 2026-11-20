@@ -195,10 +195,14 @@ class TokenService {
 
   Future<bool> isAccessTokenExpired() async {
     final access = await getAccessToken();
-    
-    if (access == null) return true; 
 
-    return JwtDecoder.isExpired(access);
+    if (access == null || access.isEmpty) return true;
+
+    try {
+      return JwtDecoder.isExpired(access);
+    } catch (_) {
+      return true;
+    }
   }
 
   Future<String?> getUserId() async {
@@ -228,10 +232,16 @@ class TokenService {
     final access = await getAccessToken();
     final refresh = await getRefreshToken();
 
-    if (access == null || refresh == null) return false;
+    if (access == null || access.isEmpty || refresh == null || refresh.isEmpty) {
+      return false;
+    }
 
-    if (JwtDecoder.isExpired(refresh)) {
-      return false; 
+    try {
+      if (JwtDecoder.isExpired(refresh)) {
+        return false;
+      }
+    } catch (_) {
+      return false;
     }
 
     return true;

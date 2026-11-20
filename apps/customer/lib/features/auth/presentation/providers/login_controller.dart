@@ -11,17 +11,24 @@ class LoginController extends _$LoginController {
     return const AsyncData(null);
   }
 
-  Future<bool> login({required String email, required String password}) async {
+  Future<bool> login({
+    required String email,
+    required String password,
+    bool rememberMe = false,
+  }) async {
     state = const AsyncLoading();
 
     try {
-      await ref.read(authControllerProvider.notifier).login(email, password);
+      final controller = ref.read(authControllerProvider.notifier);
+      controller.setRememberCredentialsPending(rememberMe);
+      await controller.login(email, password);
       if (ref.mounted) {
         state = const AsyncData(null);
       }
       return true;
     } catch (e, st) {
       if (ref.mounted) {
+        ref.read(authControllerProvider.notifier).setRememberCredentialsPending(false);
         final errorMessage = ApiErrorMapper.fromError(e);
         state = AsyncError(errorMessage, st);
       }

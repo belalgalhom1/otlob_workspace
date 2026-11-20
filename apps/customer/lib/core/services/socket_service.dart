@@ -22,6 +22,7 @@ class SocketService with WidgetsBindingObserver {
   io.Socket? _socket;
   final Logger _logger = Logger();
   String? _connectedToken;
+  bool _isConnecting = false;
   bool _reAuthInProgress = false;
 
   // Typed broadcast streams — survive socket re-auth / re-creation.
@@ -108,13 +109,18 @@ class SocketService with WidgetsBindingObserver {
   Future<void> initSocket(String userToken) async {
     // Re-authing a different account (or a rotated token) must not reuse the
     // old socket: it stays bound to the previous user's session on the server.
-    if (_socket != null && _socket!.connected && userToken == _connectedToken) {
+    // However, if another listener is already connected or mid-handshake with
+    // the exact same token, keep the socket intact so listeners aren't dropped.
+    if (_socket != null &&
+        userToken == _connectedToken &&
+        (_socket!.connected || _isConnecting)) {
       return;
     }
 
     _socket?.dispose(); // Clean up old socket
     _socket = null;
     _connectedToken = null;
+    _isConnecting = true;
 
     var baseUrl = dotenv.env['SOCKET_URL'] ?? 'https://ws.otlob-egy.online';
     if (baseUrl.endsWith('/')) {
@@ -143,6 +149,7 @@ class SocketService with WidgetsBindingObserver {
 
     _socket?.connect();
     _socket?.onConnect((_) {
+      _isConnecting = false;
       _logger.i('✅ Socket connected');
       if (!_connectController.isClosed) _connectController.add(null);
       final preview = userToken.length > 20
@@ -152,6 +159,7 @@ class SocketService with WidgetsBindingObserver {
     });
 
     _socket?.onConnectError((err) async {
+      _isConnecting = false;
       _logger.e('❌ Socket Connect Error: $err');
       final errorStr = err.toString().toLowerCase();
       if ((errorStr.contains('unauthorized') ||
@@ -172,7 +180,10 @@ class SocketService with WidgetsBindingObserver {
       }
     });
 
-    _socket?.onDisconnect((_) => _logger.w('❌ Socket disconnected'));
+    _socket?.onDisconnect((_) {
+      _isConnecting = false;
+      _logger.w('❌ Socket disconnected');
+    });
 
     // Wire every existing typed subscriber to the new socket.
     _forwardAllControllers();
@@ -191,6 +202,7 @@ class SocketService with WidgetsBindingObserver {
   void connect() => _socket?.connect();
 
   void disconnect() {
+    _isConnecting = false;
     _connectedToken = null;
     _socket?.disconnect();
     _socket?.dispose();

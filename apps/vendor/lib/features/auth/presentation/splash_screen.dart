@@ -16,10 +16,11 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
+  final GlobalKey<OtlobSplashSpinLogoState> _spinLogoKey =
+      GlobalKey<OtlobSplashSpinLogoState>();
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-  late final AnimationController _rotationController;
   Timer? _watchdogTimer;
   bool _navigated = false;
 
@@ -28,14 +29,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1100),
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
-    _rotationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat();
-
     _controller.forward();
 
     // Watchdog timer: If anything upstream hangs, never leave the user frozen
@@ -43,12 +39,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       if (!mounted || _navigated) return;
       debugPrint('🚀 Splash: watchdog triggered fallback');
       _navigated = true;
-      context.go('/login');
+      _goToLoginAfterSpin();
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _runAppGate();
     });
+  }
+
+  Future<void> _goToLoginAfterSpin() async {
+    final spinState = _spinLogoKey.currentState;
+    if (spinState != null) {
+      await spinState.waitForSpinAndSettle(Future<void>.value());
+    }
+    if (!mounted) return;
+    OtlobLoginEntranceCoordinator.markFromSplash();
+    context.go('/login');
   }
 
   Future<void> _runAppGate() async {
@@ -130,9 +136,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       if (!context.mounted) return;
       _navigated = true;
       if (state.value == true) {
+        OtlobLoginEntranceCoordinator.reset();
         context.go(ref.read(vendorPostAuthRouteProvider));
       } else {
-        context.go('/login');
+        _goToLoginAfterSpin();
       }
     }
   }
@@ -141,7 +148,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void dispose() {
     _watchdogTimer?.cancel();
     _controller.dispose();
-    _rotationController.dispose();
     super.dispose();
   }
 
@@ -160,15 +166,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                RepaintBoundary(
-                  child: RotationTransition(
-                    turns: _rotationController,
-                    child: Image.asset(
-                      'assets/logo_without_background.png',
-                      width: 140,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
+                OtlobSplashSpinLogo(
+                  key: _spinLogoKey,
+                  assetPath: 'assets/logo_without_background.png',
+                  size: 140,
+                  auraPadding: 14,
+                  auraColor: AppColors.primary.withValues(alpha: 0.1),
+                  borderColor: AppColors.primary.withValues(alpha: 0.2),
+                  onInitialSpinCompleted: () => _spinLogoKey.currentState
+                      ?.continueSpinningWhileWaiting(),
                 ),
                 const SizedBox(height: 24),
                 Text(

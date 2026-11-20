@@ -1,33 +1,15 @@
+import 'package:core/core.dart' as core;
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import 'jwt_interceptor.dart';
-
 part 'network_providers.g.dart';
 
+/// Unified Customer Dio client delegating directly to [core.dioProvider] so all
+/// HTTP traffic shares one [AuthInterceptor] and one refresh-token mutex.
 @Riverpod(keepAlive: true)
 Dio dio(Ref ref) {
-  final baseUrl = dotenv.env['API_URL'] ?? 'http://10.0.2.2:3000';
-
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ),
-  );
-
-  dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
-
-  dio.interceptors.add(JwtInterceptor(ref, dio));
-
-  return dio;
+  return ref.watch(core.dioProvider);
 }
 
 @Riverpod(keepAlive: true)

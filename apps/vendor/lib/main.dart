@@ -90,7 +90,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (context, state) {
+          if (OtlobLoginEntranceCoordinator.isPendingFromSplash) {
+            return CustomTransitionPage<void>(
+              key: state.pageKey,
+              transitionDuration:
+                  OtlobSplashToLoginTransition.effectiveDuration(context),
+              reverseTransitionDuration: Duration.zero,
+              transitionsBuilder:
+                  OtlobSplashToLoginTransition.buildPageTransition,
+              child: const LoginScreen(),
+            );
+          }
+          return MaterialPage<void>(
+            key: state.pageKey,
+            child: const LoginScreen(),
+          );
+        },
+      ),
       GoRoute(
         path: '/maintenance',
         builder: (context, state) => const MaintenancePage(),

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/network_providers.dart';
 import 'package:flutter/foundation.dart';
@@ -17,6 +18,7 @@ final discoverySearchControllerProvider = FutureProvider.family<List<Map<String,
   try {
     final response = await dio.get(
       '/vendors/discovery/search',
+      options: Options(extra: const {'requiresAuth': false}),
       queryParameters: {
         'search': arg.query,
         'verticalId': ?vId,

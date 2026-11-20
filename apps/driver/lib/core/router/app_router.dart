@@ -3,6 +3,8 @@ import 'package:driver/features/legal/presentation/pages/legal_document_viewer_p
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:ui_kit/ui_kit.dart'
+    show OtlobLoginEntranceCoordinator, OtlobSplashToLoginTransition;
 
 import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/auth/presentation/pages/login_screen.dart';
@@ -72,7 +74,8 @@ GoRouter appRouter(Ref ref) {
       final appState = splashState.value!;
       if (appState == AppStartupState.unauthenticated &&
           !isAuthenticated &&
-          !isGoingToLogin) {
+          !isGoingToLogin &&
+          state.matchedLocation != '/') {
         return '/login';
       }
 
@@ -89,7 +92,23 @@ GoRouter appRouter(Ref ref) {
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) {
+          if (OtlobLoginEntranceCoordinator.isPendingFromSplash) {
+            return CustomTransitionPage<void>(
+              key: state.pageKey,
+              transitionDuration:
+                  OtlobSplashToLoginTransition.effectiveDuration(context),
+              reverseTransitionDuration: Duration.zero,
+              transitionsBuilder:
+                  OtlobSplashToLoginTransition.buildPageTransition,
+              child: const LoginScreen(),
+            );
+          }
+          return MaterialPage<void>(
+            key: state.pageKey,
+            child: const LoginScreen(),
+          );
+        },
       ),
       GoRoute(
         path: '/maintenance',

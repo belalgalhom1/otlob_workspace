@@ -5,6 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart' hide inboxCountsProvider;
 import 'package:data/providers.dart' as data_providers;
 import 'package:core/core.dart' hide tokenServiceProvider;
+import 'package:ui_kit/ui_kit.dart' show OtlobLoginEntranceCoordinator;
 import '../../../../core/services/token_service.dart';
 import '../../../../core/services/socket_service.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
@@ -49,6 +50,14 @@ class NeedsTerms extends Notifier<bool> {
 
 final needsTermsProvider = NotifierProvider<NeedsTerms, bool>(NeedsTerms.new);
 
+bool _isInvalidSessionError(Object error) {
+  if (error is DioException) {
+    final code = error.response?.statusCode;
+    return code == 401 || code == 403;
+  }
+  return false;
+}
+
 /// Returns true when the current user has not accepted the latest published terms of use.
 Future<bool> userNeedsTermsAcceptance(Ref ref) async {
   try {
@@ -57,7 +66,8 @@ Future<bool> userNeedsTermsAcceptance(Ref ref) async {
         .getAcceptanceStatus()
         .timeout(const Duration(seconds: 4));
     return status?['needsAcceptance'] == true;
-  } catch (_) {
+  } catch (e) {
+    if (_isInvalidSessionError(e)) rethrow;
     return false;
   }
 }
@@ -71,7 +81,8 @@ Future<bool> userMissingAddress(Ref ref) async {
         .timeout(const Duration(seconds: 4));
     final list = raw is List ? raw : <dynamic>[];
     return list.isEmpty;
-  } catch (_) {
+  } catch (e) {
+    if (_isInvalidSessionError(e)) rethrow;
     return false;
   }
 }
@@ -92,9 +103,20 @@ Future<bool> userMissingPhone(Ref ref) async {
         : user;
     final phone = (data['phone'] ?? user['phone'] ?? map['phone'])?.toString().trim() ?? '';
     return phone.isEmpty;
-  } catch (_) {
+  } catch (e) {
+    if (_isInvalidSessionError(e)) rethrow;
     return false;
   }
+}
+
+bool _hasValidTokensInPayload(dynamic payload) {
+  if (payload is! Map) return false;
+  final access = payload['access_token'];
+  final refresh = payload['refresh_token'];
+  return access is String &&
+      access.trim().isNotEmpty &&
+      refresh is String &&
+      refresh.trim().isNotEmpty;
 }
 
 bool? _extractMissingPhoneFromLoginPayload(dynamic payload) {
@@ -110,6 +132,11 @@ bool? _extractMissingPhoneFromLoginPayload(dynamic payload) {
 class AuthController extends _$AuthController {
   StreamSubscription<void>? _unauthSub;
   bool _logoutInProgress = false;
+  bool _rememberCredentialsPending = false;
+
+  void setRememberCredentialsPending(bool value) {
+    _rememberCredentialsPending = value;
+  }
 
   @override
   AuthStatus build() {
@@ -167,17 +194,28 @@ class AuthController extends _$AuthController {
   }
 
   void _initPushInBackground() {
-    unawaited(
-      Future<void>(() async {
-        try {
-          if (!ref.mounted) return;
-          final push = ref.read(pushNotificationServiceProvider);
-          await push.initialize();
-          if (!ref.mounted) return;
-          await push.subscribeToRoleTopics('CUSTOMER');
-        } catch (_) {}
-      }),
-    );
+    Future<void> run() async {
+      try {
+        if (!ref.mounted) return;
+        final push = ref.read(pushNotificationServiceProvider);
+        await push.initialize();
+        if (!ref.mounted) return;
+        await push.subscribeToRoleTopics('CUSTOMER');
+      } catch (_) {}
+    }
+
+    unawaited(run());
+  }
+
+  Future<void> _abortFailedSessionSetup() async {
+    try {
+      await ref.read(sharedAuthRepositoryProvider).clearLocalSession();
+    } catch (_) {}
+    if (!ref.mounted) return;
+    ref.read(needsTermsProvider.notifier).set(false);
+    ref.read(needsPhoneProvider.notifier).set(false);
+    ref.read(needsAddressProvider.notifier).set(false);
+    state = AuthStatus.unauthenticated;
   }
 
   Future<void> checkAuthStatus() async {
@@ -191,31 +229,97 @@ class AuthController extends _$AuthController {
 
     final isExpired = await authRepo.isTokenExpired();
     if (isExpired) {
+      bool refreshExpired = false;
+      try {
+        refreshExpired = await authRepo.isRefreshTokenExpired();
+      } catch (_) {
+        refreshExpired = false;
+      }
+      if (refreshExpired) {
+        await logout();
+        return;
+      }
+
       try {
         await authRepo.refreshToken();
-      } catch (_) {
-        await logout();
+      } catch (e) {
+        if (_isInvalidSessionError(e) ||
+            e.toString().contains('NO_REFRESH_TOKEN') ||
+            e.toString().contains('REFRESH_FAILED')) {
+          await logout();
+        } else if (ref.mounted) {
+          ref.read(needsTermsProvider.notifier).set(false);
+          ref.read(needsPhoneProvider.notifier).set(false);
+          ref.read(needsAddressProvider.notifier).set(false);
+          state = AuthStatus.unauthenticated;
+        }
         return;
       }
     }
 
-    await _applyPostAuthGates();
+    try {
+      await _applyPostAuthGates();
+    } catch (e) {
+      if (_isInvalidSessionError(e)) {
+        await logout();
+        return;
+      }
+    }
     if (!ref.mounted) return;
     // Set authenticated after gate flags are populated so RouterNotifier
     // evaluates the complete post-auth state in a single transition.
+    OtlobLoginEntranceCoordinator.reset();
     state = AuthStatus.authenticated;
     _initPushInBackground();
   }
 
   Future<void> login(String email, String password) async {
+    final remember = _rememberCredentialsPending;
+    _rememberCredentialsPending = false;
     final authRepo = ref.read(sharedAuthRepositoryProvider);
-    final payload =
-        await authRepo.login(email, password, appType: 'customer');
-    _clearUserProviders();
-    await _applyPostAuthGates(loginPayload: payload);
-    if (!ref.mounted) return;
-    state = AuthStatus.authenticated;
-    _initPushInBackground();
+    try {
+      final payload =
+          await authRepo.login(email, password, appType: 'customer');
+      if (!_hasValidTokensInPayload(payload)) {
+        await _abortFailedSessionSetup();
+        throw Exception('auth.error.invalid_credentials');
+      }
+
+      if (remember) {
+        final user = payload is Map && payload['user'] is Map
+            ? Map<String, dynamic>.from(payload['user'] as Map)
+            : const <String, dynamic>{};
+        final userName = (user['name']?.toString() ?? '').trim();
+        final userEmail = (user['email']?.toString() ?? '').trim();
+        try {
+          await ref.read(tokenServiceProvider).saveSavedProfile(
+                email: userEmail.isNotEmpty ? userEmail : email,
+                password: password,
+                name: userName.isNotEmpty ? userName : email.split('@')[0],
+                role: 'CUSTOMER',
+              );
+        } catch (_) {}
+      }
+
+      _clearUserProviders();
+      try {
+        await _applyPostAuthGates(loginPayload: payload);
+      } catch (e) {
+        if (_isInvalidSessionError(e)) {
+          await _abortFailedSessionSetup();
+          rethrow;
+        }
+      }
+      if (!ref.mounted) return;
+      OtlobLoginEntranceCoordinator.reset();
+      state = AuthStatus.authenticated;
+      _initPushInBackground();
+    } catch (_) {
+      if (ref.mounted && state == AuthStatus.initial) {
+        state = AuthStatus.unauthenticated;
+      }
+      rethrow;
+    }
   }
 
   Future<bool> signInWithGoogle() async {
@@ -228,9 +332,21 @@ class AuthController extends _$AuthController {
           ..idToken = idToken
           ..app = SocialLoginDtoAppEnum.customer),
       );
+      if (!_hasValidTokensInPayload(payload)) {
+        await _abortFailedSessionSetup();
+        throw Exception('auth.error.invalid_credentials');
+      }
       _clearUserProviders();
-      await _applyPostAuthGates(loginPayload: payload);
+      try {
+        await _applyPostAuthGates(loginPayload: payload);
+      } catch (e) {
+        if (_isInvalidSessionError(e)) {
+          await _abortFailedSessionSetup();
+          rethrow;
+        }
+      }
       if (!ref.mounted) return true;
+      OtlobLoginEntranceCoordinator.reset();
       state = AuthStatus.authenticated;
       _initPushInBackground();
       return true;

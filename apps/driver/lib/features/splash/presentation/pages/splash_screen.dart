@@ -7,7 +7,13 @@ import 'package:driver/features/splash/presentation/splash_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart'
-    show ExternalActionLauncher, AppConfirmDialog;
+    show
+        AppColors,
+        AppConfirmDialog,
+        ExternalActionLauncher,
+        OtlobLoginEntranceCoordinator,
+        OtlobSplashSpinLogo,
+        OtlobSplashSpinLogoState;
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -16,9 +22,9 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _rotationController;
+class _SplashScreenState extends ConsumerState<SplashScreen> {
+  final GlobalKey<OtlobSplashSpinLogoState> _spinLogoKey =
+      GlobalKey<OtlobSplashSpinLogoState>();
 
   Timer? _watchdogTimer;
   bool _showRetry = false;
@@ -27,75 +33,78 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   void initState() {
     super.initState();
-    _rotationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat();
     // Watchdog: whatever happens upstream (hang, missed event, provider
     // error), the user is never left on a dead spinner — offer a retry.
     _watchdogTimer = Timer(const Duration(seconds: 30), () {
       if (!mounted) return;
       final state = ref.read(splashProvider);
       if (state.isLoading || state.hasError) {
-        // ignore: avoid_print
         debugPrint(
           '🚀 Splash: watchdog fired (loading=${state.isLoading} error=${state.hasError})',
         );
         setState(() => _showRetry = true);
       }
     });
-    void handleState(AsyncValue<AppStartupState> state) {
-      if (!mounted || _navigated) return;
-      if (state.hasError) {
-        debugPrint('🚀 Splash: provider error, failing open to login');
-        _navigated = true;
-        context.go('/login');
-        return;
-      }
-      if (state.hasValue && !state.isLoading) {
-        debugPrint('🚀 Splash: navigating to ${state.value}');
-        _navigated = true;
-        switch (state.value!) {
-          case AppStartupState.unauthenticated:
-            context.go('/login');
-            break;
 
-          case AppStartupState.suspended:
-            context.go('/suspended');
-            break;
-          case AppStartupState.needsTerms:
-            context.go('/terms-acceptance');
-            break;
-          case AppStartupState.dashboard:
-            _maybeShowOptionalUpdate('/dashboard');
-            break;
-          case AppStartupState.activeOrder:
-            _maybeShowOptionalUpdate('/order-execution');
-            break;
-          case AppStartupState.maintenance:
-            context.go('/maintenance');
-            break;
-          case AppStartupState.forceUpdate:
-            context.go('/update-required');
-            break;
-          case AppStartupState.loading:
-            break;
-        }
-      }
-    }
-
-    // If this screen (re)mounts while the provider already completed
-    // (remount, scope rebuild, retry navigation), handle the current value.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       debugPrint('🚀 Splash: mount check');
-      handleState(ref.read(splashProvider));
+      _handleState(ref.read(splashProvider));
     });
+  }
+
+  Future<void> _goToLoginAfterSpin() async {
+    final spinState = _spinLogoKey.currentState;
+    if (spinState != null) {
+      await spinState.waitForSpinAndSettle(Future<void>.value());
+    }
+    if (!mounted) return;
+    OtlobLoginEntranceCoordinator.markFromSplash();
+    context.go('/login');
+  }
+
+  void _handleState(AsyncValue<AppStartupState> state) {
+    if (!mounted || _navigated) return;
+    if (state.hasError) {
+      debugPrint('🚀 Splash: provider error, failing open to login');
+      _navigated = true;
+      _goToLoginAfterSpin();
+      return;
+    }
+    if (state.hasValue && !state.isLoading) {
+      debugPrint('🚀 Splash: navigating to ${state.value}');
+      _navigated = true;
+      switch (state.value!) {
+        case AppStartupState.unauthenticated:
+          _goToLoginAfterSpin();
+          break;
+        case AppStartupState.suspended:
+          context.go('/suspended');
+          break;
+        case AppStartupState.needsTerms:
+          context.go('/terms-acceptance');
+          break;
+        case AppStartupState.dashboard:
+          _maybeShowOptionalUpdate('/dashboard');
+          break;
+        case AppStartupState.activeOrder:
+          _maybeShowOptionalUpdate('/order-execution');
+          break;
+        case AppStartupState.maintenance:
+          context.go('/maintenance');
+          break;
+        case AppStartupState.forceUpdate:
+          context.go('/update-required');
+          break;
+        case AppStartupState.loading:
+          _navigated = false;
+          break;
+      }
+    }
   }
 
   @override
   void dispose() {
     _watchdogTimer?.cancel();
-    _rotationController.dispose();
     super.dispose();
   }
 
@@ -133,56 +142,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Belt and suspenders: navigation driven by the build itself cannot miss
-    // a completed value the way a listener can (late subscription, remount,
-    // missed event). The _navigated guard keeps all three paths (listener,
-    // mount check, build) from double-navigating.
     final state = ref.watch(splashProvider);
     if (!_navigated && mounted && (state.hasValue || state.hasError)) {
-      _navigated = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          _navigated = false;
-          return;
-        }
-        if (state.hasError) {
-          debugPrint('🚀 Splash: provider error, failing open to login');
-          context.go('/login');
-          return;
-        }
-        if (state.hasValue && !state.isLoading) {
-          debugPrint('🚀 Splash: navigating to ${state.value}');
-          switch (state.value!) {
-            case AppStartupState.unauthenticated:
-              context.go('/login');
-              break;
-            case AppStartupState.suspended:
-              context.go('/suspended');
-              break;
-            case AppStartupState.dashboard:
-              _maybeShowOptionalUpdate('/dashboard');
-              break;
-            case AppStartupState.activeOrder:
-              _maybeShowOptionalUpdate('/order-execution');
-              break;
-            case AppStartupState.maintenance:
-              context.go('/maintenance');
-              break;
-            case AppStartupState.forceUpdate:
-              context.go('/update-required');
-              break;
-            case AppStartupState.needsTerms:
-              context.go('/terms-acceptance');
-              break;
-            case AppStartupState.loading:
-              _navigated = false;
-              break;
-          }
-        } else {
-          _navigated = false;
-        }
+        _handleState(ref.read(splashProvider));
       });
     }
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -200,50 +166,57 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      RotationTransition(
-                        turns: _rotationController,
-                        child: Image.asset(
-                          'assets/logo_without_background.png',
-                          width: 140,
-                          fit: BoxFit.contain,
-                        ),
+                      OtlobSplashSpinLogo(
+                        key: _spinLogoKey,
+                        assetPath: 'assets/logo_without_background.png',
+                        size: 140,
+                        auraPadding: 14,
+                        auraColor: AppColors.primary.withValues(alpha: 0.1),
+                        borderColor: AppColors.primary.withValues(alpha: 0.2),
+                        onInitialSpinCompleted: () => _spinLogoKey
+                            .currentState
+                            ?.continueSpinningWhileWaiting(),
                       ),
                       const SizedBox(height: 32),
                       Text(
                         AppLocalizations.of(context)?.appName ?? 'Otlob Driver',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
                       ),
-              if (_showRetry) ...[
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _showRetry = false;
-                      _navigated = false;
-                    });
-                    ref.invalidate(splashProvider);
-                    _watchdogTimer?.cancel();
-                    _watchdogTimer = Timer(const Duration(seconds: 30), () {
-                      if (!mounted) return;
-                      final state = ref.read(splashProvider);
-                      if (state.isLoading || state.hasError) {
-                        setState(() => _showRetry = true);
-                      }
-                    });
-                  },
-                  child: const Text('Retry'),
+                      if (_showRetry) ...[
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _showRetry = false;
+                              _navigated = false;
+                            });
+                            ref.invalidate(splashProvider);
+                            _watchdogTimer?.cancel();
+                            _watchdogTimer =
+                                Timer(const Duration(seconds: 30), () {
+                              if (!mounted) return;
+                              final state = ref.read(splashProvider);
+                              if (state.isLoading || state.hasError) {
+                                setState(() => _showRetry = true);
+                              }
+                            });
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ],
-            ],
+              ),
+            ),
           ),
-        ),
-        ),
-        ),
-        ),
         ),
       ),
     );

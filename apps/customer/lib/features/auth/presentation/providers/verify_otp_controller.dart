@@ -2,7 +2,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/providers.dart';
 import '../providers/auth_controller.dart';
 import 'package:core/core.dart';
-import 'package:flutter/foundation.dart';
 
 part 'verify_otp_controller.g.dart';
 
@@ -27,25 +26,19 @@ class VerifyOtpController extends _$VerifyOtpController {
       );
 
       if (!isPasswordReset) {
-        if (password != null && password.isNotEmpty) {
-          // Fresh registrations have no persisted session yet (no refresh
-          // token), so after OTP verification we finish the flow by logging in
-          // with the just-registered credentials instead of attempting a
-          // doomed token refresh.
-          try {
-            await ref
-                .read(authControllerProvider.notifier)
-                .login(email, password);
-          } catch (e) {
-            debugPrint('Auto-login after OTP verify failed: $e');
-          }
+        if (password != null && password.trim().isNotEmpty) {
+          // Fresh registrations have no verified session yet, so complete OTP
+          // verification by establishing a genuine authenticated session with
+          // the registered credentials before returning success.
+          await ref
+              .read(authControllerProvider.notifier)
+              .login(email, password.trim());
         } else {
-          try {
-            await authRepo.refreshToken();
-            await ref.read(authControllerProvider.notifier).checkAuthStatus();
-          } catch (e) {
-            debugPrint('Refresh token failed after OTP verify: $e');
-          }
+          await authRepo.refreshToken();
+          await ref.read(authControllerProvider.notifier).checkAuthStatus();
+        }
+        if (ref.read(authControllerProvider) != AuthStatus.authenticated) {
+          throw Exception('auth.error.invalid_credentials');
         }
       }
 

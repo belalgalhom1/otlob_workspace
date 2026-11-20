@@ -5,7 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart'
-    show AppDialog, AppDialogHeader, AppDialogFooter;
+    show
+        AppDialog,
+        AppDialogHeader,
+        AppDialogFooter,
+        OtlobLoginEntranceCoordinator,
+        OtlobSplashSpinLogo,
+        OtlobSplashSpinLogoState;
 
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -20,6 +26,8 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
+  final GlobalKey<OtlobSplashSpinLogoState> _spinLogoKey =
+      GlobalKey<OtlobSplashSpinLogoState>();
   late final AnimationController _animController;
   late final Animation<double> _scaleAnimation;
   late final Animation<double> _fadeAnimation;
@@ -68,28 +76,39 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _initializeApp() async {
-    // Ensure smooth presentation of the entrance animation
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
+    AppStatusResult? status;
+    final gateCheckFuture = (() async {
+      status = await checkAppStatus(
+        ref.read(sharedPlatformSettingsRepositoryProvider),
+      ).timeout(
+        const Duration(seconds: 4),
+        onTimeout: () => null,
+      );
+    })();
 
-    final status = await checkAppStatus(
-      ref.read(sharedPlatformSettingsRepositoryProvider),
-    ).timeout(
-      const Duration(seconds: 4),
-      onTimeout: () => null,
-    );
+    // Perform the splash logo spin while fetching app status in parallel, then
+    // settle upright at 0 degrees before transitioning seamlessly to Login/Home.
+    final spinState = _spinLogoKey.currentState;
+    if (spinState != null) {
+      await spinState.waitForSpinAndSettle(gateCheckFuture);
+    } else {
+      await Future.wait([
+        gateCheckFuture,
+        Future.delayed(const Duration(milliseconds: 900)),
+      ]);
+    }
     if (!mounted) return;
 
     if (status != null) {
-      if (status.maintenance) {
+      if (status!.maintenance) {
         context.go('/maintenance');
         return;
       }
-      if (status.mustUpdate) {
-        context.go('/update-required', extra: {'storeUrl': status.storeUrl});
+      if (status!.mustUpdate) {
+        context.go('/update-required', extra: {'storeUrl': status!.storeUrl});
         return;
       }
-      if (status.shouldUpdate) {
+      if (status!.shouldUpdate) {
         final s = AppStrings.of(context);
         await showDialog<void>(
           context: context,
@@ -117,7 +136,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       }
     }
 
-    ref.read(authControllerProvider.notifier).checkAuthStatus();
+    OtlobLoginEntranceCoordinator.markFromSplash();
+    await ref.read(authControllerProvider.notifier).checkAuthStatus();
   }
 
   @override
@@ -153,32 +173,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Elegant soft aura around the logo
-                            ScaleTransition(
-                              scale: _scaleAnimation,
-                              child: Container(
-                                width: 170,
-                                height: 170,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.06),
-                                      blurRadius: 28,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Image.asset(
-                                    'assets/logo_without_background.png',
-                                    width: 130,
-                                    height: 130,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                              ),
+                            // Continuous Hero + upright spin logo into Login
+                            OtlobSplashSpinLogo(
+                              key: _spinLogoKey,
+                              assetPath: 'assets/logo_without_background.png',
+                              size: 130,
+                              auraPadding: 20,
+                              auraColor: Colors.white.withValues(alpha: 0.18),
+                              scaleAnimation: _scaleAnimation,
+                              onInitialSpinCompleted: () => _spinLogoKey
+                                  .currentState
+                                  ?.continueSpinningWhileWaiting(),
                             ),
                             const SizedBox(height: 28),
                             // Brand Wordmark

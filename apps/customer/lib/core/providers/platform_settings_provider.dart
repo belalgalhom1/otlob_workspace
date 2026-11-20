@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../network/network_providers.dart';
 
@@ -200,7 +201,10 @@ class PlatformSettingsData {
 Future<PlatformSettingsData> platformSettings(Ref ref) async {
   final dio = ref.read(dioProvider);
   try {
-    final response = await dio.get('/platform-settings/public');
+    final response = await dio.get(
+      '/platform-settings/public',
+      options: Options(extra: const {'requiresAuth': false}),
+    );
     final data = response.data['data'] ?? response.data;
     return PlatformSettingsData.fromJson(data);
   } catch (e) {

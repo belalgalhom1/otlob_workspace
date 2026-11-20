@@ -79,6 +79,65 @@ class SharedAuthRepository {
     return ResponseParser.parse(response);
   }
 
+  Future<Map<String, dynamic>> _persistAuthResponse(dynamic response) async {
+    final rawData = response.data;
+    if (rawData == null) {
+      throw Exception(_missingAuthPayloadKey);
+    }
+
+    Map<String, dynamic> payload = {};
+    if (rawData.data != null && rawData.data!.value is Map) {
+      payload = Map<String, dynamic>.from(rawData.data!.value as Map);
+    } else {
+      final parsed = ResponseParser.parse(response);
+      if (parsed is Map && parsed['data'] is Map) {
+        payload = Map<String, dynamic>.from(parsed['data'] as Map);
+      } else if (parsed is Map) {
+        payload = Map<String, dynamic>.from(parsed);
+      }
+    }
+
+    final accessToken = payload['access_token'];
+    final refreshToken = payload['refresh_token'];
+    if (payload.isNotEmpty &&
+        accessToken is String &&
+        accessToken.trim().isNotEmpty &&
+        refreshToken is String &&
+        refreshToken.trim().isNotEmpty) {
+      final user = payload['user'] is Map
+          ? Map<String, dynamic>.from(payload['user'] as Map)
+          : null;
+      List<dynamic> vendorMemberships = [];
+      List<dynamic> permissions = [];
+
+      if (user != null && user['vendorMemberships'] is Iterable) {
+        vendorMemberships = (user['vendorMemberships'] as Iterable).toList();
+      }
+      if (user != null && user['permissions'] is Iterable) {
+        permissions = (user['permissions'] as Iterable).toList();
+      }
+
+      await _tokenService.saveSession(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        userId: user?['id']?.toString(),
+        role: user?['role']?.toString(),
+        name: user?['name']?.toString(),
+        email: user?['email']?.toString(),
+        phone: user?['phone']?.toString(),
+        avatar: user?['avatar']?.toString(),
+        vendorMemberships: vendorMemberships,
+        permissions: permissions,
+      );
+
+      payload['vendorMemberships'] = vendorMemberships;
+      payload['permissions'] = permissions;
+      return payload;
+    }
+
+    throw Exception(_missingAuthPayloadKey);
+  }
+
   Future<dynamic> login(String email, String password, {String? appType}) async {
     final response = await _api.authControllerLogin(
       loginDto: LoginDto((b) {
@@ -87,120 +146,16 @@ class SharedAuthRepository {
         if (appType != null) {
           b.app = appType;
         }
-      })
+      }),
     );
-    final rawData = response.data;
-    if (rawData == null) {
-      throw Exception(_missingAuthPayloadKey);
-    }
-
-    Map<String, dynamic> payload = {};
-    if (rawData.data != null && rawData.data!.value is Map) {
-      payload = Map<String, dynamic>.from(rawData.data!.value as Map);
-    } else {
-      // Fallback to parsed if JsonObject is not a Map
-      final parsed = ResponseParser.parse(response);
-      if (parsed is Map && parsed['data'] is Map) {
-        payload = Map<String, dynamic>.from(parsed['data'] as Map);
-      } else if (parsed is Map) {
-        payload = Map<String, dynamic>.from(parsed);
-      }
-    }
-    
-    if (payload.isNotEmpty && payload['access_token'] != null) {
-      final user = payload['user'];
-      List<dynamic> vendorMemberships = [];
-      List<dynamic> permissions = [];
-
-      if (user != null && user['vendorMemberships'] != null) {
-        final rawMemberships = user['vendorMemberships'];
-        if (rawMemberships is Iterable) {
-          vendorMemberships = rawMemberships.toList();
-        }
-      }
-
-      if (user != null && user['permissions'] != null) {
-        final rawPermissions = user['permissions'];
-        if (rawPermissions is Iterable) {
-          permissions = rawPermissions.toList();
-        }
-      }
-
-      await _tokenService.saveSession(
-        accessToken: payload['access_token'],
-        refreshToken: payload['refresh_token'],
-        userId: user?['id'],
-        role: user?['role'],
-        name: user?['name'],
-        vendorMemberships: vendorMemberships,
-        permissions: permissions,
-      );
-      
-      // Store memberships in the parsed object so the UI can use it
-      payload['vendorMemberships'] = vendorMemberships;
-      payload['permissions'] = permissions;
-      return payload;
-    }
-    
-    throw Exception(_missingAuthPayloadKey);
+    return _persistAuthResponse(response);
   }
 
   Future<dynamic> socialLogin(SocialLoginDto socialLoginDto) async {
     final response = await _api.authControllerSocialLogin(
       socialLoginDto: socialLoginDto,
     );
-    final rawData = response.data;
-    if (rawData == null) {
-      throw Exception(_missingAuthPayloadKey);
-    }
-
-    Map<String, dynamic> payload = {};
-    if (rawData.data != null && rawData.data!.value is Map) {
-      payload = Map<String, dynamic>.from(rawData.data!.value as Map);
-    } else {
-      final parsed = ResponseParser.parse(response);
-      if (parsed is Map && parsed['data'] is Map) {
-        payload = Map<String, dynamic>.from(parsed['data'] as Map);
-      } else if (parsed is Map) {
-        payload = Map<String, dynamic>.from(parsed);
-      }
-    }
-
-    if (payload.isNotEmpty && payload['access_token'] != null) {
-      final user = payload['user'];
-      List<dynamic> vendorMemberships = [];
-      List<dynamic> permissions = [];
-
-      if (user != null && user['vendorMemberships'] != null) {
-        final rawMemberships = user['vendorMemberships'];
-        if (rawMemberships is Iterable) {
-          vendorMemberships = rawMemberships.toList();
-        }
-      }
-
-      if (user != null && user['permissions'] != null) {
-        final rawPermissions = user['permissions'];
-        if (rawPermissions is Iterable) {
-          permissions = rawPermissions.toList();
-        }
-      }
-
-      await _tokenService.saveSession(
-        accessToken: payload['access_token'],
-        refreshToken: payload['refresh_token'],
-        userId: user?['id'],
-        role: user?['role'],
-        name: user?['name'],
-        vendorMemberships: vendorMemberships,
-        permissions: permissions,
-      );
-
-      payload['vendorMemberships'] = vendorMemberships;
-      payload['permissions'] = permissions;
-      return payload;
-    }
-
-    throw Exception(_missingAuthPayloadKey);
+    return _persistAuthResponse(response);
   }
 
   Future<void> clearLocalSession() => _tokenService.clearSession();
@@ -240,6 +195,7 @@ class SharedAuthRepository {
   Future<String?> getUserName() => _tokenService.getUserName();
   Future<bool> isLoggedIn() => _tokenService.hasSession();
   Future<bool> isTokenExpired() => _tokenService.isTokenExpired();
+  Future<bool> isRefreshTokenExpired() => _tokenService.isRefreshTokenExpired();
   Future<String> refreshToken() => _tokenService.refreshToken();
 
   Future<List<dynamic>> getVendorMemberships() async {
