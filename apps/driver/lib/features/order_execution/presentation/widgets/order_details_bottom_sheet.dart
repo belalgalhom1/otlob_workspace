@@ -337,7 +337,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                 _buildVendorLogoRow(
                                   context,
                                   ref,
-                                  logoUrl: fVendor['logo']?.toString(),
+                                  logoUrl:
+                                      (fVendor['logo'] ?? fVendor['logoUrl'])
+                                          ?.toString(),
                                   storeLabel: bName.isNotEmpty
                                       ? '$vName ($bName)'
                                       : vName,
@@ -364,7 +366,8 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                       _buildVendorLogoRow(
                         context,
                         ref,
-                        logoUrl: vendor['logo']?.toString(),
+                        logoUrl:
+                            (vendor['logo'] ?? vendor['logoUrl'])?.toString(),
                         storeLabel: (vendor['storeName'] ??
                                 vendor['name'] ??
                                 l10n.vendorFallback)
@@ -509,15 +512,65 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 final bool isMultiVendor = fulfillments.length > 1;
 
                 Widget buildSingleItem(dynamic item) {
+                  final product =
+                      item['product'] is Map ? item['product'] as Map : null;
+                  final menuItem =
+                      item['menuItem'] is Map ? item['menuItem'] as Map : null;
+                  final rawImg = [
+                    product?['imageUrl'],
+                    product?['image'],
+                    item['imageUrl'],
+                    item['image'],
+                    menuItem?['imageUrl'],
+                  ]
+                      .map((e) => e?.toString().trim() ?? '')
+                      .firstWhere((e) => e.isNotEmpty, orElse: () => '');
+                  final itemName = (item['productName'] ??
+                          (l10n.localeName == 'ar'
+                              ? (product?['nameAr'] ??
+                                  product?['name'] ??
+                                  menuItem?['nameAr'] ??
+                                  menuItem?['name'])
+                              : (product?['name'] ?? menuItem?['name'])) ??
+                          'Item')
+                      .toString();
+                  final variantName = item['variantName']?.toString();
+                  final selectedUnit = item['selectedUnit']?.toString();
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12.0),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        AppNetworkAvatar(
+                          imageUrl: rawImg.isNotEmpty
+                              ? _resolveMediaUrl(ref, rawImg)
+                              : null,
+                          size: 42,
+                          borderRadius: 9,
+                          fallbackIcon: LucideIcons.package,
+                          fallbackIconSize: 18,
+                          backgroundColor: Theme.of(context)
+                              .dividerColor
+                              .withValues(alpha: 0.1),
+                          foregroundColor: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.55),
+                          border: Border.all(
+                            color: Theme.of(context)
+                                .dividerColor
+                                .withValues(alpha: 0.18),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                            color: Theme.of(context)
+                                .dividerColor
+                                .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -525,15 +578,43 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                item['productName'] ?? item['product']?['name'] ?? item['menuItem']?['name'] ?? 'Item',
-                                style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
+                                itemName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
                               ),
+                              if ((variantName != null &&
+                                      variantName.isNotEmpty) ||
+                                  (selectedUnit != null &&
+                                      selectedUnit.isNotEmpty))
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    [
+                                      if (variantName != null &&
+                                          variantName.isNotEmpty)
+                                        variantName,
+                                      if (selectedUnit != null &&
+                                          selectedUnit.isNotEmpty)
+                                        selectedUnit,
+                                    ].join(' • '),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.65),
+                                    ),
+                                  ),
+                                ),
                               if (item['customizations'] != null)
                                 Text(
                                   item['customizations'].toString(),
@@ -573,9 +654,22 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                       for (var i = 0; i < fulfillments.length; i++) ...[
                         () {
                           final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
+                          final fId = f['id']?.toString() ?? '';
                           final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
-                          final vName = (fVendor['storeName'] ?? fVendor['name'] ?? 'Store ${i + 1}').toString();
-                          final fItems = (f['items'] as List?) ?? [];
+                          final vName = (l10n.localeName == 'ar'
+                                  ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? fVendor['name'])
+                                  : (fVendor['storeName'] ?? fVendor['storeNameAr'] ?? fVendor['name']) ??
+                                      'Store ${i + 1}')
+                              .toString();
+                          final rawFItems = f['items'];
+                          final List<dynamic> fItems =
+                              (rawFItems is List && rawFItems.isNotEmpty)
+                                  ? rawFItems
+                                  : items
+                                      .where((it) =>
+                                          it is Map &&
+                                          it['fulfillmentId']?.toString() == fId)
+                                      .toList();
                           if (fItems.isEmpty) return const SizedBox.shrink();
 
                           return Container(
@@ -596,7 +690,8 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                     _buildVendorAvatar(
                                       context,
                                       ref,
-                                      fVendor['logo']?.toString(),
+                                      (fVendor['logo'] ?? fVendor['logoUrl'])
+                                          ?.toString(),
                                       size: 26,
                                       iconSize: 14,
                                     ),

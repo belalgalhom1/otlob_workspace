@@ -361,4 +361,161 @@ describe('OrdersService financial projections & vendor isolation', () => {
       expect(enriched.financials.driverEarnings).toBe(39);
     });
   });
+
+  describe('Image & identity projection (vendor logos, driver avatars, product images)', () => {
+    it('projectForVendor resolves portion-specific driver avatar, vendor logo, and product imageUrls cleanly on multi-vendor split deliveries', async () => {
+      const actor = { sub: 'user-vendor-b', role: 'VENDOR_MEMBER' } as any;
+      mockPrisma.vendorMember = {
+        findMany: jest.fn().mockResolvedValue([
+          { vendorId: 'vendor-b', branchId: null, role: 'OWNER' },
+        ]),
+      };
+
+      const order = {
+        id: 'mv-img-1',
+        status: 'DRIVER_ASSIGNED',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        subtotal: 400,
+        grandTotal: 450,
+        vendorFulfillments: [
+          {
+            id: 'ff-a',
+            vendorId: 'vendor-a',
+            status: 'PREPARING',
+            subtotal: 150,
+            vendor: { id: 'vendor-a', storeName: 'Store A', logo: '/logos/a.png' },
+            items: [
+              { id: 'item-a1', fulfillmentId: 'ff-a', productName: 'A Burger', product: { imageUrl: '/products/a1.png' } },
+            ],
+          },
+          {
+            id: 'ff-b',
+            vendorId: 'vendor-b',
+            status: 'PREPARING',
+            subtotal: 250,
+            vendor: { id: 'vendor-b', storeName: 'Store B', logo: '/logos/b.png' },
+            items: [
+              { id: 'item-b1', fulfillmentId: 'ff-b', productName: 'B Pizza', product: { imageUrl: '/products/b1.png' } },
+            ],
+          },
+        ],
+        deliveryGroups: [
+          {
+            id: 'grp-a',
+            sequence: 1,
+            status: 'DRIVER_ASSIGNED',
+            isPaymentCollector: true,
+            primaryDriverId: 'drv-a',
+            primaryDriver: {
+              id: 'drv-a',
+              name: 'Driver A',
+              avatar: '/avatars/driver-a.png',
+              user: { id: 'u-da', name: 'Driver A', phone: '0101', avatar: '/avatars/driver-a.png' },
+            },
+            items: [{ fulfillmentId: 'ff-a', sequence: 1 }],
+          },
+          {
+            id: 'grp-b',
+            sequence: 2,
+            status: 'DRIVER_ASSIGNED',
+            isPaymentCollector: false,
+            primaryDriverId: 'drv-b',
+            primaryDriver: {
+              id: 'drv-b',
+              name: 'Driver B',
+              avatar: null,
+              user: { id: 'u-db', name: 'Driver B', phone: '0102', avatar: '/avatars/user-driver-b.png' },
+            },
+            items: [{ fulfillmentId: 'ff-b', sequence: 1 }],
+          },
+        ],
+        items: [
+          { id: 'item-a1', fulfillmentId: 'ff-a', productName: 'A Burger', product: { imageUrl: '/products/a1.png' } },
+          { id: 'item-b1', fulfillmentId: 'ff-b', productName: 'B Pizza', product: { imageUrl: '/products/b1.png' } },
+        ],
+      };
+
+      const projectedB = await (ordersService as any).projectForVendor(order, actor, 'vendor-b');
+
+      expect(projectedB.vendor?.logo).toBe('/logos/b.png');
+      expect(projectedB.driverId).toBe('drv-b');
+      expect(projectedB.driver?.name).toBe('Driver B');
+      expect(projectedB.driver?.avatar).toBe('/avatars/user-driver-b.png');
+      expect(projectedB.items).toHaveLength(1);
+      expect(projectedB.items[0].productName).toBe('B Pizza');
+      expect(projectedB.items[0].imageUrl).toBe('/products/b1.png');
+      expect(projectedB.items[0].product?.imageUrl).toBe('/products/b1.png');
+      expect(projectedB.vendorFulfillments).toHaveLength(1);
+    });
+
+    it('projectForCustomer and projectForDriver preserve per-vendor logos, normalized driver avatar, and product imageUrls', async () => {
+      mockPrisma.driver.findUnique.mockResolvedValue({ id: 'drv-1', tier: 'GOLD' });
+
+      const order = {
+        id: 'mv-img-2',
+        status: 'READY_FOR_PICKUP',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        grandTotal: 500,
+        deliveryFee: 30,
+        vendorFulfillments: [
+          {
+            id: 'ff-1',
+            vendorId: 'v-1',
+            status: 'READY_FOR_PICKUP',
+            subtotal: 200,
+            vendor: { id: 'v-1', storeName: 'Bakery', logo: '/logos/bakery.png' },
+            items: [],
+          },
+          {
+            id: 'ff-2',
+            vendorId: 'v-2',
+            status: 'PREPARING',
+            subtotal: 270,
+            vendor: { id: 'v-2', storeName: 'Coffee', logo: '/logos/coffee.png' },
+            items: [],
+          },
+        ],
+        deliveryGroups: [
+          {
+            id: 'grp-1',
+            sequence: 1,
+            status: 'DRIVER_ASSIGNED',
+            isPaymentCollector: true,
+            primaryDriverId: 'drv-1',
+            primaryDriver: {
+              id: 'drv-1',
+              name: 'Captain Karim',
+              avatar: null,
+              user: { id: 'u-1', name: 'Captain Karim', phone: '0109', avatar: '/avatars/karim.png' },
+            },
+            items: [
+              { fulfillmentId: 'ff-1', sequence: 1 },
+              { fulfillmentId: 'ff-2', sequence: 2 },
+            ],
+          },
+        ],
+        items: [
+          { id: 'i-1', fulfillmentId: 'ff-1', productName: 'Croissant', product: { imageUrl: '/products/croissant.png' } },
+          { id: 'i-2', fulfillmentId: 'ff-2', productName: 'Latte', product: { imageUrl: '/products/latte.png' } },
+        ],
+      };
+
+      const custProjected = (ordersService as any).projectForCustomer(order);
+      expect(custProjected.driver?.avatar).toBe('/avatars/karim.png');
+      expect(custProjected.vendorFulfillments[0].vendor.logo).toBe('/logos/bakery.png');
+      expect(custProjected.vendorFulfillments[1].vendor.logo).toBe('/logos/coffee.png');
+      expect(custProjected.vendorFulfillments[0].items[0].imageUrl).toBe('/products/croissant.png');
+      expect(custProjected.vendorFulfillments[1].items[0].imageUrl).toBe('/products/latte.png');
+
+      const drvProjected = await (ordersService as any).projectForDriver(order, { sub: 'u-1' });
+      expect(drvProjected.vendorFulfillments[0].vendor.logo).toBe('/logos/bakery.png');
+      expect(drvProjected.vendorFulfillments[1].vendor.logo).toBe('/logos/coffee.png');
+      expect(drvProjected.vendorFulfillments[0].items[0].product.imageUrl).toBe('/products/croissant.png');
+      expect(drvProjected.vendorFulfillments[1].items[0].product.imageUrl).toBe('/products/latte.png');
+      expect(drvProjected.items.map((i: any) => i.imageUrl)).toEqual([
+        '/products/croissant.png',
+        '/products/latte.png',
+      ]);
+    });
+  });
 });

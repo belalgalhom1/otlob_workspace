@@ -447,12 +447,17 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
     required IconData icon,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    int? maxLines = 1,
+    int? minLines,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
       textDirection: TextDirection.ltr,
+      maxLines: maxLines,
+      minLines: minLines,
+      scrollPhysics: const NeverScrollableScrollPhysics(),
       decoration: AppDialogStyles.inputDecoration(
         context,
         hintText: hint,
@@ -540,15 +545,18 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
   Widget _buildSwitchTile(AppLocalizations l10n) {
     return AppDialogSectionCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      child: SwitchListTile(
-        title: Text(
-          l10n.active,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      child: Material(
+        color: Colors.transparent,
+        child: SwitchListTile(
+          title: Text(
+            l10n.active,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          value: _isActive,
+          onChanged: (v) => setState(() => _isActive = v),
+          activeThumbColor: AppColors.primary,
+          contentPadding: EdgeInsets.zero,
         ),
-        value: _isActive,
-        onChanged: (v) => setState(() => _isActive = v),
-        activeThumbColor: AppColors.primary,
-        contentPadding: EdgeInsets.zero,
       ),
     );
   }

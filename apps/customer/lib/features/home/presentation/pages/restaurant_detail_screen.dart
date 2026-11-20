@@ -5,6 +5,7 @@ import 'package:otlob_customer/core/utils/error_utils.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:ui_kit/ui_kit.dart' show AppExpandableText;
 import '../../../../core/widgets/custom_chat_icon.dart';
 import '../widgets/product_bottom_sheet.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -277,17 +278,27 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                               ],
                             ]),
                           ]),
-                          const SizedBox(height: 4),
-                          Text(
-                            description, 
-                            style: TextStyle(
-                              color: isDark ? Colors.white : Colors.black87.withValues(alpha: 0.7), 
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              height: 1.4,
-                              letterSpacing: 0.1,
+                          if (description.trim().isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            AppExpandableText(
+                              text: description.trim(),
+                              trimLines: 3,
+                              readMoreLabel: s.readMoreAction,
+                              readLessLabel: s.readLessAction,
+                              toggleColor: isDark
+                                  ? AppColors.primary
+                                  : const Color(0xFFB77912),
+                              style: TextStyle(
+                                color: isDark
+                                    ? Colors.white
+                                    : Colors.black87.withValues(alpha: 0.7),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4,
+                                letterSpacing: isAr ? null : 0.1,
+                              ),
                             ),
-                          ),
+                          ],
                           Builder(builder: (context) {
                             final branches = (fullVendor['branches'] as List<dynamic>?) ?? [];
                             final activeBranchId = ref.watch(selectedBranchProvider)[fullVendor['id'].toString()]?.id;

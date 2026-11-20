@@ -140,6 +140,8 @@ class AppStrings {
   String get orderNo => 'app.orderNo'.tr(context: _context);
   String get readLess => 'app.readLess'.tr(context: _context);
   String get readMore => 'app.readMore'.tr(context: _context);
+  String get readLessAction => 'app.readLessAction'.tr(context: _context);
+  String get readMoreAction => 'app.readMoreAction'.tr(context: _context);
   String get customCourierDesc => 'app.customCourierDesc'.tr(context: _context);
   String get rideServiceDesc => 'app.rideServiceDesc'.tr(context: _context);
   String get yourLocation => 'app.yourLocation'.tr(context: _context);

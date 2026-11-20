@@ -960,6 +960,7 @@ class AppDialog extends StatelessWidget {
     final isMobile = AppDialogStyles.isMobile(context);
     final dialogBg = backgroundColor ?? AppDialogStyles.backgroundColor(context);
     final dialogBorder = AppDialogStyles.borderColor(context);
+    final insets = AppDialogStyles.dialogInsetPadding(context);
     final horizontalPad = isMobile ? 16.0 : 24.0;
     final availableHeight = AppDialogStyles.availableHeight(
       context,
@@ -974,36 +975,75 @@ class AppDialog extends StatelessWidget {
               )
             : EdgeInsets.zero);
 
-    final Widget bodySlot;
-    if (scrollableBody) {
-      bodySlot = Flexible(
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: effectiveBodyPadding,
-          child: body,
-        ),
-      );
-    } else {
+    // If caller explicitly requested non-scrollable body (e.g. tab views with internal TabBarView),
+    // preserve the bounded height slot.
+    if (!scrollableBody) {
       final padded = effectiveBodyPadding == EdgeInsets.zero
           ? body
           : Padding(padding: effectiveBodyPadding, child: body);
-      bodySlot = expandBody ? Expanded(child: padded) : Flexible(child: padded);
+      final bodySlot = expandBody ? Expanded(child: padded) : Flexible(child: padded);
+
+      Widget boundedDialog = Dialog(
+        backgroundColor: dialogBg,
+        surfaceTintColor: Colors.transparent,
+        insetPadding: insets,
+        shape: RoundedRectangleBorder(
+          borderRadius: borderRadius ??
+              BorderRadius.circular(AppDialogStyles.dialogRadius(context)),
+          side: BorderSide(color: dialogBorder),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: maxWidth,
+            maxHeight: availableHeight,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (header != null) ...[
+                header!,
+                if (showDividers)
+                  Divider(height: 1, thickness: 1, color: dialogBorder),
+              ],
+              bodySlot,
+              if (footer != null) ...[
+                if (showDividers)
+                  Divider(height: 1, thickness: 1, color: dialogBorder),
+                footer!,
+              ],
+            ],
+          ),
+        ),
+      );
+
+      if (!canPop) {
+        boundedDialog = PopScope(canPop: false, child: boundedDialog);
+      }
+
+      return useDialogScaffold ? DialogScaffold(child: boundedDialog) : boundedDialog;
     }
 
-    Widget dialog = Dialog(
+    // Default & Forms: The bordered container is purely a visual layout element.
+    // The entire screen is vertically scrollable so users can swipe anywhere
+    // (inside the form, over headers, footers, borders, or the outer backdrop).
+    final shapeBorder = RoundedRectangleBorder(
+      borderRadius: borderRadius ??
+          BorderRadius.circular(AppDialogStyles.dialogRadius(context)),
+      side: BorderSide(color: dialogBorder),
+    );
+
+    final Widget dialog = Dialog(
       backgroundColor: dialogBg,
       surfaceTintColor: Colors.transparent,
-      insetPadding: AppDialogStyles.dialogInsetPadding(context),
-      shape: RoundedRectangleBorder(
-        borderRadius: borderRadius ??
-            BorderRadius.circular(AppDialogStyles.dialogRadius(context)),
-        side: BorderSide(color: dialogBorder),
-      ),
+      elevation: 4,
+      insetPadding: EdgeInsets.zero,
+      shape: shapeBorder,
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: maxWidth,
-          maxHeight: availableHeight,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1014,7 +1054,9 @@ class AppDialog extends StatelessWidget {
               if (showDividers)
                 Divider(height: 1, thickness: 1, color: dialogBorder),
             ],
-            bodySlot,
+            effectiveBodyPadding == EdgeInsets.zero
+                ? body
+                : Padding(padding: effectiveBodyPadding, child: body),
             if (footer != null) ...[
               if (showDividers)
                 Divider(height: 1, thickness: 1, color: dialogBorder),
@@ -1025,11 +1067,46 @@ class AppDialog extends StatelessWidget {
       ),
     );
 
+    Widget scrollableWrapper = LayoutBuilder(
+      builder: (context, constraints) {
+        final minHeight = math.max(0.0, constraints.maxHeight - insets.vertical);
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: insets,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            child: Center(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  // Absorb taps on dialog card so backdrop tap doesn't dismiss accidentally
+                },
+                child: dialog,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    Widget fullView = GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        if (canPop) {
+          Navigator.of(context).maybePop();
+        }
+      },
+      child: scrollableWrapper,
+    );
+
     if (!canPop) {
-      dialog = PopScope(canPop: false, child: dialog);
+      fullView = PopScope(canPop: false, child: fullView);
     }
 
-    return useDialogScaffold ? DialogScaffold(child: dialog) : dialog;
+    return useDialogScaffold ? DialogScaffold(child: fullView) : fullView;
   }
 }
 

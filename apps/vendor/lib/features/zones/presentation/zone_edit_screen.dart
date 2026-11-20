@@ -427,6 +427,10 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
 
   Widget _buildFormStep() {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Center(
         child: Container(
           width: 600, // Limits width on desktop/tablet, takes full width on mobile

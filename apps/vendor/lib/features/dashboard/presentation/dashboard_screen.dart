@@ -439,6 +439,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       }
       return SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: child,
       );
     }

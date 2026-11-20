@@ -239,6 +239,8 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
               hint: 'Optional...',
               icon: LucideIcons.alignLeft,
               textDirection: TextDirection.ltr,
+              minLines: 2,
+              maxLines: 4,
             ),
             const SizedBox(height: 16),
             AppFieldLabel(
@@ -251,6 +253,8 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
               hint: 'اختياري...',
               icon: LucideIcons.languages,
               textDirection: TextDirection.rtl,
+              minLines: 2,
+              maxLines: 4,
             ),
             const SizedBox(height: 16),
             _buildDateSelectors(l10n),
@@ -407,8 +411,6 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
         finalImage = image;
       }
 
-      if (finalImage == null) return;
-
       final bytes = await finalImage.readAsBytes();
       if (mounted) {
         setState(() {
@@ -532,12 +534,17 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     TextDirection? textDirection,
+    int? maxLines = 1,
+    int? minLines,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
       textDirection: textDirection,
+      maxLines: maxLines,
+      minLines: minLines,
+      scrollPhysics: const NeverScrollableScrollPhysics(),
       decoration: AppDialogStyles.inputDecoration(
         context,
         hintText: hint,
@@ -612,15 +619,18 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
   Widget _buildSwitchTile(AppLocalizations l10n) {
     return AppDialogSectionCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      child: SwitchListTile(
-        title: Text(
-          l10n.active,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      child: Material(
+        color: Colors.transparent,
+        child: SwitchListTile(
+          title: Text(
+            l10n.active,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          value: _isActive,
+          onChanged: (v) => setState(() => _isActive = v),
+          activeThumbColor: AppColors.primary,
+          contentPadding: EdgeInsets.zero,
         ),
-        value: _isActive,
-        onChanged: (v) => setState(() => _isActive = v),
-        activeThumbColor: AppColors.primary,
-        contentPadding: EdgeInsets.zero,
       ),
     );
   }

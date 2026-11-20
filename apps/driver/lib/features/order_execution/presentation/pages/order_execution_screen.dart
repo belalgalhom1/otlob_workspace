@@ -572,7 +572,12 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                   : subtotal);
 
           final fId = f['id']?.toString() ?? '';
-          final stopItems = allItems.where((it) => it is Map && it['fulfillmentId'] == fId).toList();
+          final rawFItems = f['items'];
+          final stopItems = (rawFItems is List && rawFItems.isNotEmpty)
+              ? rawFItems
+              : allItems
+                  .where((it) => it is Map && it['fulfillmentId'] == fId)
+                  .toList();
 
           pickupStops.add({
             'fulfillmentId': fId,
@@ -1283,17 +1288,66 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                               runSpacing: 4,
                               children: [
                                 for (final item in (currentStop['items'] as List))
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '${item['quantity'] ?? 1}x ${item['productName'] ?? item['name'] ?? 'Item'}',
-                                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
+                                  () {
+                                    final prod = item is Map &&
+                                            item['product'] is Map
+                                        ? item['product'] as Map
+                                        : null;
+                                    final rawImg = item is Map
+                                        ? ([
+                                              prod?['imageUrl'],
+                                              prod?['image'],
+                                              item['imageUrl'],
+                                              item['image'],
+                                            ]
+                                                .map((e) =>
+                                                    e?.toString().trim() ?? '')
+                                                .firstWhere(
+                                                    (e) => e.isNotEmpty,
+                                                    orElse: () => ''))
+                                        : '';
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          AppNetworkAvatar(
+                                            imageUrl: rawImg.isNotEmpty
+                                                ? ImageUtils.formatImageUrl(
+                                                    rawImg)
+                                                : null,
+                                            size: 20,
+                                            borderRadius: 5,
+                                            fallbackIcon: LucideIcons.package,
+                                            fallbackIconSize: 11,
+                                            backgroundColor: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withValues(alpha: 0.08),
+                                            foregroundColor: Colors.grey,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Flexible(
+                                            child: Text(
+                                              '${item['quantity'] ?? 1}x ${item['productName'] ?? item['name'] ?? 'Item'}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }(),
                               ],
                             ),
                           ],

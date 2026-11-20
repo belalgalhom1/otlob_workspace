@@ -4,67 +4,155 @@ import 'package:flutter/material.dart';
 
 import 'otlob_splash_to_login_logo.dart';
 
-/// Shared celebration color tokens uniting royal purple, metallic gold,
-/// and crimson red velvet across all Otlob login screens.
-class _CelebrationPalette {
-  const _CelebrationPalette._();
+class _CelebrationColors {
+  const _CelebrationColors._();
 
-  static const purpleDeep = Color(0xFF220B3B);
-  static const purpleRoyal = Color(0xFF3E1868);
-  static const purpleBright = Color(0xFF6B2FA0);
+  static const purpleDeep = Color(0xFF280E46);
+  static const purpleRoyal = Color(0xFF471B78);
+  static const purpleAccent = Color(0xFF7E3FF2);
   static const goldBright = Color(0xFFFFD864);
   static const goldPrimary = Color(0xFFFBBB2B);
-  static const goldDeep = Color(0xFFC5830E);
+  static const goldDeep = Color(0xFFB77912);
   static const redVelvetBright = Color(0xFFD92649);
   static const redVelvet = Color(0xFFA81533);
   static const redVelvetDeep = Color(0xFF68081B);
 }
 
-/// Hosts the cohesive Splash-settled logo, suspended "WELCOME TO OTLOB" sign
-/// held by red velvet supporting ropes, decorative purple-and-gold podium,
-/// spotlights, balloons, sparkles, falling confetti, and staggered login form
-/// reveal directly inside the actual Login screen of Customer, Driver, and Vendor.
-class OtlobWelcomeLoginShell extends StatefulWidget {
-  final String logoAssetPath;
-  final String appLabel;
-  final String? welcomeSubLabel;
-  final Widget formChild;
-  final bool? forceAnimateCelebration;
-  final double topInsetPadding;
-  final EdgeInsetsGeometry horizontalPadding;
+class _ConfettiSpec {
+  final double xFraction;
+  final double start;
+  final double span;
+  final double startYFraction;
+  final double swayAmplitude;
+  final double swayCycles;
+  final double swayPhase;
+  final double spinSpeed;
+  final double width;
+  final double height;
+  final bool isCircle;
+  final double baseAlpha;
+  final Color color;
 
-  const OtlobWelcomeLoginShell({
+  const _ConfettiSpec({
+    required this.xFraction,
+    required this.start,
+    required this.span,
+    this.startYFraction = 0.0,
+    required this.swayAmplitude,
+    required this.swayCycles,
+    required this.swayPhase,
+    required this.spinSpeed,
+    required this.width,
+    required this.height,
+    required this.isCircle,
+    this.baseAlpha = 0.72,
+    required this.color,
+  });
+}
+
+class _SparkleSpec {
+  final double xFraction;
+  final double yFraction;
+  final double radius;
+  final double phase;
+  final double twinkleCycles;
+  final double maxAlpha;
+
+  const _SparkleSpec({
+    required this.xFraction,
+    required this.yFraction,
+    required this.radius,
+    required this.phase,
+    required this.twinkleCycles,
+    this.maxAlpha = 0.78,
+  });
+}
+
+/// Non-intrusive celebratory overlay rendered INSIDE the actual original
+/// LoginScreen without altering its background, layout, logo position,
+/// fields, buttons, or touch responsiveness.
+///
+/// Only adds the 4 approved celebration elements strictly after the Hero logo
+/// transition completes:
+/// 1. Compact purple & gold `WELCOME TO OTLOB` sign at the top.
+/// 2. Two supporting red velvet ropes with gold connectors from top corners.
+/// 3. Lightweight falling gold/purple/red confetti particles.
+/// 4. Subtle twinkling golden sparkles around the welcome sign.
+class OtlobLoginWelcomeOverlay extends StatefulWidget {
+  final Widget child;
+  final double signTopOffset;
+  final bool? forceAnimateCelebration;
+
+  const OtlobLoginWelcomeOverlay({
     super.key,
-    required this.logoAssetPath,
-    required this.appLabel,
-    this.welcomeSubLabel,
-    required this.formChild,
+    required this.child,
+    this.signTopOffset = 6.0,
     this.forceAnimateCelebration,
-    this.topInsetPadding = 0,
-    this.horizontalPadding = const EdgeInsets.symmetric(horizontal: 20),
   });
 
   @override
-  State<OtlobWelcomeLoginShell> createState() => OtlobWelcomeLoginShellState();
+  State<OtlobLoginWelcomeOverlay> createState() =>
+      OtlobLoginWelcomeOverlayState();
 }
 
-class OtlobWelcomeLoginShellState extends State<OtlobWelcomeLoginShell>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _celebrationController;
+class OtlobLoginWelcomeOverlayState extends State<OtlobLoginWelcomeOverlay>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  late final AnimationController _entranceController;
+  late final AnimationController _effectsController;
   Animation<double>? _routeAnimation;
   bool _routeHooked = false;
-  bool _celebrationStarted = false;
+  bool _started = false;
+  bool _effectsStarted = false;
 
-  /// Exposed for testing animation phases cleanly.
-  AnimationController get celebrationController => _celebrationController;
+  /// Exposed for unit/widget tests to verify celebration sequencing cleanly.
+  AnimationController get entranceController => _entranceController;
+
+  /// Exposed for unit/widget tests to verify particle lifecycle cleanly.
+  AnimationController get effectsController => _effectsController;
 
   @override
   void initState() {
     super.initState();
-    _celebrationController = AnimationController(
+    WidgetsBinding.instance.addObserver(this);
+    _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2800),
+      duration: const Duration(milliseconds: 900),
+    )..addListener(_maybeTriggerEffects);
+
+    _effectsController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 10000),
     );
+  }
+
+  void _maybeTriggerEffects() {
+    if (!_effectsStarted && _entranceController.value >= 0.72 && mounted) {
+      _effectsStarted = true;
+      _effectsController.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _entranceController.stop(canceled: false);
+      _effectsController.stop(canceled: false);
+    } else if (state == AppLifecycleState.resumed &&
+        _started &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      if (_entranceController.value < 1.0 &&
+          !_entranceController.isAnimating) {
+        _entranceController.forward();
+      }
+      if (_effectsStarted &&
+          _effectsController.value < 1.0 &&
+          !_effectsController.isAnimating) {
+        _effectsController.forward();
+      }
+    }
   }
 
   @override
@@ -74,27 +162,21 @@ class OtlobWelcomeLoginShellState extends State<OtlobWelcomeLoginShell>
     _routeHooked = true;
 
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
-    final shouldAnimateFromSplash = widget.forceAnimateCelebration ??
+    final shouldAnimate = widget.forceAnimateCelebration ??
         OtlobLoginEntranceCoordinator.consumeFromSplash();
 
-    if (reducedMotion) {
-      _celebrationStarted = true;
-      _celebrationController.value = 1.0;
-      return;
-    }
-
-    if (!shouldAnimateFromSplash) {
-      // Returning to Login from Register/Forgot Password or direct open:
-      // show settled celebration immediately without forcing a replay delay.
-      _celebrationStarted = true;
-      _celebrationController.value = 1.0;
+    if (reducedMotion || !shouldAnimate) {
+      _started = true;
+      _effectsStarted = true;
+      _entranceController.value = 1.0;
+      _effectsController.value = 1.0;
       return;
     }
 
     final routeAnim = ModalRoute.of(context)?.animation;
     if (routeAnim != null && routeAnim.status != AnimationStatus.completed) {
-      // Strictly wait until the Splash-to-Login Hero logo transition finishes
-      // before starting Step 4 (Welcome Celebration inside Login).
+      // Strictly wait until the Splash-to-Login Hero logo finishes settling in
+      // its original login position before launching the welcome celebration.
       _routeAnimation = routeAnim;
       routeAnim.addStatusListener(_onRouteAnimationStatus);
     } else {
@@ -112,617 +194,223 @@ class OtlobWelcomeLoginShellState extends State<OtlobWelcomeLoginShell>
   }
 
   void _startCelebration() {
-    if (!mounted || _celebrationStarted) return;
-    _celebrationStarted = true;
-    _celebrationController.forward(from: 0.0);
+    if (!mounted || _started) return;
+    _started = true;
+    _entranceController.forward(from: 0.0);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _routeAnimation?.removeStatusListener(_onRouteAnimationStatus);
-    _celebrationController.dispose();
+    _entranceController.removeListener(_maybeTriggerEffects);
+    _entranceController.dispose();
+    _effectsController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
 
-    final bgGradient = isDark
-        ? const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1A0E2E),
-              Color(0xFF130B22),
-              Color(0xFF0F172A),
-            ],
-            stops: [0.0, 0.42, 1.0],
-          )
-        : LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFFF6EFFC),
-              const Color(0xFFFFFBF2),
-              theme.scaffoldBackgroundColor,
-            ],
-            stops: const [0.0, 0.36, 1.0],
-          );
-
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: BoxDecoration(gradient: bgGradient),
-      child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxW = constraints.maxWidth;
-            final isNarrow = maxW < 360;
-
-            return SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.only(
-                top: widget.topInsetPadding,
-                bottom: 24,
-              ),
-              child: Padding(
-                padding: widget.horizontalPadding,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 440),
-                    child: AnimatedBuilder(
-                      animation: _celebrationController,
-                      builder: (context, child) {
-                        final t = _celebrationController.value;
-                        final lightAlpha = reducedMotion
-                            ? 1.0
-                            : const Interval(0.0, 0.32, curve: Curves.easeOut)
-                                .transform(t);
-                        final ropeProgress = reducedMotion
-                            ? 1.0
-                            : const Interval(0.06, 0.42,
-                                    curve: Curves.easeOutCubic)
-                                .transform(t);
-                        final signDrop = reducedMotion
-                            ? 1.0
-                            : const Interval(0.08, 0.48,
-                                    curve: Curves.easeOutBack)
-                                .transform(t);
-                        final podiumRise = reducedMotion
-                            ? 1.0
-                            : const Interval(0.02, 0.42,
-                                    curve: Curves.easeOutBack)
-                                .transform(t);
-                        final balloonRise = reducedMotion
-                            ? 1.0
-                            : const Interval(0.16, 0.72,
-                                    curve: Curves.easeOutCubic)
-                                .transform(t);
-                        final particleProgress = reducedMotion ? 1.0 : t;
-                        final formReveal = reducedMotion
-                            ? 1.0
-                            : const Interval(0.54, 0.96,
-                                    curve: Curves.easeOutCubic)
-                                .transform(t);
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _WelcomeCelebrationStage(
-                              logoAssetPath: widget.logoAssetPath,
-                              appLabel: widget.appLabel,
-                              welcomeSubLabel: widget.welcomeSubLabel,
-                              isDark: isDark,
-                              isNarrow: isNarrow,
-                              lightAlpha: lightAlpha,
-                              ropeProgress: ropeProgress,
-                              signDrop: signDrop,
-                              podiumRise: podiumRise,
-                              balloonRise: balloonRise,
-                              particleProgress: particleProgress,
-                              reducedMotion: reducedMotion,
-                            ),
-                            const SizedBox(height: 14),
-                            // Login form appears smoothly AFTER the welcome
-                            // celebration begins unfolding around the settled logo.
-                            IgnorePointer(
-                              ignoring: formReveal < 0.25,
-                              child: Opacity(
-                                opacity: formReveal.clamp(0.0, 1.0),
-                                child: Transform.translate(
-                                  offset: Offset(0, (1.0 - formReveal) * 24),
-                                  child: child,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                      child: Container(
-                        padding: EdgeInsets.all(isNarrow ? 16 : 22),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? theme.colorScheme.surface.withValues(alpha: 0.94)
-                              : Colors.white.withValues(alpha: 0.97),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: isDark
-                                ? _CelebrationPalette.goldPrimary
-                                    .withValues(alpha: 0.22)
-                                : _CelebrationPalette.purpleRoyal
-                                    .withValues(alpha: 0.14),
-                            width: 1.2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (isDark
-                                      ? Colors.black
-                                      : _CelebrationPalette.purpleDeep)
-                                  .withValues(alpha: isDark ? 0.36 : 0.08),
-                              blurRadius: 28,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
-                        ),
-                        child: widget.formChild,
-                      ),
-                    ),
+    return Stack(
+      children: [
+        // Full-screen background layer: confetti & golden sparkles fall and
+        // twinkle across the entire viewport BEHIND interactive login controls.
+        if (!reducedMotion)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: _FullScreenCelebrationPainter(
+                    animation: _effectsController,
                   ),
                 ),
               ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
+            ),
+          ),
 
-class _WelcomeCelebrationStage extends StatelessWidget {
-  final String logoAssetPath;
-  final String appLabel;
-  final String? welcomeSubLabel;
-  final bool isDark;
-  final bool isNarrow;
-  final double lightAlpha;
-  final double ropeProgress;
-  final double signDrop;
-  final double podiumRise;
-  final double balloonRise;
-  final double particleProgress;
-  final bool reducedMotion;
+        // Original LoginScreen content stays completely untouched, crisp,
+        // and immediately interactive above the decorative background layer.
+        widget.child,
 
-  const _WelcomeCelebrationStage({
-    required this.logoAssetPath,
-    required this.appLabel,
-    required this.welcomeSubLabel,
-    required this.isDark,
-    required this.isNarrow,
-    required this.lightAlpha,
-    required this.ropeProgress,
-    required this.signDrop,
-    required this.podiumRise,
-    required this.balloonRise,
-    required this.particleProgress,
-    required this.reducedMotion,
-  });
+        // Non-blocking top layer for only the compact WELCOME TO OTLOB sign
+        // and its two supporting red velvet ropes.
+        Positioned.fill(
+          child: IgnorePointer(
+            child: SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxWidth = constraints.maxWidth;
+                  final signWidth = (maxWidth * 0.62).clamp(182.0, 260.0);
+                  final signLeft = (maxWidth - signWidth) / 2;
+                  final signTop = widget.signTopOffset;
 
-  @override
-  Widget build(BuildContext context) {
-    final stageHeight = isNarrow ? 276.0 : 292.0;
-
-    return SizedBox(
-      width: double.infinity,
-      height: stageHeight,
-      child: ClipRect(
-        child: LayoutBuilder(
-          builder: (context, box) {
-            final width = box.maxWidth;
-            final signWidth = (width * 0.74).clamp(198.0, 300.0);
-            final signTop = 44.0 + (1.0 - signDrop.clamp(0.0, 1.3)) * -26.0;
-            final signLeft = (width - signWidth) / 2;
-
-            return Stack(
-              alignment: Alignment.topCenter,
-              clipBehavior: Clip.hardEdge,
-              children: [
-                // 1. Warm golden spotlight cones + ambient purple-gold stage glow
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: RepaintBoundary(
-                      child: CustomPaint(
-                        painter: _SpotlightsAndGlowPainter(
-                          alpha: lightAlpha,
-                          isDark: isDark,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 2. Left & right decorative balloons floating gracefully into flank
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: RepaintBoundary(
-                      child: CustomPaint(
-                        painter: _CelebrationBalloonsPainter(
-                          progress: balloonRise,
-                          isDark: isDark,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 3. Red velvet supporting ropes with gold clasp connectors
-                // anchored cleanly to the left & right upper corners of the sign
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: RepaintBoundary(
-                      child: CustomPaint(
-                        painter: _RedVelvetSupportingRopesPainter(
-                          progress: ropeProgress,
-                          signLeft: signLeft,
-                          signWidth: signWidth,
-                          signTop: signTop,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 4. Decorative Purple & Gold Podium / Table underneath the sign
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 112,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: podiumRise.clamp(0.0, 1.0),
-                      child: Transform.translate(
-                        offset: Offset(
-                          0,
-                          (1.0 - podiumRise.clamp(0.0, 1.2)) * 28,
-                        ),
+                  return Stack(
+                    children: [
+                      Positioned.fill(
                         child: RepaintBoundary(
-                          child: CustomPaint(
-                            painter: _DecorativePodiumPainter(
-                              isDark: isDark,
-                              brandLabel: appLabel,
-                            ),
+                          child: AnimatedBuilder(
+                            animation: _entranceController,
+                            builder: (context, _) {
+                              final t = _entranceController.value;
+                              final ropeProgress = const Interval(
+                                0.30,
+                                1.0,
+                                curve: Curves.easeOutCubic,
+                              ).transform(t);
+                              return CustomPaint(
+                                painter: _VelvetRopesPainter(
+                                  progress: ropeProgress,
+                                  signLeft: signLeft,
+                                  signWidth: signWidth,
+                                  signTop: signTop,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-
-                // 5. Suspended "WELCOME TO OTLOB" Sign
-                Positioned(
-                  top: signTop,
-                  width: signWidth,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: signDrop.clamp(0.0, 1.0),
-                      child: _SuspendedWelcomeSign(
-                        appLabel: appLabel,
-                        welcomeSubLabel: welcomeSubLabel,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 6. Settled Otlob Logo Hero destination (centered directly above podium)
-                Positioned(
-                  bottom: 72,
-                  child: OtlobBrandHeroLogo(
-                    assetPath: logoAssetPath,
-                    size: isNarrow ? 64 : 72,
-                    auraPadding: 9,
-                    auraColor: isDark
-                        ? _CelebrationPalette.purpleRoyal.withValues(alpha: 0.78)
-                        : Colors.white.withValues(alpha: 0.94),
-                    borderColor: _CelebrationPalette.goldBright
-                        .withValues(alpha: 0.85),
-                    showMedallion: true,
-                  ),
-                ),
-
-                // 7. Falling Confetti & Golden Sparkles (finite celebration fade-out)
-                if (!reducedMotion)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: RepaintBoundary(
-                        child: CustomPaint(
-                          painter: _ConfettiAndSparklesPainter(
-                            progress: particleProgress,
-                            isDark: isDark,
+                      Positioned(
+                        top: signTop,
+                        left: signLeft,
+                        width: signWidth,
+                        child: RepaintBoundary(
+                          child: AnimatedBuilder(
+                            animation: _entranceController,
+                            builder: (context, signChild) {
+                              final signProgress = const Interval(
+                                0.0,
+                                0.62,
+                                curve: Curves.easeOutBack,
+                              ).transform(_entranceController.value);
+                              final opacity =
+                                  signProgress.clamp(0.0, 1.0);
+                              final dy =
+                                  (1.0 - signProgress.clamp(0.0, 1.2)) * -18.0;
+                              return Opacity(
+                                opacity: opacity,
+                                child: Transform.translate(
+                                  offset: Offset(0, dy),
+                                  child: signChild,
+                                ),
+                              );
+                            },
+                            child: const _CompactWelcomeSign(),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
-            );
-          },
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
 
-class _SuspendedWelcomeSign extends StatelessWidget {
-  final String appLabel;
-  final String? welcomeSubLabel;
-
-  const _SuspendedWelcomeSign({
-    required this.appLabel,
-    this.welcomeSubLabel,
-  });
+class _CompactWelcomeSign extends StatelessWidget {
+  const _CompactWelcomeSign();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            _CelebrationPalette.purpleBright,
-            _CelebrationPalette.purpleRoyal,
-            _CelebrationPalette.purpleDeep,
+            _CelebrationColors.purpleRoyal,
+            _CelebrationColors.purpleDeep,
           ],
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: _CelebrationPalette.goldBright,
-          width: 2.0,
+          color: _CelebrationColors.goldBright,
+          width: 1.6,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: _CelebrationPalette.purpleDeep.withValues(alpha: 0.45),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: _CelebrationPalette.goldPrimary.withValues(alpha: 0.25),
-            blurRadius: 16,
-            spreadRadius: 1,
-          ),
-        ],
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.center,
-        children: [
-          // Inner gold & red-velvet hairline frame
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _CelebrationPalette.goldPrimary.withValues(alpha: 0.38),
-                  width: 1,
-                ),
-              ),
-            ),
+      child: const FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          'WELCOME TO OTLOB',
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
+            color: _CelebrationColors.goldBright,
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'WELCOME TO OTLOB',
-                    textDirection: TextDirection.ltr,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.8,
-                      color: _CelebrationPalette.goldBright,
-                      shadows: [
-                        Shadow(
-                          color: Color(0xAA000000),
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        _CelebrationPalette.redVelvetDeep,
-                        _CelebrationPalette.redVelvet,
-                        _CelebrationPalette.redVelvetDeep,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: _CelebrationPalette.goldPrimary
-                          .withValues(alpha: 0.65),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      welcomeSubLabel != null && welcomeSubLabel!.isNotEmpty
-                          ? '$appLabel • $welcomeSubLabel'
-                          : appLabel,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _SpotlightsAndGlowPainter extends CustomPainter {
-  final double alpha;
-  final bool isDark;
-
-  const _SpotlightsAndGlowPainter({
-    required this.alpha,
-    required this.isDark,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (alpha <= 0.01) return;
-
-    // Warm golden descending spotlights from top corners onto the sign & podium
-    final beamAlpha = (isDark ? 0.22 : 0.16) * alpha;
-    final leftBeamPath = Path()
-      ..moveTo(size.width * 0.16, 0)
-      ..lineTo(size.width * 0.28, 0)
-      ..lineTo(size.width * 0.68, size.height * 0.82)
-      ..lineTo(size.width * 0.22, size.height * 0.82)
-      ..close();
-
-    final rightBeamPath = Path()
-      ..moveTo(size.width * 0.72, 0)
-      ..lineTo(size.width * 0.84, 0)
-      ..lineTo(size.width * 0.78, size.height * 0.82)
-      ..lineTo(size.width * 0.32, size.height * 0.82)
-      ..close();
-
-    final beamPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          _CelebrationPalette.goldBright.withValues(alpha: beamAlpha),
-          _CelebrationPalette.goldPrimary.withValues(alpha: beamAlpha * 0.45),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height * 0.85));
-
-    canvas.drawPath(leftBeamPath, beamPaint);
-    canvas.drawPath(rightBeamPath, beamPaint);
-
-    // Warm halo behind the central welcome sign & logo medallion
-    final center = Offset(size.width / 2, size.height * 0.48);
-    final haloPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          _CelebrationPalette.goldPrimary
-              .withValues(alpha: (isDark ? 0.24 : 0.18) * alpha),
-          _CelebrationPalette.purpleBright
-              .withValues(alpha: (isDark ? 0.18 : 0.10) * alpha),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: size.width * 0.42));
-    canvas.drawCircle(center, size.width * 0.42, haloPaint);
-  }
-
-  @override
-  bool shouldRepaint(_SpotlightsAndGlowPainter oldDelegate) =>
-      oldDelegate.alpha != alpha || oldDelegate.isDark != isDark;
-}
-
-class _RedVelvetSupportingRopesPainter extends CustomPainter {
+class _VelvetRopesPainter extends CustomPainter {
   final double progress;
   final double signLeft;
   final double signWidth;
   final double signTop;
 
-  const _RedVelvetSupportingRopesPainter({
+  _VelvetRopesPainter({
     required this.progress,
     required this.signLeft,
     required this.signWidth,
     required this.signTop,
   });
 
-  void _drawRopeSegment(
+  final Paint _basePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
+  final Paint _corePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
+  final Paint _highlightPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
+  final Paint _goldPaint = Paint();
+
+  void _drawRope(
     Canvas canvas,
     Offset start,
     Offset end,
     double t, {
-    required bool curveInwardLeft,
+    required bool isLeft,
   }) {
     final currentEnd = Offset.lerp(start, end, t)!;
-    final ctrlX = curveInwardLeft
-        ? (start.dx + currentEnd.dx) * 0.5 - 6
-        : (start.dx + currentEnd.dx) * 0.5 + 6;
-    final ctrlY = (start.dy + currentEnd.dy) * 0.5 + 8;
+    final ctrlX = (start.dx + currentEnd.dx) * 0.5 + (isLeft ? -5.0 : 5.0);
+    final ctrlY = (start.dy + currentEnd.dy) * 0.5 + 6.0;
 
-    final ropePath = Path()
+    final path = Path()
       ..moveTo(start.dx, start.dy)
       ..quadraticBezierTo(ctrlX, ctrlY, currentEnd.dx, currentEnd.dy);
 
-    // Shadow under velvet rope
-    canvas.drawPath(
-      ropePath.shift(const Offset(0, 2.5)),
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.28 * t)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 7.5
-        ..strokeCap = StrokeCap.round,
-    );
+    _basePaint
+      ..color = _CelebrationColors.redVelvetDeep.withValues(alpha: t)
+      ..strokeWidth = 5.4;
+    canvas.drawPath(path, _basePaint);
 
-    // Deep velvet base
-    canvas.drawPath(
-      ropePath,
-      Paint()
-        ..color = _CelebrationPalette.redVelvetDeep.withValues(alpha: t)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 6.5
-        ..strokeCap = StrokeCap.round,
-    );
+    _corePaint
+      ..color = _CelebrationColors.redVelvet.withValues(alpha: t)
+      ..strokeWidth = 3.6;
+    canvas.drawPath(path, _corePaint);
 
-    // Rich crimson velvet core
-    canvas.drawPath(
-      ropePath,
-      Paint()
-        ..color = _CelebrationPalette.redVelvet.withValues(alpha: t)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4.2
-        ..strokeCap = StrokeCap.round,
-    );
+    _highlightPaint
+      ..color = _CelebrationColors.redVelvetBright.withValues(alpha: 0.65 * t)
+      ..strokeWidth = 1.2;
+    canvas.drawPath(path, _highlightPaint);
 
-    // Subtle sheen highlight along the velvet braid
-    canvas.drawPath(
-      ropePath,
-      Paint()
-        ..color = _CelebrationPalette.redVelvetBright.withValues(alpha: 0.72 * t)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6
-        ..strokeCap = StrokeCap.round,
-    );
-
-    // Top ceiling gold finial
-    _drawGoldConnector(canvas, start + const Offset(0, 3), 4.6, t);
-    // Gold ring clasp attaching rope directly to the suspended sign
+    // Top ceiling gold connector + sign gold attachment clasp
+    _drawGoldConnector(canvas, start + const Offset(0, 2), 3.6, t);
     if (t > 0.35) {
       final claspAlpha = ((t - 0.35) / 0.65).clamp(0.0, 1.0);
-      _drawGoldConnector(canvas, currentEnd, 5.5, claspAlpha);
+      _drawGoldConnector(canvas, currentEnd, 4.4, claspAlpha);
     }
   }
 
@@ -732,21 +420,10 @@ class _RedVelvetSupportingRopesPainter extends CustomPainter {
     double radius,
     double alpha,
   ) {
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()..color = _CelebrationPalette.goldDeep.withValues(alpha: alpha),
-    );
-    canvas.drawCircle(
-      center,
-      radius * 0.76,
-      Paint()..color = _CelebrationPalette.goldBright.withValues(alpha: alpha),
-    );
-    canvas.drawCircle(
-      center,
-      radius * 0.32,
-      Paint()..color = _CelebrationPalette.purpleDeep.withValues(alpha: alpha),
-    );
+    _goldPaint.color = _CelebrationColors.goldDeep.withValues(alpha: alpha);
+    canvas.drawCircle(center, radius, _goldPaint);
+    _goldPaint.color = _CelebrationColors.goldBright.withValues(alpha: alpha);
+    canvas.drawCircle(center, radius * 0.72, _goldPaint);
   }
 
   @override
@@ -754,412 +431,174 @@ class _RedVelvetSupportingRopesPainter extends CustomPainter {
     final t = progress.clamp(0.0, 1.0);
     if (t <= 0.01) return;
 
-    final leftAnchor = Offset((signLeft - 24).clamp(16.0, signLeft), 2);
-    final leftAttach = Offset(signLeft + 14, signTop + 5);
+    final leftAnchor = Offset((signLeft - 18).clamp(12.0, signLeft), 0);
+    final leftAttach = Offset(signLeft + 10, signTop + 5);
 
-    final rightAnchor =
-        Offset((signLeft + signWidth + 24).clamp(signLeft + signWidth, size.width - 16), 2);
-    final rightAttach = Offset(signLeft + signWidth - 14, signTop + 5);
+    final rightAnchor = Offset(
+      (signLeft + signWidth + 18).clamp(signLeft + signWidth, size.width - 12),
+      0,
+    );
+    final rightAttach = Offset(signLeft + signWidth - 10, signTop + 5);
 
-    _drawRopeSegment(canvas, leftAnchor, leftAttach, t, curveInwardLeft: true);
-    _drawRopeSegment(canvas, rightAnchor, rightAttach, t, curveInwardLeft: false);
+    _drawRope(canvas, leftAnchor, leftAttach, t, isLeft: true);
+    _drawRope(canvas, rightAnchor, rightAttach, t, isLeft: false);
   }
 
   @override
-  bool shouldRepaint(_RedVelvetSupportingRopesPainter oldDelegate) =>
+  bool shouldRepaint(_VelvetRopesPainter oldDelegate) =>
       oldDelegate.progress != progress ||
       oldDelegate.signLeft != signLeft ||
       oldDelegate.signWidth != signWidth ||
       oldDelegate.signTop != signTop;
 }
 
-class _DecorativePodiumPainter extends CustomPainter {
-  final bool isDark;
-  final String brandLabel;
+class _FullScreenCelebrationPainter extends CustomPainter {
+  final Animation<double> animation;
 
-  const _DecorativePodiumPainter({
-    required this.isDark,
-    required this.brandLabel,
-  });
+  _FullScreenCelebrationPainter({required this.animation})
+      : super(repaint: animation);
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final deckWidth = (size.width * 0.64).clamp(180.0, 270.0);
-    final bodyWidth = deckWidth * 0.84;
-    final topY = 26.0;
-    final deckHeight = 14.0;
-    final bodyTop = topY + deckHeight;
-    final bodyBottom = size.height - 8;
+  final Paint _paint = Paint();
+  final Path _sparklePath = Path();
 
-    // Soft ground shadow beneath the podium
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(cx, bodyBottom + 2),
-        width: deckWidth * 0.94,
-        height: 12,
-      ),
-      Paint()
-        ..color = Colors.black.withValues(alpha: isDark ? 0.42 : 0.18)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-    );
+  static const _particles = <_ConfettiSpec>[
+    // Early distributed particles so upper, middle, and form zones sparkle/drift immediately.
+    _ConfettiSpec(xFraction: 0.09, start: 0.00, span: 0.44, startYFraction: 0.00, swayAmplitude: 11, swayCycles: 2.6, swayPhase: 0.4, spinSpeed: 2.2, width: 6.5, height: 3.5, isCircle: false, baseAlpha: 0.62, color: _CelebrationColors.goldBright),
+    _ConfettiSpec(xFraction: 0.22, start: 0.00, span: 0.40, startYFraction: 0.14, swayAmplitude: 14, swayCycles: 2.3, swayPhase: 1.5, spinSpeed: 1.9, width: 4.8, height: 4.8, isCircle: true, baseAlpha: 0.56, color: _CelebrationColors.purpleAccent),
+    _ConfettiSpec(xFraction: 0.37, start: 0.02, span: 0.46, startYFraction: 0.00, swayAmplitude: 10, swayCycles: 3.1, swayPhase: 2.2, spinSpeed: 2.8, width: 7.0, height: 3.5, isCircle: false, baseAlpha: 0.50, color: _CelebrationColors.redVelvetBright),
+    _ConfettiSpec(xFraction: 0.53, start: 0.00, span: 0.42, startYFraction: 0.26, swayAmplitude: 12, swayCycles: 2.5, swayPhase: 0.9, spinSpeed: 2.4, width: 6.0, height: 3.5, isCircle: false, baseAlpha: 0.62, color: _CelebrationColors.goldPrimary),
+    _ConfettiSpec(xFraction: 0.68, start: 0.01, span: 0.45, startYFraction: 0.00, swayAmplitude: 15, swayCycles: 2.8, swayPhase: 2.7, spinSpeed: 2.1, width: 4.5, height: 4.5, isCircle: true, baseAlpha: 0.56, color: _CelebrationColors.purpleRoyal),
+    _ConfettiSpec(xFraction: 0.84, start: 0.00, span: 0.41, startYFraction: 0.20, swayAmplitude: 11, swayCycles: 2.4, swayPhase: 1.1, spinSpeed: 2.6, width: 6.5, height: 3.5, isCircle: false, baseAlpha: 0.62, color: _CelebrationColors.goldBright),
+    _ConfettiSpec(xFraction: 0.15, start: 0.00, span: 0.38, startYFraction: 0.42, swayAmplitude: 13, swayCycles: 2.2, swayPhase: 3.0, spinSpeed: 2.0, width: 6.0, height: 3.2, isCircle: false, baseAlpha: 0.52, color: _CelebrationColors.redVelvetBright),
+    _ConfettiSpec(xFraction: 0.77, start: 0.02, span: 0.40, startYFraction: 0.46, swayAmplitude: 10, swayCycles: 2.7, swayPhase: 0.6, spinSpeed: 2.5, width: 5.0, height: 5.0, isCircle: true, baseAlpha: 0.60, color: _CelebrationColors.goldPrimary),
 
-    // Podium main tapered purple body
-    final bodyRect = RRect.fromRectAndCorners(
-      Rect.fromCenter(
-        center: Offset(cx, (bodyTop + bodyBottom) / 2),
-        width: bodyWidth,
-        height: (bodyBottom - bodyTop).clamp(24.0, 80.0),
-      ),
-      bottomLeft: const Radius.circular(14),
-      bottomRight: const Radius.circular(14),
-    );
-    canvas.drawRRect(
-      bodyRect,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            _CelebrationPalette.purpleRoyal,
-            _CelebrationPalette.purpleDeep,
-          ],
-        ).createShader(bodyRect.outerRect),
-    );
+    // Second wave: steady top-to-bottom drift across entire screen width & height.
+    _ConfettiSpec(xFraction: 0.06, start: 0.16, span: 0.48, swayAmplitude: 12, swayCycles: 3.0, swayPhase: 1.8, spinSpeed: 2.7, width: 6.0, height: 3.5, isCircle: false, baseAlpha: 0.58, color: _CelebrationColors.purpleAccent),
+    _ConfettiSpec(xFraction: 0.19, start: 0.20, span: 0.50, swayAmplitude: 15, swayCycles: 2.8, swayPhase: 0.3, spinSpeed: 2.2, width: 7.2, height: 3.8, isCircle: false, baseAlpha: 0.64, color: _CelebrationColors.goldBright),
+    _ConfettiSpec(xFraction: 0.31, start: 0.14, span: 0.46, swayAmplitude: 9, swayCycles: 3.2, swayPhase: 2.4, spinSpeed: 2.9, width: 4.5, height: 4.5, isCircle: true, baseAlpha: 0.52, color: _CelebrationColors.redVelvetBright),
+    _ConfettiSpec(xFraction: 0.45, start: 0.24, span: 0.48, swayAmplitude: 14, swayCycles: 2.9, swayPhase: 1.2, spinSpeed: 2.4, width: 6.5, height: 3.5, isCircle: false, baseAlpha: 0.60, color: _CelebrationColors.goldPrimary),
+    _ConfettiSpec(xFraction: 0.59, start: 0.18, span: 0.52, swayAmplitude: 11, swayCycles: 3.3, swayPhase: 2.9, spinSpeed: 2.1, width: 5.2, height: 5.2, isCircle: false, baseAlpha: 0.56, color: _CelebrationColors.purpleRoyal),
+    _ConfettiSpec(xFraction: 0.72, start: 0.22, span: 0.46, swayAmplitude: 16, swayCycles: 2.7, swayPhase: 0.7, spinSpeed: 2.6, width: 6.5, height: 3.5, isCircle: false, baseAlpha: 0.64, color: _CelebrationColors.goldBright),
+    _ConfettiSpec(xFraction: 0.87, start: 0.15, span: 0.50, swayAmplitude: 10, swayCycles: 3.0, swayPhase: 1.9, spinSpeed: 2.3, width: 4.6, height: 4.6, isCircle: true, baseAlpha: 0.50, color: _CelebrationColors.redVelvetBright),
+    _ConfettiSpec(xFraction: 0.94, start: 0.26, span: 0.46, swayAmplitude: 12, swayCycles: 2.6, swayPhase: 0.5, spinSpeed: 2.8, width: 6.0, height: 3.5, isCircle: false, baseAlpha: 0.58, color: _CelebrationColors.purpleAccent),
 
-    // Royal purple front drape scallops & gold trim line
-    final trimPaint = Paint()
-      ..color = _CelebrationPalette.goldPrimary.withValues(alpha: 0.72)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6;
-    final drapeY = bodyTop + 13;
-    final drapePath = Path()..moveTo(cx - bodyWidth / 2 + 8, bodyTop + 2);
-    const scallops = 4;
-    final step = (bodyWidth - 16) / scallops;
-    for (int i = 0; i < scallops; i++) {
-      final sx = cx - bodyWidth / 2 + 8 + i * step;
-      drapePath.quadraticBezierTo(sx + step / 2, drapeY + 8, sx + step, bodyTop + 2);
-    }
-    canvas.drawPath(
-      drapePath,
-      Paint()..color = _CelebrationPalette.purpleBright.withValues(alpha: 0.55),
-    );
-    canvas.drawPath(drapePath, trimPaint);
+    // Third overlapping wave: continues ongoing fall smoothly down to the bottom edge.
+    _ConfettiSpec(xFraction: 0.12, start: 0.38, span: 0.48, swayAmplitude: 13, swayCycles: 3.1, swayPhase: 2.1, spinSpeed: 2.5, width: 6.8, height: 3.6, isCircle: false, baseAlpha: 0.62, color: _CelebrationColors.goldPrimary),
+    _ConfettiSpec(xFraction: 0.26, start: 0.44, span: 0.46, swayAmplitude: 11, swayCycles: 2.9, swayPhase: 0.8, spinSpeed: 2.0, width: 4.8, height: 4.8, isCircle: true, baseAlpha: 0.56, color: _CelebrationColors.purpleAccent),
+    _ConfettiSpec(xFraction: 0.41, start: 0.36, span: 0.50, swayAmplitude: 15, swayCycles: 3.4, swayPhase: 1.6, spinSpeed: 2.9, width: 6.2, height: 3.4, isCircle: false, baseAlpha: 0.64, color: _CelebrationColors.goldBright),
+    _ConfettiSpec(xFraction: 0.56, start: 0.48, span: 0.45, swayAmplitude: 10, swayCycles: 2.8, swayPhase: 2.5, spinSpeed: 2.3, width: 6.0, height: 3.4, isCircle: false, baseAlpha: 0.50, color: _CelebrationColors.redVelvetBright),
+    _ConfettiSpec(xFraction: 0.69, start: 0.40, span: 0.49, swayAmplitude: 14, swayCycles: 3.0, swayPhase: 0.2, spinSpeed: 2.6, width: 5.0, height: 5.0, isCircle: false, baseAlpha: 0.56, color: _CelebrationColors.purpleRoyal),
+    _ConfettiSpec(xFraction: 0.81, start: 0.46, span: 0.46, swayAmplitude: 12, swayCycles: 3.2, swayPhase: 1.4, spinSpeed: 2.2, width: 6.8, height: 3.6, isCircle: false, baseAlpha: 0.62, color: _CelebrationColors.goldPrimary),
+    _ConfettiSpec(xFraction: 0.91, start: 0.42, span: 0.48, swayAmplitude: 9, swayCycles: 2.7, swayPhase: 2.8, spinSpeed: 2.4, width: 4.5, height: 4.5, isCircle: true, baseAlpha: 0.64, color: _CelebrationColors.goldBright),
+    _ConfettiSpec(xFraction: 0.34, start: 0.54, span: 0.44, swayAmplitude: 12, swayCycles: 2.9, swayPhase: 1.0, spinSpeed: 2.7, width: 6.2, height: 3.4, isCircle: false, baseAlpha: 0.58, color: _CelebrationColors.purpleAccent),
+    _ConfettiSpec(xFraction: 0.64, start: 0.52, span: 0.46, swayAmplitude: 13, swayCycles: 3.0, swayPhase: 2.3, spinSpeed: 2.1, width: 6.5, height: 3.5, isCircle: false, baseAlpha: 0.50, color: _CelebrationColors.redVelvetBright),
+    _ConfettiSpec(xFraction: 0.49, start: 0.56, span: 0.42, swayAmplitude: 11, swayCycles: 2.6, swayPhase: 0.5, spinSpeed: 2.5, width: 6.0, height: 3.4, isCircle: false, baseAlpha: 0.62, color: _CelebrationColors.goldBright),
+  ];
 
-    // Beveled metallic gold podium top table deck
-    final deckRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(cx, topY + deckHeight / 2),
-        width: deckWidth,
-        height: deckHeight,
-      ),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(
-      deckRect,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            _CelebrationPalette.goldBright,
-            _CelebrationPalette.goldPrimary,
-            _CelebrationPalette.goldDeep,
-          ],
-        ).createShader(deckRect.outerRect),
-    );
-
-    // Bottom gold plinth base
-    final plinthRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(cx, bodyBottom - 4),
-        width: bodyWidth + 14,
-        height: 8,
-      ),
-      const Radius.circular(4),
-    );
-    canvas.drawRRect(
-      plinthRect,
-      Paint()
-        ..shader = const LinearGradient(
-          colors: [
-            _CelebrationPalette.goldDeep,
-            _CelebrationPalette.goldBright,
-            _CelebrationPalette.goldDeep,
-          ],
-        ).createShader(plinthRect.outerRect),
-    );
-
-    // Decorative miniature gift boxes with red velvet ribbons resting on deck edges
-    _drawGiftBox(
-      canvas,
-      Offset(cx - deckWidth * 0.36, topY - 12),
-      18,
-      _CelebrationPalette.purpleBright,
-      _CelebrationPalette.goldBright,
-    );
-    _drawGiftBox(
-      canvas,
-      Offset(cx + deckWidth * 0.36, topY - 10),
-      16,
-      _CelebrationPalette.redVelvet,
-      _CelebrationPalette.goldBright,
-    );
-
-    // Festive floral rosette buds beside gift boxes
-    _drawRosette(canvas, Offset(cx - deckWidth * 0.25, topY - 4));
-    _drawRosette(canvas, Offset(cx + deckWidth * 0.25, topY - 4));
-
-    // Central embossed gold OTLOB crest plaque on podium front
-    final crestRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(cx, (bodyTop + bodyBottom) / 2 + 4),
-        width: (bodyWidth * 0.44).clamp(74.0, 112.0),
-        height: 22,
-      ),
-      const Radius.circular(11),
-    );
-    canvas.drawRRect(
-      crestRect,
-      Paint()..color = _CelebrationPalette.purpleDeep,
-    );
-    canvas.drawRRect(
-      crestRect,
-      Paint()
-        ..color = _CelebrationPalette.goldBright
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4,
-    );
-
-    final textPainter = TextPainter(
-      text: const TextSpan(
-        text: 'OTLOB',
-        style: TextStyle(
-          color: _CelebrationPalette.goldBright,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 2.0,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        cx - textPainter.width / 2,
-        crestRect.center.dy - textPainter.height / 2,
-      ),
-    );
-  }
-
-  void _drawGiftBox(
-    Canvas canvas,
-    Offset topLeft,
-    double size,
-    Color boxColor,
-    Color ribbonColor,
-  ) {
-    final rect = Rect.fromLTWH(topLeft.dx - size / 2, topLeft.dy, size, size * 0.78);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(3)),
-      Paint()..color = boxColor,
-    );
-    // Ribbon vertical + horizontal
-    final rPaint = Paint()..color = ribbonColor;
-    canvas.drawRect(
-      Rect.fromCenter(center: rect.center, width: 3.2, height: rect.height),
-      rPaint,
-    );
-    canvas.drawRect(
-      Rect.fromCenter(center: rect.center, width: rect.width, height: 2.6),
-      rPaint,
-    );
-    // Tiny bow loop on top
-    canvas.drawCircle(Offset(rect.center.dx - 2.5, rect.top - 1.5), 2.2, rPaint);
-    canvas.drawCircle(Offset(rect.center.dx + 2.5, rect.top - 1.5), 2.2, rPaint);
-  }
-
-  void _drawRosette(Canvas canvas, Offset center) {
-    canvas.drawCircle(center, 4.5, Paint()..color = const Color(0xFF10B981));
-    canvas.drawCircle(center.translate(0, -1), 3.4, Paint()..color = _CelebrationPalette.redVelvetBright);
-    canvas.drawCircle(center.translate(0, -1), 1.4, Paint()..color = _CelebrationPalette.goldBright);
-  }
-
-  @override
-  bool shouldRepaint(_DecorativePodiumPainter oldDelegate) =>
-      oldDelegate.isDark != isDark || oldDelegate.brandLabel != brandLabel;
-}
-
-class _CelebrationBalloonsPainter extends CustomPainter {
-  final double progress;
-  final bool isDark;
-
-  const _CelebrationBalloonsPainter({
-    required this.progress,
-    required this.isDark,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final t = progress.clamp(0.0, 1.0);
-    if (t <= 0.01) return;
-
-    final balloons = <({double rx, double ry, double r, Color color, double bob})>[
-      (rx: 0.09, ry: 0.36, r: 16, color: _CelebrationPalette.purpleBright, bob: 4),
-      (rx: 0.16, ry: 0.48, r: 14, color: _CelebrationPalette.goldPrimary, bob: -3),
-      (rx: 0.07, ry: 0.54, r: 13, color: _CelebrationPalette.redVelvetBright, bob: 3),
-      (rx: 0.91, ry: 0.36, r: 16, color: _CelebrationPalette.redVelvetBright, bob: -4),
-      (rx: 0.84, ry: 0.48, r: 14, color: _CelebrationPalette.purpleBright, bob: 3),
-      (rx: 0.93, ry: 0.54, r: 13, color: _CelebrationPalette.goldPrimary, bob: -3),
-    ];
-
-    final riseOffset = (1.0 - t) * 48.0;
-
-    for (final b in balloons) {
-      final cx = size.width * b.rx;
-      final cy = size.height * b.ry + riseOffset + math.sin(t * math.pi) * b.bob;
-
-      // Delicate curved balloon string
-      final stringPath = Path()
-        ..moveTo(cx, cy + b.r * 1.15)
-        ..quadraticBezierTo(cx + 4, cy + b.r * 1.8, cx - 2, cy + b.r * 2.5);
-      canvas.drawPath(
-        stringPath,
-        Paint()
-          ..color = (isDark ? Colors.white54 : Colors.black26).withValues(alpha: t)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0,
-      );
-
-      final oval = Rect.fromCenter(
-        center: Offset(cx, cy),
-        width: b.r * 1.72,
-        height: b.r * 2.08,
-      );
-      canvas.drawOval(
-        oval,
-        Paint()
-          ..shader = RadialGradient(
-            center: const Alignment(-0.35, -0.4),
-            colors: [
-              Colors.white.withValues(alpha: 0.72 * t),
-              b.color.withValues(alpha: 0.92 * t),
-              b.color.withValues(alpha: 0.75 * t),
-            ],
-            stops: const [0.0, 0.35, 1.0],
-          ).createShader(oval),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CelebrationBalloonsPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.isDark != isDark;
-}
-
-class _ConfettiAndSparklesPainter extends CustomPainter {
-  final double progress;
-  final bool isDark;
-
-  const _ConfettiAndSparklesPainter({
-    required this.progress,
-    required this.isDark,
-  });
-
-  static const _confettiPalette = <Color>[
-    _CelebrationPalette.goldBright,
-    _CelebrationPalette.purpleBright,
-    _CelebrationPalette.redVelvetBright,
-    _CelebrationPalette.goldPrimary,
+  // Golden sparkles distributed evenly across top welcome zone, logo area,
+  // login form controls, and lower footer area.
+  static const _sparkles = <_SparkleSpec>[
+    _SparkleSpec(xFraction: 0.10, yFraction: 0.06, radius: 5.4, phase: 0.0, twinkleCycles: 5.2, maxAlpha: 0.80),
+    _SparkleSpec(xFraction: 0.89, yFraction: 0.07, radius: 5.2, phase: 1.1, twinkleCycles: 4.8, maxAlpha: 0.80),
+    _SparkleSpec(xFraction: 0.27, yFraction: 0.12, radius: 4.0, phase: 2.3, twinkleCycles: 6.0, maxAlpha: 0.72),
+    _SparkleSpec(xFraction: 0.73, yFraction: 0.13, radius: 4.2, phase: 0.7, twinkleCycles: 5.6, maxAlpha: 0.72),
+    _SparkleSpec(xFraction: 0.07, yFraction: 0.22, radius: 4.8, phase: 1.8, twinkleCycles: 4.6, maxAlpha: 0.74),
+    _SparkleSpec(xFraction: 0.92, yFraction: 0.24, radius: 5.0, phase: 2.9, twinkleCycles: 5.4, maxAlpha: 0.76),
+    _SparkleSpec(xFraction: 0.33, yFraction: 0.28, radius: 3.8, phase: 0.4, twinkleCycles: 6.4, maxAlpha: 0.66),
+    _SparkleSpec(xFraction: 0.67, yFraction: 0.29, radius: 3.8, phase: 2.1, twinkleCycles: 5.8, maxAlpha: 0.66),
+    _SparkleSpec(xFraction: 0.06, yFraction: 0.40, radius: 5.2, phase: 1.4, twinkleCycles: 5.0, maxAlpha: 0.76),
+    _SparkleSpec(xFraction: 0.93, yFraction: 0.42, radius: 4.8, phase: 2.6, twinkleCycles: 5.5, maxAlpha: 0.74),
+    _SparkleSpec(xFraction: 0.21, yFraction: 0.50, radius: 4.2, phase: 0.9, twinkleCycles: 6.2, maxAlpha: 0.68),
+    _SparkleSpec(xFraction: 0.81, yFraction: 0.53, radius: 4.4, phase: 3.0, twinkleCycles: 4.9, maxAlpha: 0.70),
+    _SparkleSpec(xFraction: 0.50, yFraction: 0.46, radius: 3.6, phase: 1.7, twinkleCycles: 6.6, maxAlpha: 0.62),
+    _SparkleSpec(xFraction: 0.09, yFraction: 0.65, radius: 4.6, phase: 2.4, twinkleCycles: 5.3, maxAlpha: 0.72),
+    _SparkleSpec(xFraction: 0.90, yFraction: 0.68, radius: 5.0, phase: 0.5, twinkleCycles: 4.7, maxAlpha: 0.74),
+    _SparkleSpec(xFraction: 0.25, yFraction: 0.79, radius: 4.4, phase: 1.3, twinkleCycles: 5.9, maxAlpha: 0.70),
+    _SparkleSpec(xFraction: 0.76, yFraction: 0.82, radius: 4.6, phase: 2.8, twinkleCycles: 5.1, maxAlpha: 0.72),
+    _SparkleSpec(xFraction: 0.49, yFraction: 0.91, radius: 4.8, phase: 0.8, twinkleCycles: 5.4, maxAlpha: 0.74),
   ];
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (progress <= 0.05 || progress >= 0.995) return;
+    final p = animation.value;
+    if (p <= 0.005 || p >= 0.998 || size.isEmpty) return;
 
-    // Smooth celebratory envelope: fades in at 0.12 and settles out softly at 0.98
-    final envelope = progress < 0.22
-        ? ((progress - 0.05) / 0.17).clamp(0.0, 1.0)
-        : (progress > 0.78
-            ? (1.0 - (progress - 0.78) / 0.22).clamp(0.0, 1.0)
-            : 1.0);
+    final globalEnvelope = p < 0.06
+        ? (p / 0.06).clamp(0.0, 1.0)
+        : (p > 0.86 ? (1.0 - (p - 0.86) / 0.14).clamp(0.0, 1.0) : 1.0);
 
-    // 18 lightweight falling confetti pieces across header stage
-    for (int i = 0; i < 18; i++) {
-      final seed = (i * 0.6180339887) % 1.0;
-      final fallT = ((progress - 0.08) * 1.15 - seed * 0.35).clamp(0.0, 1.0);
-      if (fallT <= 0 || fallT >= 1.0) continue;
+    // 1. Twinkling golden sparkles across the entire screen height and width.
+    for (final sp in _sparkles) {
+      final twinkle =
+          (0.18 + 0.82 * math.sin(p * math.pi * sp.twinkleCycles + sp.phase).abs()) *
+              globalEnvelope;
+      final cx = size.width * sp.xFraction;
+      final cy = size.height * sp.yFraction;
+      final r = sp.radius * (0.76 + 0.34 * twinkle);
+      final inner = r * 0.25;
 
-      final xBase = size.width * (0.08 + ((i * 37) % 84) / 100.0);
-      final sway = math.sin(fallT * math.pi * 3 + i) * 10.0;
-      final y = fallT * size.height * 0.92;
-      final angle = fallT * math.pi * 2.5 + i;
-      final color = _confettiPalette[i % _confettiPalette.length]
-          .withValues(alpha: 0.85 * envelope);
+      _sparklePath
+        ..reset()
+        ..moveTo(cx, cy - r)
+        ..lineTo(cx + inner, cy - inner)
+        ..lineTo(cx + r, cy)
+        ..lineTo(cx + inner, cy + inner)
+        ..lineTo(cx, cy + r)
+        ..lineTo(cx - inner, cy + inner)
+        ..lineTo(cx - r, cy)
+        ..lineTo(cx - inner, cy - inner)
+        ..close();
 
+      _paint.color = _CelebrationColors.goldPrimary.withValues(
+        alpha: twinkle * sp.maxAlpha,
+      );
+      canvas.drawPath(_sparklePath, _paint);
+
+      _paint.color = _CelebrationColors.goldBright.withValues(
+        alpha: twinkle * (sp.maxAlpha * 0.95),
+      );
+      canvas.drawCircle(Offset(cx, cy), inner * 0.85, _paint);
+    }
+
+    // 2. Falling gold, purple & subtle red confetti spanning the entire screen.
+    for (final item in _particles) {
+      final localT = ((p - item.start) / item.span).clamp(0.0, 1.0);
+      if (localT <= 0.0 || localT >= 1.0) continue;
+
+      final startY = item.startYFraction > 0.0
+          ? size.height * item.startYFraction
+          : -14.0;
+      final endY = size.height + 16.0;
+      final y = startY + (endY - startY) * localT;
+      final x = size.width * item.xFraction +
+          math.sin(localT * math.pi * item.swayCycles + item.swayPhase) *
+              item.swayAmplitude;
+
+      final entryFade = localT < 0.10 ? localT / 0.10 : 1.0;
+      final exitFade = localT > 0.85 ? (1.0 - localT) / 0.15 : 1.0;
+      final alpha = entryFade * exitFade * globalEnvelope * item.baseAlpha;
+      if (alpha <= 0.01) continue;
+
+      _paint.color = item.color.withValues(alpha: alpha);
       canvas.save();
-      canvas.translate(xBase + sway, y);
-      canvas.rotate(angle);
-      if (i % 3 == 0) {
-        canvas.drawCircle(Offset.zero, 2.6, Paint()..color = color);
+      canvas.translate(x, y);
+      canvas.rotate(localT * math.pi * item.spinSpeed + item.swayPhase);
+      if (item.isCircle) {
+        canvas.drawCircle(Offset.zero, item.width * 0.5, _paint);
       } else {
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            const Rect.fromLTWH(-3.5, -2.0, 7.0, 4.0),
-            const Radius.circular(1),
+        canvas.drawRect(
+          Rect.fromCenter(
+            center: Offset.zero,
+            width: item.width,
+            height: item.height,
           ),
-          Paint()..color = color,
+          _paint,
         );
       }
       canvas.restore();
     }
-
-    // 8 subtle golden 4-point star sparkles around the sign & medallion
-    final sparklePositions = <Offset>[
-      Offset(size.width * 0.18, size.height * 0.18),
-      Offset(size.width * 0.82, size.height * 0.18),
-      Offset(size.width * 0.24, size.height * 0.44),
-      Offset(size.width * 0.76, size.height * 0.44),
-      Offset(size.width * 0.34, size.height * 0.56),
-      Offset(size.width * 0.66, size.height * 0.56),
-      Offset(size.width * 0.50, size.height * 0.11),
-      Offset(size.width * 0.50, size.height * 0.62),
-    ];
-
-    for (int i = 0; i < sparklePositions.length; i++) {
-      final pulse =
-          (0.35 + 0.65 * math.sin(progress * math.pi * 4 + i * 0.9).abs()) *
-              envelope;
-      _drawFourPointStar(
-        canvas,
-        sparklePositions[i],
-        5.5 + (i % 2) * 2.0,
-        _CelebrationPalette.goldBright.withValues(alpha: pulse * 0.9),
-      );
-    }
-  }
-
-  void _drawFourPointStar(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    Color color,
-  ) {
-    final inner = radius * 0.26;
-    final path = Path()
-      ..moveTo(center.dx, center.dy - radius)
-      ..lineTo(center.dx + inner, center.dy - inner)
-      ..lineTo(center.dx + radius, center.dy)
-      ..lineTo(center.dx + inner, center.dy + inner)
-      ..lineTo(center.dx, center.dy + radius)
-      ..lineTo(center.dx - inner, center.dy + inner)
-      ..lineTo(center.dx - radius, center.dy)
-      ..lineTo(center.dx - inner, center.dy - inner)
-      ..close();
-    canvas.drawPath(path, Paint()..color = color);
   }
 
   @override
-  bool shouldRepaint(_ConfettiAndSparklesPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.isDark != isDark;
+  bool shouldRepaint(_FullScreenCelebrationPainter oldDelegate) => false;
 }

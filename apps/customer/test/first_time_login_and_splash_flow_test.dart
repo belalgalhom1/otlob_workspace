@@ -22,7 +22,8 @@ import 'package:otlob_customer/core/services/token_service.dart' as app_tokens;
 import 'package:otlob_customer/features/auth/presentation/providers/auth_controller.dart';
 import 'package:otlob_customer/features/auth/presentation/providers/login_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ui_kit/ui_kit.dart' show OtlobLoginEntranceCoordinator;
+import 'package:ui_kit/ui_kit.dart'
+    show OtlobBrandHeroLogo, OtlobLoginEntranceCoordinator;
 
 String _makeJwt({required DateTime exp, bool verified = true}) {
   String b64(Map<String, dynamic> m) =>
@@ -514,7 +515,10 @@ void main() {
         await tester.pumpAndSettle(const Duration(seconds: 1));
 
         expect(find.text('WELCOME TO OTLOB'), findsOneWidget);
+        expect(find.byType(OtlobBrandHeroLogo), findsOneWidget);
         expect(find.byType(TextFormField), findsNWidgets(2));
+        expect(find.text('Welcome Back'), findsOneWidget);
+        expect(find.text('Login'), findsOneWidget);
         expect(find.text('Continue as Guest'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },

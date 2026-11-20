@@ -542,6 +542,14 @@ export class OrderRoleProjector {
         driverTier: myDriver?.tier,
       });
 
+    const normalizedScopedItems = Array.isArray(scopedItems)
+      ? scopedItems.map((i: any) => this.normalizeItemImage(i))
+      : scopedItems;
+    const normalizedScopedFulfillments = this.normalizeFulfillmentsItems(
+      scopedFulfillments,
+      normalizedScopedItems,
+    );
+
     return {
       ...order,
       driverId: projectedDriverId,
@@ -557,12 +565,12 @@ export class OrderRoleProjector {
       viewingDriverId: myDriver?.id ?? projectedDriverId,
       status: projectedStatus,
       isStacked: projectedIsStacked,
-      vendor: groupVendor,
+      vendor: groupVendor ?? (normalizedScopedFulfillments?.length === 1 ? order.vendor ?? null : null),
       vendorBranch: groupVendorBranch,
       pickupLocation: groupPickupLocation,
       pickupAddress: groupPickupAddress,
-      items: scopedItems,
-      vendorFulfillments: scopedFulfillments,
+      items: normalizedScopedItems,
+      vendorFulfillments: normalizedScopedFulfillments,
       grandTotal: cashToCollect,
       total: cashToCollect,
       cashToCollect,
@@ -891,6 +899,35 @@ export class OrderRoleProjector {
         })
       : order.statusEvents;
 
+    const deliveryGroups = Array.isArray(order.deliveryGroups)
+      ? order.deliveryGroups
+      : [];
+    const nonCancelledGroups = deliveryGroups.filter(
+      (g: any) => g.status !== 'CANCELLED',
+    );
+    const portionGroup =
+      nonCancelledGroups.find(
+        (g: any) =>
+          Array.isArray(g.items) &&
+          g.items.some((it: any) => myVendorFulfillmentIds.has(it?.fulfillmentId)),
+      ) ??
+      nonCancelledGroups.find((g: any) => g.isPaymentCollector === true) ??
+      nonCancelledGroups.find(
+        (g: any) => g.primaryDriver || g.primaryDriverId,
+      ) ??
+      nonCancelledGroups[0] ??
+      null;
+    const normalizedDriver = this.normalizeDriverProjection(
+      portionGroup?.primaryDriver ?? null,
+    );
+    const normalizedItems = Array.isArray(items)
+      ? items.map((i: any) => this.normalizeItemImage(i))
+      : items;
+    const normalizedFulfillments = this.normalizeFulfillmentsItems(
+      myFulfillmentOnly,
+      normalizedItems,
+    );
+
     return {
       ...order,
       statusEvents: scopedStatusEvents,
@@ -900,7 +937,7 @@ export class OrderRoleProjector {
       orderStatus: order.status,
       myFulfillmentId,
       myFulfillmentStatus: portionStatus,
-      items,
+      items: normalizedItems,
       subtotal: vendorSubtotal,
       deliveryFee: 0,
       serviceFee: 0,
@@ -909,8 +946,10 @@ export class OrderRoleProjector {
       discount: 0,
       grandTotal: vendorSubtotal,
       total: vendorSubtotal,
-      vendorFulfillments: myFulfillmentOnly,
+      vendorFulfillments: normalizedFulfillments,
       deliveryGroups: [],
+      driverId: portionGroup?.primaryDriverId ?? normalizedDriver?.id ?? null,
+      driver: normalizedDriver,
       vendor: primaryFulfillment?.vendor ?? null,
       vendorBranch: primaryFulfillment?.vendorBranch ?? null,
       financials: {
@@ -944,9 +983,9 @@ export class OrderRoleProjector {
 
     const sanitized: any = { ...order };
     if (Array.isArray(sanitized.items)) {
-      sanitized.items = sanitized.items.filter(
-        (i: any) => i.rejectedAt == null,
-      );
+      sanitized.items = sanitized.items
+        .filter((i: any) => i.rejectedAt == null)
+        .map((i: any) => this.normalizeItemImage(i));
     }
     if (sanitized.vendor) {
       sanitized.vendor = omitKeys(sanitized.vendor, [
@@ -1058,11 +1097,18 @@ export class OrderRoleProjector {
       activeDeliveryGroups.find((g: any) => g.primaryDriver)?.primaryDriver ??
       null;
 
+    if (sanitized.vendorFulfillments) {
+      sanitized.vendorFulfillments = this.normalizeFulfillmentsItems(
+        sanitized.vendorFulfillments,
+        sanitized.items ?? [],
+      );
+    }
+
     return {
       ...sanitized,
       driverBonusPaidByCustomer,
       customerDriverBonusFee,
-      driver: primaryDriver ?? null,
+      driver: this.normalizeDriverProjection(primaryDriver ?? null),
       fulfillmentSummary,
       financials: {
         viewRole: 'CUSTOMER',
@@ -1183,8 +1229,18 @@ export class OrderRoleProjector {
       activeDeliveryGroups.find((g: any) => g.primaryDriver)?.primaryDriver ??
       null;
 
+    const normalizedOrderItems = Array.isArray(order.items)
+      ? order.items.map((i: any) => this.normalizeItemImage(i))
+      : order.items;
+    const normalizedAdminFulfillments = this.normalizeFulfillmentsItems(
+      fulfillments,
+      normalizedOrderItems,
+    );
+
     return {
       ...order,
+      items: normalizedOrderItems,
+      vendorFulfillments: normalizedAdminFulfillments,
       isMultiVendor: isMultiVendorOrder,
       isStacked,
       driverEarnings,
@@ -1199,7 +1255,7 @@ export class OrderRoleProjector {
         activeDeliveryGroups.find((g: any) => g.primaryDriverId)
           ?.primaryDriverId ??
         null,
-      driver: primaryDriver,
+      driver: this.normalizeDriverProjection(primaryDriver),
       financials: {
         viewRole: 'ADMIN',
         cashToCollect,
@@ -1293,5 +1349,53 @@ export class OrderRoleProjector {
       }
     }
     return labels;
+  }
+
+  private normalizeDriverProjection(driver: any) {
+    if (!driver || typeof driver !== 'object') return null;
+    const resolvedAvatar = driver.avatar ?? driver.user?.avatar ?? null;
+    return {
+      ...driver,
+      avatar: resolvedAvatar,
+      ...(driver.user
+        ? {
+            user: {
+              ...driver.user,
+              avatar: driver.user.avatar ?? resolvedAvatar,
+            },
+          }
+        : {}),
+    };
+  }
+
+  private normalizeItemImage(item: any) {
+    if (!item || typeof item !== 'object') return item;
+    const imageUrl = item.imageUrl ?? item.product?.imageUrl ?? null;
+    if (item.imageUrl === imageUrl) return item;
+    return {
+      ...item,
+      imageUrl,
+    };
+  }
+
+  private normalizeFulfillmentsItems(fulfillments: any[], orderItems: any[]) {
+    if (!Array.isArray(fulfillments)) return fulfillments;
+    return fulfillments.map((f: any) => {
+      if (!f || typeof f !== 'object') return f;
+      const rawItems =
+        Array.isArray(f.items) && f.items.length > 0
+          ? f.items
+          : Array.isArray(orderItems)
+            ? orderItems.filter(
+                (i: any) => i?.rejectedAt == null && i?.fulfillmentId === f.id,
+              )
+            : [];
+      return {
+        ...f,
+        items: rawItems
+          .filter((i: any) => i?.rejectedAt == null)
+          .map((i: any) => this.normalizeItemImage(i)),
+      };
+    });
   }
 }

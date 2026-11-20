@@ -173,17 +173,36 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Continuous Hero + upright spin logo into Login
+                            // Continuous Hero + ~4s upright spin logo into original Login logo
                             OtlobSplashSpinLogo(
                               key: _spinLogoKey,
-                              assetPath: 'assets/logo_without_background.png',
-                              size: 130,
-                              auraPadding: 20,
-                              auraColor: Colors.white.withValues(alpha: 0.18),
                               scaleAnimation: _scaleAnimation,
                               onInitialSpinCompleted: () => _spinLogoKey
                                   .currentState
                                   ?.continueSpinningWhileWaiting(),
+                              child: Container(
+                                width: 170,
+                                height: 170,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.06),
+                                      blurRadius: 28,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Image.asset(
+                                    'assets/logo_without_background.png',
+                                    width: 130,
+                                    height: 130,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 28),
                             // Brand Wordmark

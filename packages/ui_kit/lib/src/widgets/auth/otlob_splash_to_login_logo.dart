@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Shared Hero tag connecting the Splash logo cleanly to the Login screen.
+/// Shared Hero tag connecting the Splash logo cleanly to the original Login logo.
 const String otlobBrandLogoHeroTag = 'otlob_brand_logo_hero';
 
 /// Coordinates whether an upcoming navigation to the Login route originated
@@ -19,7 +19,7 @@ class OtlobLoginEntranceCoordinator {
     _pendingFromSplash = true;
   }
 
-  /// Returns whether a Splash-to-Login transition was marked without consuming.
+  /// Returns whether a Splash-to-Login transition is pending without consuming.
   static bool get isPendingFromSplash => _pendingFromSplash;
 
   /// Reads and clears the Splash-to-Login transition marker.
@@ -29,7 +29,7 @@ class OtlobLoginEntranceCoordinator {
     return value;
   }
 
-  /// Resets pending state cleanly (primarily for tests).
+  /// Resets pending state cleanly.
   static void reset() {
     _pendingFromSplash = false;
   }
@@ -39,7 +39,7 @@ class OtlobLoginEntranceCoordinator {
 class OtlobSplashToLoginTransition {
   const OtlobSplashToLoginTransition._();
 
-  static const Duration heroFlightDuration = Duration(milliseconds: 850);
+  static const Duration heroFlightDuration = Duration(milliseconds: 800);
 
   static Duration effectiveDuration(BuildContext context) {
     return MediaQuery.disableAnimationsOf(context)
@@ -58,77 +58,23 @@ class OtlobSplashToLoginTransition {
     }
     final fade = CurvedAnimation(
       parent: animation,
-      curve: const Interval(0.18, 0.92, curve: Curves.easeInOutCubic),
+      curve: const Interval(0.18, 0.90, curve: Curves.easeInOutCubic),
     );
     return FadeTransition(opacity: fade, child: child);
   }
 }
 
-/// Continuous Hero-wrapped Otlob brand logo used at both ends of Splash -> Login.
+/// Continuous Hero-wrapped logo widget preserving the original Splash logo and
+/// original Login logo while smoothly morphing between them in flight.
 class OtlobBrandHeroLogo extends StatelessWidget {
-  final String assetPath;
-  final double size;
-  final double auraPadding;
-  final Color? auraColor;
-  final Color? borderColor;
-  final bool showMedallion;
+  final Widget child;
   final Object heroTag;
 
   const OtlobBrandHeroLogo({
     super.key,
-    required this.assetPath,
-    this.size = 130,
-    this.auraPadding = 16,
-    this.auraColor,
-    this.borderColor,
-    this.showMedallion = true,
+    required this.child,
     this.heroTag = otlobBrandLogoHeroTag,
   });
-
-  Widget _buildLogoVisual(
-    BuildContext context, {
-    required double targetSize,
-    required double padding,
-    Color? resolvedAuraColor,
-    Color? resolvedBorderColor,
-  }) {
-    final logoImage = Image.asset(
-      assetPath,
-      width: targetSize,
-      height: targetSize,
-      fit: BoxFit.contain,
-    );
-
-    if (!showMedallion) {
-      return SizedBox(
-        width: targetSize,
-        height: targetSize,
-        child: logoImage,
-      );
-    }
-
-    final outerSize = targetSize + padding * 2;
-    return Container(
-      width: outerSize,
-      height: outerSize,
-      padding: EdgeInsets.all(padding),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: resolvedAuraColor ?? Colors.white.withValues(alpha: 0.14),
-        border: resolvedBorderColor != null
-            ? Border.all(color: resolvedBorderColor, width: 1.5)
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Center(child: logoImage),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -143,73 +89,65 @@ class OtlobBrandHeroLogo extends StatelessWidget {
         fromHeroContext,
         toHeroContext,
       ) {
-        final fromHero = fromHeroContext.widget as Hero?;
-        final toHero = toHeroContext.widget as Hero?;
-        final fromLogo = fromHero?.child;
-        final toLogo = toHero?.child;
+        final fromChild = (fromHeroContext.widget as Hero).child;
+        final toChild = (toHeroContext.widget as Hero).child;
+        final curve =
+            CurvedAnimation(parent: animation, curve: Curves.easeInOutCubic);
 
-        final fromBox = fromHeroContext.findRenderObject() as RenderBox?;
-        final toBox = toHeroContext.findRenderObject() as RenderBox?;
-        final beginOuter = fromBox?.size.width ?? (size + auraPadding * 2);
-        final endOuter = toBox?.size.width ?? (size + auraPadding * 2);
-        final beginSize = fromLogo is Container ? (beginOuter - auraPadding * 2) : size;
-        final endSize = toLogo is Container ? (endOuter - auraPadding * 2) : size;
-
-        return AnimatedBuilder(
-          animation: animation,
-          builder: (context, _) {
-            final t = Curves.easeInOutCubic.transform(animation.value);
-            final currentOuter = beginOuter + (endOuter - beginOuter) * t;
-            final currentLogo = (beginSize + (endSize - beginSize) * t)
-                .clamp(24.0, 220.0);
-            final currentPad =
-                ((currentOuter - currentLogo) / 2).clamp(0.0, 40.0);
-            return Material(
-              type: MaterialType.transparency,
-              child: Center(
-                child: _buildLogoVisual(
-                  flightContext,
-                  targetSize: currentLogo,
-                  padding: currentPad,
-                  resolvedAuraColor: auraColor,
-                  resolvedBorderColor: borderColor,
-                ),
-              ),
-            );
-          },
+        return Material(
+          type: MaterialType.transparency,
+          child: AnimatedBuilder(
+            animation: curve,
+            builder: (context, _) {
+              final t = curve.value;
+              final fromOpacity = (1.0 - (t * 1.4).clamp(0.0, 1.0));
+              final toOpacity = ((t - 0.15) * 1.35).clamp(0.0, 1.0);
+              return Stack(
+                alignment: Alignment.center,
+                fit: StackFit.passthrough,
+                children: [
+                  if (fromOpacity > 0.01)
+                    Opacity(
+                      opacity: fromOpacity,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: fromChild,
+                      ),
+                    ),
+                  if (toOpacity > 0.01)
+                    Opacity(
+                      opacity: toOpacity,
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: toChild,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         );
       },
-      child: _buildLogoVisual(
-        context,
-        targetSize: size,
-        padding: auraPadding,
-        resolvedAuraColor: auraColor,
-        resolvedBorderColor: borderColor,
-      ),
+      child: child,
     );
   }
 }
 
-/// Controller/widget helper that animates the Splash logo spin and resolves
-/// strictly upright (`turns` integer) before triggering the Hero transition.
+/// Animates the existing Splash logo through a smooth ~4-second spinning
+/// sequence and settles strictly upright (`0°`) before transitioning cleanly
+/// via Hero into the Login screen's original logo position.
 class OtlobSplashSpinLogo extends StatefulWidget {
-  final String assetPath;
-  final double size;
-  final double auraPadding;
-  final Color? auraColor;
-  final Color? borderColor;
-  final bool showMedallion;
+  final Widget child;
+  final Duration spinDuration;
+  final double spinTurns;
   final Animation<double>? scaleAnimation;
   final VoidCallback? onInitialSpinCompleted;
 
   const OtlobSplashSpinLogo({
     super.key,
-    required this.assetPath,
-    this.size = 130,
-    this.auraPadding = 20,
-    this.auraColor,
-    this.borderColor,
-    this.showMedallion = true,
+    required this.child,
+    this.spinDuration = const Duration(milliseconds: 3900),
+    this.spinTurns = 3.0,
     this.scaleAnimation,
     this.onInitialSpinCompleted,
   });
@@ -230,7 +168,7 @@ class OtlobSplashSpinLogoState extends State<OtlobSplashSpinLogo>
     super.initState();
     _spinController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1050),
+      duration: widget.spinDuration,
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -251,7 +189,7 @@ class OtlobSplashSpinLogoState extends State<OtlobSplashSpinLogo>
     try {
       await _spinController.animateTo(
         1.0,
-        duration: const Duration(milliseconds: 1050),
+        duration: widget.spinDuration,
         curve: Curves.easeInOutCubic,
       );
     } catch (_) {}
@@ -262,9 +200,8 @@ class OtlobSplashSpinLogoState extends State<OtlobSplashSpinLogo>
     widget.onInitialSpinCompleted?.call();
   }
 
-  /// Continues gently spinning until [authAndGateFuture] completes, then
-  /// finishes the current rotation cleanly upright (`0°`) before returning so
-  /// the Hero flight starts from a crisp upright logo.
+  /// Waits for BOTH [authAndGateFuture] and the ~4-second spin to finish, then
+  /// completes any active spin cycle cleanly upright (`0°`) before Hero lift-off.
   Future<void> waitForSpinAndSettle(Future<void> authAndGateFuture) async {
     if (!mounted) return;
     _settling = true;
@@ -284,15 +221,14 @@ class OtlobSplashSpinLogoState extends State<OtlobSplashSpinLogo>
     }
 
     if (!mounted || _settled) return;
-    // Stop any repeat ticker and complete the current cycle upright (`1.0`).
-    final progress = _spinController.value % 1.0;
+    final currentTurns = (_spinController.value * widget.spinTurns) % 1.0;
     _spinController.stop();
-    if (progress > 0.02 && progress < 0.98) {
-      final remainingMs = ((1.0 - progress) * 650).round().clamp(120, 650);
+    if (currentTurns > 0.02 && currentTurns < 0.98) {
+      final remainingMs = ((1.0 - currentTurns) * 550).round().clamp(120, 550);
       try {
-        _spinController.value = progress;
+        _spinController.value = currentTurns / widget.spinTurns;
         await _spinController.animateTo(
-          1.0,
+          1.0 / widget.spinTurns,
           duration: Duration(milliseconds: remainingMs),
           curve: Curves.easeOutCubic,
         );
@@ -303,8 +239,7 @@ class OtlobSplashSpinLogoState extends State<OtlobSplashSpinLogo>
     _settled = true;
   }
 
-  /// Starts a smooth subtle continuous spin while long network gates are
-  /// still pending after the first rotation.
+  /// Continues gently spinning if network gates exceed the 4-second spin window.
   void continueSpinningWhileWaiting() {
     if (!mounted || _settled || _settling) return;
     if (MediaQuery.disableAnimationsOf(context)) return;
@@ -324,14 +259,7 @@ class OtlobSplashSpinLogoState extends State<OtlobSplashSpinLogo>
 
   @override
   Widget build(BuildContext context) {
-    Widget logo = OtlobBrandHeroLogo(
-      assetPath: widget.assetPath,
-      size: widget.size,
-      auraPadding: widget.auraPadding,
-      auraColor: widget.auraColor,
-      borderColor: widget.borderColor,
-      showMedallion: widget.showMedallion,
-    );
+    Widget logo = OtlobBrandHeroLogo(child: widget.child);
 
     if (widget.scaleAnimation != null) {
       logo = ScaleTransition(
@@ -344,7 +272,8 @@ class OtlobSplashSpinLogoState extends State<OtlobSplashSpinLogo>
       child: AnimatedBuilder(
         animation: _spinController,
         builder: (context, child) {
-          final angle = (_spinController.value % 1.0) * 2 * math.pi;
+          final angle =
+              ((_spinController.value * widget.spinTurns) % 1.0) * 2 * math.pi;
           return Transform.rotate(
             angle: angle,
             child: child,

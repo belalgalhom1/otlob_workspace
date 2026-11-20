@@ -114,7 +114,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
 
     if (!mounted || _navigated) return;
-    ref.read(authProvider.notifier).checkAuth();
+    await ref.read(authProvider.notifier).checkAuth();
+    if (!mounted || _navigated) return;
+    _onAuthStateChanged(context, ref.read(authProvider));
   }
 
   /// Platform staff (super admins and admins) keep full access during
@@ -168,13 +170,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               children: [
                 OtlobSplashSpinLogo(
                   key: _spinLogoKey,
-                  assetPath: 'assets/logo_without_background.png',
-                  size: 140,
-                  auraPadding: 14,
-                  auraColor: AppColors.primary.withValues(alpha: 0.1),
-                  borderColor: AppColors.primary.withValues(alpha: 0.2),
                   onInitialSpinCompleted: () => _spinLogoKey.currentState
                       ?.continueSpinningWhileWaiting(),
+                  child: Image.asset(
+                    'assets/logo_without_background.png',
+                    width: 140,
+                    fit: BoxFit.contain,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Text(

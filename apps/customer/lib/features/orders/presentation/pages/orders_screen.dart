@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart'
     show
         OrderActivityHelper,
@@ -676,7 +675,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final vendorBranch = order['vendorBranch'] as Map<String, dynamic>?;
 
     String baseVendorName;
-    String? vendorLogoUrl = vendor?['logo'] as String?;
+    String? vendorLogoUrl = (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
 
     if (fulfillments.length > 1 || (vendor == null && fulfillments.isNotEmpty)) {
       final countsByVendor = <String, int>{};
@@ -711,7 +710,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 names.add(label);
               }
             }
-            vendorLogoUrl ??= v['logo'] as String?;
+            if (vendorLogoUrl == null || vendorLogoUrl.trim().isEmpty) {
+              vendorLogoUrl = (v['logo'] ?? v['logoUrl'])?.toString();
+            }
           }
         }
       }
@@ -797,34 +798,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           children: [
             Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                child: (vendorLogoUrl == null || vendorLogoUrl.isEmpty)
-                    ? Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.storefront_rounded,
-                            color: AppColors.primary, size: 20),
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: ImageUtils.thumbnailUrl(vendorLogoUrl),
-                        height: 42,
-                        width: 42,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) => Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.storefront_rounded,
-                              color: AppColors.primary, size: 20),
-                        ),
-                      ),
-              ),
+                AppNetworkAvatar(
+                  imageUrl: ImageUtils.formatImageUrl(vendorLogoUrl),
+                  size: 42,
+                  borderRadius: 10,
+                  fallbackIcon: Icons.storefront_rounded,
+                  fallbackIconSize: 20,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                  foregroundColor: AppColors.primary,
+                ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -998,8 +980,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             ),
           ] else
             ...items.map((i) {
-              final product = i['product'] as Map<String, dynamic>?;
-              final productImgUrl = product?['imageUrl'] as String?;
+              final product = i['product'] is Map ? i['product'] as Map : null;
+              final productImgUrl = (product?['imageUrl'] ??
+                      product?['image'] ??
+                      i['imageUrl'] ??
+                      i['image'])
+                  ?.toString();
               final productName = i['productName'] ?? i['name'] ?? '';
               final bool isRejected = i['rejectedAt'] != null;
 
@@ -1007,25 +993,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: (productImgUrl == null || productImgUrl.isEmpty)
-                          ? Container(
-                              height: 32,
-                              width: 32,
-                              color: isDark
-                                  ? Colors.white12
-                                  : Colors.grey.shade100,
-                              child: const Icon(Icons.fastfood,
-                                  size: 16, color: Colors.grey),
-                            )
-                          : CachedNetworkImage(
-                              imageUrl:
-                                  ImageUtils.thumbnailUrl(productImgUrl),
-                              height: 32,
-                              width: 32,
-                              fit: BoxFit.cover,
-                            ),
+                    AppNetworkAvatar(
+                      imageUrl: ImageUtils.formatImageUrl(productImgUrl),
+                      size: 32,
+                      borderRadius: 8,
+                      fallbackIcon: Icons.fastfood,
+                      fallbackIconSize: 16,
+                      backgroundColor:
+                          isDark ? Colors.white12 : Colors.grey.shade100,
+                      foregroundColor: Colors.grey,
                     ),
                     const SizedBox(width: 10),
                     Expanded(

@@ -120,6 +120,9 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.only(
         top: isMobile ? 8.0 : 12.0,
@@ -384,19 +387,17 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
                                   ),
                                 )
                               : const Icon(LucideIcons.send, size: 18),
-                          label: Flexible(
-                            child: Text(
-                              _isLoading
-                                  ? l10n.sending
-                                  : l10n.broadcastAnnouncement,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                          label: Text(
+                            _isLoading
+                                ? l10n.sending
+                                : l10n.broadcastAnnouncement,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                             ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           onPressed: _isLoading ? null : _submit,
                         ),
@@ -457,6 +458,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
         TextFormField(
           controller: bodyController,
           textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+          scrollPhysics: const NeverScrollableScrollPhysics(),
           decoration: InputDecoration(
             labelText: bodyLabel,
             border: const OutlineInputBorder(),

@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -195,7 +194,8 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
         fBranch['phone']?.toString() ?? fVendor['phone']?.toString() ?? '';
     final isContracted =
         (fBranch['isContracted'] ?? fVendor['isContracted'] ?? false) == true;
-    final storeLogo = fVendor['logo']?.toString() ?? '';
+    final storeLogo =
+        (fVendor['logo'] ?? fVendor['logoUrl'])?.toString().trim() ?? '';
 
     final fSubtotal =
         double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0;
@@ -339,32 +339,17 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                  ),
+              AppNetworkAvatar(
+                imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                size: 40,
+                borderRadius: 10,
+                fallbackIcon: LucideIcons.store,
+                fallbackIconSize: 18,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                foregroundColor: AppColors.primary,
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.15),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: storeLogo.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: ImageUtils.formatImageUrl(storeLogo),
-                        fit: BoxFit.cover,
-                        errorWidget: (_, _, _) => const Icon(
-                          LucideIcons.store,
-                          size: 18,
-                          color: AppColors.primary,
-                        ),
-                      )
-                    : const Icon(
-                        LucideIcons.store,
-                        size: 18,
-                        color: AppColors.primary,
-                      ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -734,8 +719,14 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
     final pTotalPrice = double.tryParse(item['totalPrice']?.toString() ?? '0') ??
         (pPrice * (pQty as num));
     final product = item['product'] is Map ? item['product'] as Map : null;
-    final pImgUrl =
-        product?['imageUrl']?.toString() ?? item['imageUrl']?.toString() ?? '';
+    final rawImg = [
+      product?['imageUrl'],
+      product?['image'],
+      item['imageUrl'],
+      item['image'],
+    ]
+        .map((e) => e?.toString().trim() ?? '')
+        .firstWhere((e) => e.isNotEmpty, orElse: () => '');
     final pNotes = item['specialRequest']?.toString();
 
     return Padding(
@@ -743,28 +734,17 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-              ),
+          AppNetworkAvatar(
+            imageUrl: ImageUtils.formatImageUrl(rawImg),
+            size: 38,
+            borderRadius: 8,
+            fallbackIcon: LucideIcons.package,
+            fallbackIconSize: 16,
+            backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+            foregroundColor: Colors.grey,
+            border: Border.all(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: pImgUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: ImageUtils.formatImageUrl(pImgUrl),
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) => const Icon(
-                      LucideIcons.package,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
-                  )
-                : const Icon(LucideIcons.package, size: 16, color: Colors.grey),
           ),
           const SizedBox(width: 8),
           Container(

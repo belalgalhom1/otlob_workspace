@@ -940,6 +940,45 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
+  String? _firstNonEmptyMedia(List<dynamic> candidates) {
+    for (final c in candidates) {
+      final s = c?.toString().trim();
+      if (s != null && s.isNotEmpty) return s;
+    }
+    return null;
+  }
+
+  Map<dynamic, dynamic> _resolveAssignedDriver(dynamic order) {
+    if (order is! Map) return const {};
+    if (order['driver'] is Map && (order['driver'] as Map).isNotEmpty) {
+      return order['driver'] as Map;
+    }
+    final groups = order['deliveryGroups'];
+    if (groups is! List || groups.isEmpty) return const {};
+    final myFulfillmentId = order['myFulfillmentId']?.toString();
+    final activeGroups = groups
+        .whereType<Map>()
+        .where((g) => g['status']?.toString() != 'CANCELLED')
+        .toList();
+    if (myFulfillmentId != null && myFulfillmentId.isNotEmpty) {
+      for (final g in activeGroups) {
+        final gItems = g['items'];
+        if (gItems is List &&
+            gItems.any((it) =>
+                it is Map &&
+                it['fulfillmentId']?.toString() == myFulfillmentId)) {
+          final drv = g['primaryDriver'] ?? g['driver'];
+          if (drv is Map) return drv;
+        }
+      }
+    }
+    for (final g in activeGroups) {
+      final drv = g['primaryDriver'] ?? g['driver'];
+      if (drv is Map) return drv;
+    }
+    return const {};
+  }
+
   Widget _buildSleekOrderCard(
     BuildContext context,
     dynamic order,
@@ -947,13 +986,26 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   ) {
     final orderId = order['id']?.toString() ?? '';
     final status = order['status']?.toString() ?? 'PENDING';
-    final driver = order['driver'] ?? {};
-    final driverName = driver['name']?.toString() ?? '';
-    final driverPhone = driver['user']?['phone']?.toString() ?? '';
-    final driverAvatar =
-        driver['avatar']?.toString() ?? driver['user']?['avatar']?.toString();
-    final Map? singleVendor =
-        order['vendor'] is Map ? (order['vendor'] as Map) : null;
+    final driver = _resolveAssignedDriver(order);
+    final driverUser = driver['user'] is Map ? driver['user'] as Map : null;
+    final driverName =
+        (driver['name'] ?? driverUser?['name'] ?? '').toString().trim();
+    final driverPhone =
+        (driverUser?['phone'] ?? driver['phone'] ?? '').toString().trim();
+    final driverAvatar = _firstNonEmptyMedia([
+      driver['avatar'],
+      driver['avatarUrl'],
+      driver['profileImage'],
+      driverUser?['avatar'],
+    ]);
+    final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
+    final Map? singleVendor = order['vendor'] is Map
+        ? (order['vendor'] as Map)
+        : (fulfillments.length == 1 &&
+                fulfillments.first is Map &&
+                fulfillments.first['vendor'] is Map
+            ? fulfillments.first['vendor'] as Map
+            : null);
     final String singleVendorName = singleVendor == null
         ? ''
         : (isArabic
@@ -967,16 +1019,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     ''))
             .toString()
             .trim();
-    final String? singleVendorLogo =
-        (singleVendor?['logo'] ?? singleVendor?['logoUrl'])?.toString();
+    final String? singleVendorLogo = _firstNonEmptyMedia([
+      singleVendor?['logo'],
+      singleVendor?['logoUrl'],
+    ]);
     final Map? branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : null;
     final String? branchName = branch == null
         ? null
         : (isArabic
             ? (branch['nameAr']?.toString() ?? branch['name']?.toString())
             : (branch['name']?.toString() ?? branch['nameAr']?.toString()));
-
-    final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
     final bool isMultiVendor = order['isMultiVendor'] == true ||
         fulfillments.length > 1 ||
         (order['vendor'] == null && fulfillments.isNotEmpty) ||
@@ -1189,9 +1241,36 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(LucideIcons.store, size: 11, color: AppColors.primary),
-                                          const SizedBox(width: 4),
+                                          children: [
+                                            AppNetworkAvatar(
+                                              imageUrl: ImageUtils.formatImageUrl(
+                                                singleVendorLogo ??
+                                                    (fulfillments.isNotEmpty &&
+                                                            fulfillments.first
+                                                                is Map &&
+                                                            fulfillments.first[
+                                                                    'vendor']
+                                                                is Map
+                                                        ? _firstNonEmptyMedia([
+                                                            fulfillments.first[
+                                                                    'vendor']
+                                                                ['logo'],
+                                                            fulfillments.first[
+                                                                    'vendor']
+                                                                ['logoUrl'],
+                                                          ])
+                                                        : null),
+                                              ),
+                                              size: 18,
+                                              borderRadius: 5,
+                                              fallbackIcon: LucideIcons.store,
+                                              fallbackIconSize: 10,
+                                              backgroundColor: AppColors.primary
+                                                  .withValues(alpha: 0.14),
+                                              foregroundColor:
+                                                  AppColors.primary,
+                                            ),
+                                            const SizedBox(width: 6),
                                           Flexible(
                                             child: Text(
                                               multiVendorStoresText,
@@ -1814,8 +1893,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     bool isArabic,
   ) {
     final firstItem = items.first;
-    final product = firstItem['product'] ?? {};
-    final productImgUrl = product['imageUrl']?.toString() ?? firstItem['imageUrl']?.toString() ?? '';
+    final product = firstItem['product'] is Map ? firstItem['product'] as Map : const {};
+    final productImgUrl = _firstNonEmptyMedia([
+      product['imageUrl'],
+      product['image'],
+      firstItem['imageUrl'],
+      firstItem['image'],
+    ]) ?? '';
     final productName = firstItem['productName']?.toString() ??
         (isArabic
             ? (product['nameAr'] ?? product['name'] ?? '')
@@ -1826,63 +1910,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
     return Row(
       children: [
-        // Rounded Product Image with border
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.08),
-            ),
+        // Rounded Product Image with disk/memory caching & safe fallback
+        AppNetworkAvatar(
+          imageUrl: ImageUtils.formatImageUrl(productImgUrl),
+          size: 44,
+          borderRadius: 10,
+          fallbackIcon: LucideIcons.package,
+          fallbackIconSize: 20,
+          backgroundColor:
+              Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
+          foregroundColor:
+              Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+          border: Border.all(
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: productImgUrl.isEmpty
-              ? Container(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.03),
-                  child: Icon(
-                    LucideIcons.package,
-                    size: 20,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.3),
-                  ),
-                )
-              : CachedNetworkImage(
-                  imageUrl: ImageUtils.formatImageUrl(productImgUrl),
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.03),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.03),
-                    child: Icon(
-                      LucideIcons.package,
-                      size: 20,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.3),
-                    ),
-                  ),
-                ),
         ),
         const SizedBox(width: 12),
         // Item Name & Additional Items Count
@@ -2412,7 +2454,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final branchAddress = branch?['address']?.toString() ?? '';
     final branchPhone = branch?['phone']?.toString() ?? vendor?['phone']?.toString() ?? '';
     final isContracted = branch?['isContracted'] ?? vendor?['isContracted'] ?? false;
-    final storeLogo = vendor?['logo']?.toString() ?? '';
+    final storeLogo = _firstNonEmptyMedia([
+          vendor?['logo'],
+          vendor?['logoUrl'],
+        ]) ??
+        '';
 
     final specialRequest = order['specialRequest']?.toString();
 
@@ -2434,22 +2480,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                AppNetworkAvatar(
+                  imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                  size: 38,
+                  borderRadius: 10,
+                  fallbackIcon: LucideIcons.store,
+                  fallbackIconSize: 20,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  foregroundColor: AppColors.primary,
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: storeLogo.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: ImageUtils.formatImageUrl(storeLogo),
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) => const Icon(LucideIcons.store, size: 20, color: AppColors.primary),
-                        )
-                      : const Icon(LucideIcons.store, size: 20, color: AppColors.primary),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -2587,7 +2628,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               final quantity = item['quantity'] ?? 1;
               final price = double.tryParse(item['unitPrice']?.toString() ?? item['price']?.toString() ?? '0') ?? 0.0;
               final product = item['product'] is Map ? item['product'] as Map : null;
-              final imgUrl = product?['imageUrl']?.toString() ?? item['imageUrl']?.toString() ?? '';
+              final imgUrl = _firstNonEmptyMedia([
+                    product?['imageUrl'],
+                    product?['image'],
+                    item['imageUrl'],
+                    item['image'],
+                  ]) ??
+                  '';
               final itemNotes = item['specialRequest']?.toString();
 
               return Padding(
@@ -2595,22 +2642,19 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+                    AppNetworkAvatar(
+                      imageUrl: ImageUtils.formatImageUrl(imgUrl),
+                      size: 40,
+                      borderRadius: 8,
+                      fallbackIcon: LucideIcons.package,
+                      fallbackIconSize: 18,
+                      backgroundColor:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.04),
+                      foregroundColor: Colors.grey,
+                      border: Border.all(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.08),
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: imgUrl.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: ImageUtils.formatImageUrl(imgUrl),
-                              fit: BoxFit.cover,
-                              errorWidget: (_, _, _) => const Icon(LucideIcons.package, size: 18, color: Colors.grey),
-                            )
-                          : const Icon(LucideIcons.package, size: 18, color: Colors.grey),
                     ),
                     const SizedBox(width: 10),
                     Expanded(

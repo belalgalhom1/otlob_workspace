@@ -758,19 +758,26 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                               ? Colors.orange
                               : Colors.blue));
 
+              final rawLogo =
+                  (v['logo'] ??
+                          v['logoUrl'] ??
+                          (fulfillments.length == 1 && details['vendor'] is Map
+                              ? (details['vendor']['logo'] ??
+                                  details['vendor']['logoUrl'])
+                              : null))
+                      ?.toString();
+
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     AppNetworkAvatar(
-                      imageUrl: ImageUtils.formatImageUrl(
-                        (v['logo'] ?? v['logoUrl'])?.toString(),
-                      ),
-                      size: 30,
+                      imageUrl: ImageUtils.formatImageUrl(rawLogo),
+                      size: 32,
                       borderRadius: 8,
                       fallbackIcon: Icons.storefront_rounded,
-                      fallbackIconSize: 16,
+                      fallbackIconSize: 17,
                     ),
                     const SizedBox(width: 10),
                     Expanded(

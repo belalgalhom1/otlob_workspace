@@ -9,6 +9,7 @@ export 'src/theme/app_radius.dart';
 export 'src/theme/app_spacing.dart';
 export 'src/widgets/primary_button.dart';
 export 'src/widgets/common/app_network_avatar.dart';
+export 'src/widgets/common/app_expandable_text.dart';
 export 'src/widgets/social_auth_button.dart';
 export 'src/widgets/custom_text_field.dart';
 export 'src/widgets/dialog_scaffold.dart';
