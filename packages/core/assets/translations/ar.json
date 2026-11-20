@@ -1916,6 +1916,15 @@
   "menu_category_error_branch_does_not_belong_to_vendor": "الفرع المحدد لا ينتمي لهذا المتجر.",
   "driver_error_shift_pool_ids_must_be_unique": "معرفات مجموعات الورديات يجب أن تكون فريدة.",
   "driver_error_invalid_location": "إحداثيات الموقع (خط الطول ودائرة العرض) غير صالحة.",
+  "driver_error_rank_evaluation_already_exists": "تم تنفيذ التقييم الأسبوعي لتصنيف السائقين لهذه الفترة بالفعل.",
+  "driver_error_rank_evaluation_not_found": "سجل التقييم الأسبوعي غير موجود.",
+  "driver_error_rank_evaluation_not_failed": "يمكن إعادة محاولة التقييمات الفاشلة فقط.",
+  "driver_error_rank_override_reason_required": "يرجى إدخال سبب لتعديل شارة تصنيف السائق يدوياً.",
+  "driver_error_rank_tier_unchanged": "الشارة المختارة مطابقة للشارة الحالية للسائق.",
+  "driver_error_responsible_driver_required": "يرجى تحديد السائق المسؤول عند تصنيف الحادثة كخطأ من السائق.",
+  "driver_error_delivery_incident_not_found": "سجل حادثة التوصيل غير موجود.",
+  "driver_error_invalid_eval_time": "يجب أن يكون وقت التقييم بصيغة 24 ساعة HH:mm (مثال: 00:05).",
+  "driver_error_cannot_cancel_assigned_shift": "لا يمكن إلغاء وردية معيّنة مباشرة؛ استخدم تبديل الورديات بدلاً من ذلك.",
   "order_error_fulfillment_stop_not_found": "نقطة التوصيل غير موجودة.",
   "wallet_error_penalty_must_be_positive": "مبلغ الغرامة يجب أن يكون أكبر من الصفر."
 }

@@ -172,4 +172,3 @@ class _$ProductsControllerCreate200ResponseSerializer implements PrimitiveSerial
   }
 }
 
-

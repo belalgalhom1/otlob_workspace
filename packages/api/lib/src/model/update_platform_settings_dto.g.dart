@@ -230,6 +230,10 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? goldTierBonusPerKm;
   @override
+  final bool? driverRankingAutoEvalEnabled;
+  @override
+  final String? driverRankingEvalTime;
+  @override
   final num? driverSettlementOrderThreshold;
   @override
   final num? maxBreakMinutesPerShift;
@@ -356,6 +360,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.bronzeTierBonusPerKm,
     this.silverTierBonusPerKm,
     this.goldTierBonusPerKm,
+    this.driverRankingAutoEvalEnabled,
+    this.driverRankingEvalTime,
     this.driverSettlementOrderThreshold,
     this.maxBreakMinutesPerShift,
     this.maxBreaksPerShift,
@@ -494,6 +500,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         bronzeTierBonusPerKm == other.bronzeTierBonusPerKm &&
         silverTierBonusPerKm == other.silverTierBonusPerKm &&
         goldTierBonusPerKm == other.goldTierBonusPerKm &&
+        driverRankingAutoEvalEnabled == other.driverRankingAutoEvalEnabled &&
+        driverRankingEvalTime == other.driverRankingEvalTime &&
         driverSettlementOrderThreshold ==
             other.driverSettlementOrderThreshold &&
         maxBreakMinutesPerShift == other.maxBreakMinutesPerShift &&
@@ -616,6 +624,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, bronzeTierBonusPerKm.hashCode);
     _$hash = $jc(_$hash, silverTierBonusPerKm.hashCode);
     _$hash = $jc(_$hash, goldTierBonusPerKm.hashCode);
+    _$hash = $jc(_$hash, driverRankingAutoEvalEnabled.hashCode);
+    _$hash = $jc(_$hash, driverRankingEvalTime.hashCode);
     _$hash = $jc(_$hash, driverSettlementOrderThreshold.hashCode);
     _$hash = $jc(_$hash, maxBreakMinutesPerShift.hashCode);
     _$hash = $jc(_$hash, maxBreaksPerShift.hashCode);
@@ -763,6 +773,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('bronzeTierBonusPerKm', bronzeTierBonusPerKm)
           ..add('silverTierBonusPerKm', silverTierBonusPerKm)
           ..add('goldTierBonusPerKm', goldTierBonusPerKm)
+          ..add('driverRankingAutoEvalEnabled', driverRankingAutoEvalEnabled)
+          ..add('driverRankingEvalTime', driverRankingEvalTime)
           ..add(
             'driverSettlementOrderThreshold',
             driverSettlementOrderThreshold,
@@ -1346,6 +1358,17 @@ class UpdatePlatformSettingsDtoBuilder
   set goldTierBonusPerKm(num? goldTierBonusPerKm) =>
       _$this._goldTierBonusPerKm = goldTierBonusPerKm;
 
+  bool? _driverRankingAutoEvalEnabled;
+  bool? get driverRankingAutoEvalEnabled =>
+      _$this._driverRankingAutoEvalEnabled;
+  set driverRankingAutoEvalEnabled(bool? driverRankingAutoEvalEnabled) =>
+      _$this._driverRankingAutoEvalEnabled = driverRankingAutoEvalEnabled;
+
+  String? _driverRankingEvalTime;
+  String? get driverRankingEvalTime => _$this._driverRankingEvalTime;
+  set driverRankingEvalTime(String? driverRankingEvalTime) =>
+      _$this._driverRankingEvalTime = driverRankingEvalTime;
+
   num? _driverSettlementOrderThreshold;
   num? get driverSettlementOrderThreshold =>
       _$this._driverSettlementOrderThreshold;
@@ -1495,6 +1518,8 @@ class UpdatePlatformSettingsDtoBuilder
       _bronzeTierBonusPerKm = $v.bronzeTierBonusPerKm;
       _silverTierBonusPerKm = $v.silverTierBonusPerKm;
       _goldTierBonusPerKm = $v.goldTierBonusPerKm;
+      _driverRankingAutoEvalEnabled = $v.driverRankingAutoEvalEnabled;
+      _driverRankingEvalTime = $v.driverRankingEvalTime;
       _driverSettlementOrderThreshold = $v.driverSettlementOrderThreshold;
       _maxBreakMinutesPerShift = $v.maxBreakMinutesPerShift;
       _maxBreaksPerShift = $v.maxBreaksPerShift;
@@ -1638,6 +1663,8 @@ class UpdatePlatformSettingsDtoBuilder
           bronzeTierBonusPerKm: bronzeTierBonusPerKm,
           silverTierBonusPerKm: silverTierBonusPerKm,
           goldTierBonusPerKm: goldTierBonusPerKm,
+          driverRankingAutoEvalEnabled: driverRankingAutoEvalEnabled,
+          driverRankingEvalTime: driverRankingEvalTime,
           driverSettlementOrderThreshold: driverSettlementOrderThreshold,
           maxBreakMinutesPerShift: maxBreakMinutesPerShift,
           maxBreaksPerShift: maxBreaksPerShift,

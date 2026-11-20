@@ -172,4 +172,3 @@ class _$ProductsControllerUpdateOption200ResponseSerializer implements Primitive
   }
 }
 
-

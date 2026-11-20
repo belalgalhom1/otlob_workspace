@@ -172,4 +172,3 @@ class _$ProductsControllerUpdateVariant200ResponseSerializer implements Primitiv
   }
 }
 
-

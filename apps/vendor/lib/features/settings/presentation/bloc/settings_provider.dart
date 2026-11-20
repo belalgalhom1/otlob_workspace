@@ -212,6 +212,8 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('silverTierBonusPerKm')) b.silverTierBonusPerKm = parseNum(settings['silverTierBonusPerKm']);
       if (settings.containsKey('goldTierBonusPerKm')) b.goldTierBonusPerKm = parseNum(settings['goldTierBonusPerKm']);
       if (settings.containsKey('driverSettlementOrderThreshold')) b.driverSettlementOrderThreshold = parseNum(settings['driverSettlementOrderThreshold']);
+      if (settings.containsKey('driverRankingAutoEvalEnabled')) b.driverRankingAutoEvalEnabled = parseBool(settings['driverRankingAutoEvalEnabled']);
+      if (settings.containsKey('driverRankingEvalTime')) b.driverRankingEvalTime = settings['driverRankingEvalTime']?.toString().trim();
       if (settings.containsKey('allowBicycle')) b.allowBicycle = parseBool(settings['allowBicycle']);
       if (settings.containsKey('allowMotorcycle')) b.allowMotorcycle = parseBool(settings['allowMotorcycle']);
       if (settings.containsKey('allowCar')) b.allowCar = parseBool(settings['allowCar']);

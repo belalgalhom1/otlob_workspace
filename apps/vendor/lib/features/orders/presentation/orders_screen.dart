@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:api/api.dart' show DeliveryIncidentResponsibility;
 import 'package:core/core.dart';
 import 'package:data/providers.dart';
 import 'package:vendor/core/utils/error_utils.dart';
@@ -4203,64 +4204,134 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     String? fulfillmentId,
   }) {
     final reasonController = TextEditingController();
+    DeliveryIncidentResponsibility? selectedResponsibility;
+    final showResponsibility =
+        _userRole != 'VENDOR_MEMBER' &&
+        (fulfillmentId == null || fulfillmentId.isEmpty);
+
+    String responsibilityLabel(DeliveryIncidentResponsibility r) {
+      if (r == DeliveryIncidentResponsibility.DRIVER_AT_FAULT) {
+        return isArabic ? 'خطأ السائق (يؤثر على التصنيف)' : 'Driver At Fault (Affects Rank)';
+      }
+      if (r == DeliveryIncidentResponsibility.CUSTOMER) {
+        return isArabic ? 'بسبب العميل (لا يؤثر على السائق)' : 'Customer (No Driver Penalty)';
+      }
+      if (r == DeliveryIncidentResponsibility.VENDOR) {
+        return isArabic ? 'بسبب المتجر (لا يؤثر على السائق)' : 'Vendor (No Driver Penalty)';
+      }
+      if (r == DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM) {
+        return isArabic
+            ? 'ظرف خارجي / نظام (لا يؤثر على السائق)'
+            : 'External / System (No Driver Penalty)';
+      }
+      return isArabic ? 'قيد المراجعة' : 'Under Review';
+    }
 
     showDialog<void>(
       context: context,
       builder: (dialogCtx) {
-        final theme = Theme.of(dialogCtx);
-        return AppDialog(
-          maxWidth: 460,
-          header: AppDialogHeader(
-            icon: LucideIcons.xCircle,
-            accentColor: AppColors.error,
-            titleColor: AppColors.error,
-            title: isArabic ? 'إلغاء الطلب' : 'Cancel Order',
-            subtitle: isArabic
-                ? 'برجاء كتابة سبب إلغاء هذا الطلب:'
-                : 'Please specify the reason for cancelling this order:',
-            onClose: () => Navigator.pop(dialogCtx),
-          ),
-          body: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppFieldLabel(
-                label: isArabic ? 'سبب الإلغاء' : 'Cancellation Reason',
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final theme = Theme.of(ctx);
+            return AppDialog(
+              maxWidth: 460,
+              header: AppDialogHeader(
+                icon: LucideIcons.xCircle,
+                accentColor: AppColors.error,
+                titleColor: AppColors.error,
+                title: isArabic ? 'إلغاء الطلب' : 'Cancel Order',
+                subtitle: isArabic
+                    ? 'برجاء كتابة سبب إلغاء هذا الطلب:'
+                    : 'Please specify the reason for cancelling this order:',
+                onClose: () => Navigator.pop(dialogCtx),
               ),
-              TextField(
-                controller: reasonController,
-                maxLines: 3,
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface,
-                  fontSize: 14,
-                ),
-                decoration: AppDialogStyles.inputDecoration(
-                  dialogCtx,
-                  hintText: isArabic
-                      ? 'مثال: المنتج غير متوفر'
-                      : 'e.g., Out of stock',
-                  icon: LucideIcons.messageSquare,
-                  isMultiline: true,
-                ),
+              body: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppFieldLabel(
+                    label: isArabic ? 'سبب الإلغاء' : 'Cancellation Reason',
+                  ),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 3,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 14,
+                    ),
+                    decoration: AppDialogStyles.inputDecoration(
+                      ctx,
+                      hintText: isArabic
+                          ? 'مثال: المنتج غير متوفر'
+                          : 'e.g., Out of stock',
+                      icon: LucideIcons.messageSquare,
+                      isMultiline: true,
+                    ),
+                  ),
+                  if (showResponsibility) ...[
+                    const SizedBox(height: 14),
+                    AppFieldLabel(
+                      label: isArabic
+                          ? 'تصنيف مسؤولية التوصيل (إذا كان هناك سائق معيّن)'
+                          : 'Delivery Responsibility (if driver assigned)',
+                    ),
+                    DropdownButtonFormField<DeliveryIncidentResponsibility?>(
+                      initialValue: selectedResponsibility,
+                      isExpanded: true,
+                      decoration: AppDialogStyles.inputDecoration(
+                        ctx,
+                        icon: LucideIcons.shieldAlert,
+                      ),
+                      items: [
+                        DropdownMenuItem<DeliveryIncidentResponsibility?>(
+                          value: null,
+                          child: Text(
+                            isArabic
+                                ? 'تلقائي (قيد المراجعة)'
+                                : 'Default (Under Review)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        for (final r in [
+                          DeliveryIncidentResponsibility.DRIVER_AT_FAULT,
+                          DeliveryIncidentResponsibility.CUSTOMER,
+                          DeliveryIncidentResponsibility.VENDOR,
+                          DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM,
+                          DeliveryIncidentResponsibility.UNDER_REVIEW,
+                        ])
+                          DropdownMenuItem<DeliveryIncidentResponsibility?>(
+                            value: r,
+                            child: Text(
+                              responsibilityLabel(r),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (val) =>
+                          setDialogState(() => selectedResponsibility = val),
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ),
-          footer: AppDialogFooter(
-            cancelLabel: isArabic ? 'تراجع' : 'Back',
-            onCancel: () => Navigator.pop(dialogCtx),
-            confirmLabel: isArabic ? 'إلغاء الطلب' : 'Cancel Order',
-            confirmIcon: LucideIcons.xCircle,
-            isDestructive: true,
-            onConfirm: () {
-              final reason = reasonController.text.trim();
-              Navigator.pop(dialogCtx);
-              ref.read(ordersProvider.notifier).cancelOrder(
-                    orderId,
-                    reason,
-                    fulfillmentId: fulfillmentId,
-                  );
-            },
-          ),
+              footer: AppDialogFooter(
+                cancelLabel: isArabic ? 'تراجع' : 'Back',
+                onCancel: () => Navigator.pop(dialogCtx),
+                confirmLabel: isArabic ? 'إلغاء الطلب' : 'Cancel Order',
+                confirmIcon: LucideIcons.xCircle,
+                isDestructive: true,
+                onConfirm: () {
+                  final reason = reasonController.text.trim();
+                  Navigator.pop(dialogCtx);
+                  ref.read(ordersProvider.notifier).cancelOrder(
+                        orderId,
+                        reason,
+                        fulfillmentId: fulfillmentId,
+                        responsibility: selectedResponsibility,
+                      );
+                },
+              ),
+            );
+          },
         );
       },
     ).then((_) => reasonController.dispose());

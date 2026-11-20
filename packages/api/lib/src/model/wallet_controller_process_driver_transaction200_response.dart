@@ -172,4 +172,3 @@ class _$WalletControllerProcessDriverTransaction200ResponseSerializer implements
   }
 }
 
-

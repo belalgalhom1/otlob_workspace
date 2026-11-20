@@ -1916,6 +1916,15 @@
   "menu_category_error_branch_does_not_belong_to_vendor": "Selected branch does not belong to this vendor.",
   "driver_error_shift_pool_ids_must_be_unique": "Shift pool IDs must be unique.",
   "driver_error_invalid_location": "Valid latitude and longitude are required.",
+  "driver_error_rank_evaluation_already_exists": "A weekly ranking evaluation has already been executed for this period.",
+  "driver_error_rank_evaluation_not_found": "Ranking evaluation run not found.",
+  "driver_error_rank_evaluation_not_failed": "Only failed ranking evaluation runs can be retried.",
+  "driver_error_rank_override_reason_required": "Please provide a reason for overriding the driver badge.",
+  "driver_error_rank_tier_unchanged": "Selected badge tier is the same as the driver's current tier.",
+  "driver_error_responsible_driver_required": "Please select the responsible driver when marking the incident as driver at fault.",
+  "driver_error_delivery_incident_not_found": "Delivery incident not found.",
+  "driver_error_invalid_eval_time": "Evaluation time must be in 24-hour HH:mm format (e.g. 00:05).",
+  "driver_error_cannot_cancel_assigned_shift": "Cannot cancel an assigned shift directly; use shift swap instead.",
   "order_error_fulfillment_stop_not_found": "Fulfillment stop not found.",
   "wallet_error_penalty_must_be_positive": "Penalty amount must be greater than zero."
 }

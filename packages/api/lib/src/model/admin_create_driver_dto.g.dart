@@ -218,7 +218,7 @@ class _$AdminCreateDriverDto extends AdminCreateDriverDto {
   @override
   final AdminCreateDriverDtoStatusEnum? status;
   @override
-  final String? tier;
+  final DriverTier? tier;
   @override
   final bool? isApproved;
   @override
@@ -349,9 +349,9 @@ class AdminCreateDriverDtoBuilder
   AdminCreateDriverDtoStatusEnum? get status => _$this._status;
   set status(AdminCreateDriverDtoStatusEnum? status) => _$this._status = status;
 
-  String? _tier;
-  String? get tier => _$this._tier;
-  set tier(String? tier) => _$this._tier = tier;
+  DriverTier? _tier;
+  DriverTier? get tier => _$this._tier;
+  set tier(DriverTier? tier) => _$this._tier = tier;
 
   bool? _isApproved;
   bool? get isApproved => _$this._isApproved;

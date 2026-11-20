@@ -222,6 +222,8 @@ class OrdersNotifier extends _$OrdersNotifier {
     String orderId,
     String reason, {
     String? fulfillmentId,
+    DeliveryIncidentResponsibility? responsibility,
+    String? responsibleDriverId,
   }) async {
     Map<String, dynamic> currentParams = const {};
     if (state.hasValue) {
@@ -254,7 +256,12 @@ class OrdersNotifier extends _$OrdersNotifier {
     } else {
       await ref
           .read(adminOrdersRepositoryProvider)
-          .cancelOrder(orderId, reason: reason);
+          .cancelOrder(
+            orderId,
+            reason: reason,
+            responsibility: responsibility,
+            responsibleDriverId: responsibleDriverId,
+          );
     }
 
     await fetchOrders(params: currentParams);

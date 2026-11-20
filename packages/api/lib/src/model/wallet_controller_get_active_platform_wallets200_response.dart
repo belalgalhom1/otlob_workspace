@@ -172,4 +172,3 @@ class _$WalletControllerGetActivePlatformWallets200ResponseSerializer implements
   }
 }
 
-

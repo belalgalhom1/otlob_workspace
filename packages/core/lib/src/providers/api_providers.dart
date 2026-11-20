@@ -6,6 +6,7 @@ final authenticationApiProvider = Provider<AuthenticationApi>((ref) => ref.watch
 final customersApiProvider = Provider<CustomersApi>((ref) => ref.watch(apiClientProvider).getCustomersApi());
 final ordersApiProvider = Provider<OrdersApi>((ref) => ref.watch(apiClientProvider).getOrdersApi());
 final driversApiProvider = Provider<DriversApi>((ref) => ref.watch(apiClientProvider).getDriversApi());
+final driverRankingApiProvider = Provider<DriverRankingApi>((ref) => ref.watch(apiClientProvider).getDriverRankingApi());
 final driverShiftsApiProvider = Provider<DriverShiftsApi>((ref) => ref.watch(apiClientProvider).getDriverShiftsApi());
 final vendorsProductsApiProvider = Provider<VendorsProductsApi>((ref) => ref.watch(apiClientProvider).getVendorsProductsApi());
 final vendorsCoreManagementApiProvider = Provider<VendorsCoreManagementApi>((ref) => ref.watch(apiClientProvider).getVendorsCoreManagementApi());

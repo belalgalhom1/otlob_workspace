@@ -10,6 +10,7 @@ import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.d
 import 'package:vendor/features/driver_shifts/presentation/providers/driver_shifts_provider.dart';
 import 'package:vendor/features/drivers/data/driver_models.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import 'package:vendor/core/providers.dart';
 
 class DriverShiftsDialog extends ConsumerStatefulWidget {
   final DriverProfile driver;
@@ -32,13 +33,137 @@ class _ShiftListItem {
 class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
   bool _isLoading = true;
   bool _isBulkRemoving = false;
+  bool _canExcuseShifts = false;
   String? _error;
   List<DriverShift> _shifts = [];
 
   @override
   void initState() {
     super.initState();
+    _checkRole();
     _fetchShifts();
+  }
+
+  Future<void> _checkRole() async {
+    final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
+    if (mounted) {
+      setState(() {
+        _canExcuseShifts = role == 'SUPER_ADMIN' || role == 'ADMIN';
+      });
+    }
+  }
+
+  Future<void> _showExcuseShiftDialog(
+    BuildContext context,
+    DriverShift shift,
+    bool isAr,
+  ) async {
+    final reasonController = TextEditingController(
+      text: shift.excuseReason ?? '',
+    );
+    bool isExcused = !shift.isExcused;
+    bool saving = false;
+
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AppDialog(
+          maxWidth: 440,
+          canPop: !saving,
+          header: AppDialogHeader(
+            icon: LucideIcons.shieldCheck,
+            title: isAr
+                ? 'إعفاء الوردية من تقييم الانضباط'
+                : 'Excuse Shift from Punctuality Ranking',
+            subtitle: widget.driver.name,
+            isCloseDisabled: saving,
+            onClose: () => Navigator.pop(ctx),
+          ),
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  isAr ? 'وردية معذورة (Excused)' : 'Mark Shift as Excused',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                subtitle: Text(
+                  isAr
+                      ? 'الورديات المعذورة لا تؤثر سلباً على معدل الانضباط الأسبوعي للسائق'
+                      : 'Excused shifts are excluded from the driver\'s weekly punctuality penalty',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                value: isExcused,
+                onChanged: saving
+                    ? null
+                    : (v) => setDialogState(() => isExcused = v),
+                activeThumbColor: Colors.teal,
+              ),
+              if (isExcused) ...[
+                const SizedBox(height: 12),
+                AppFieldLabel(
+                  label: isAr
+                      ? 'سبب الإعفاء (اختياري)'
+                      : 'Excuse Reason (Optional)',
+                ),
+                TextField(
+                  controller: reasonController,
+                  enabled: !saving,
+                  maxLines: 2,
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: isAr
+                        ? 'مثال: عطل مركبة أو ظرف طارئ...'
+                        : 'e.g. Vehicle breakdown or emergency...',
+                    icon: LucideIcons.fileText,
+                    isMultiline: true,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          footer: AppDialogFooter(
+            cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+            onCancel: () => Navigator.pop(ctx),
+            confirmLabel: isAr ? 'حفظ' : 'Save',
+            confirmIcon: LucideIcons.check,
+            isLoading: saving,
+            onConfirm: () async {
+              setDialogState(() => saving = true);
+              try {
+                await ref
+                    .read(adminDriverShiftsRepositoryProvider)
+                    .excuseShift(
+                      shift.id,
+                      isExcused: isExcused,
+                      excuseReason: isExcused ? reasonController.text : null,
+                    );
+                if (ctx.mounted) Navigator.pop(ctx, true);
+              } catch (e) {
+                setDialogState(() => saving = false);
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text(ErrorUtils.translate(ctx, e)),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ),
+      ),
+    );
+    reasonController.dispose();
+    if (updated == true && mounted) {
+      await _fetchShifts();
+    }
   }
 
   Future<void> _fetchShifts() async {
@@ -716,6 +841,30 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                               ),
                             ),
                           ),
+                          if (shift.isExcused) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.teal.withValues(alpha: 0.35),
+                                ),
+                              ),
+                              child: Text(
+                                isAr ? 'معذور' : 'Excused',
+                                style: const TextStyle(
+                                  color: Colors.teal,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -757,6 +906,34 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                               ],
                             ),
                           ),
+                          if (_canExcuseShifts)
+                            IconButton(
+                              onPressed: _isBulkRemoving
+                                  ? null
+                                  : () => _showExcuseShiftDialog(
+                                      context,
+                                      shift,
+                                      isAr,
+                                    ),
+                              tooltip: isAr
+                                  ? (shift.isExcused
+                                        ? 'تعديل/إلغاء إعفاء الوردية'
+                                        : 'إعفاء الوردية')
+                                  : (shift.isExcused
+                                        ? 'Edit/Unexcuse Shift'
+                                        : 'Excuse Shift'),
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                LucideIcons.shieldCheck,
+                                size: 16,
+                                color: shift.isExcused
+                                    ? Colors.teal
+                                    : Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.6),
+                              ),
+                            ),
                           IconButton(
                             onPressed: _isBulkRemoving
                                 ? null
@@ -940,6 +1117,30 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   ),
                 ),
               ),
+              if (shift.isExcused) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.teal.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    isAr ? 'معذور' : 'Excused',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
               Expanded(
                 child: shift.zoneName != null
@@ -958,6 +1159,29 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                     : const SizedBox.shrink(),
               ),
               const SizedBox(width: 4),
+              if (_canExcuseShifts)
+                IconButton(
+                  onPressed: _isBulkRemoving
+                      ? null
+                      : () => _showExcuseShiftDialog(context, shift, isAr),
+                  tooltip: isAr
+                      ? (shift.isExcused
+                            ? 'تعديل/إلغاء إعفاء الوردية'
+                            : 'إعفاء الوردية')
+                      : (shift.isExcused
+                            ? 'Edit/Unexcuse Shift'
+                            : 'Excuse Shift'),
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    LucideIcons.shieldCheck,
+                    size: 17,
+                    color: shift.isExcused
+                        ? Colors.teal
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
               IconButton(
                 onPressed: _isBulkRemoving
                     ? null

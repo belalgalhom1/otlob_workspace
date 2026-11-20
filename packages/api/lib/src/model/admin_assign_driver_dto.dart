@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:api/src/model/delivery_incident_responsibility.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -13,6 +14,8 @@ part 'admin_assign_driver_dto.g.dart';
 /// Properties:
 /// * [driverId] 
 /// * [deliveryGroupId] - Optional delivery group ID when assigning a driver to a specific delivery trip
+/// * [previousDriverResponsibility] - Responsibility classification when replacing an already-assigned driver (for weekly ranking)
+/// * [reassignmentReason] - Reason for driver reassignment
 @BuiltValue()
 abstract class AdminAssignDriverDto implements Built<AdminAssignDriverDto, AdminAssignDriverDtoBuilder> {
   @BuiltValueField(wireName: r'driverId')
@@ -21,6 +24,15 @@ abstract class AdminAssignDriverDto implements Built<AdminAssignDriverDto, Admin
   /// Optional delivery group ID when assigning a driver to a specific delivery trip
   @BuiltValueField(wireName: r'deliveryGroupId')
   String? get deliveryGroupId;
+
+  /// Responsibility classification when replacing an already-assigned driver (for weekly ranking)
+  @BuiltValueField(wireName: r'previousDriverResponsibility')
+  DeliveryIncidentResponsibility? get previousDriverResponsibility;
+  // enum previousDriverResponsibilityEnum {  DRIVER_AT_FAULT,  CUSTOMER,  VENDOR,  EXTERNAL_OR_SYSTEM,  UNDER_REVIEW,  };
+
+  /// Reason for driver reassignment
+  @BuiltValueField(wireName: r'reassignmentReason')
+  String? get reassignmentReason;
 
   AdminAssignDriverDto._();
 
@@ -54,6 +66,20 @@ class _$AdminAssignDriverDtoSerializer implements PrimitiveSerializer<AdminAssig
       yield r'deliveryGroupId';
       yield serializers.serialize(
         object.deliveryGroupId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.previousDriverResponsibility != null) {
+      yield r'previousDriverResponsibility';
+      yield serializers.serialize(
+        object.previousDriverResponsibility,
+        specifiedType: const FullType(DeliveryIncidentResponsibility),
+      );
+    }
+    if (object.reassignmentReason != null) {
+      yield r'reassignmentReason';
+      yield serializers.serialize(
+        object.reassignmentReason,
         specifiedType: const FullType(String),
       );
     }
@@ -93,6 +119,20 @@ class _$AdminAssignDriverDtoSerializer implements PrimitiveSerializer<AdminAssig
             specifiedType: const FullType(String),
           ) as String;
           result.deliveryGroupId = valueDes;
+          break;
+        case r'previousDriverResponsibility':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DeliveryIncidentResponsibility),
+          ) as DeliveryIncidentResponsibility;
+          result.previousDriverResponsibility = valueDes;
+          break;
+        case r'reassignmentReason':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.reassignmentReason = valueDes;
           break;
         default:
           unhandled.add(key);

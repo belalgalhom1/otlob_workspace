@@ -87,6 +87,25 @@ class AdminDriversRepository {
     return ResponseParser.parseList(response);
   }
 
+  Future<dynamic> driverShiftsAdminExcuseShift({
+    required String shiftId,
+    required bool isExcused,
+    String? excuseReason,
+  }) async {
+    final trimmedReason = excuseReason?.trim();
+    final dto = ExcuseDriverShiftDto((b) {
+      b.isExcused = isExcused;
+      if (trimmedReason != null && trimmedReason.isNotEmpty) {
+        b.excuseReason = trimmedReason;
+      }
+    });
+    final response = await _shiftsApi.driverShiftsControllerExcuseShift(
+      shiftId: shiftId,
+      excuseDriverShiftDto: dto,
+    );
+    return ResponseParser.parse(response);
+  }
+
 
   Future<dynamic> ordersAdminForceAssignDriver({required String orderId, required AdminAssignDriverDto adminAssignDriverDto}) async {
     final response = await _ordersApi.ordersControllerAdminForceAssignDriver(orderId: orderId, adminAssignDriverDto: adminAssignDriverDto);

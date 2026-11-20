@@ -816,6 +816,8 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
 
     final isUpcoming = status == 'SCHEDULED';
     final isActive = status == 'ACTIVE';
+    final isExcused = shift['isExcused'] == true;
+    final excuseReason = shift['excuseReason']?.toString().trim();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -879,9 +881,44 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                   ),
                 ),
               ),
+              if (isExcused) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.teal.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    isAr ? 'معذور' : 'EXCUSED',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(width: 4),
             ],
           ),
+          if (isExcused && excuseReason != null && excuseReason.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              isAr ? 'سبب الإعفاء: $excuseReason' : 'Excuse note: $excuseReason',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.teal,
+              ),
+            ),
+          ],
           if (shiftTitle.isNotEmpty) ...[
             const SizedBox(height: 8),
             Row(

@@ -16,6 +16,7 @@ Method | HTTP request | Description
 [**driverShiftsControllerAdminRemoveDriverBulk**](DriverShiftsApi.md#drivershiftscontrolleradminremovedriverbulk) | **POST** /driver-shifts/admin/remove-bulk | [Admin] Remove a driver from a generated group of shift pools
 [**driverShiftsControllerBookOvertimeShift**](DriverShiftsApi.md#drivershiftscontrollerbookovertimeshift) | **POST** /driver-shifts/book-overtime | Book a single extra shift
 [**driverShiftsControllerBookWeeklyShifts**](DriverShiftsApi.md#drivershiftscontrollerbookweeklyshifts) | **POST** /driver-shifts/book-week | Book 6 shifts for the week
+[**driverShiftsControllerExcuseShift**](DriverShiftsApi.md#drivershiftscontrollerexcuseshift) | **PATCH** /driver-shifts/admin/shifts/{shiftId}/excuse | [Admin] Mark or unmark a driver shift as excused for weekly ranking
 [**driverShiftsControllerGenerateShiftPools**](DriverShiftsApi.md#drivershiftscontrollergenerateshiftpools) | **POST** /driver-shifts/admin/pools | [Admin] Generate shift pools for a date range
 [**driverShiftsControllerGetAvailablePools**](DriverShiftsApi.md#drivershiftscontrollergetavailablepools) | **GET** /driver-shifts/available | Get available shift pools for booking
 [**driverShiftsControllerGetPoolWaitlist**](DriverShiftsApi.md#drivershiftscontrollergetpoolwaitlist) | **GET** /driver-shifts/admin/pools/{poolId}/waitlist | [Admin] Get a pool waitlist (FIFO order)
@@ -304,6 +305,49 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **driverShiftsControllerExcuseShift**
+> DriverShiftsControllerExcuseShift200Response driverShiftsControllerExcuseShift(shiftId, excuseDriverShiftDto)
+
+[Admin] Mark or unmark a driver shift as excused for weekly ranking
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getDriverShiftsApi();
+final String shiftId = shiftId_example; // String | 
+final ExcuseDriverShiftDto excuseDriverShiftDto = ; // ExcuseDriverShiftDto | 
+
+try {
+    final response = api.driverShiftsControllerExcuseShift(shiftId, excuseDriverShiftDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DriverShiftsApi->driverShiftsControllerExcuseShift: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **shiftId** | **String**|  | 
+ **excuseDriverShiftDto** | [**ExcuseDriverShiftDto**](ExcuseDriverShiftDto.md)|  | 
+
+### Return type
+
+[**DriverShiftsControllerExcuseShift200Response**](DriverShiftsControllerExcuseShift200Response.md)
 
 ### Authorization
 

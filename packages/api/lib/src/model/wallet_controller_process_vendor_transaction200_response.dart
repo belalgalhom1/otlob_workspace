@@ -172,4 +172,3 @@ class _$WalletControllerProcessVendorTransaction200ResponseSerializer implements
   }
 }
 
-

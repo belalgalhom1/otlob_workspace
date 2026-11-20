@@ -69,6 +69,8 @@ class DriverShift {
   final DateTime startTime;
   final DateTime endTime;
   final String status;
+  final bool isExcused;
+  final String? excuseReason;
   final DriverUserInfo? driver;
   final num? totalEarnings;
   final num? totalDeliveries;
@@ -87,6 +89,8 @@ class DriverShift {
     required this.startTime,
     required this.endTime,
     required this.status,
+    this.isExcused = false,
+    this.excuseReason,
     this.driver,
     this.totalEarnings,
     this.totalDeliveries,
@@ -108,6 +112,8 @@ class DriverShift {
       startTime: DateTime.parse(json['startTime'] as String).toLocal(),
       endTime: DateTime.parse(json['endTime'] as String).toLocal(),
       status: json['status'] as String? ?? 'SCHEDULED',
+      isExcused: json['isExcused'] == true,
+      excuseReason: json['excuseReason']?.toString(),
       totalEarnings: json['totalEarnings'] as num?,
       totalDeliveries: json['totalDeliveries'] as num?,
       startPhotoUrl: json['startPhotoUrl'] as String?,

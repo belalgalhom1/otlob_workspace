@@ -59,12 +59,12 @@ class _FakeDriverLegalRepo extends Fake
 
 class _FakeDriverOrdersRepo extends Fake implements DriverOrdersRepository {
   @override
-  Future<dynamic> getActiveDriverOrder() async => {'data': null};
+  Future<dynamic> getActiveDriverOrder({String? orderId}) async => {'data': null};
 }
 
 class _FakeCoreSocketService extends Fake implements CoreSocketService {
   @override
-  Future<void> init({bool autoConnect = true}) async {}
+  Future<void> init({String? forceToken, bool autoConnect = true}) async {}
 }
 
 class _HangingPushService extends Fake implements PushNotificationService {

@@ -4,6 +4,7 @@
 
 // ignore_for_file: unused_element
 import 'package:built_collection/built_collection.dart';
+import 'package:api/src/model/driver_tier.dart';
 import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
@@ -19,6 +20,8 @@ part 'admin_update_driver_dto.g.dart';
 /// * [vehicleType] 
 /// * [vehiclePlate] 
 /// * [status] 
+/// * [tier] 
+/// * [tierOverrideReason] - Mandatory audit reason when changing tier
 /// * [isApproved] 
 /// * [driverManagerUserId] - Driver Manager User ID to assign to this driver (or null to unassign)
 @BuiltValue()
@@ -42,6 +45,14 @@ abstract class AdminUpdateDriverDto implements Built<AdminUpdateDriverDto, Admin
   @BuiltValueField(wireName: r'status')
   AdminUpdateDriverDtoStatusEnum? get status;
   // enum statusEnum {  OFFLINE,  ONLINE,  BUSY,  ON_DELIVERY,  ON_BREAK,  SUSPENDED,  };
+
+  @BuiltValueField(wireName: r'tier')
+  DriverTier? get tier;
+  // enum tierEnum {  BRONZE,  SILVER,  GOLD,  };
+
+  /// Mandatory audit reason when changing tier
+  @BuiltValueField(wireName: r'tierOverrideReason')
+  String? get tierOverrideReason;
 
   @BuiltValueField(wireName: r'isApproved')
   bool? get isApproved;
@@ -113,6 +124,20 @@ class _$AdminUpdateDriverDtoSerializer implements PrimitiveSerializer<AdminUpdat
       yield serializers.serialize(
         object.status,
         specifiedType: const FullType(AdminUpdateDriverDtoStatusEnum),
+      );
+    }
+    if (object.tier != null) {
+      yield r'tier';
+      yield serializers.serialize(
+        object.tier,
+        specifiedType: const FullType(DriverTier),
+      );
+    }
+    if (object.tierOverrideReason != null) {
+      yield r'tierOverrideReason';
+      yield serializers.serialize(
+        object.tierOverrideReason,
+        specifiedType: const FullType(String),
       );
     }
     if (object.isApproved != null) {
@@ -193,6 +218,20 @@ class _$AdminUpdateDriverDtoSerializer implements PrimitiveSerializer<AdminUpdat
             specifiedType: const FullType(AdminUpdateDriverDtoStatusEnum),
           ) as AdminUpdateDriverDtoStatusEnum;
           result.status = valueDes;
+          break;
+        case r'tier':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DriverTier),
+          ) as DriverTier;
+          result.tier = valueDes;
+          break;
+        case r'tierOverrideReason':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.tierOverrideReason = valueDes;
           break;
         case r'isApproved':
           final valueDes = serializers.deserialize(

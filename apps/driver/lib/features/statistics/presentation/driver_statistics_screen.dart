@@ -13,8 +13,11 @@ class DriverStatisticsScreen extends ConsumerWidget {
     bool isArabic() =>
         Localizations.localeOf(context).languageCode == 'ar';
     int acceptance(dynamic row) {
+      if (row is Map && row['acceptanceRate'] != null) {
+        return StatisticsFormat.numOf(row['acceptanceRate']).round();
+      }
       final received =
-          StatisticsFormat.intOf(row['totalDispatchesReceived']);
+          StatisticsFormat.intOf(row['eligibleDispatches'] ?? row['totalDispatchesReceived']);
       final accepted = StatisticsFormat.intOf(row['dispatchesAccepted']);
       return received > 0 ? (accepted * 100 / received).round() : 0;
     }

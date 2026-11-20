@@ -42,6 +42,14 @@ class _$DriverShift extends DriverShift {
   @override
   final bool warningSent;
   @override
+  final bool isExcused;
+  @override
+  final String? excuseReason;
+  @override
+  final String? excusedByUserId;
+  @override
+  final DateTime? excusedAt;
+  @override
   final DateTime createdAt;
 
   factory _$DriverShift([void Function(DriverShiftBuilder)? updates]) =>
@@ -65,6 +73,10 @@ class _$DriverShift extends DriverShift {
     required this.expiredDispatches,
     required this.rejectedDispatches,
     required this.warningSent,
+    required this.isExcused,
+    this.excuseReason,
+    this.excusedByUserId,
+    this.excusedAt,
     required this.createdAt,
   }) : super._();
   @override
@@ -95,6 +107,10 @@ class _$DriverShift extends DriverShift {
         expiredDispatches == other.expiredDispatches &&
         rejectedDispatches == other.rejectedDispatches &&
         warningSent == other.warningSent &&
+        isExcused == other.isExcused &&
+        excuseReason == other.excuseReason &&
+        excusedByUserId == other.excusedByUserId &&
+        excusedAt == other.excusedAt &&
         createdAt == other.createdAt;
   }
 
@@ -118,6 +134,10 @@ class _$DriverShift extends DriverShift {
     _$hash = $jc(_$hash, expiredDispatches.hashCode);
     _$hash = $jc(_$hash, rejectedDispatches.hashCode);
     _$hash = $jc(_$hash, warningSent.hashCode);
+    _$hash = $jc(_$hash, isExcused.hashCode);
+    _$hash = $jc(_$hash, excuseReason.hashCode);
+    _$hash = $jc(_$hash, excusedByUserId.hashCode);
+    _$hash = $jc(_$hash, excusedAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
@@ -143,6 +163,10 @@ class _$DriverShift extends DriverShift {
           ..add('expiredDispatches', expiredDispatches)
           ..add('rejectedDispatches', rejectedDispatches)
           ..add('warningSent', warningSent)
+          ..add('isExcused', isExcused)
+          ..add('excuseReason', excuseReason)
+          ..add('excusedByUserId', excusedByUserId)
+          ..add('excusedAt', excusedAt)
           ..add('createdAt', createdAt))
         .toString();
   }
@@ -224,6 +248,23 @@ class DriverShiftBuilder implements Builder<DriverShift, DriverShiftBuilder> {
   bool? get warningSent => _$this._warningSent;
   set warningSent(bool? warningSent) => _$this._warningSent = warningSent;
 
+  bool? _isExcused;
+  bool? get isExcused => _$this._isExcused;
+  set isExcused(bool? isExcused) => _$this._isExcused = isExcused;
+
+  String? _excuseReason;
+  String? get excuseReason => _$this._excuseReason;
+  set excuseReason(String? excuseReason) => _$this._excuseReason = excuseReason;
+
+  String? _excusedByUserId;
+  String? get excusedByUserId => _$this._excusedByUserId;
+  set excusedByUserId(String? excusedByUserId) =>
+      _$this._excusedByUserId = excusedByUserId;
+
+  DateTime? _excusedAt;
+  DateTime? get excusedAt => _$this._excusedAt;
+  set excusedAt(DateTime? excusedAt) => _$this._excusedAt = excusedAt;
+
   DateTime? _createdAt;
   DateTime? get createdAt => _$this._createdAt;
   set createdAt(DateTime? createdAt) => _$this._createdAt = createdAt;
@@ -252,6 +293,10 @@ class DriverShiftBuilder implements Builder<DriverShift, DriverShiftBuilder> {
       _expiredDispatches = $v.expiredDispatches;
       _rejectedDispatches = $v.rejectedDispatches;
       _warningSent = $v.warningSent;
+      _isExcused = $v.isExcused;
+      _excuseReason = $v.excuseReason;
+      _excusedByUserId = $v.excusedByUserId;
+      _excusedAt = $v.excusedAt;
       _createdAt = $v.createdAt;
       _$v = null;
     }
@@ -324,6 +369,14 @@ class DriverShiftBuilder implements Builder<DriverShift, DriverShiftBuilder> {
             r'DriverShift',
             'warningSent',
           ),
+          isExcused: BuiltValueNullFieldError.checkNotNull(
+            isExcused,
+            r'DriverShift',
+            'isExcused',
+          ),
+          excuseReason: excuseReason,
+          excusedByUserId: excusedByUserId,
+          excusedAt: excusedAt,
           createdAt: BuiltValueNullFieldError.checkNotNull(
             createdAt,
             r'DriverShift',

@@ -52,13 +52,25 @@ class AdminOrdersRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> cancelOrder(String orderId, {String? reason}) async {
+  Future<dynamic> cancelOrder(
+    String orderId, {
+    String? reason,
+    DeliveryIncidentResponsibility? responsibility,
+    String? responsibleDriverId,
+  }) async {
     final trimmedReason = reason?.trim();
+    final trimmedDriverId = responsibleDriverId?.trim();
     final response = await _api.ordersControllerCancelOrder(
       orderId: orderId,
       cancelOrderDto: CancelOrderDto((b) {
         if (trimmedReason != null && trimmedReason.isNotEmpty) {
           b.reason = trimmedReason;
+        }
+        if (responsibility != null) {
+          b.responsibility = responsibility;
+        }
+        if (trimmedDriverId != null && trimmedDriverId.isNotEmpty) {
+          b.responsibleDriverId = trimmedDriverId;
         }
       }),
     );
@@ -69,11 +81,20 @@ class AdminOrdersRepository {
     required String orderId,
     required String driverId,
     String? deliveryGroupId,
+    DeliveryIncidentResponsibility? previousDriverResponsibility,
+    String? reassignmentReason,
   }) async {
+    final trimmedReason = reassignmentReason?.trim();
     final dto = AdminAssignDriverDto((b) {
-      b..driverId = driverId;
+      b.driverId = driverId;
       if (deliveryGroupId != null && deliveryGroupId.isNotEmpty) {
         b.deliveryGroupId = deliveryGroupId;
+      }
+      if (previousDriverResponsibility != null) {
+        b.previousDriverResponsibility = previousDriverResponsibility;
+      }
+      if (trimmedReason != null && trimmedReason.isNotEmpty) {
+        b.reassignmentReason = trimmedReason;
       }
     });
     final response = await _api.ordersControllerAdminForceAssignDriver(

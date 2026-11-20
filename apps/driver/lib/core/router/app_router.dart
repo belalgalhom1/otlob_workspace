@@ -24,6 +24,7 @@ import 'package:driver/features/profile/presentation/pages/vehicle_screen.dart';
 import 'package:driver/features/orders/presentation/pages/deliveries_history_screen.dart';
 import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
 import 'package:driver/features/breaks/presentation/pages/driver_breaks_screen.dart';
+import 'package:driver/features/ranking/presentation/pages/driver_ranking_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -171,6 +172,10 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/breaks',
         builder: (context, state) => const DriverBreaksScreen(),
+      ),
+      GoRoute(
+        path: '/ranking',
+        builder: (context, state) => const DriverRankingScreen(),
       ),
       GoRoute(
         path: '/terms-acceptance',

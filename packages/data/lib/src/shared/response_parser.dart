@@ -1,8 +1,31 @@
 import 'package:api/api.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:built_value/json_object.dart';
+import 'package:built_value/serializer.dart';
+
+extension JsonObjectValueExtension on JsonObject? {
+  String? get asStringOrNull {
+    final val = this?.value;
+    if (val == null) return null;
+    final str = val.toString();
+    return str.isEmpty ? null : str;
+  }
+}
 
 class ResponseParser {
+  static T parseTyped<T>(dynamic response, Serializer<T> serializer) {
+    final parsed = parse(response);
+    if (parsed is T) return parsed;
+    final deserialized = standardSerializers.deserializeWith<T>(
+      serializer,
+      parsed,
+    );
+    if (deserialized == null) {
+      throw StateError('Failed to deserialize response as $T');
+    }
+    return deserialized;
+  }
+
   static dynamic parse(dynamic response) {
     if (response == null || response.data == null) return null;
     final rawData = response.data;

@@ -25,6 +25,10 @@ Name | Type | Description | Notes
 **expiredDispatches** | **num** |  | 
 **rejectedDispatches** | **num** |  | 
 **warningSent** | **bool** |  | 
+**isExcused** | **bool** |  | 
+**excuseReason** | **String** |  | [optional] 
+**excusedByUserId** | **String** |  | [optional] 
+**excusedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

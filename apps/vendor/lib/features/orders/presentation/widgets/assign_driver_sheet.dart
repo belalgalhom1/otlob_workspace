@@ -1,3 +1,4 @@
+import 'package:api/api.dart' show DeliveryIncidentResponsibility;
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +31,15 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
   bool _isAssigning = false;
   List<dynamic> _drivers = [];
   String? _selectedGroupId;
+  DeliveryIncidentResponsibility? _previousDriverResponsibility;
+  final TextEditingController _reassignmentReasonController =
+      TextEditingController();
+
+  @override
+  void dispose() {
+    _reassignmentReasonController.dispose();
+    super.dispose();
+  }
 
   List<Map<String, dynamic>> get _assignableGroups {
     final raw = widget.deliveryGroups;
@@ -86,6 +96,8 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
         orderId: widget.orderId,
         driverId: driverId,
         deliveryGroupId: _selectedGroupId,
+        previousDriverResponsibility: _previousDriverResponsibility,
+        reassignmentReason: _reassignmentReasonController.text,
       );
 
       if (mounted) {
@@ -176,6 +188,73 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                       : (val) => setState(() => _selectedGroupId = val),
                 ),
               ],
+              const SizedBox(height: 12),
+              DropdownButtonFormField<DeliveryIncidentResponsibility?>(
+                initialValue: _previousDriverResponsibility,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: isAr
+                      ? 'مسؤولية السائق السابق (في حال الاستبدال)'
+                      : 'Previous Driver Responsibility (if replacing)',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  DropdownMenuItem<DeliveryIncidentResponsibility?>(
+                    value: null,
+                    child: Text(
+                      isAr
+                          ? 'تلقائي (قيد المراجعة)'
+                          : 'Default (Under Review)',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: DeliveryIncidentResponsibility.DRIVER_AT_FAULT,
+                    child: Text(
+                      isAr ? 'خطأ السائق السابق' : 'Previous Driver At Fault',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: DeliveryIncidentResponsibility.CUSTOMER,
+                    child: Text(
+                      isAr ? 'بسبب العميل' : 'Customer',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: DeliveryIncidentResponsibility.VENDOR,
+                    child: Text(
+                      isAr ? 'بسبب المتجر' : 'Vendor',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM,
+                    child: Text(
+                      isAr ? 'ظرف خارجي / نظام' : 'External / System',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+                onChanged: _isAssigning
+                    ? null
+                    : (val) =>
+                          setState(() => _previousDriverResponsibility = val),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _reassignmentReasonController,
+                enabled: !_isAssigning,
+                decoration: InputDecoration(
+                  labelText: isAr
+                      ? 'سبب إعادة تعيين السائق (اختياري)'
+                      : 'Reassignment Reason (Optional)',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
               const SizedBox(height: 16),
               if (_isFetching)
                 const Padding(

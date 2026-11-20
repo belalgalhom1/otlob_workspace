@@ -172,4 +172,3 @@ class _$ProductsControllerUpdateOptionGroup200ResponseSerializer implements Prim
   }
 }
 
-

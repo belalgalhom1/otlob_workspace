@@ -70,14 +70,42 @@ import 'package:api/src/model/customer_user_summary_dto.dart';
 import 'package:api/src/model/decide_assist_request_dto.dart';
 import 'package:api/src/model/delivery_group_rating_input_dto.dart';
 import 'package:api/src/model/delivery_group_status.dart';
+import 'package:api/src/model/delivery_incident_responsibility.dart';
+import 'package:api/src/model/delivery_incident_type.dart';
 import 'package:api/src/model/dispatch_announcement_dto.dart';
 import 'package:api/src/model/dispatch_status.dart';
 import 'package:api/src/model/driver.dart';
 import 'package:api/src/model/driver_break.dart';
 import 'package:api/src/model/driver_break_reason.dart';
 import 'package:api/src/model/driver_break_status.dart';
+import 'package:api/src/model/driver_delivery_incident_dto.dart';
+import 'package:api/src/model/driver_metrics_snapshot_dto.dart';
+import 'package:api/src/model/driver_my_rank_summary_response_dto.dart';
+import 'package:api/src/model/driver_rank_change_reason.dart';
+import 'package:api/src/model/driver_rank_history_entry_dto.dart';
+import 'package:api/src/model/driver_ranking_controller_get_driver_history200_response.dart';
+import 'package:api/src/model/driver_ranking_controller_get_my_rank_summary200_response.dart';
+import 'package:api/src/model/driver_ranking_controller_get_run_details200_response.dart';
+import 'package:api/src/model/driver_ranking_controller_get_schedule_status200_response.dart';
+import 'package:api/src/model/driver_ranking_controller_list_incidents200_response.dart';
+import 'package:api/src/model/driver_ranking_controller_list_runs200_response.dart';
+import 'package:api/src/model/driver_ranking_controller_override_driver_tier200_response.dart';
+import 'package:api/src/model/driver_ranking_controller_preview_evaluation200_response.dart';
+import 'package:api/src/model/driver_ranking_controller_review_incident200_response.dart';
+import 'package:api/src/model/driver_ranking_controller_run_evaluation_now200_response.dart';
+import 'package:api/src/model/driver_ranking_evaluation_run_dto.dart';
+import 'package:api/src/model/driver_ranking_outcome.dart';
+import 'package:api/src/model/driver_ranking_pagination_meta_dto.dart';
+import 'package:api/src/model/driver_ranking_preview_item_dto.dart';
+import 'package:api/src/model/driver_ranking_preview_response_dto.dart';
+import 'package:api/src/model/driver_ranking_run_details_response_dto.dart';
+import 'package:api/src/model/driver_ranking_run_status.dart';
+import 'package:api/src/model/driver_ranking_schedule_status_dto.dart';
+import 'package:api/src/model/driver_ranking_trigger_source.dart';
 import 'package:api/src/model/driver_shift.dart';
+import 'package:api/src/model/driver_shift_response_dto.dart';
 import 'package:api/src/model/driver_shift_status.dart';
+import 'package:api/src/model/driver_shifts_controller_excuse_shift200_response.dart';
 import 'package:api/src/model/driver_status.dart';
 import 'package:api/src/model/driver_tier.dart';
 import 'package:api/src/model/driver_wallet_balance_response_dto.dart';
@@ -89,6 +117,8 @@ import 'package:api/src/model/drivers_controller_get_wallet_balance200_response.
 import 'package:api/src/model/drivers_controller_get_wallet_transactions200_response.dart';
 import 'package:api/src/model/drivers_controller_my_assist_requests200_response.dart';
 import 'package:api/src/model/drivers_controller_start_break200_response.dart';
+import 'package:api/src/model/excluded_incidents_summary_dto.dart';
+import 'package:api/src/model/excuse_driver_shift_dto.dart';
 import 'package:api/src/model/favorite_product.dart';
 import 'package:api/src/model/forgot_password_dto.dart';
 import 'package:api/src/model/fulfillment_rating_input_dto.dart';
@@ -121,6 +151,10 @@ import 'package:api/src/model/order_vendor_fulfillment.dart';
 import 'package:api/src/model/order_vendor_fulfillment_status.dart';
 import 'package:api/src/model/orders_controller_estimate_custom_order200_response.dart';
 import 'package:api/src/model/orders_controller_place_order200_response.dart';
+import 'package:api/src/model/override_driver_rank_dto.dart';
+import 'package:api/src/model/paginated_delivery_incidents_response_dto.dart';
+import 'package:api/src/model/paginated_driver_rank_history_response_dto.dart';
+import 'package:api/src/model/paginated_ranking_runs_response_dto.dart';
 import 'package:api/src/model/paginated_reviews_response_dto.dart';
 import 'package:api/src/model/pagination_meta_dto.dart';
 import 'package:api/src/model/payment_method.dart';
@@ -146,6 +180,7 @@ import 'package:api/src/model/products_controller_update_option_group200_respons
 import 'package:api/src/model/products_controller_update_variant200_response.dart';
 import 'package:api/src/model/promotion.dart';
 import 'package:api/src/model/promotion_type.dart';
+import 'package:api/src/model/ranking_week_window_dto.dart';
 import 'package:api/src/model/register_device_dto.dart';
 import 'package:api/src/model/register_driver_dto.dart';
 import 'package:api/src/model/register_dto.dart';
@@ -167,9 +202,12 @@ import 'package:api/src/model/send_message_dto.dart';
 import 'package:api/src/model/send_otp_dto.dart';
 import 'package:api/src/model/session.dart';
 import 'package:api/src/model/set_password_dto.dart';
+import 'package:api/src/model/shift_pool.dart';
+import 'package:api/src/model/shift_swap_request.dart';
 import 'package:api/src/model/social_login_dto.dart';
 import 'package:api/src/model/start_break_dto.dart';
 import 'package:api/src/model/support_ticket.dart';
+import 'package:api/src/model/swap_request_status.dart';
 import 'package:api/src/model/ticket_category.dart';
 import 'package:api/src/model/ticket_priority.dart';
 import 'package:api/src/model/ticket_status.dart';
@@ -177,6 +215,7 @@ import 'package:api/src/model/top_up_status.dart';
 import 'package:api/src/model/unassign_drivers_from_manager_dto.dart';
 import 'package:api/src/model/update_address_dto.dart';
 import 'package:api/src/model/update_cart_item_dto.dart';
+import 'package:api/src/model/update_delivery_incident_dto.dart';
 import 'package:api/src/model/update_driver_profile_dto.dart';
 import 'package:api/src/model/update_driver_status_dto.dart';
 import 'package:api/src/model/update_legal_document_dto.dart';
@@ -277,14 +316,42 @@ part 'serializers.g.dart';
   DecideAssistRequestDto,
   DeliveryGroupRatingInputDto,
   DeliveryGroupStatus,
+  DeliveryIncidentResponsibility,
+  DeliveryIncidentType,
   DispatchAnnouncementDto,
   DispatchStatus,
   Driver,
   DriverBreak,
   DriverBreakReason,
   DriverBreakStatus,
+  DriverDeliveryIncidentDto,
+  DriverMetricsSnapshotDto,
+  DriverMyRankSummaryResponseDto,
+  DriverRankChangeReason,
+  DriverRankHistoryEntryDto,
+  DriverRankingControllerGetDriverHistory200Response,
+  DriverRankingControllerGetMyRankSummary200Response,
+  DriverRankingControllerGetRunDetails200Response,
+  DriverRankingControllerGetScheduleStatus200Response,
+  DriverRankingControllerListIncidents200Response,
+  DriverRankingControllerListRuns200Response,
+  DriverRankingControllerOverrideDriverTier200Response,
+  DriverRankingControllerPreviewEvaluation200Response,
+  DriverRankingControllerReviewIncident200Response,
+  DriverRankingControllerRunEvaluationNow200Response,
+  DriverRankingEvaluationRunDto,
+  DriverRankingOutcome,
+  DriverRankingPaginationMetaDto,
+  DriverRankingPreviewItemDto,
+  DriverRankingPreviewResponseDto,
+  DriverRankingRunDetailsResponseDto,
+  DriverRankingRunStatus,
+  DriverRankingScheduleStatusDto,
+  DriverRankingTriggerSource,
   DriverShift,
+  DriverShiftResponseDto,
   DriverShiftStatus,
+  DriverShiftsControllerExcuseShift200Response,
   DriverStatus,
   DriverTier,
   DriverWalletBalanceResponseDto,
@@ -296,6 +363,8 @@ part 'serializers.g.dart';
   DriversControllerGetWalletTransactions200Response,
   DriversControllerMyAssistRequests200Response,
   DriversControllerStartBreak200Response,
+  ExcludedIncidentsSummaryDto,
+  ExcuseDriverShiftDto,
   FavoriteProduct,
   ForgotPasswordDto,
   FulfillmentRatingInputDto,
@@ -328,6 +397,10 @@ part 'serializers.g.dart';
   OrderVendorFulfillmentStatus,
   OrdersControllerEstimateCustomOrder200Response,
   OrdersControllerPlaceOrder200Response,
+  OverrideDriverRankDto,
+  PaginatedDeliveryIncidentsResponseDto,
+  PaginatedDriverRankHistoryResponseDto,
+  PaginatedRankingRunsResponseDto,
   PaginatedReviewsResponseDto,
   PaginationMetaDto,
   PaymentMethod,
@@ -353,6 +426,7 @@ part 'serializers.g.dart';
   ProductsControllerUpdateVariant200Response,
   Promotion,
   PromotionType,
+  RankingWeekWindowDto,
   RegisterDeviceDto,
   RegisterDriverDto,
   RegisterDto,
@@ -374,9 +448,12 @@ part 'serializers.g.dart';
   SendOtpDto,
   Session,
   SetPasswordDto,
+  ShiftPool,
+  ShiftSwapRequest,
   SocialLoginDto,
   StartBreakDto,
   SupportTicket,
+  SwapRequestStatus,
   TicketCategory,
   TicketPriority,
   TicketStatus,
@@ -384,6 +461,7 @@ part 'serializers.g.dart';
   UnassignDriversFromManagerDto,
   UpdateAddressDto,
   UpdateCartItemDto,
+  UpdateDeliveryIncidentDto,
   UpdateDriverProfileDto,
   UpdateDriverStatusDto,
   UpdateLegalDocumentDto,

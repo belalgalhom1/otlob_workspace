@@ -8,6 +8,7 @@ export 'src/providers/shared_inbox_counts_provider.dart';
 
 final adminAuditLogsRepositoryProvider = Provider<AdminAuditLogsRepository>((ref) => AdminAuditLogsRepository(ref.watch(apiClientProvider).getAuditLogsApi()));
 final adminCustomersRepositoryProvider = Provider<AdminCustomersRepository>((ref) => AdminCustomersRepository(ref.watch(apiClientProvider).getCustomersApi()));
+final adminDriverRankingRepositoryProvider = Provider<AdminDriverRankingRepository>((ref) => AdminDriverRankingRepository(ref.watch(apiClientProvider).getDriverRankingApi()));
 final adminDriverShiftsRepositoryProvider = Provider<AdminDriverShiftsRepository>((ref) => AdminDriverShiftsRepository(ref.watch(apiClientProvider).getDriverShiftsApi()));
 final adminDriversRepositoryProvider = Provider<AdminDriversRepository>((ref) => AdminDriversRepository(ref.watch(apiClientProvider).getDriversApi(), ref.watch(apiClientProvider).getOrdersApi(), ref.watch(apiClientProvider).getDriverShiftsApi(), dio: ref.watch(dioProvider)));
 final adminOffersRepositoryProvider = Provider<AdminOffersRepository>((ref) => AdminOffersRepository(ref.watch(apiClientProvider).getOffersApi()));
@@ -42,6 +43,7 @@ final driverBreaksRepositoryProvider = Provider<DriverBreaksRepository>((ref) =>
 final driverDispatchRepositoryProvider = Provider<DriverDispatchRepository>((ref) => DriverDispatchRepository(ref.watch(apiClientProvider).getOrdersApi()));
 final driverOrdersRepositoryProvider = Provider<DriverOrdersRepository>((ref) => DriverOrdersRepository(ref.watch(apiClientProvider).getOrdersApi(), driversApi: ref.watch(apiClientProvider).getDriversApi(), dio: ref.watch(dioProvider)));
 final driverProfileRepositoryProvider = Provider<DriverProfileRepository>((ref) => DriverProfileRepository(ref.watch(apiClientProvider).getDriversApi()));
+final driverRankingRepositoryProvider = Provider<DriverRankingRepository>((ref) => DriverRankingRepository(ref.watch(apiClientProvider).getDriverRankingApi()));
 final driverShiftsRepositoryProvider = Provider<DriverShiftsRepository>((ref) => DriverShiftsRepository(ref.watch(apiClientProvider).getDriverShiftsApi(), ref.watch(apiClientProvider).getDriversApi(), dio: ref.watch(dioProvider)));
 final driverStatisticsRepositoryProvider = Provider<DriverStatisticsRepository>((ref) => DriverStatisticsRepository(ref.watch(apiClientProvider).getStatisticsApi(), dio: ref.watch(dioProvider)));
 final driverWalletRepositoryProvider = Provider<DriverWalletRepository>((ref) => DriverWalletRepository(ref.watch(apiClientProvider).getWalletFinancialsApi(), ref.watch(apiClientProvider).getDriversApi()));

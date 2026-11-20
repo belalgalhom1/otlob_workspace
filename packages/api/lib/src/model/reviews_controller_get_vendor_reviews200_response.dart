@@ -172,4 +172,3 @@ class _$ReviewsControllerGetVendorReviews200ResponseSerializer implements Primit
   }
 }
 
-

@@ -10,6 +10,7 @@ import 'package:vendor/features/driver_shifts/presentation/providers/driver_shif
 import 'package:vendor/features/drivers/data/driver_providers.dart';
 import 'package:vendor/features/drivers/data/driver_models.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import 'package:vendor/core/providers.dart';
 
 class ShiftDetailsSheet extends ConsumerStatefulWidget {
   final ShiftPool pool;
@@ -35,13 +36,135 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
   bool _assignToAll = false;
   bool _removeFromAll = false;
   bool _isRemoving = false;
+  bool _canExcuseShifts = false;
 
   @override
   void initState() {
     super.initState();
+    _checkRole();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(driversProvider.notifier).filter();
     });
+  }
+
+  Future<void> _checkRole() async {
+    final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
+    if (mounted) {
+      setState(() {
+        _canExcuseShifts = role == 'SUPER_ADMIN' || role == 'ADMIN';
+      });
+    }
+  }
+
+  Future<void> _toggleExcuseShift(DriverShift shift) async {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final reasonController = TextEditingController(
+      text: shift.excuseReason ?? '',
+    );
+    bool isExcused = !shift.isExcused;
+    bool saving = false;
+
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AppDialog(
+          maxWidth: 440,
+          canPop: !saving,
+          header: AppDialogHeader(
+            icon: LucideIcons.shieldCheck,
+            title: isAr
+                ? 'إعفاء الوردية من تقييم الانضباط'
+                : 'Excuse Shift from Punctuality Ranking',
+            subtitle: shift.driver?.user.name,
+            isCloseDisabled: saving,
+            onClose: () => Navigator.pop(ctx),
+          ),
+          body: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  isAr ? 'وردية معذورة (Excused)' : 'Mark Shift as Excused',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                subtitle: Text(
+                  isAr
+                      ? 'الورديات المعذورة لا تؤثر سلباً على معدل الانضباط الأسبوعي للسائق'
+                      : 'Excused shifts are excluded from the driver\'s weekly punctuality penalty',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                value: isExcused,
+                onChanged: saving
+                    ? null
+                    : (v) => setDialogState(() => isExcused = v),
+                activeThumbColor: Colors.teal,
+              ),
+              if (isExcused) ...[
+                const SizedBox(height: 12),
+                AppFieldLabel(
+                  label: isAr
+                      ? 'سبب الإعفاء (اختياري)'
+                      : 'Excuse Reason (Optional)',
+                ),
+                TextField(
+                  controller: reasonController,
+                  enabled: !saving,
+                  maxLines: 2,
+                  decoration: AppDialogStyles.inputDecoration(
+                    ctx,
+                    hintText: isAr
+                        ? 'مثال: عطل مركبة أو ظرف طارئ...'
+                        : 'e.g. Vehicle breakdown or emergency...',
+                    icon: LucideIcons.fileText,
+                    isMultiline: true,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          footer: AppDialogFooter(
+            cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+            onCancel: () => Navigator.pop(ctx),
+            confirmLabel: isAr ? 'حفظ' : 'Save',
+            confirmIcon: LucideIcons.check,
+            isLoading: saving,
+            onConfirm: () async {
+              setDialogState(() => saving = true);
+              try {
+                await ref
+                    .read(adminDriverShiftsRepositoryProvider)
+                    .excuseShift(
+                      shift.id,
+                      isExcused: isExcused,
+                      excuseReason: isExcused ? reasonController.text : null,
+                    );
+                if (ctx.mounted) Navigator.pop(ctx, true);
+              } catch (e) {
+                setDialogState(() => saving = false);
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text(ErrorUtils.translate(ctx, e)),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ),
+      ),
+    );
+    reasonController.dispose();
+    if (updated == true && mounted) {
+      ref.invalidate(shiftPoolsProvider);
+      widget.onAssigned();
+    }
   }
 
   @override
@@ -769,6 +892,55 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
               ),
             ),
           ),
+          if (shift.isExcused) ...[
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.teal.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                Localizations.localeOf(context).languageCode == 'ar'
+                    ? 'معذور'
+                    : 'EXCUSED',
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  color: Colors.teal,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+          if (_canExcuseShifts) ...[
+            const SizedBox(width: 6),
+            Tooltip(
+              message: Localizations.localeOf(context).languageCode == 'ar'
+                  ? (shift.isExcused ? 'تعديل/إلغاء الإعفاء' : 'إعفاء الوردية')
+                  : (shift.isExcused ? 'Edit/Unexcuse Shift' : 'Excuse Shift'),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => _toggleExcuseShift(shift),
+                  child: Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withValues(
+                        alpha: shift.isExcused ? 0.16 : 0.08,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      LucideIcons.shieldCheck,
+                      size: 14,
+                      color: Colors.teal,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(width: 6),
           Tooltip(
             message: Localizations.localeOf(context).languageCode == 'ar'

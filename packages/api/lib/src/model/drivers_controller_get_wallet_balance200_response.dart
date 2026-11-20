@@ -172,4 +172,3 @@ class _$DriversControllerGetWalletBalance200ResponseSerializer implements Primit
   }
 }
 
-

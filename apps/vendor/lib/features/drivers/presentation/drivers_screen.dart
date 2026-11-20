@@ -22,6 +22,8 @@ import 'widgets/driver_form_dialog.dart';
 import 'widgets/assist_requests_dialog.dart';
 import 'driver_statistics_screen.dart';
 import 'all_drivers_statistics_screen.dart';
+import 'driver_ranking_admin_screen.dart';
+import 'widgets/driver_rank_history_dialog.dart';
 import '../../zones/presentation/zone_provider.dart';
 import 'widgets/driver_map_details_card.dart';
 import 'widgets/driver_vehicle_icon.dart';
@@ -1223,6 +1225,27 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
 
                 if (_canManageDrivers) ...[
                   const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const DriverRankingAdminScreen(
+                            isEmbedded: false,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(LucideIcons.trophy, size: 14),
+                    label: Text(
+                      isArabic ? 'التصنيف الأسبوعي' : 'Weekly Ranking',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   if (_canViewAllDriversStats) ...[
                     OutlinedButton.icon(
                       onPressed: () {
@@ -1667,11 +1690,15 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
             ),
             const SizedBox(height: 10),
 
-            // Row 2: Contextual tags (Zone, Manager, Vehicle)
+            // Row 2: Contextual tags (Badge Tier, Zone, Manager, Vehicle)
             Wrap(
               spacing: 6,
               runSpacing: 6,
               children: [
+                DriverTierBadgePill(
+                  tier: AdminDriverTierVisuals.parseTier(driver.tier),
+                  compact: true,
+                ),
                 if (driver.zoneName != null && driver.zoneName!.isNotEmpty)
                   _buildTagPill(
                     icon: LucideIcons.mapPin,
@@ -1776,6 +1803,26 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => DriverStatisticsScreen(driverId: driver.id, driverName: driver.name),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildActionPill(
+                    icon: LucideIcons.trophy,
+                    label: isArabic ? 'الشارة والتصنيف' : 'Badge & Rank',
+                    color: const Color(0xFFD4920E),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => DriverRankHistoryDialog(
+                          driverId: driver.id,
+                          driverName: driver.name,
+                          initialTier: AdminDriverTierVisuals.parseTier(
+                            driver.tier,
+                          ),
+                          canOverride:
+                              _canCreateOrEditDrivers && !_isDriverManager,
                         ),
                       );
                     },

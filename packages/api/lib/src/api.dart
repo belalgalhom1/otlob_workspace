@@ -17,6 +17,7 @@ import 'package:api/src/api/chat_messages_api.dart';
 import 'package:api/src/api/customers_api.dart';
 import 'package:api/src/api/devices_push_notifications_api.dart';
 import 'package:api/src/api/driver_managers_api.dart';
+import 'package:api/src/api/driver_ranking_api.dart';
 import 'package:api/src/api/driver_shifts_api.dart';
 import 'package:api/src/api/drivers_api.dart';
 import 'package:api/src/api/health_system_api.dart';
@@ -181,6 +182,12 @@ class Api {
   /// by doing that all interceptors will not be executed
   DriverManagersApi getDriverManagersApi() {
     return DriverManagersApi(dio, serializers);
+  }
+
+  /// Get DriverRankingApi instance, base route and serializer can be overridden by a given but be careful,
+  /// by doing that all interceptors will not be executed
+  DriverRankingApi getDriverRankingApi() {
+    return DriverRankingApi(dio, serializers);
   }
 
   /// Get DriverShiftsApi instance, base route and serializer can be overridden by a given but be careful,

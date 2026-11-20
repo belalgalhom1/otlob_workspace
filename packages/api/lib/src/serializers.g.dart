@@ -82,6 +82,8 @@ Serializers _$serializers =
           ..add(DecideAssistRequestDtoStatusEnum.serializer)
           ..add(DeliveryGroupRatingInputDto.serializer)
           ..add(DeliveryGroupStatus.serializer)
+          ..add(DeliveryIncidentResponsibility.serializer)
+          ..add(DeliveryIncidentType.serializer)
           ..add(DispatchAnnouncementDto.serializer)
           ..add(DispatchAnnouncementDtoAudienceEnum.serializer)
           ..add(DispatchAnnouncementDtoTypeEnum.serializer)
@@ -90,8 +92,34 @@ Serializers _$serializers =
           ..add(DriverBreak.serializer)
           ..add(DriverBreakReason.serializer)
           ..add(DriverBreakStatus.serializer)
+          ..add(DriverDeliveryIncidentDto.serializer)
+          ..add(DriverMetricsSnapshotDto.serializer)
+          ..add(DriverMyRankSummaryResponseDto.serializer)
+          ..add(DriverRankChangeReason.serializer)
+          ..add(DriverRankHistoryEntryDto.serializer)
+          ..add(DriverRankingControllerGetDriverHistory200Response.serializer)
+          ..add(DriverRankingControllerGetMyRankSummary200Response.serializer)
+          ..add(DriverRankingControllerGetRunDetails200Response.serializer)
+          ..add(DriverRankingControllerGetScheduleStatus200Response.serializer)
+          ..add(DriverRankingControllerListIncidents200Response.serializer)
+          ..add(DriverRankingControllerListRuns200Response.serializer)
+          ..add(DriverRankingControllerOverrideDriverTier200Response.serializer)
+          ..add(DriverRankingControllerPreviewEvaluation200Response.serializer)
+          ..add(DriverRankingControllerReviewIncident200Response.serializer)
+          ..add(DriverRankingControllerRunEvaluationNow200Response.serializer)
+          ..add(DriverRankingEvaluationRunDto.serializer)
+          ..add(DriverRankingOutcome.serializer)
+          ..add(DriverRankingPaginationMetaDto.serializer)
+          ..add(DriverRankingPreviewItemDto.serializer)
+          ..add(DriverRankingPreviewResponseDto.serializer)
+          ..add(DriverRankingRunDetailsResponseDto.serializer)
+          ..add(DriverRankingRunStatus.serializer)
+          ..add(DriverRankingScheduleStatusDto.serializer)
+          ..add(DriverRankingTriggerSource.serializer)
           ..add(DriverShift.serializer)
+          ..add(DriverShiftResponseDto.serializer)
           ..add(DriverShiftStatus.serializer)
+          ..add(DriverShiftsControllerExcuseShift200Response.serializer)
           ..add(DriverStatus.serializer)
           ..add(DriverTier.serializer)
           ..add(DriverWalletBalanceResponseDto.serializer)
@@ -103,6 +131,8 @@ Serializers _$serializers =
           ..add(DriversControllerGetWalletTransactions200Response.serializer)
           ..add(DriversControllerMyAssistRequests200Response.serializer)
           ..add(DriversControllerStartBreak200Response.serializer)
+          ..add(ExcludedIncidentsSummaryDto.serializer)
+          ..add(ExcuseDriverShiftDto.serializer)
           ..add(FavoriteProduct.serializer)
           ..add(ForgotPasswordDto.serializer)
           ..add(FulfillmentRatingInputDto.serializer)
@@ -136,6 +166,10 @@ Serializers _$serializers =
           ..add(OrderVendorFulfillmentStatus.serializer)
           ..add(OrdersControllerEstimateCustomOrder200Response.serializer)
           ..add(OrdersControllerPlaceOrder200Response.serializer)
+          ..add(OverrideDriverRankDto.serializer)
+          ..add(PaginatedDeliveryIncidentsResponseDto.serializer)
+          ..add(PaginatedDriverRankHistoryResponseDto.serializer)
+          ..add(PaginatedRankingRunsResponseDto.serializer)
           ..add(PaginatedReviewsResponseDto.serializer)
           ..add(PaginationMetaDto.serializer)
           ..add(PaymentMethod.serializer)
@@ -169,6 +203,7 @@ Serializers _$serializers =
           ..add(ProductsControllerUpdateVariant200Response.serializer)
           ..add(Promotion.serializer)
           ..add(PromotionType.serializer)
+          ..add(RankingWeekWindowDto.serializer)
           ..add(RegisterDeviceDto.serializer)
           ..add(RegisterDeviceDtoPlatformEnum.serializer)
           ..add(RegisterDriverDto.serializer)
@@ -200,12 +235,15 @@ Serializers _$serializers =
           ..add(SendOtpDtoMethodEnum.serializer)
           ..add(Session.serializer)
           ..add(SetPasswordDto.serializer)
+          ..add(ShiftPool.serializer)
+          ..add(ShiftSwapRequest.serializer)
           ..add(SocialLoginDto.serializer)
           ..add(SocialLoginDtoAppEnum.serializer)
           ..add(SocialLoginDtoProviderEnum.serializer)
           ..add(StartBreakDto.serializer)
           ..add(StartBreakDtoReasonEnum.serializer)
           ..add(SupportTicket.serializer)
+          ..add(SwapRequestStatus.serializer)
           ..add(TicketCategory.serializer)
           ..add(TicketPriority.serializer)
           ..add(TicketStatus.serializer)
@@ -214,6 +252,7 @@ Serializers _$serializers =
           ..add(UpdateAddressDto.serializer)
           ..add(UpdateCartItemDto.serializer)
           ..add(UpdateCartItemDtoSelectedUnitEnum.serializer)
+          ..add(UpdateDeliveryIncidentDto.serializer)
           ..add(UpdateDriverProfileDto.serializer)
           ..add(UpdateDriverStatusDto.serializer)
           ..add(UpdateDriverStatusDtoStatusEnum.serializer)
@@ -345,6 +384,64 @@ Serializers _$serializers =
               const FullType(CreateProductOptionDto),
             ]),
             () => ListBuilder<CreateProductOptionDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(DriverDeliveryIncidentDto),
+            ]),
+            () => ListBuilder<DriverDeliveryIncidentDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(DriverRankHistoryEntryDto),
+            ]),
+            () => ListBuilder<DriverRankHistoryEntryDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(DriverRankHistoryEntryDto),
+            ]),
+            () => ListBuilder<DriverRankHistoryEntryDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(DriverRankHistoryEntryDto),
+            ]),
+            () => ListBuilder<DriverRankHistoryEntryDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(DriverRankingEvaluationRunDto),
+            ]),
+            () => ListBuilder<DriverRankingEvaluationRunDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(DriverRankingPreviewItemDto),
+            ]),
+            () => ListBuilder<DriverRankingPreviewItemDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(DriverWalletTransaction),
+            ]),
+            () => ListBuilder<DriverWalletTransaction>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(OrderDispatch)]),
+            () => ListBuilder<OrderDispatch>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(Order)]),
+            () => ListBuilder<Order>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(ShiftSwapRequest)]),
+            () => ListBuilder<ShiftSwapRequest>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(DriverBreak)]),
+            () => ListBuilder<DriverBreak>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [
@@ -507,6 +604,14 @@ Serializers _$serializers =
             () => ListBuilder<String>(),
           )
           ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(String)]),
+            () => ListBuilder<String>(),
+          )
+          ..addBuilderFactory(
             const FullType(BuiltList, const [
               const FullType(CreateOptionGroupDto),
             ]),
@@ -555,6 +660,83 @@ Serializers _$serializers =
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(num)]),
             () => ListBuilder<num>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltMap, const [

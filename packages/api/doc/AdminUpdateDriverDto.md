@@ -14,6 +14,8 @@ Name | Type | Description | Notes
 **vehicleType** | **String** |  | [optional] 
 **vehiclePlate** | **String** |  | [optional] 
 **status** | **String** |  | [optional] 
+**tier** | [**DriverTier**](DriverTier.md) |  | [optional] 
+**tierOverrideReason** | **String** | Mandatory audit reason when changing tier | [optional] 
 **isApproved** | **bool** |  | [optional] 
 **driverManagerUserId** | [**JsonObject**](.md) | Driver Manager User ID to assign to this driver (or null to unassign) | [optional] 
 

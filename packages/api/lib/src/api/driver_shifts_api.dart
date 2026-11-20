@@ -16,6 +16,8 @@ import 'package:api/src/model/admin_bulk_remove_shifts_dto.dart';
 import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/book_overtime_shift_dto.dart';
 import 'package:api/src/model/book_weekly_shifts_dto.dart';
+import 'package:api/src/model/driver_shifts_controller_excuse_shift200_response.dart';
+import 'package:api/src/model/excuse_driver_shift_dto.dart';
 import 'package:api/src/model/generate_shift_pools_dto.dart';
 import 'package:api/src/model/join_waitlist_dto.dart';
 
@@ -703,6 +705,109 @@ class DriverShiftsApi {
     }
 
     return Response<ApiControllerRoot200Response>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// [Admin] Mark or unmark a driver shift as excused for weekly ranking
+  /// 
+  ///
+  /// Parameters:
+  /// * [shiftId] 
+  /// * [excuseDriverShiftDto] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [DriverShiftsControllerExcuseShift200Response] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<DriverShiftsControllerExcuseShift200Response>> driverShiftsControllerExcuseShift({ 
+    required String shiftId,
+    required ExcuseDriverShiftDto excuseDriverShiftDto,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/driver-shifts/admin/shifts/{shiftId}/excuse'.replaceAll('{' r'shiftId' '}', encodeQueryParameter(_serializers, shiftId, const FullType(String)).toString());
+    final _options = Options(
+      method: r'PATCH',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'bearer',
+          },
+        ],
+        ...?extra,
+      },
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(ExcuseDriverShiftDto);
+      _bodyData = _serializers.serialize(excuseDriverShiftDto, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    DriverShiftsControllerExcuseShift200Response? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(DriverShiftsControllerExcuseShift200Response),
+      ) as DriverShiftsControllerExcuseShift200Response;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<DriverShiftsControllerExcuseShift200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

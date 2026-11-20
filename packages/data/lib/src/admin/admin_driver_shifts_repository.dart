@@ -21,4 +21,23 @@ class AdminDriverShiftsRepository {
     final response = await _api.driverShiftsControllerTerminateShiftPool(poolId: id);
     return ResponseParser.parse(response);
   }
+
+  Future<dynamic> excuseShift(
+    String shiftId, {
+    required bool isExcused,
+    String? excuseReason,
+  }) async {
+    final trimmedReason = excuseReason?.trim();
+    final dto = ExcuseDriverShiftDto((b) {
+      b.isExcused = isExcused;
+      if (trimmedReason != null && trimmedReason.isNotEmpty) {
+        b.excuseReason = trimmedReason;
+      }
+    });
+    final response = await _api.driverShiftsControllerExcuseShift(
+      shiftId: shiftId,
+      excuseDriverShiftDto: dto,
+    );
+    return ResponseParser.parse(response);
+  }
 }

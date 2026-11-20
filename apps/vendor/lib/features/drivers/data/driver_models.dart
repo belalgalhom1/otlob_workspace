@@ -8,6 +8,7 @@ class DriverProfile {
   final String? vehicleType;
   final String? vehiclePlate;
   final String status; // ONLINE, OFFLINE, ON_BREAK, SUSPENDED
+  final String tier; // BRONZE, SILVER, GOLD
   final bool isSuspended;
   final bool isApproved;
   final double walletBalance;
@@ -30,6 +31,7 @@ class DriverProfile {
     this.vehicleType,
     this.vehiclePlate,
     required this.status,
+    this.tier = 'BRONZE',
     required this.isSuspended,
     required this.isApproved,
     required this.walletBalance,
@@ -83,6 +85,7 @@ class DriverProfile {
           ?.toString()
           .trim(),
       status: (json['status']?.toString() ?? 'OFFLINE').toUpperCase(),
+      tier: (json['tier']?.toString() ?? 'BRONZE').toUpperCase(),
       isSuspended: json['isSuspended'] is bool
           ? json['isSuspended'] as bool
           : (json['status']?.toString().toUpperCase() == 'SUSPENDED'),
@@ -106,6 +109,7 @@ class DriverProfile {
     String? vehicleType,
     String? vehiclePlate,
     String? status,
+    String? tier,
     bool? isSuspended,
     bool? isApproved,
     double? walletBalance,
@@ -123,6 +127,7 @@ class DriverProfile {
       vehicleType: vehicleType ?? this.vehicleType,
       vehiclePlate: vehiclePlate ?? this.vehiclePlate,
       status: status ?? this.status,
+      tier: tier ?? this.tier,
       isSuspended: isSuspended ?? this.isSuspended,
       isApproved: isApproved ?? this.isApproved,
       walletBalance: walletBalance ?? this.walletBalance,

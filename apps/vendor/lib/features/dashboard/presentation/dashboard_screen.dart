@@ -15,6 +15,7 @@ import 'package:vendor/features/chat/presentation/pages/admin_chat_screen.dart';
 import 'package:vendor/features/orders/presentation/orders_provider.dart';
 import 'package:vendor/features/drivers/presentation/drivers_screen.dart';
 import 'package:vendor/features/drivers/presentation/driver_managers_screen.dart';
+import 'package:vendor/features/drivers/presentation/driver_ranking_admin_screen.dart';
 import 'package:vendor/features/drivers/data/driver_providers.dart';
 import 'package:vendor/features/tickets/presentation/tickets_screen.dart';
 import 'package:vendor/features/tickets/presentation/ticket_provider.dart';
@@ -426,6 +427,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     18,
     19,
     20,
+    21,
   };
 
   Widget _buildIndexedStack(bool isMobile) {
@@ -639,6 +641,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       isMobile,
                     ),
                     _buildMenuItem(
+                      21,
+                      LucideIcons.trophy,
+                      Localizations.localeOf(context).languageCode == 'ar'
+                          ? 'التصنيف الأسبوعي'
+                          : 'Weekly Ranking',
+                      isMobile,
+                    ),
+                    _buildMenuItem(
                       1,
                       LucideIcons.shoppingBag,
                       AppLocalizations.of(context)!.orders,
@@ -720,6 +730,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         3,
                         LucideIcons.truck,
                         AppLocalizations.of(context)!.drivers,
+                        isMobile,
+                      ),
+                      _buildMenuItem(
+                        21,
+                        LucideIcons.trophy,
+                        Localizations.localeOf(context).languageCode == 'ar'
+                            ? 'التصنيف الأسبوعي'
+                            : 'Weekly Ranking',
                         isMobile,
                       ),
                       if (_userRole != 'DRIVER_MANAGER')
@@ -1026,6 +1044,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     18: 'BRK',
     19: 'DVM',
     20: 'LEG',
+    21: 'RNK',
   };
 
   static const _pageCodesAr = <int, String>{
@@ -1050,6 +1069,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     18: 'استراحة',
     19: 'مدر',
     20: 'قانون',
+    21: 'تصنيف',
   };
 
   static const _pageIcons = <int, IconData>{
@@ -1074,6 +1094,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     18: LucideIcons.coffee,
     19: LucideIcons.userCheck,
     20: LucideIcons.fileCheck2,
+    21: LucideIcons.trophy,
   };
 
   /// Pages visible to the current user, mirroring the sidebar gates.
@@ -1082,7 +1103,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       return [0, 1, 2, 5, 6, 17, 11];
     }
     if (_userRole == 'DRIVER_MANAGER') {
-      return [3, 1, 15, 18, 11, 6, 17];
+      return [3, 21, 1, 15, 18, 11, 6, 17];
     }
     final pages = <int>[];
     void add(int index, bool visible) {
@@ -1095,6 +1116,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     add(2, _hasPermission('MANAGE_VENDORS'));
     add(9, _hasPermission('MANAGE_VENDORS'));
     add(3, _hasPermission('MANAGE_DRIVERS'));
+    add(21, _hasPermission('MANAGE_DRIVERS'));
     if (_userRole != 'DRIVER_MANAGER') {
       add(19, _hasPermission('MANAGE_DRIVERS') || _userRole == 'SUPER_ADMIN');
     }
@@ -1136,7 +1158,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildContent(bool isMobile, [int? index]) {
     final pageIndex = index ?? _selectedIndex;
     if (_userRole == 'DRIVER_MANAGER' &&
-        ![3, 1, 15, 18, 11, 6, 17].contains(pageIndex)) {
+        ![3, 21, 1, 15, 18, 11, 6, 17].contains(pageIndex)) {
       return const DriversScreen();
     }
     switch (pageIndex) {
@@ -1192,6 +1214,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return const DriverManagersScreen(isEmbedded: true);
       case 20:
         return const LegalDocumentsScreen();
+      case 21:
+        return const DriverRankingAdminScreen(isEmbedded: true);
       default:
         return _buildComingSoon();
     }
@@ -2569,6 +2593,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return Localizations.localeOf(context).languageCode == 'ar'
             ? 'الوثائق القانونية'
             : 'Legal & Terms';
+      case 21:
+        return Localizations.localeOf(context).languageCode == 'ar'
+            ? 'التصنيف الأسبوعي للسائقين'
+            : 'Weekly Driver Ranking';
       default:
         return l10n.dashboard;
     }

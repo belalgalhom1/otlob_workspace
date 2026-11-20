@@ -983,6 +983,30 @@ const List<SettingsSection> platformSettingsSections = [
             'After this many orders, a driver who owes money must settle before '
             'receiving new orders. 0 disables it.',
       ),
+      SettingsField(
+        key: 'driverRankingAutoEvalEnabled',
+        kind: SettingsFieldKind.toggle,
+        groupAr: 'التصنيف الأسبوعي للمندوبين',
+        groupEn: 'Weekly Driver Ranking',
+        labelAr: 'تفعيل التقييم الأسبوعي التلقائي',
+        labelEn: 'Enable Automatic Weekly Ranking Evaluation',
+        helpAr:
+            'تشغيل/إيقاف التقييم التلقائي لشارات المندوبين (ذهبية، فضية، برونزية) كل يوم إثنين بناءً على أداء الأسبوع المنتهي.',
+        helpEn:
+            'Enable/disable automatic Monday weekly badge evaluation (Gold, Silver, Bronze) based on the previous completed week.',
+      ),
+      SettingsField(
+        key: 'driverRankingEvalTime',
+        kind: SettingsFieldKind.text,
+        groupAr: 'التصنيف الأسبوعي للمندوبين',
+        groupEn: 'Weekly Driver Ranking',
+        labelAr: 'وقت التقييم الأسبوعي يوم الإثنين (HH:mm)',
+        labelEn: 'Monday Weekly Evaluation Time (HH:mm)',
+        helpAr:
+            'وقت تشغيل التقييم الأسبوعي بتوقيت القاهرة بصيغة 24 ساعة HH:mm (مثال: 00:05).',
+        helpEn:
+            'Monday evaluation time in Cairo timezone in 24-hour HH:mm format (e.g. 00:05).',
+      ),
     ],
   ),
 

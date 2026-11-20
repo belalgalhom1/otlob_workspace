@@ -212,6 +212,10 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
   @override
   final AdminUpdateDriverDtoStatusEnum? status;
   @override
+  final DriverTier? tier;
+  @override
+  final String? tierOverrideReason;
+  @override
   final bool? isApproved;
   @override
   final JsonObject? driverManagerUserId;
@@ -227,6 +231,8 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
     this.vehicleType,
     this.vehiclePlate,
     this.status,
+    this.tier,
+    this.tierOverrideReason,
     this.isApproved,
     this.driverManagerUserId,
   }) : super._();
@@ -249,6 +255,8 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
         vehicleType == other.vehicleType &&
         vehiclePlate == other.vehiclePlate &&
         status == other.status &&
+        tier == other.tier &&
+        tierOverrideReason == other.tierOverrideReason &&
         isApproved == other.isApproved &&
         driverManagerUserId == other.driverManagerUserId;
   }
@@ -262,6 +270,8 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
     _$hash = $jc(_$hash, vehicleType.hashCode);
     _$hash = $jc(_$hash, vehiclePlate.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
+    _$hash = $jc(_$hash, tier.hashCode);
+    _$hash = $jc(_$hash, tierOverrideReason.hashCode);
     _$hash = $jc(_$hash, isApproved.hashCode);
     _$hash = $jc(_$hash, driverManagerUserId.hashCode);
     _$hash = $jf(_$hash);
@@ -277,6 +287,8 @@ class _$AdminUpdateDriverDto extends AdminUpdateDriverDto {
           ..add('vehicleType', vehicleType)
           ..add('vehiclePlate', vehiclePlate)
           ..add('status', status)
+          ..add('tier', tier)
+          ..add('tierOverrideReason', tierOverrideReason)
           ..add('isApproved', isApproved)
           ..add('driverManagerUserId', driverManagerUserId))
         .toString();
@@ -313,6 +325,15 @@ class AdminUpdateDriverDtoBuilder
   AdminUpdateDriverDtoStatusEnum? get status => _$this._status;
   set status(AdminUpdateDriverDtoStatusEnum? status) => _$this._status = status;
 
+  DriverTier? _tier;
+  DriverTier? get tier => _$this._tier;
+  set tier(DriverTier? tier) => _$this._tier = tier;
+
+  String? _tierOverrideReason;
+  String? get tierOverrideReason => _$this._tierOverrideReason;
+  set tierOverrideReason(String? tierOverrideReason) =>
+      _$this._tierOverrideReason = tierOverrideReason;
+
   bool? _isApproved;
   bool? get isApproved => _$this._isApproved;
   set isApproved(bool? isApproved) => _$this._isApproved = isApproved;
@@ -335,6 +356,8 @@ class AdminUpdateDriverDtoBuilder
       _vehicleType = $v.vehicleType;
       _vehiclePlate = $v.vehiclePlate;
       _status = $v.status;
+      _tier = $v.tier;
+      _tierOverrideReason = $v.tierOverrideReason;
       _isApproved = $v.isApproved;
       _driverManagerUserId = $v.driverManagerUserId;
       _$v = null;
@@ -365,6 +388,8 @@ class AdminUpdateDriverDtoBuilder
           vehicleType: vehicleType,
           vehiclePlate: vehiclePlate,
           status: status,
+          tier: tier,
+          tierOverrideReason: tierOverrideReason,
           isApproved: isApproved,
           driverManagerUserId: driverManagerUserId,
         );

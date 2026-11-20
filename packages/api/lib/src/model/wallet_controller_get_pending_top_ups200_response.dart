@@ -172,4 +172,3 @@ class _$WalletControllerGetPendingTopUps200ResponseSerializer implements Primiti
   }
 }
 
-

@@ -172,4 +172,3 @@ class _$OrdersControllerPlaceOrder200ResponseSerializer implements PrimitiveSeri
   }
 }
 
-

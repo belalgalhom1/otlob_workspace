@@ -39,6 +39,9 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
     'MOTOR_TRICYCLE',
   ];
   final _vehiclePlateController = TextEditingController();
+  final _tierOverrideReasonController = TextEditingController();
+  String _selectedTier = 'BRONZE';
+  static const List<String> _tiers = ['GOLD', 'SILVER', 'BRONZE'];
   bool _isApproved = true;
   bool _isLoading = false;
   String? _errorMessage;
@@ -56,6 +59,9 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
         _selectedVehicleType = widget.driver!.vehicleType!;
       }
       _vehiclePlateController.text = widget.driver!.vehiclePlate ?? '';
+      if (_tiers.contains(widget.driver!.tier)) {
+        _selectedTier = widget.driver!.tier;
+      }
       _isApproved = widget.driver!.isApproved;
       if (widget.driver!.user != null) {
         _emailController.text = widget.driver!.user['email'] ?? '';
@@ -89,6 +95,7 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
     _nationalIdController.dispose();
     _licenseNumberController.dispose();
     _vehiclePlateController.dispose();
+    _tierOverrideReasonController.dispose();
     super.dispose();
   }
 
@@ -113,6 +120,19 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
       return;
     }
 
+    final isTierChanged =
+        widget.driver != null && _selectedTier != widget.driver!.tier;
+    final tierReason = _tierOverrideReasonController.text.trim();
+    if (isTierChanged && tierReason.isEmpty) {
+      final isAr = Localizations.localeOf(context).languageCode == 'ar';
+      setState(() {
+        _errorMessage = isAr
+            ? 'يرجى إدخال سبب لتعديل شارة تصنيف السائق يدوياً.'
+            : 'Please provide an audit reason for changing the driver badge tier.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -128,6 +148,8 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
         if (licenseNumber.isNotEmpty) 'licenseNumber': licenseNumber,
         if (vehicleType.isNotEmpty) 'vehicleType': vehicleType,
         if (vehiclePlate.isNotEmpty) 'vehiclePlate': vehiclePlate,
+        if (isTierChanged) 'tier': _selectedTier,
+        if (isTierChanged) 'tierOverrideReason': tierReason,
         'isApproved': _isApproved,
         'driverManagerUserId': _selectedDriverManagerUserId,
       };
@@ -398,6 +420,61 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
             LucideIcons.hash,
             _vehiclePlateController,
           ),
+          if (!isNew) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppFieldLabel(
+                    label: isAr ? 'الشارة الأسبوعية للسائق' : 'Driver Weekly Badge',
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedTier,
+                    isExpanded: true,
+                    dropdownColor: AppDialogStyles.dropdownColor(context),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontSize: 14,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    decoration: AppDialogStyles.inputDecoration(
+                      context,
+                      icon: LucideIcons.trophy,
+                    ),
+                    items: _tiers.map((t) {
+                      final label = t == 'GOLD'
+                          ? (isAr ? 'الشارة الذهبية (GOLD)' : 'Gold Badge (GOLD)')
+                          : (t == 'SILVER'
+                                ? (isAr
+                                      ? 'الشارة الفضية (SILVER)'
+                                      : 'Silver Badge (SILVER)')
+                                : (isAr
+                                      ? 'الشارة البرونزية (BRONZE)'
+                                      : 'Bronze Badge (BRONZE)'));
+                      return DropdownMenuItem(
+                        value: t,
+                        child: Text(label, overflow: TextOverflow.ellipsis),
+                      );
+                    }).toList(),
+                    onChanged: (widget.readOnly || _isLoading)
+                        ? null
+                        : (val) {
+                            if (val != null) {
+                              setState(() => _selectedTier = val);
+                            }
+                          },
+                  ),
+                ],
+              ),
+            ),
+            if (!widget.readOnly && _selectedTier != widget.driver!.tier)
+              _buildField(
+                isAr ? 'سبب تعديل الشارة (إلزامي)' : 'Badge Override Reason (Required)',
+                LucideIcons.fileText,
+                _tierOverrideReasonController,
+                isRequired: true,
+              ),
+          ],
           _buildDriverManagerDropdown(),
           AppDialogSectionCard(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),

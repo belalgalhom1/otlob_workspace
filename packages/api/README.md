@@ -128,6 +128,17 @@ Class | Method | HTTP request | Description
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetTransactions**](doc/DriverManagersApi.md#drivermanagerscontrollergettransactions) | **GET** /driver-managers/me/transactions | List my driver-manager wallet transactions
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerListManagers**](doc/DriverManagersApi.md#drivermanagerscontrollerlistmanagers) | **GET** /driver-managers | [Admin] List all driver managers with assigned driver counts
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerUnassignDrivers**](doc/DriverManagersApi.md#drivermanagerscontrollerunassigndrivers) | **POST** /driver-managers/{userId}/unassign | [Admin] Unassign specific drivers from a driver manager
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerGetDriverHistory**](doc/DriverRankingApi.md#driverrankingcontrollergetdriverhistory) | **GET** /driver-ranking/drivers/{driverId}/history | [Admin] Get a driver&#39;s ranking &amp; override history
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerGetMyRankSummary**](doc/DriverRankingApi.md#driverrankingcontrollergetmyranksummary) | **GET** /driver-ranking/me | Get current driver badge, current week progress, next evaluation time, and history
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerGetRunDetails**](doc/DriverRankingApi.md#driverrankingcontrollergetrundetails) | **GET** /driver-ranking/runs/{runId} | [Admin] Get a weekly driver ranking run and its driver entries
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerGetScheduleStatus**](doc/DriverRankingApi.md#driverrankingcontrollergetschedulestatus) | **GET** /driver-ranking/schedule | [Admin] Get weekly driver ranking evaluation schedule &amp; next run timestamp
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerListIncidents**](doc/DriverRankingApi.md#driverrankingcontrollerlistincidents) | **GET** /driver-ranking/incidents | [Admin] List delivery cancellation &amp; reassignment responsibility incidents
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerListRuns**](doc/DriverRankingApi.md#driverrankingcontrollerlistruns) | **GET** /driver-ranking/runs | [Admin] List weekly driver ranking evaluation runs
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerOverrideDriverTier**](doc/DriverRankingApi.md#driverrankingcontrolleroverridedrivertier) | **POST** /driver-ranking/drivers/{driverId}/override | [Admin] Manually override a driver badge with mandatory audit reason
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerPreviewEvaluation**](doc/DriverRankingApi.md#driverrankingcontrollerpreviewevaluation) | **GET** /driver-ranking/preview | [Admin] Dry-run preview of previous completed week ranking results without modifying badges
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerRetryFailedRun**](doc/DriverRankingApi.md#driverrankingcontrollerretryfailedrun) | **POST** /driver-ranking/runs/{runId}/retry | [Admin] Safely resume/retry a failed weekly evaluation run without duplicating already-committed entries
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerReviewIncident**](doc/DriverRankingApi.md#driverrankingcontrollerreviewincident) | **PATCH** /driver-ranking/incidents/{incidentId} | [Admin] Update/resolve a delivery incident responsibility classification
+[*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerRunEvaluationNow**](doc/DriverRankingApi.md#driverrankingcontrollerrunevaluationnow) | **POST** /driver-ranking/run | [Admin] Execute weekly driver ranking evaluation immediately for the previous completed week
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAcceptSwap**](doc/DriverShiftsApi.md#drivershiftscontrolleracceptswap) | **POST** /driver-shifts/swap/{swapId}/accept | Claim someone else&#39;s shift from the swap board
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminAssignShift**](doc/DriverShiftsApi.md#drivershiftscontrolleradminassignshift) | **POST** /driver-shifts/admin/assign | [Admin] Force-assign a driver to a shift pool
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminAssignShiftBulk**](doc/DriverShiftsApi.md#drivershiftscontrolleradminassignshiftbulk) | **POST** /driver-shifts/admin/assign-bulk | [Admin] Assign a driver to a generated group of shift pools
@@ -135,6 +146,7 @@ Class | Method | HTTP request | Description
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerAdminRemoveDriverBulk**](doc/DriverShiftsApi.md#drivershiftscontrolleradminremovedriverbulk) | **POST** /driver-shifts/admin/remove-bulk | [Admin] Remove a driver from a generated group of shift pools
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerBookOvertimeShift**](doc/DriverShiftsApi.md#drivershiftscontrollerbookovertimeshift) | **POST** /driver-shifts/book-overtime | Book a single extra shift
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerBookWeeklyShifts**](doc/DriverShiftsApi.md#drivershiftscontrollerbookweeklyshifts) | **POST** /driver-shifts/book-week | Book 6 shifts for the week
+[*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerExcuseShift**](doc/DriverShiftsApi.md#drivershiftscontrollerexcuseshift) | **PATCH** /driver-shifts/admin/shifts/{shiftId}/excuse | [Admin] Mark or unmark a driver shift as excused for weekly ranking
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerGenerateShiftPools**](doc/DriverShiftsApi.md#drivershiftscontrollergenerateshiftpools) | **POST** /driver-shifts/admin/pools | [Admin] Generate shift pools for a date range
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerGetAvailablePools**](doc/DriverShiftsApi.md#drivershiftscontrollergetavailablepools) | **GET** /driver-shifts/available | Get available shift pools for booking
 [*DriverShiftsApi*](doc/DriverShiftsApi.md) | [**driverShiftsControllerGetPoolWaitlist**](doc/DriverShiftsApi.md#drivershiftscontrollergetpoolwaitlist) | **GET** /driver-shifts/admin/pools/{poolId}/waitlist | [Admin] Get a pool waitlist (FIFO order)
@@ -451,14 +463,42 @@ Class | Method | HTTP request | Description
  - [DecideAssistRequestDto](doc/DecideAssistRequestDto.md)
  - [DeliveryGroupRatingInputDto](doc/DeliveryGroupRatingInputDto.md)
  - [DeliveryGroupStatus](doc/DeliveryGroupStatus.md)
+ - [DeliveryIncidentResponsibility](doc/DeliveryIncidentResponsibility.md)
+ - [DeliveryIncidentType](doc/DeliveryIncidentType.md)
  - [DispatchAnnouncementDto](doc/DispatchAnnouncementDto.md)
  - [DispatchStatus](doc/DispatchStatus.md)
  - [Driver](doc/Driver.md)
  - [DriverBreak](doc/DriverBreak.md)
  - [DriverBreakReason](doc/DriverBreakReason.md)
  - [DriverBreakStatus](doc/DriverBreakStatus.md)
+ - [DriverDeliveryIncidentDto](doc/DriverDeliveryIncidentDto.md)
+ - [DriverMetricsSnapshotDto](doc/DriverMetricsSnapshotDto.md)
+ - [DriverMyRankSummaryResponseDto](doc/DriverMyRankSummaryResponseDto.md)
+ - [DriverRankChangeReason](doc/DriverRankChangeReason.md)
+ - [DriverRankHistoryEntryDto](doc/DriverRankHistoryEntryDto.md)
+ - [DriverRankingControllerGetDriverHistory200Response](doc/DriverRankingControllerGetDriverHistory200Response.md)
+ - [DriverRankingControllerGetMyRankSummary200Response](doc/DriverRankingControllerGetMyRankSummary200Response.md)
+ - [DriverRankingControllerGetRunDetails200Response](doc/DriverRankingControllerGetRunDetails200Response.md)
+ - [DriverRankingControllerGetScheduleStatus200Response](doc/DriverRankingControllerGetScheduleStatus200Response.md)
+ - [DriverRankingControllerListIncidents200Response](doc/DriverRankingControllerListIncidents200Response.md)
+ - [DriverRankingControllerListRuns200Response](doc/DriverRankingControllerListRuns200Response.md)
+ - [DriverRankingControllerOverrideDriverTier200Response](doc/DriverRankingControllerOverrideDriverTier200Response.md)
+ - [DriverRankingControllerPreviewEvaluation200Response](doc/DriverRankingControllerPreviewEvaluation200Response.md)
+ - [DriverRankingControllerReviewIncident200Response](doc/DriverRankingControllerReviewIncident200Response.md)
+ - [DriverRankingControllerRunEvaluationNow200Response](doc/DriverRankingControllerRunEvaluationNow200Response.md)
+ - [DriverRankingEvaluationRunDto](doc/DriverRankingEvaluationRunDto.md)
+ - [DriverRankingOutcome](doc/DriverRankingOutcome.md)
+ - [DriverRankingPaginationMetaDto](doc/DriverRankingPaginationMetaDto.md)
+ - [DriverRankingPreviewItemDto](doc/DriverRankingPreviewItemDto.md)
+ - [DriverRankingPreviewResponseDto](doc/DriverRankingPreviewResponseDto.md)
+ - [DriverRankingRunDetailsResponseDto](doc/DriverRankingRunDetailsResponseDto.md)
+ - [DriverRankingRunStatus](doc/DriverRankingRunStatus.md)
+ - [DriverRankingScheduleStatusDto](doc/DriverRankingScheduleStatusDto.md)
+ - [DriverRankingTriggerSource](doc/DriverRankingTriggerSource.md)
  - [DriverShift](doc/DriverShift.md)
+ - [DriverShiftResponseDto](doc/DriverShiftResponseDto.md)
  - [DriverShiftStatus](doc/DriverShiftStatus.md)
+ - [DriverShiftsControllerExcuseShift200Response](doc/DriverShiftsControllerExcuseShift200Response.md)
  - [DriverStatus](doc/DriverStatus.md)
  - [DriverTier](doc/DriverTier.md)
  - [DriverWalletBalanceResponseDto](doc/DriverWalletBalanceResponseDto.md)
@@ -470,6 +510,8 @@ Class | Method | HTTP request | Description
  - [DriversControllerGetWalletTransactions200Response](doc/DriversControllerGetWalletTransactions200Response.md)
  - [DriversControllerMyAssistRequests200Response](doc/DriversControllerMyAssistRequests200Response.md)
  - [DriversControllerStartBreak200Response](doc/DriversControllerStartBreak200Response.md)
+ - [ExcludedIncidentsSummaryDto](doc/ExcludedIncidentsSummaryDto.md)
+ - [ExcuseDriverShiftDto](doc/ExcuseDriverShiftDto.md)
  - [FavoriteProduct](doc/FavoriteProduct.md)
  - [ForgotPasswordDto](doc/ForgotPasswordDto.md)
  - [FulfillmentRatingInputDto](doc/FulfillmentRatingInputDto.md)
@@ -502,6 +544,10 @@ Class | Method | HTTP request | Description
  - [OrderVendorFulfillmentStatus](doc/OrderVendorFulfillmentStatus.md)
  - [OrdersControllerEstimateCustomOrder200Response](doc/OrdersControllerEstimateCustomOrder200Response.md)
  - [OrdersControllerPlaceOrder200Response](doc/OrdersControllerPlaceOrder200Response.md)
+ - [OverrideDriverRankDto](doc/OverrideDriverRankDto.md)
+ - [PaginatedDeliveryIncidentsResponseDto](doc/PaginatedDeliveryIncidentsResponseDto.md)
+ - [PaginatedDriverRankHistoryResponseDto](doc/PaginatedDriverRankHistoryResponseDto.md)
+ - [PaginatedRankingRunsResponseDto](doc/PaginatedRankingRunsResponseDto.md)
  - [PaginatedReviewsResponseDto](doc/PaginatedReviewsResponseDto.md)
  - [PaginationMetaDto](doc/PaginationMetaDto.md)
  - [PaymentMethod](doc/PaymentMethod.md)
@@ -527,6 +573,7 @@ Class | Method | HTTP request | Description
  - [ProductsControllerUpdateVariant200Response](doc/ProductsControllerUpdateVariant200Response.md)
  - [Promotion](doc/Promotion.md)
  - [PromotionType](doc/PromotionType.md)
+ - [RankingWeekWindowDto](doc/RankingWeekWindowDto.md)
  - [RegisterDeviceDto](doc/RegisterDeviceDto.md)
  - [RegisterDriverDto](doc/RegisterDriverDto.md)
  - [RegisterDto](doc/RegisterDto.md)
@@ -548,9 +595,12 @@ Class | Method | HTTP request | Description
  - [SendOtpDto](doc/SendOtpDto.md)
  - [Session](doc/Session.md)
  - [SetPasswordDto](doc/SetPasswordDto.md)
+ - [ShiftPool](doc/ShiftPool.md)
+ - [ShiftSwapRequest](doc/ShiftSwapRequest.md)
  - [SocialLoginDto](doc/SocialLoginDto.md)
  - [StartBreakDto](doc/StartBreakDto.md)
  - [SupportTicket](doc/SupportTicket.md)
+ - [SwapRequestStatus](doc/SwapRequestStatus.md)
  - [TicketCategory](doc/TicketCategory.md)
  - [TicketPriority](doc/TicketPriority.md)
  - [TicketStatus](doc/TicketStatus.md)
@@ -558,6 +608,7 @@ Class | Method | HTTP request | Description
  - [UnassignDriversFromManagerDto](doc/UnassignDriversFromManagerDto.md)
  - [UpdateAddressDto](doc/UpdateAddressDto.md)
  - [UpdateCartItemDto](doc/UpdateCartItemDto.md)
+ - [UpdateDeliveryIncidentDto](doc/UpdateDeliveryIncidentDto.md)
  - [UpdateDriverProfileDto](doc/UpdateDriverProfileDto.md)
  - [UpdateDriverStatusDto](doc/UpdateDriverStatusDto.md)
  - [UpdateLegalDocumentDto](doc/UpdateLegalDocumentDto.md)

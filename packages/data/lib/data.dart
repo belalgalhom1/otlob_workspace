@@ -12,6 +12,7 @@ export 'providers.dart';
 // Export Admin Repositories
 export 'src/admin/admin_audit_logs_repository.dart';
 export 'src/admin/admin_customers_repository.dart';
+export 'src/admin/admin_driver_ranking_repository.dart';
 export 'src/admin/admin_driver_shifts_repository.dart';
 export 'src/admin/admin_drivers_repository.dart';
 export 'src/admin/admin_offers_repository.dart';
@@ -43,6 +44,7 @@ export 'src/driver/driver_breaks_repository.dart';
 export 'src/driver/driver_dispatch_repository.dart';
 export 'src/driver/driver_orders_repository.dart';
 export 'src/driver/driver_profile_repository.dart';
+export 'src/driver/driver_ranking_repository.dart';
 export 'src/driver/driver_shifts_repository.dart';
 export 'src/driver/driver_statistics_repository.dart';
 export 'src/driver/driver_wallet_repository.dart';

@@ -29,6 +29,10 @@ part 'driver_shift.g.dart';
 /// * [expiredDispatches] 
 /// * [rejectedDispatches] 
 /// * [warningSent] 
+/// * [isExcused] 
+/// * [excuseReason] 
+/// * [excusedByUserId] 
+/// * [excusedAt] 
 /// * [createdAt] 
 @BuiltValue()
 abstract class DriverShift implements Built<DriverShift, DriverShiftBuilder> {
@@ -83,6 +87,18 @@ abstract class DriverShift implements Built<DriverShift, DriverShiftBuilder> {
 
   @BuiltValueField(wireName: r'warningSent')
   bool get warningSent;
+
+  @BuiltValueField(wireName: r'isExcused')
+  bool get isExcused;
+
+  @BuiltValueField(wireName: r'excuseReason')
+  String? get excuseReason;
+
+  @BuiltValueField(wireName: r'excusedByUserId')
+  String? get excusedByUserId;
+
+  @BuiltValueField(wireName: r'excusedAt')
+  DateTime? get excusedAt;
 
   @BuiltValueField(wireName: r'createdAt')
   DateTime get createdAt;
@@ -211,6 +227,32 @@ class _$DriverShiftSerializer implements PrimitiveSerializer<DriverShift> {
       object.warningSent,
       specifiedType: const FullType(bool),
     );
+    yield r'isExcused';
+    yield serializers.serialize(
+      object.isExcused,
+      specifiedType: const FullType(bool),
+    );
+    if (object.excuseReason != null) {
+      yield r'excuseReason';
+      yield serializers.serialize(
+        object.excuseReason,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.excusedByUserId != null) {
+      yield r'excusedByUserId';
+      yield serializers.serialize(
+        object.excusedByUserId,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.excusedAt != null) {
+      yield r'excusedAt';
+      yield serializers.serialize(
+        object.excusedAt,
+        specifiedType: const FullType(DateTime),
+      );
+    }
     yield r'createdAt';
     yield serializers.serialize(
       object.createdAt,
@@ -357,6 +399,34 @@ class _$DriverShiftSerializer implements PrimitiveSerializer<DriverShift> {
             specifiedType: const FullType(bool),
           ) as bool;
           result.warningSent = valueDes;
+          break;
+        case r'isExcused':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isExcused = valueDes;
+          break;
+        case r'excuseReason':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.excuseReason = valueDes;
+          break;
+        case r'excusedByUserId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.excusedByUserId = valueDes;
+          break;
+        case r'excusedAt':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DateTime),
+          ) as DateTime;
+          result.excusedAt = valueDes;
           break;
         case r'createdAt':
           final valueDes = serializers.deserialize(

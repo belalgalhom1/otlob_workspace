@@ -122,6 +122,8 @@ part 'update_platform_settings_dto.g.dart';
 /// * [bronzeTierBonusPerKm] - Per-km bonus for Bronze tier drivers
 /// * [silverTierBonusPerKm] - Per-km bonus for Silver tier drivers
 /// * [goldTierBonusPerKm] - Per-km bonus for Gold tier drivers (Used at checkout)
+/// * [driverRankingAutoEvalEnabled] - Enable/disable the weekly Monday automatic driver ranking evaluation
+/// * [driverRankingEvalTime] - Monday evaluation wall-clock time (HH:mm in configured project timezone)
 /// * [driverSettlementOrderThreshold] - Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
 /// * [maxBreakMinutesPerShift] - Max total break minutes allowed per shift
 /// * [maxBreaksPerShift] - Max number of breaks allowed per shift
@@ -513,6 +515,14 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   /// Per-km bonus for Gold tier drivers (Used at checkout)
   @BuiltValueField(wireName: r'goldTierBonusPerKm')
   num? get goldTierBonusPerKm;
+
+  /// Enable/disable the weekly Monday automatic driver ranking evaluation
+  @BuiltValueField(wireName: r'driverRankingAutoEvalEnabled')
+  bool? get driverRankingAutoEvalEnabled;
+
+  /// Monday evaluation wall-clock time (HH:mm in configured project timezone)
+  @BuiltValueField(wireName: r'driverRankingEvalTime')
+  String? get driverRankingEvalTime;
 
   /// Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
   @BuiltValueField(wireName: r'driverSettlementOrderThreshold')
@@ -1332,6 +1342,20 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield serializers.serialize(
         object.goldTierBonusPerKm,
         specifiedType: const FullType(num),
+      );
+    }
+    if (object.driverRankingAutoEvalEnabled != null) {
+      yield r'driverRankingAutoEvalEnabled';
+      yield serializers.serialize(
+        object.driverRankingAutoEvalEnabled,
+        specifiedType: const FullType(bool),
+      );
+    }
+    if (object.driverRankingEvalTime != null) {
+      yield r'driverRankingEvalTime';
+      yield serializers.serialize(
+        object.driverRankingEvalTime,
+        specifiedType: const FullType(String),
       );
     }
     if (object.driverSettlementOrderThreshold != null) {
@@ -2168,6 +2192,20 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.goldTierBonusPerKm = valueDes;
+          break;
+        case r'driverRankingAutoEvalEnabled':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.driverRankingAutoEvalEnabled = valueDes;
+          break;
+        case r'driverRankingEvalTime':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.driverRankingEvalTime = valueDes;
           break;
         case r'driverSettlementOrderThreshold':
           final valueDes = serializers.deserialize(

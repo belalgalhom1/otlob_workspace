@@ -273,9 +273,13 @@ class _AllDriversStatisticsScreenState
     final totalOrders = StatisticsFormat.intOf(totals['totalOrders']);
     final completed = StatisticsFormat.intOf(totals['completedOrders']);
     final cancelled = StatisticsFormat.intOf(totals['cancelledOrders']);
-    final received = StatisticsFormat.intOf(totals['totalDispatchesReceived']);
+    final received = StatisticsFormat.intOf(
+      totals['eligibleDispatches'] ?? totals['totalDispatchesReceived'],
+    );
     final accepted = StatisticsFormat.intOf(totals['dispatchesAccepted']);
-    final acceptance = received > 0 ? (accepted * 100 / received).round() : 0;
+    final acceptance = totals['acceptanceRate'] != null
+        ? StatisticsFormat.numOf(totals['acceptanceRate']).round()
+        : (received > 0 ? (accepted * 100 / received).round() : 0);
     final earnings = StatisticsFormat.numOf(totals['totalEarnings']);
     final onlineHours = StatisticsFormat.numOf(totals['onlineHours']);
 

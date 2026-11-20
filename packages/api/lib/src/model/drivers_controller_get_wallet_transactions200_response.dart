@@ -172,4 +172,3 @@ class _$DriversControllerGetWalletTransactions200ResponseSerializer implements P
   }
 }
 
-

@@ -17,7 +17,7 @@ Name | Type | Description | Notes
 **vehicleType** | **String** |  | [default to 'MOTORCYCLE']
 **vehiclePlate** | **String** |  | [optional] 
 **status** | **String** |  | [optional] 
-**tier** | **String** |  | [optional] 
+**tier** | [**DriverTier**](DriverTier.md) |  | [optional] [default to DriverTier.SILVER]
 **isApproved** | **bool** |  | [optional] 
 **driverManagerUserId** | [**JsonObject**](.md) | Driver Manager User ID to assign to this driver | [optional] 
 

@@ -172,4 +172,3 @@ class _$DriversControllerStartBreak200ResponseSerializer implements PrimitiveSer
   }
 }
 
-

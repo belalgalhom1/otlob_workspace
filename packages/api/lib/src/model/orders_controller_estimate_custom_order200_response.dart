@@ -172,4 +172,3 @@ class _$OrdersControllerEstimateCustomOrder200ResponseSerializer implements Prim
   }
 }
 
-

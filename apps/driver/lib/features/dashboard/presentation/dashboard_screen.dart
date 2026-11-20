@@ -8,7 +8,10 @@ import 'package:go_router/go_router.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/core/providers/driver_breaks_provider.dart';
+import 'package:driver/features/ranking/presentation/driver_ranking_provider.dart';
+import 'package:driver/features/ranking/presentation/pages/driver_ranking_screen.dart';
 import 'package:driver/features/statistics/presentation/driver_statistics_screen.dart';
+import 'package:api/api.dart' show DriverTier;
 import 'package:driver/features/profile/presentation/pages/nearby_vendors_map_screen.dart';
 import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
 import 'package:driver/features/inbox/presentation/pages/inbox_screen.dart';
@@ -308,8 +311,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           uploadPath = pickedFile.path;
                         }
 
-                        if (uploadPath == null) return;
-
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(l10n.uploadingAvatar)),
@@ -357,15 +358,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      l10n.tierLabel(data['tier'] ?? l10n.standardTier),
-                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                  InkWell(
+                    onTap: () => context.push('/ranking'),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            LucideIcons.award,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            l10n.tierLabel(data['tier'] ?? l10n.standardTier),
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -387,6 +409,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 icon: LucideIcons.car,
                 title: l10n.vehicleInformation,
                 onTap: () => context.push('/profile/vehicle'),
+              ),
+              const SizedBox(height: 12),
+              _buildProfileNavigationTile(
+                icon: LucideIcons.award,
+                title: l10n.localeName == 'ar'
+                    ? 'الشارة والتصنيف الأسبوعي'
+                    : 'Weekly Badge & Ranking',
+                onTap: () => context.push('/ranking'),
               ),
               const SizedBox(height: 12),
               _buildProfileNavigationTile(
@@ -442,7 +472,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 32),
               Text(l10n.performance, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
               const SizedBox(height: 16),
-              _buildPerformanceField(LucideIcons.star, l10n.rating, '${data['rating'] ?? 500} pts'),
+              _buildPerformanceField(
+                LucideIcons.award,
+                l10n.localeName == 'ar' ? 'الشارة الأسبوعية' : 'Weekly Badge',
+                l10n.tierLabel(data['tier'] ?? l10n.standardTier),
+              ),
               _buildPerformanceField(LucideIcons.package, l10n.totalOrders, '${data['totalOrders'] ?? 0}'),
               
               const SizedBox(height: 32),
@@ -656,6 +690,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           onRefresh: () async {
             await ref.read(driverProfileProvider.notifier).fetchProfile();
             ref.invalidate(breaksOverviewProvider);
+            ref.invalidate(driverRankingSummaryProvider);
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -668,6 +703,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   const SizedBox(height: 24),
                   _buildBreakNavigationCard(currentStatus, l10n),
                 ],
+                const SizedBox(height: 24),
+                _buildWeeklyRankingNavigationCard(data, l10n),
                 const SizedBox(height: 24),
                 _buildStatsRow(data, currency, l10n),
                 const SizedBox(height: 24),
@@ -837,6 +874,118 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyRankingNavigationCard(
+    Map<dynamic, dynamic> profileData,
+    AppLocalizations l10n,
+  ) {
+    final isAr = l10n.localeName == 'ar';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rankingAsync = ref.watch(driverRankingSummaryProvider);
+    final summary = rankingAsync.asData?.value;
+
+    final rawTierStr =
+        (summary?.currentTier.name ?? profileData['tier'] ?? 'BRONZE')
+            .toString()
+            .toUpperCase();
+    final tier = rawTierStr == 'GOLD'
+        ? DriverTier.GOLD
+        : (rawTierStr == 'SILVER' ? DriverTier.SILVER : DriverTier.BRONZE);
+    final visuals = DriverTierVisuals.of(tier, isDark: isDark);
+    final livePct = summary?.currentWeekProgress?.performancePercentage;
+
+    return InkWell(
+      onTap: () => context.push('/ranking'),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: visuals.border, width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: visuals.background,
+                shape: BoxShape.circle,
+                border: Border.all(color: visuals.border),
+              ),
+              child: Icon(visuals.icon, color: visuals.primary, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          visuals.label(isAr),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: visuals.primary,
+                          ),
+                        ),
+                      ),
+                      if (livePct != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: visuals.background,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${livePct.toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: visuals.primary,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isAr
+                        ? 'عرض مؤشرات الأداء الأسبوعي (القبول، الإتمام، الانضباط)'
+                        : 'View weekly performance KPIs (Acceptance, Completion, Punctuality)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const AppAdaptiveChevron(size: 18),
+          ],
+        ),
       ),
     );
   }

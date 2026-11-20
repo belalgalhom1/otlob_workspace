@@ -172,4 +172,3 @@ class _$AuditLogsControllerFindAll200ResponseSerializer implements PrimitiveSeri
   }
 }
 
-

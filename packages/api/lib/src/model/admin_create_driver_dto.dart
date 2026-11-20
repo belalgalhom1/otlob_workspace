@@ -4,6 +4,7 @@
 
 // ignore_for_file: unused_element
 import 'package:built_collection/built_collection.dart';
+import 'package:api/src/model/driver_tier.dart';
 import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
@@ -57,7 +58,8 @@ abstract class AdminCreateDriverDto implements Built<AdminCreateDriverDto, Admin
   // enum statusEnum {  OFFLINE,  ONLINE,  BUSY,  ON_DELIVERY,  ON_BREAK,  SUSPENDED,  };
 
   @BuiltValueField(wireName: r'tier')
-  String? get tier;
+  DriverTier? get tier;
+  // enum tierEnum {  BRONZE,  SILVER,  GOLD,  };
 
   @BuiltValueField(wireName: r'isApproved')
   bool? get isApproved;
@@ -72,7 +74,8 @@ abstract class AdminCreateDriverDto implements Built<AdminCreateDriverDto, Admin
 
   @BuiltValueHook(initializeBuilder: true)
   static void _defaults(AdminCreateDriverDtoBuilder b) => b
-      ..vehicleType = AdminCreateDriverDtoVehicleTypeEnum.valueOf('MOTORCYCLE');
+      ..vehicleType = AdminCreateDriverDtoVehicleTypeEnum.valueOf('MOTORCYCLE')
+      ..tier = DriverTier.SILVER;
 
   @BuiltValueSerializer(custom: true)
   static Serializer<AdminCreateDriverDto> get serializer => _$AdminCreateDriverDtoSerializer();
@@ -147,7 +150,7 @@ class _$AdminCreateDriverDtoSerializer implements PrimitiveSerializer<AdminCreat
       yield r'tier';
       yield serializers.serialize(
         object.tier,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType(DriverTier),
       );
     }
     if (object.isApproved != null) {
@@ -253,8 +256,8 @@ class _$AdminCreateDriverDtoSerializer implements PrimitiveSerializer<AdminCreat
         case r'tier':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType(DriverTier),
+          ) as DriverTier;
           result.tier = valueDes;
           break;
         case r'isApproved':

@@ -10,6 +10,7 @@ import 'package:driver/features/dashboard/presentation/dashboard_screen.dart'
     show pendingAssistOffersProvider;
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/core/providers/driver_breaks_provider.dart';
+import 'package:driver/features/ranking/presentation/driver_ranking_provider.dart';
 
 class _DispatchLifecycleObserver with WidgetsBindingObserver {
   final Future<void> Function() onResume;
@@ -91,6 +92,11 @@ final globalMessageListenerProvider = Provider<void>((ref) {
       }
       return;
     }
+    if (kind == 'driver_ranking') {
+      ref.invalidate(driverProfileProvider);
+      ref.invalidate(driverRankingSummaryProvider);
+      return;
+    }
     if (action == 'assist_offer') {
       ref.invalidate(pendingAssistOffersProvider);
     } else if (data['orderId'] != null) {
@@ -123,6 +129,13 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     ref.read(orderExecutionProvider.notifier).refresh();
   }));
 
+  subscriptions.add(socketService.onEvent(SocketEvent.driverRankUpdated).listen((_) {
+    if (!ref.mounted) return;
+    debugPrint('Global listener: driverRankUpdated -> refreshing driver profile & ranking summary');
+    ref.invalidate(driverProfileProvider);
+    ref.invalidate(driverRankingSummaryProvider);
+  }));
+
   // 2. WebSocket Reconnection Fallback
   subscriptions.add(socketService.onConnect.listen((_) {
     if (!ref.mounted) return;
@@ -140,6 +153,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
       ref.invalidate(configurationProvider);
       // Break decisions may have landed while backgrounded (missed socket).
       ref.invalidate(breaksOverviewProvider);
+      ref.invalidate(driverRankingSummaryProvider);
       // Make sure the socket and GPS stream are up again so live dispatch
       // events keep flowing instead of relying only on the HTTP fallback.
       final profileValue = ref.read(driverProfileProvider).value;
