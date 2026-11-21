@@ -56,10 +56,34 @@ export function resolveVendorDisplayLogo(
 ): string | null {
   if (!vendor) return null;
   const logo = typeof vendor.logo === 'string' ? vendor.logo.trim() : '';
-  if (logo.length > 0) return logo;
+  if (logo.length > 0 && logo.toLowerCase() !== 'null' && logo.toLowerCase() !== 'undefined') {
+    return logo;
+  }
   const cover =
     typeof vendor.coverImage === 'string' ? vendor.coverImage.trim() : '';
-  return cover.length > 0 ? cover : null;
+  if (cover.length > 0 && cover.toLowerCase() !== 'null' && cover.toLowerCase() !== 'undefined') {
+    return cover;
+  }
+  return null;
+}
+
+export function resolveDriverDisplayAvatar(
+  driver?: {
+    avatar?: string | null;
+    user?: { avatar?: string | null } | null;
+  } | null,
+): string | null {
+  if (!driver) return null;
+  const candidates = [driver.avatar, driver.user?.avatar];
+  for (const raw of candidates) {
+    if (typeof raw !== 'string') continue;
+    const trimmed = raw.trim();
+    const lower = trimmed.toLowerCase();
+    if (trimmed.length > 0 && lower !== 'null' && lower !== 'undefined') {
+      return trimmed;
+    }
+  }
+  return null;
 }
 
 export interface EventActorUserInfo {

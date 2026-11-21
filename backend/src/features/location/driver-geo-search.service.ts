@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DriverStatus, DriverTier } from '@prisma/client';
+import { DriverStatus, DriverTier, OrderType, VehicleType } from '@prisma/client';
 import { DRIVER_ACTIVE_ORDER_STATUSES } from '../../common/orders/order-status.constants';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { LocationRepository } from './location.repository';
@@ -10,6 +10,15 @@ const GEO_POOL_ACTIVE_DRIVER_STATUSES: readonly string[] = [
 ];
 
 const MAX_DISPATCH_CANDIDATES = 20;
+
+export const STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES: readonly VehicleType[] = [
+  VehicleType.MOTORCYCLE,
+  VehicleType.BICYCLE,
+];
+
+const VALID_VEHICLE_TYPES: ReadonlySet<string> = new Set(
+  Object.values(VehicleType),
+);
 
 export interface NearbyDriverMatch {
   id: string;
@@ -32,39 +41,137 @@ export interface VehicleAvailabilitySettings {
 }
 
 /**
- * Resolves eligible vehicle types for a trip/order based on platform settings
- * and maximum bicycle distance constraints.
+ * Verifies that a driver's registered vehicle type is a recognized, valid enum value.
+ */
+export function isValidRegisteredVehicleType(
+  vehicleType: unknown,
+): vehicleType is VehicleType {
+  return (
+    typeof vehicleType === 'string' && VALID_VEHICLE_TYPES.has(vehicleType)
+  );
+}
+
+/**
+ * Verifies that a registered vehicle type is both valid and enabled/active in platform settings.
+ */
+export function isVehicleTypeActiveInSettings(
+  vehicleType: unknown,
+  settings: VehicleAvailabilitySettings,
+): boolean {
+  if (!isValidRegisteredVehicleType(vehicleType)) return false;
+  switch (vehicleType) {
+    case VehicleType.BICYCLE:
+      return Boolean(settings.allowBicycle);
+    case VehicleType.MOTORCYCLE:
+      return Boolean(settings.allowMotorcycle);
+    case VehicleType.CAR:
+      return Boolean(settings.allowCar);
+    case VehicleType.VAN:
+      return Boolean(settings.allowVan);
+    case VehicleType.TRUCK:
+      return Boolean(settings.allowTruck);
+    case VehicleType.MOTOR_TRICYCLE:
+      return Boolean(settings.allowMotorTricycle);
+    default:
+      return false;
+  }
+}
+
+/**
+ * Resolves eligible vehicle types for a trip/order based on order type,
+ * platform settings, and maximum bicycle distance constraints.
+ *
+ * STANDARD orders are strictly restricted to active MOTORCYCLE and BICYCLE drivers;
+ * CUSTOM_DELIVERY and RIDE preserve their existing vehicle eligibility rules.
  */
 export function resolveAllowedVehicleTypes(
   requestedVehicleType: string | null | undefined,
   orderDistanceKm: number,
   settings: VehicleAvailabilitySettings,
+  orderType?: OrderType | string | null,
 ): string[] {
+  const maxBicycleKm = Number(settings.maxKmForBicycle ?? 5.0);
+
+  if (orderType === OrderType.STANDARD) {
+    const allowed: string[] = [];
+    if (
+      requestedVehicleType === VehicleType.MOTORCYCLE ||
+      requestedVehicleType === VehicleType.BICYCLE
+    ) {
+      if (
+        requestedVehicleType === VehicleType.MOTORCYCLE &&
+        settings.allowMotorcycle
+      ) {
+        allowed.push(VehicleType.MOTORCYCLE);
+      } else if (
+        requestedVehicleType === VehicleType.BICYCLE &&
+        settings.allowBicycle &&
+        orderDistanceKm <= maxBicycleKm
+      ) {
+        allowed.push(VehicleType.BICYCLE);
+      }
+      return allowed;
+    }
+
+    if (settings.allowMotorcycle) allowed.push(VehicleType.MOTORCYCLE);
+    if (settings.allowBicycle && orderDistanceKm <= maxBicycleKm) {
+      allowed.push(VehicleType.BICYCLE);
+    }
+    return allowed;
+  }
+
   if (requestedVehicleType) {
-    const v = requestedVehicleType;
-    const isAllowed =
-      (v === 'BICYCLE' && settings.allowBicycle) ||
-      (v === 'MOTORCYCLE' && settings.allowMotorcycle) ||
-      (v === 'CAR' && settings.allowCar) ||
-      (v === 'VAN' && settings.allowVan) ||
-      (v === 'TRUCK' && settings.allowTruck) ||
-      (v === 'MOTOR_TRICYCLE' && settings.allowMotorTricycle);
-    return isAllowed ? [v] : [];
+    return isVehicleTypeActiveInSettings(requestedVehicleType, settings)
+      ? [requestedVehicleType]
+      : [];
   }
 
   const allowed: string[] = [];
-  if (settings.allowMotorcycle) allowed.push('MOTORCYCLE');
-  if (
-    settings.allowBicycle &&
-    orderDistanceKm <= (settings.maxKmForBicycle ?? 5.0)
-  ) {
-    allowed.push('BICYCLE');
+  if (settings.allowMotorcycle) allowed.push(VehicleType.MOTORCYCLE);
+  if (settings.allowBicycle && orderDistanceKm <= maxBicycleKm) {
+    allowed.push(VehicleType.BICYCLE);
   }
-  if (settings.allowCar) allowed.push('CAR');
-  if (settings.allowVan) allowed.push('VAN');
-  if (settings.allowTruck) allowed.push('TRUCK');
-  if (settings.allowMotorTricycle) allowed.push('MOTOR_TRICYCLE');
+  if (settings.allowCar) allowed.push(VehicleType.CAR);
+  if (settings.allowVan) allowed.push(VehicleType.VAN);
+  if (settings.allowTruck) allowed.push(VehicleType.TRUCK);
+  if (settings.allowMotorTricycle) allowed.push(VehicleType.MOTOR_TRICYCLE);
   return allowed;
+}
+
+/**
+ * Authoritative single-source-of-truth check confirming a driver's registered
+ * vehicle type is valid, active, and eligible for the target order.
+ */
+export function isDriverVehicleEligibleForOrder(params: {
+  orderType?: OrderType | string | null;
+  requestedVehicleType?: string | null;
+  driverVehicleType: unknown;
+  orderDistanceKm: number;
+  settings: VehicleAvailabilitySettings;
+}): boolean {
+  const {
+    orderType,
+    requestedVehicleType,
+    driverVehicleType,
+    orderDistanceKm,
+    settings,
+  } = params;
+  if (!isValidRegisteredVehicleType(driverVehicleType)) {
+    return false;
+  }
+  if (
+    orderType === OrderType.STANDARD &&
+    !STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES.includes(driverVehicleType)
+  ) {
+    return false;
+  }
+  const allowed = resolveAllowedVehicleTypes(
+    requestedVehicleType,
+    orderDistanceKm,
+    settings,
+    orderType,
+  );
+  return allowed.includes(driverVehicleType);
 }
 
 /**
@@ -89,6 +196,8 @@ export class DriverGeoSearchService {
     requireActiveShift: boolean = false,
     dropoffLocation?: { lng: number; lat: number } | null,
   ): Promise<NearbyDriverMatch[]> {
+    if (allowedVehicleTypes.length === 0) return [];
+
     const settings = await this.platformSettings.getSettings();
     const geoCandidateLimit = Number(
       settings.driverSearchGeoCandidateLimit ?? 200,

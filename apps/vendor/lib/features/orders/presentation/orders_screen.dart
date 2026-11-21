@@ -1006,6 +1006,47 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     return const {};
   }
 
+  Map<dynamic, dynamic> _resolveAssignedAssistDriver(dynamic order) {
+    if (order is! Map) return const {};
+    if (order['assistDriver'] is Map &&
+        (order['assistDriver'] as Map).isNotEmpty) {
+      return order['assistDriver'] as Map;
+    }
+    final groups = order['deliveryGroups'];
+    if (groups is! List || groups.isEmpty) return const {};
+    for (final g in groups.whereType<Map>()) {
+      if (g['status']?.toString() == 'CANCELLED') continue;
+      final drv = g['assistDriver'];
+      if (drv is Map && drv.isNotEmpty) return drv;
+    }
+    return const {};
+  }
+
+  String _resolveDriverAvatarForOrder(
+    dynamic order,
+    Map<dynamic, dynamic> driver,
+  ) {
+    final direct = ImageUtils.resolveDriverAvatarUrl(driver);
+    if (direct.isNotEmpty) return direct;
+    final targetId = driver['id']?.toString() ?? '';
+    final groups = order is Map ? order['deliveryGroups'] : null;
+    if (groups is List) {
+      for (final g in groups.whereType<Map>()) {
+        for (final key in const ['primaryDriver', 'driver', 'assistDriver']) {
+          final candidate = g[key];
+          if (candidate is! Map) continue;
+          if (targetId.isNotEmpty &&
+              candidate['id']?.toString() != targetId) {
+            continue;
+          }
+          final url = ImageUtils.resolveDriverAvatarUrl(candidate);
+          if (url.isNotEmpty) return url;
+        }
+      }
+    }
+    return '';
+  }
+
   Widget _buildSleekOrderCard(
     BuildContext context,
     dynamic order,
@@ -1015,16 +1056,34 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final status = order['status']?.toString() ?? 'PENDING';
     final driver = _resolveAssignedDriver(order);
     final driverUser = driver['user'] is Map ? driver['user'] as Map : null;
+    final driverId = driver['id']?.toString().trim() ?? '';
     final driverName =
         (driver['name'] ?? driverUser?['name'] ?? '').toString().trim();
     final driverPhone =
         (driverUser?['phone'] ?? driver['phone'] ?? '').toString().trim();
-    final driverAvatar = _firstNonEmptyMedia([
-      driver['avatar'],
-      driver['avatarUrl'],
-      driver['profileImage'],
-      driverUser?['avatar'],
-    ]);
+    final driverAvatar = _resolveDriverAvatarForOrder(order, driver);
+    final hasAssignedDriver =
+        driverName.isNotEmpty || driverId.isNotEmpty || driverPhone.isNotEmpty;
+    final displayDriverName = driverName.isNotEmpty
+        ? driverName
+        : (isArabic ? 'سائق' : 'Driver');
+    final assistDriver = _resolveAssignedAssistDriver(order);
+    final assistDriverUser =
+        assistDriver['user'] is Map ? assistDriver['user'] as Map : null;
+    final assistDriverId = assistDriver['id']?.toString().trim() ?? '';
+    final assistDriverName =
+        (assistDriver['name'] ?? assistDriverUser?['name'] ?? '')
+            .toString()
+            .trim();
+    final assistDriverPhone =
+        (assistDriverUser?['phone'] ?? assistDriver['phone'] ?? '')
+            .toString()
+            .trim();
+    final assistDriverAvatar =
+        _resolveDriverAvatarForOrder(order, assistDriver);
+    final hasAssistDriver =
+        (assistDriverName.isNotEmpty || assistDriverId.isNotEmpty) &&
+            (assistDriverId.isEmpty || assistDriverId != driverId);
     final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
     final distinctVendorIds = <String>{};
     for (final f in fulfillments) {
@@ -1490,6 +1549,63 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             ),
                           ],
                         ),
+                        if (!isExpanded && hasAssignedDriver) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.035),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withValues(alpha: 0.07),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                AppNetworkAvatar(
+                                  key: ValueKey(
+                                    'ord_collapsed_drv_${orderId}_${driverId}_$driverAvatar',
+                                  ),
+                                  imageUrl: driverAvatar,
+                                  size: 24,
+                                  fallbackIcon: LucideIcons.user,
+                                  fallbackIconSize: 13,
+                                  backgroundColor:
+                                      AppColors.primary.withValues(alpha: 0.12),
+                                  foregroundColor: AppColors.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    [
+                                      '${isArabic ? 'السائق:' : 'Driver:'} $displayDriverName',
+                                      if (vehicleType.isNotEmpty)
+                                        '(${vehicleType.toUpperCase()})',
+                                    ].join(' '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1642,21 +1758,27 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                               : 'Not Specified'),
                                     iconColor: statusColor,
                                   ),
-                                  if (driverName.isNotEmpty) ...[
+                                  if (hasAssignedDriver) ...[
                                     const SizedBox(height: 12),
                                     _buildPremiumDetailRow(
-                                      icon: LucideIcons.truck,
+                                      icon: LucideIcons.user,
                                       leading: AppNetworkAvatar(
-                                        imageUrl: ImageUtils.formatImageUrl(driverAvatar),
-                                        size: 30,
-                                        fallbackIcon: LucideIcons.truck,
-                                        fallbackIconSize: 15,
+                                        key: ValueKey(
+                                          'ord_driver_avatar_${orderId}_${driverId}_$driverAvatar',
+                                        ),
+                                        imageUrl: driverAvatar,
+                                        size: 32,
+                                        fallbackIcon: LucideIcons.user,
+                                        fallbackIconSize: 16,
+                                        backgroundColor: statusColor
+                                            .withValues(alpha: 0.12),
+                                        foregroundColor: statusColor,
                                       ),
                                       title: isArabic
                                           ? 'السائق المسؤول'
                                           : 'Assigned Driver',
                                       value: [
-                                        driverName,
+                                        displayDriverName,
                                         if (vehicleType.isNotEmpty ||
                                             vehiclePlate.isNotEmpty)
                                           '(${vehicleType.toUpperCase()}${vehiclePlate.isNotEmpty ? ' - $vehiclePlate' : ''})',
@@ -1696,6 +1818,35 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                               ),
                                             )
                                           : null,
+                                    ),
+                                  ],
+                                  if (hasAssistDriver) ...[
+                                    const SizedBox(height: 12),
+                                    _buildPremiumDetailRow(
+                                      icon: LucideIcons.user,
+                                      leading: AppNetworkAvatar(
+                                        key: ValueKey(
+                                          'ord_assist_driver_avatar_${orderId}_${assistDriverId}_$assistDriverAvatar',
+                                        ),
+                                        imageUrl: assistDriverAvatar,
+                                        size: 32,
+                                        fallbackIcon: LucideIcons.user,
+                                        fallbackIconSize: 16,
+                                        backgroundColor: AppColors.primary
+                                            .withValues(alpha: 0.12),
+                                        foregroundColor: AppColors.primary,
+                                      ),
+                                      title: isArabic
+                                          ? 'السائق المساعد'
+                                          : 'Assisting Driver',
+                                      value: [
+                                        assistDriverName.isNotEmpty
+                                            ? assistDriverName
+                                            : (isArabic ? 'سائق' : 'Driver'),
+                                        if (assistDriverPhone.isNotEmpty)
+                                          assistDriverPhone,
+                                      ].join(' '),
+                                      iconColor: AppColors.primary,
                                     ),
                                   ],
                                   if (order['paymentReceiptUrl'] != null &&
@@ -1760,6 +1911,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                             builder: (ctx) => AssignDriverSheet(
                                               orderId: order['id'].toString(),
                                               orderCode: code,
+                                              orderType:
+                                                  order['type']?.toString(),
                                               deliveryGroups:
                                                   order['deliveryGroups']
                                                       as List<dynamic>?,
@@ -1896,7 +2049,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         _buildStatusEventsHistory(context, order, isArabic),
 
                         // Delivery Success Banner
-                        if (status == 'DELIVERED' && driverName.isNotEmpty) ...[
+                        if (status == 'DELIVERED' && hasAssignedDriver) ...[
                           const SizedBox(height: 16),
                           Container(
                             padding: const EdgeInsets.all(12),
@@ -1910,10 +2063,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             child: Row(
                               children: [
                                 AppNetworkAvatar(
-                                  imageUrl: ImageUtils.formatImageUrl(driverAvatar),
+                                  key: ValueKey(
+                                    'ord_delivered_drv_${orderId}_${driverId}_$driverAvatar',
+                                  ),
+                                  imageUrl: driverAvatar,
                                   size: 28,
-                                  fallbackIcon: LucideIcons.checkCircle,
-                                  fallbackIconSize: 18,
+                                  fallbackIcon: LucideIcons.user,
+                                  fallbackIconSize: 16,
                                   backgroundColor:
                                       AppColors.success.withValues(alpha: 0.14),
                                   foregroundColor: AppColors.success,
@@ -1922,8 +2078,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                 Expanded(
                                   child: Text(
                                     isArabic
-                                        ? 'تم التوصيل بنجاح بواسطة السائق: $driverName'
-                                        : 'Successfully delivered by driver: $driverName',
+                                        ? 'تم التوصيل بنجاح بواسطة السائق: $displayDriverName'
+                                        : 'Successfully delivered by driver: $displayDriverName',
                                     style: const TextStyle(
                                       color: AppColors.success,
                                       fontWeight: FontWeight.bold,

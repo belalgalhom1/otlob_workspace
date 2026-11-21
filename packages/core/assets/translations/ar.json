@@ -1866,6 +1866,7 @@
   "driver_error_break_not_pending": "طلب الاستراحة ده مش مستني خلاص.",
   "driver_error_break_not_found": "الاستراحة مش موجودة.",
   "order_error_vehicle_type_disabled": "نوع المركبة ده مش متاح دلوقتي.",
+  "order_error_standard_order_vehicle_not_eligible": "الطلبات العادية متاحة لسائقي الدراجات النارية أو الهوائية المؤهلين فقط.",
   "order_error_concurrent_modification": "حد تاني عدّل الطلب، حدّث الصفحة وجرب تاني.",
   "order_error_concurrent_state_change": "حد تاني غيّر حالة الطلب.",
   "order_error_min_order_amount_not_met": "قيمة الطلب أقل من الحد الأدنى المطلوب.",

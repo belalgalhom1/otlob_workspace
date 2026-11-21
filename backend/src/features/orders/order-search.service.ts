@@ -121,6 +121,7 @@ export class OrderSearchService {
       lng: query.lng,
       lat: query.lat,
       radiusKm,
+      orderType: query.type ?? null,
       requestedVehicleType: effectiveVehicleType ?? null,
       orderDistanceKm: 0,
       requireActiveShift: false,
@@ -322,6 +323,7 @@ export class OrderSearchService {
           lng: locationCtx.lng,
           lat: locationCtx.lat,
           radiusKm,
+          orderType: order.type,
           requestedVehicleType: order.requestedVehicleType ?? null,
           orderDistanceKm: Number(order.distanceKm ?? 0),
           requireActiveShift: requiresActiveShiftForOrderType(
@@ -646,6 +648,7 @@ export class OrderSearchService {
     lng: number;
     lat: number;
     radiusKm: number;
+    orderType?: OrderType | null;
     requestedVehicleType: string | null;
     orderDistanceKm: number;
     requireActiveShift: boolean;
@@ -655,6 +658,7 @@ export class OrderSearchService {
       params.requestedVehicleType,
       params.orderDistanceKm,
       params.settings,
+      params.orderType,
     );
     if (allowedVehicleTypes.length === 0) return [];
 

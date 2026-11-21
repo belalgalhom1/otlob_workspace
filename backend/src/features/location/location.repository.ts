@@ -315,12 +315,11 @@ export class LocationRepository {
       dropoffLocation,
     } = params;
 
-    if (candidateIds.length === 0) return [];
+    if (candidateIds.length === 0 || allowedVehicleTypes.length === 0) {
+      return [];
+    }
 
-    const vehicleTypeCond =
-      allowedVehicleTypes.length > 0
-        ? Prisma.sql`AND d."vehicleType"::text IN (${Prisma.join(allowedVehicleTypes)})`
-        : Prisma.empty;
+    const vehicleTypeCond = Prisma.sql`AND d."vehicleType" IS NOT NULL AND d."vehicleType"::text IN (${Prisma.join(allowedVehicleTypes)})`;
 
     const activeShiftCond = requireActiveShift
       ? Prisma.sql`AND ds.id IS NOT NULL`

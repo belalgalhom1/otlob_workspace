@@ -8,7 +8,10 @@ import {
 } from '../../../common/orders/order-financials.helper';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../../platform-settings/platform-settings.service';
-import { resolveVendorDisplayLogo } from '../helpers/order-actor.helper';
+import {
+  resolveDriverDisplayAvatar,
+  resolveVendorDisplayLogo,
+} from '../helpers/order-actor.helper';
 import { OrderAuthorizationHelper } from '../helpers/order-authorization.helper';
 
 export interface RoleProjectionContext {
@@ -1020,7 +1023,10 @@ export class OrderRoleProjector {
       nonCancelledGroups[0] ??
       null;
     const normalizedDriver = this.normalizeDriverProjection(
-      portionGroup?.primaryDriver ?? null,
+      portionGroup?.primaryDriver ?? order.driver ?? null,
+    );
+    const normalizedAssistDriver = this.normalizeDriverProjection(
+      portionGroup?.assistDriver ?? null,
     );
     const normalizedItems = Array.isArray(items)
       ? items.map((i: any) => this.normalizeItemImage(i))
@@ -1052,6 +1058,7 @@ export class OrderRoleProjector {
       deliveryGroups: [],
       driverId: portionGroup?.primaryDriverId ?? normalizedDriver?.id ?? null,
       driver: normalizedDriver,
+      ...(normalizedAssistDriver ? { assistDriver: normalizedAssistDriver } : {}),
       vendor: this.normalizeVendorProjection(primaryFulfillment?.vendor ?? null),
       vendorBranch: primaryFulfillment?.vendorBranch ?? null,
       financials: {
@@ -1240,12 +1247,19 @@ export class OrderRoleProjector {
         sanitized.items ?? [],
       );
     }
+    if (Array.isArray(sanitized.deliveryGroups)) {
+      sanitized.deliveryGroups = this.normalizeDeliveryGroupsDrivers(
+        sanitized.deliveryGroups,
+      );
+    }
 
     return {
       ...sanitized,
       driverBonusPaidByCustomer,
       customerDriverBonusFee,
-      driver: this.normalizeDriverProjection(primaryDriver ?? null),
+      driver: this.normalizeDriverProjection(
+        primaryDriver ?? order.driver ?? null,
+      ),
       fulfillmentSummary,
       financials: {
         viewRole: 'CUSTOMER',
@@ -1443,6 +1457,11 @@ export class OrderRoleProjector {
     const primaryDriver =
       collectorGroup?.primaryDriver ??
       activeDeliveryGroups.find((g: any) => g.primaryDriver)?.primaryDriver ??
+      order.driver ??
+      null;
+    const assistDriver =
+      collectorGroup?.assistDriver ??
+      activeDeliveryGroups.find((g: any) => g.assistDriver)?.assistDriver ??
       null;
 
     const normalizedOrderItems = Array.isArray(order.items)
@@ -1452,11 +1471,18 @@ export class OrderRoleProjector {
       fulfillments,
       normalizedOrderItems,
     );
+    const normalizedDeliveryGroups = Array.isArray(order.deliveryGroups)
+      ? this.normalizeDeliveryGroupsDrivers(order.deliveryGroups)
+      : order.deliveryGroups;
+    const normalizedAssistDriver = this.normalizeDriverProjection(assistDriver);
 
     return {
       ...order,
       items: normalizedOrderItems,
       vendorFulfillments: normalizedAdminFulfillments,
+      ...(normalizedDeliveryGroups !== undefined
+        ? { deliveryGroups: normalizedDeliveryGroups }
+        : {}),
       isMultiVendor: isMultiVendorOrder,
       isStacked,
       driverEarnings,
@@ -1472,6 +1498,9 @@ export class OrderRoleProjector {
           ?.primaryDriverId ??
         null,
       driver: this.normalizeDriverProjection(primaryDriver),
+      ...(normalizedAssistDriver
+        ? { assistDriver: normalizedAssistDriver }
+        : {}),
       financials: {
         viewRole: 'ADMIN',
         cashToCollect,
@@ -1604,7 +1633,7 @@ export class OrderRoleProjector {
 
   private normalizeDriverProjection(driver: any) {
     if (!driver || typeof driver !== 'object') return null;
-    const resolvedAvatar = driver.avatar ?? driver.user?.avatar ?? null;
+    const resolvedAvatar = resolveDriverDisplayAvatar(driver);
     return {
       ...driver,
       avatar: resolvedAvatar,
@@ -1612,11 +1641,28 @@ export class OrderRoleProjector {
         ? {
             user: {
               ...driver.user,
-              avatar: driver.user.avatar ?? resolvedAvatar,
+              avatar:
+                resolveDriverDisplayAvatar({ avatar: driver.user.avatar }) ??
+                resolvedAvatar,
             },
           }
         : {}),
     };
+  }
+
+  private normalizeDeliveryGroupsDrivers(groups: any[]) {
+    return groups.map((g: any) => {
+      if (!g || typeof g !== 'object') return g;
+      return {
+        ...g,
+        ...(g.primaryDriver !== undefined
+          ? { primaryDriver: this.normalizeDriverProjection(g.primaryDriver) }
+          : {}),
+        ...(g.assistDriver !== undefined
+          ? { assistDriver: this.normalizeDriverProjection(g.assistDriver) }
+          : {}),
+      };
+    });
   }
 
   private normalizeItemImage(item: any) {

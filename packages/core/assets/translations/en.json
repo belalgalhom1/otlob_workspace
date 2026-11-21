@@ -1866,6 +1866,7 @@
   "driver_error_break_not_pending": "This break request is no longer pending.",
   "driver_error_break_not_found": "Break not found.",
   "order_error_vehicle_type_disabled": "Selected vehicle type is currently disabled.",
+  "order_error_standard_order_vehicle_not_eligible": "Standard orders can only be assigned to eligible Motorcycle or Bicycle drivers.",
   "order_error_concurrent_modification": "Order was modified by another request. Please refresh.",
   "order_error_concurrent_state_change": "Order status was changed by another request.",
   "order_error_min_order_amount_not_met": "Minimum order amount not met.",

@@ -798,5 +798,92 @@ describe('OrdersService financial projections & vendor isolation', () => {
         null,
       ]);
     });
+
+    it('normalizes primaryDriver and assistDriver avatars from user.avatar when driver.avatar is blank/null across Admin and Vendor projections', async () => {
+      mockPrisma.vendorMember = {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { vendorId: 'v-1', branchId: null, role: 'OWNER' },
+          ]),
+      };
+
+      const orderWithDrivers = {
+        id: 'ord-drv-av',
+        status: 'DRIVER_ASSIGNED',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        grandTotal: 150,
+        deliveryFee: 25,
+        vendorFulfillments: [
+          {
+            id: 'ff-1',
+            vendorId: 'v-1',
+            status: 'PREPARING',
+            subtotal: 125,
+            vendor: { id: 'v-1', storeName: 'Store One', logo: '/logo.webp' },
+            items: [],
+          },
+        ],
+        deliveryGroups: [
+          {
+            id: 'grp-1',
+            status: 'DRIVER_ASSIGNED',
+            isPaymentCollector: true,
+            primaryDriverId: 'drv-1',
+            primaryDriver: {
+              id: 'drv-1',
+              name: 'Karim Captain',
+              avatar: '   ',
+              user: {
+                id: 'u-drv-1',
+                name: 'Karim Captain',
+                phone: '01112223344',
+                avatar: '/media/drivers/avatars/karim.webp',
+              },
+            },
+            assistDriverId: 'drv-2',
+            assistDriver: {
+              id: 'drv-2',
+              name: 'Tarek Helper',
+              avatar: 'null',
+              user: {
+                id: 'u-drv-2',
+                name: 'Tarek Helper',
+                phone: '01223334455',
+                avatar: null,
+              },
+            },
+            items: [{ fulfillmentId: 'ff-1' }],
+          },
+        ],
+        items: [],
+      };
+
+      const adminProjected = await (ordersService as any).enrichWithAdminHelpers(
+        orderWithDrivers,
+      );
+      expect(adminProjected.driver?.avatar).toBe(
+        '/media/drivers/avatars/karim.webp',
+      );
+      expect(adminProjected.deliveryGroups[0].primaryDriver?.avatar).toBe(
+        '/media/drivers/avatars/karim.webp',
+      );
+      expect(adminProjected.assistDriver?.avatar).toBeNull();
+      expect(adminProjected.deliveryGroups[0].assistDriver?.avatar).toBeNull();
+
+      const vendorProjected = await (ordersService as any).projectForVendor(
+        orderWithDrivers,
+        { sub: 'u-vendor', role: 'VENDOR_MEMBER' },
+        'v-1',
+      );
+      expect(vendorProjected.driver?.avatar).toBe(
+        '/media/drivers/avatars/karim.webp',
+      );
+      expect(vendorProjected.driver?.user?.avatar).toBe(
+        '/media/drivers/avatars/karim.webp',
+      );
+      expect(vendorProjected.assistDriver?.id).toBe('drv-2');
+      expect(vendorProjected.assistDriver?.avatar).toBeNull();
+    });
   });
 });

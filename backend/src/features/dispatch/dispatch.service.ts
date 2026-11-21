@@ -21,6 +21,7 @@ import { PlatformSettingsService } from '../platform-settings/platform-settings.
 import { LocationRepository } from '../location/location.repository';
 import {
   DriverGeoSearchService,
+  isDriverVehicleEligibleForOrder,
   resolveAllowedVehicleTypes,
 } from '../location/driver-geo-search.service';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
@@ -140,12 +141,13 @@ export class DispatchService implements DispatchPort {
       dispatchContext.requestedVehicleType,
       orderDistanceKm,
       settings,
+      order.type,
     );
     if (allowedVehicleTypes.length === 0) {
       this.logger.warn(
-        `No allowed vehicle types for order ${orderNumber}. Dispatch aborted.`,
+        `No allowed vehicle types for order ${orderNumber} (type=${order.type}, distanceKm=${orderDistanceKm}).`,
       );
-      return 'invalid';
+      return order.type === OrderType.STANDARD ? 'no_drivers' : 'invalid';
     }
 
     await this.searchTracker?.publishPhase({
@@ -180,14 +182,24 @@ export class DispatchService implements DispatchPort {
       dropoffLocation,
     );
 
-    if (nearbyDrivers.length === 0) {
+    const eligibleDrivers = nearbyDrivers.filter((candidate) =>
+      isDriverVehicleEligibleForOrder({
+        orderType: order.type,
+        requestedVehicleType: dispatchContext.requestedVehicleType,
+        driverVehicleType: candidate.vehicleType,
+        orderDistanceKm,
+        settings,
+      }),
+    );
+
+    if (eligibleDrivers.length === 0) {
       this.logger.warn(
-        `No available drivers within ${radiusKm}km for order ${orderNumber} (attempt ${attempt})`,
+        `No eligible available drivers (${allowedVehicleTypes.join(', ')}) within ${radiusKm}km for order ${orderNumber} (attempt ${attempt})`,
       );
       return 'no_drivers';
     }
 
-    const selectedDrivers = nearbyDrivers.slice(0, batchSize);
+    const selectedDrivers = eligibleDrivers.slice(0, batchSize);
     const perKmOverride = dispatchContext.requestedVehicleType
       ? await this.platformSettings.getVehiclePerKm(
           dispatchContext.requestedVehicleType,

@@ -10,7 +10,9 @@ import {
   DriverAssistRequestStatus,
   DriverShiftStatus,
   DriverStatus,
+  OrderType,
   Prisma,
+  VehicleType,
 } from '@prisma/client';
 import { DriverErrors } from '../../common/constants/response.constants';
 import { DriverAssistOfferedEvent } from '../../common/events';
@@ -21,6 +23,10 @@ import type { JwtAccessPayload } from '../../common/interfaces/jwt-payload.inter
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 import { LocationRepository } from '../location/location.repository';
+import {
+  isDriverVehicleEligibleForOrder,
+  resolveAllowedVehicleTypes,
+} from '../location/driver-geo-search.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 
 @Injectable()
@@ -353,18 +359,59 @@ export class DriverAssistMatchingService {
       await this.resolveAssistTargetLocation(request);
     const settings = await this.platformSettings.getSettings();
 
+    const orderRow =
+      typeof this.prisma.order?.findUnique === 'function'
+        ? await this.prisma.order.findUnique({
+            where: { id: request.orderId },
+            select: {
+              type: true,
+              requestedVehicleType: true,
+              distanceKm: true,
+            },
+          })
+        : null;
+
+    const isStandardOrder = orderRow?.type === OrderType.STANDARD;
+    const orderDistanceKm = Number(orderRow?.distanceKm ?? 0);
+    const allowedStandardVehicles = isStandardOrder
+      ? (resolveAllowedVehicleTypes(
+          orderRow?.requestedVehicleType ?? null,
+          orderDistanceKm,
+          settings,
+          OrderType.STANDARD,
+        ) as VehicleType[])
+      : null;
+
+    if (allowedStandardVehicles && allowedStandardVehicles.length === 0) {
+      return [];
+    }
+
     const candidates = await this.prisma.driver.findMany({
       where: {
         status: { in: [DriverStatus.ONLINE, DriverStatus.BUSY] },
         isApproved: true,
         deletedAt: null,
         hasUnpaidCommission: false,
+        ...(allowedStandardVehicles
+          ? { vehicleType: { in: allowedStandardVehicles } }
+          : {}),
         ...(primaryDriverId ? { NOT: { id: primaryDriverId } } : {}),
       },
-      select: { id: true },
+      select: { id: true, vehicleType: true },
     });
-    if (candidates.length === 0) return [];
-    const candidateIds = candidates.map((c) => c.id);
+    const vehicleFilteredCandidates = isStandardOrder
+      ? candidates.filter((c) =>
+          isDriverVehicleEligibleForOrder({
+            orderType: OrderType.STANDARD,
+            requestedVehicleType: orderRow?.requestedVehicleType ?? null,
+            driverVehicleType: c.vehicleType,
+            orderDistanceKm,
+            settings,
+          }),
+        )
+      : candidates;
+    if (vehicleFilteredCandidates.length === 0) return [];
+    const candidateIds = vehicleFilteredCandidates.map((c) => c.id);
 
     const busyGroupDrivers = await this.prisma.orderDeliveryGroup.findMany({
       where: {
@@ -389,13 +436,6 @@ export class DriverAssistMatchingService {
     if (freeCandidateIds.length === 0) return [];
 
     let activeShiftDriverIds: Set<string> | null = null;
-    const orderRow =
-      typeof this.prisma.order?.findUnique === 'function'
-        ? await this.prisma.order.findUnique({
-            where: { id: request.orderId },
-            select: { type: true },
-          })
-        : null;
     const requireActiveShift = requiresActiveShiftForOrderType(
       settings.driverShiftsEnabled,
       orderRow?.type ?? null,

@@ -9,6 +9,7 @@ import {
   DriverShiftStatus,
   DriverStatus,
   OrderStatus,
+  OrderType,
 } from '@prisma/client';
 import {
   EVENT_JOBS,
@@ -25,6 +26,11 @@ import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { LocationRepository } from '../location/location.repository';
+import {
+  isDriverVehicleEligibleForOrder,
+  STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES,
+  isValidRegisteredVehicleType,
+} from '../location/driver-geo-search.service';
 import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
 import { requiresActiveShiftForOrderType } from '../../common/orders/money.helper';
@@ -200,6 +206,7 @@ export class DispatchLifecycleService {
       group,
       groupId,
       singleVendorId,
+      orderDistanceKm,
       totalDistanceKm,
     } = validated;
     const { nextGroupStatus, nextOrderStatus } = this.resolveAcceptanceStatuses(
@@ -222,6 +229,7 @@ export class DispatchLifecycleService {
       singleVendorId,
       nextGroupStatus,
       nextOrderStatus,
+      orderDistanceKm,
       totalDistanceKm,
       vendorUserIds,
       losingCandidates,
@@ -469,6 +477,7 @@ export class DispatchLifecycleService {
           isApproved: true,
           deletedAt: true,
           hasUnpaidCommission: true,
+          vehicleType: true,
         },
       }),
       this.prisma.orderDeliveryGroup.findMany({
@@ -536,13 +545,21 @@ export class DispatchLifecycleService {
         (driver.status === DriverStatus.ONLINE ||
           driver.status === DriverStatus.BUSY ||
           (maxActiveOrders > 1 && driver.status === DriverStatus.ON_DELIVERY));
+      const vehicleEligible =
+        dispatchData.type !== OrderType.STANDARD ||
+        (driver != null &&
+          (driver.vehicleType === undefined ||
+            (isValidRegisteredVehicleType(driver.vehicleType) &&
+              STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES.includes(
+                driver.vehicleType,
+              ))));
       const underCapacity =
         (activeUnitsByDriver.get(candidate.driverId) ?? 0) < maxActiveOrders;
       const shiftEligible =
         (!candidate.driverShiftId || activeShiftIds.has(candidate.driverShiftId)) &&
         (!requireActiveShift || driversWithActiveShift.has(candidate.driverId));
 
-      if (statusEligible && underCapacity && shiftEligible) {
+      if (statusEligible && vehicleEligible && underCapacity && shiftEligible) {
         expired.push(candidate);
       } else {
         ineligible.push(candidate);
@@ -663,6 +680,8 @@ export class DispatchLifecycleService {
       select: {
         id: true,
         orderNumber: true,
+        type: true,
+        requestedVehicleType: true,
         status: true,
         paymentMethod: true,
         paymentStatus: true,
@@ -736,6 +755,7 @@ export class DispatchLifecycleService {
       group,
       groupId,
       singleVendorId,
+      orderDistanceKm,
       totalDistanceKm: Number(candidate.distanceKm) + orderDistanceKm,
     };
   }
@@ -851,6 +871,8 @@ export class DispatchLifecycleService {
     order: {
       id: string;
       orderNumber: string;
+      type?: OrderType;
+      requestedVehicleType?: string | null;
       status: OrderStatus;
       customerId: string;
       distanceKm: unknown;
@@ -861,6 +883,7 @@ export class DispatchLifecycleService {
     singleVendorId: string | null;
     nextGroupStatus: DeliveryGroupStatus;
     nextOrderStatus: OrderStatus;
+    orderDistanceKm: number;
     totalDistanceKm: number;
     vendorUserIds: string[];
     losingCandidates: DispatchCandidateOffer[];
@@ -876,6 +899,7 @@ export class DispatchLifecycleService {
       singleVendorId,
       nextGroupStatus,
       nextOrderStatus,
+      orderDistanceKm,
       totalDistanceKm,
       vendorUserIds,
       losingCandidates,
@@ -933,9 +957,53 @@ export class DispatchLifecycleService {
           typeof tx.driver?.findUnique === 'function'
             ? await tx.driver.findUnique({
                 where: { id: driverId },
-                select: { tier: true },
+                select: {
+                  tier: true,
+                  vehicleType: true,
+                  isApproved: true,
+                  deletedAt: true,
+                  hasUnpaidCommission: true,
+                },
               })
             : null;
+
+        if (assignedDriver) {
+          if (
+            assignedDriver.deletedAt != null ||
+            assignedDriver.isApproved === false ||
+            assignedDriver.hasUnpaidCommission === true
+          ) {
+            throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
+          }
+
+          const effectiveOrderType = order.type ?? dispatchData.type;
+          if (effectiveOrderType === OrderType.STANDARD) {
+            const vehicleSettings = {
+              allowBicycle: settings.allowBicycle ?? true,
+              allowMotorcycle: settings.allowMotorcycle ?? true,
+              allowCar: settings.allowCar ?? true,
+              allowVan: settings.allowVan ?? true,
+              allowTruck: settings.allowTruck ?? true,
+              allowMotorTricycle: settings.allowMotorTricycle ?? true,
+              maxKmForBicycle: settings.maxKmForBicycle ?? 5.0,
+            };
+            const effectiveDistanceKm =
+              orderDistanceKm > 0
+                ? orderDistanceKm
+                : Number(order.distanceKm ?? 0);
+            if (
+              !isDriverVehicleEligibleForOrder({
+                orderType: OrderType.STANDARD,
+                requestedVehicleType: order.requestedVehicleType ?? null,
+                driverVehicleType: assignedDriver.vehicleType,
+                orderDistanceKm: effectiveDistanceKm,
+                settings: vehicleSettings,
+              })
+            ) {
+              throw new Error(OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE);
+            }
+          }
+        }
 
         const groupClaimed = await tx.orderDeliveryGroup.updateMany({
           where: {

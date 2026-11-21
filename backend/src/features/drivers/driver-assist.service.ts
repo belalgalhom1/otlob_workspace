@@ -38,8 +38,10 @@ import {
   DriverShiftStatus,
   DriverStatus,
   OrderStatus,
+  OrderType,
   Prisma,
 } from '@prisma/client';
+import { isDriverVehicleEligibleForOrder } from '../location/driver-geo-search.service';
 
 export interface RequestAssistDto {
   reason: DriverAssistReason;
@@ -126,7 +128,16 @@ export class DriverAssistService {
         status: true,
         primaryDriverId: true,
         assistDriverId: true,
-        order: { select: { id: true, orderNumber: true, status: true } },
+        order: {
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          type: true,
+          requestedVehicleType: true,
+          distanceKm: true,
+        },
+      },
       },
     });
     if (!group || group.orderId !== orderId) {
@@ -339,7 +350,15 @@ export class DriverAssistService {
     }
 
     const groupId = request.deliveryGroupId;
-    const candidate = await this.requireEligibleAssistCandidate(dto.driverId);
+    const candidate = await this.requireEligibleAssistCandidate(dto.driverId, {
+      orderType: (request.order as { type?: OrderType } | null)?.type,
+      requestedVehicleType:
+        (request.order as { requestedVehicleType?: string | null } | null)
+          ?.requestedVehicleType ?? null,
+      distanceKm: Number(
+        (request.order as { distanceKm?: unknown } | null)?.distanceKm ?? 0,
+      ),
+    });
 
     const assigned = await this.prisma.$transaction(async (tx) => {
       if (typeof tx.$executeRaw === 'function') {
@@ -831,7 +850,16 @@ export class DriverAssistService {
           user: { select: { name: true, phone: true, avatar: true } },
         },
       },
-      order: { select: { id: true, orderNumber: true, status: true } },
+      order: {
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          type: true,
+          requestedVehicleType: true,
+          distanceKm: true,
+        },
+      },
       deliveryGroup: {
         select: {
           id: true,
@@ -889,7 +917,14 @@ export class DriverAssistService {
     };
   }
 
-  private async requireEligibleAssistCandidate(driverId: string) {
+  private async requireEligibleAssistCandidate(
+    driverId: string,
+    orderContext?: {
+      orderType?: OrderType | string | null;
+      requestedVehicleType?: string | null;
+      distanceKm?: number;
+    },
+  ) {
     const candidate = await this.prisma.driver.findUnique({
       where: { id: driverId },
       select: {
@@ -920,6 +955,34 @@ export class DriverAssistService {
     }
     if (candidate.hasUnpaidCommission) {
       throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
+    }
+    if (orderContext?.orderType === OrderType.STANDARD) {
+      const rawSettings =
+        typeof this.platformSettings?.getSettings === 'function'
+          ? await this.platformSettings.getSettings()
+          : null;
+      const vehicleSettings = {
+        allowBicycle: rawSettings?.allowBicycle ?? true,
+        allowMotorcycle: rawSettings?.allowMotorcycle ?? true,
+        allowCar: rawSettings?.allowCar ?? true,
+        allowVan: rawSettings?.allowVan ?? true,
+        allowTruck: rawSettings?.allowTruck ?? true,
+        allowMotorTricycle: rawSettings?.allowMotorTricycle ?? true,
+        maxKmForBicycle: rawSettings?.maxKmForBicycle ?? 5.0,
+      };
+      if (
+        !isDriverVehicleEligibleForOrder({
+          orderType: OrderType.STANDARD,
+          requestedVehicleType: orderContext.requestedVehicleType ?? null,
+          driverVehicleType: candidate.vehicleType,
+          orderDistanceKm: Number(orderContext.distanceKm ?? 0),
+          settings: vehicleSettings,
+        })
+      ) {
+        throw new BadRequestException(
+          OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE,
+        );
+      }
     }
     return candidate;
   }

@@ -851,7 +851,7 @@ describe('Unified Gold / Silver / Bronze Financial Rules Across All Service Type
             findUnique: jest.fn().mockResolvedValue({ primaryDriverId: 'drv-p' }),
             findMany: jest.fn().mockResolvedValue([]),
           },
-          driver: { findMany: jest.fn().mockResolvedValue([{ id: 'drv-unshifted' }]) },
+          driver: { findMany: jest.fn().mockResolvedValue([{ id: 'drv-unshifted', vehicleType: 'MOTORCYCLE' }]) },
           order: { findUnique: assistOrderFindUnique },
           driverShift: { findMany: shiftFindMany, findFirst: jest.fn().mockResolvedValue(null) },
         } as any,

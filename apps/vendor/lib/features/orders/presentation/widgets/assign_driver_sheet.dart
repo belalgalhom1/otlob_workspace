@@ -11,6 +11,7 @@ import 'package:vendor/core/utils/error_utils.dart';
 class AssignDriverSheet extends ConsumerStatefulWidget {
   final String orderId;
   final String orderCode;
+  final String? orderType;
   final List<dynamic>? deliveryGroups;
   final String? initialDeliveryGroupId;
 
@@ -18,6 +19,7 @@ class AssignDriverSheet extends ConsumerStatefulWidget {
     super.key,
     required this.orderId,
     required this.orderCode,
+    this.orderType,
     this.deliveryGroups,
     this.initialDeliveryGroupId,
   });
@@ -27,6 +29,7 @@ class AssignDriverSheet extends ConsumerStatefulWidget {
 }
 
 class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
+  static const _standardEligibleVehicles = {'MOTORCYCLE', 'BICYCLE'};
   bool _isFetching = true;
   bool _isAssigning = false;
   List<dynamic> _drivers = [];
@@ -34,6 +37,9 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
   DeliveryIncidentResponsibility? _previousDriverResponsibility;
   final TextEditingController _reassignmentReasonController =
       TextEditingController();
+
+  bool get _isStandardOrder =>
+      (widget.orderType ?? '').toUpperCase().trim() == 'STANDARD';
 
   @override
   void dispose() {
@@ -70,8 +76,17 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
       final result = await repo.getDrivers(status: 'ONLINE', limit: 100);
 
       if (mounted) {
+        final rawDrivers = (result['drivers'] ?? result['items'] ?? []) as List;
+        final filtered = _isStandardOrder
+            ? rawDrivers.where((d) {
+                if (d is! Map) return false;
+                final vType =
+                    (d['vehicleType'] ?? '').toString().toUpperCase().trim();
+                return _standardEligibleVehicles.contains(vType);
+              }).toList()
+            : rawDrivers;
         setState(() {
-          _drivers = result['drivers'] ?? result['items'] ?? [];
+          _drivers = filtered;
           _isFetching = false;
         });
       }
@@ -266,7 +281,14 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                   padding: const EdgeInsets.symmetric(vertical: 32.0),
                   child: Center(
                     child: Text(
-                      isAr ? 'لا يوجد سائقون متصلون حالياً' : 'No online drivers found',
+                      _isStandardOrder
+                          ? (isAr
+                                ? 'لا يوجد سائقو دراجات نارية أو هوائية متصلون حالياً'
+                                : 'No eligible Motorcycle or Bicycle drivers online')
+                          : (isAr
+                                ? 'لا يوجد سائقون متصلون حالياً'
+                                : 'No online drivers found'),
+                      textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -293,21 +315,28 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                                   : null) ??
                               '')
                           .toString();
-
-                      final rawAvatar = (driver['avatar'] ??
-                              (driver['user'] is Map
-                                  ? driver['user']['avatar']
-                                  : null))
-                          ?.toString();
+                      final vehicleType = (driver['vehicleType'] ?? '')
+                          .toString()
+                          .toUpperCase()
+                          .trim();
+                      final avatarUrl =
+                          ImageUtils.resolveDriverAvatarUrl(driver);
+                      final subtitleParts = <String>[
+                        if (vehicleType.isNotEmpty) vehicleType,
+                        if (phone.isNotEmpty) phone,
+                      ];
 
                       return ListTile(
                         leading: AppNetworkAvatar(
-                          imageUrl: ImageUtils.formatImageUrl(rawAvatar),
+                          key: ValueKey(
+                            'assign_drv_${driver['id'] ?? index}_$avatarUrl',
+                          ),
+                          imageUrl: avatarUrl,
                           size: 40,
                           fallbackIcon: Icons.person,
                         ),
                         title: Text(name),
-                        subtitle: Text(phone),
+                        subtitle: Text(subtitleParts.join(' • ')),
                         trailing: ElevatedButton(
                           onPressed: _isAssigning
                               ? null

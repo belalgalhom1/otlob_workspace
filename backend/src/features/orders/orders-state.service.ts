@@ -13,9 +13,11 @@ import {
   DeliveryIncidentResponsibility,
   DispatchStatus,
   OrderStatus,
+  OrderType,
   OrderVendorFulfillmentStatus,
   Prisma,
   Role,
+  VehicleType,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
@@ -51,6 +53,11 @@ import {
 } from './transitions/delivery-group-transition.service';
 import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
+import {
+  isValidRegisteredVehicleType,
+  isVehicleTypeActiveInSettings,
+  STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES,
+} from '../location/driver-geo-search.service';
 
 /**
  * Coordinates order state transitions across single-vendor orders while
@@ -512,6 +519,14 @@ export class OrdersStateService {
         if ((error as Error).message === OrderErrors.DRIVER_ALREADY_ON_ORDER) {
           throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
         }
+        if (
+          (error as Error).message ===
+          OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE
+        ) {
+          throw new BadRequestException(
+            OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE,
+          );
+        }
         throw error;
       }
     } else {
@@ -551,9 +566,22 @@ export class OrdersStateService {
 
     const driver = await this.prisma.driver.findUnique({
       where: { id: dto.driverId },
-      select: { id: true, status: true, userId: true },
+      select: {
+        id: true,
+        status: true,
+        userId: true,
+        vehicleType: true,
+        isApproved: true,
+        deletedAt: true,
+      },
     });
-    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+    if (!driver || driver.deletedAt != null) {
+      throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+    }
+
+    if (driver.isApproved === false) {
+      throw new ForbiddenException(DriverErrors.NOT_APPROVED);
+    }
 
     if (driver.status === 'SUSPENDED') {
       throw new BadRequestException(OrderErrors.CANNOT_ASSIGN_SUSPENDED_DRIVER);
@@ -565,8 +593,46 @@ export class OrdersStateService {
 
     const settings = await this.prisma.platformSetting.findUnique({
       where: { id: 'default' },
-      select: { maxActiveOrdersPerDriver: true },
+      select: {
+        maxActiveOrdersPerDriver: true,
+        allowBicycle: true,
+        allowMotorcycle: true,
+        allowCar: true,
+        allowVan: true,
+        allowTruck: true,
+        allowMotorTricycle: true,
+        maxKmForBicycle: true,
+      },
     });
+
+    if (order.type === OrderType.STANDARD) {
+      const effectiveSettings = {
+        allowBicycle: settings?.allowBicycle ?? true,
+        allowMotorcycle: settings?.allowMotorcycle ?? true,
+        allowCar: settings?.allowCar ?? true,
+        allowVan: settings?.allowVan ?? true,
+        allowTruck: settings?.allowTruck ?? true,
+        allowMotorTricycle: settings?.allowMotorTricycle ?? true,
+        maxKmForBicycle: settings?.maxKmForBicycle ?? 5.0,
+      };
+      if (
+        !isValidRegisteredVehicleType(driver.vehicleType) ||
+        !STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES.includes(driver.vehicleType) ||
+        !isVehicleTypeActiveInSettings(driver.vehicleType, effectiveSettings)
+      ) {
+        throw new BadRequestException(
+          OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE,
+        );
+      }
+      if (driver.vehicleType === VehicleType.BICYCLE) {
+        const orderDistanceKm = Number((order as any).distanceKm ?? 0);
+        const maxBicycleKm = Number(effectiveSettings.maxKmForBicycle ?? 5.0);
+        if (orderDistanceKm > maxBicycleKm) {
+          throw new BadRequestException(OrderErrors.BICYCLE_DISTANCE_EXCEEDED);
+        }
+      }
+    }
+
     const maxActive = settings?.maxActiveOrdersPerDriver ?? 1;
 
     const activeOrdersCount = await this.driverWorkload.countActiveUnits(

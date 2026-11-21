@@ -7,7 +7,10 @@ class ImageUtils {
   static String? firstNonEmptyString(Iterable<dynamic> candidates) {
     for (final candidate in candidates) {
       final s = candidate?.toString().trim();
-      if (s != null && s.isNotEmpty) return s;
+      if (s == null || s.isEmpty) continue;
+      final lower = s.toLowerCase();
+      if (lower == 'null' || lower == 'undefined') continue;
+      return s;
     }
     return null;
   }
@@ -23,6 +26,24 @@ class ImageUtils {
         vendor['vendorLogo'],
         vendor['coverImage'],
         vendor['image'],
+      ]),
+    );
+  }
+
+  /// Resolves a driver's profile avatar URL (`avatar` -> `avatarUrl` ->
+  /// `profileImage` -> `user.avatar` -> `user.avatarUrl` -> `user.profileImage`)
+  /// and normalizes relative paths against `API_URL`.
+  static String resolveDriverAvatarUrl(dynamic driver) {
+    if (driver is! Map) return '';
+    final user = driver['user'] is Map ? driver['user'] as Map : null;
+    return formatImageUrl(
+      firstNonEmptyString([
+        driver['avatar'],
+        driver['avatarUrl'],
+        driver['profileImage'],
+        user?['avatar'],
+        user?['avatarUrl'],
+        user?['profileImage'],
       ]),
     );
   }
