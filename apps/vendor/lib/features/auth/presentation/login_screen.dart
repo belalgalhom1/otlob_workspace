@@ -61,7 +61,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     });
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     const signTopOffset = 4.0;
     final topClearance = OtlobLoginWelcomeOverlay.recommendedTopClearance(
       context,
@@ -106,9 +105,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Center(
                       child: OtlobBrandHeroLogo(
                         child: Image.asset(
-                          isDark
-                              ? 'assets/logo_dark.png'
-                              : 'assets/logo_without_background.png',
+                          'assets/logo_without_background.png',
                           height: 140,
                           fit: BoxFit.contain,
                         ),

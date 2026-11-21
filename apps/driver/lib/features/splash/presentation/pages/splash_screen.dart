@@ -22,17 +22,47 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
   final GlobalKey<OtlobSplashSpinLogoState> _spinLogoKey =
       GlobalKey<OtlobSplashSpinLogoState>();
+  late final AnimationController _animController;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _fadeAnimation;
+  late final Animation<double> _slideAnimation;
 
   Timer? _watchdogTimer;
   bool _showRetry = false;
   bool _navigated = false;
+  bool _precached = false;
 
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.82, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutBack),
+      ),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
+    );
+    _slideAnimation = Tween<double>(begin: 16.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: const Interval(0.2, 0.9, curve: Curves.easeOutCubic),
+      ),
+    );
+    _animController.forward();
+
     // Watchdog: whatever happens upstream (hang, missed event, provider
     // error), the user is never left on a dead spinner — offer a retry.
     _watchdogTimer = Timer(const Duration(seconds: 30), () {
@@ -52,19 +82,41 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     });
   }
 
-  Future<void> _goToLoginAfterSpin() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_precached) return;
+    _precached = true;
+    precacheImage(
+      const AssetImage('assets/logo_without_background.png'),
+      context,
+    ).catchError((_) {});
+  }
+
+  Future<void> _waitForSpinCompleted() async {
     final spinState = _spinLogoKey.currentState;
     if (spinState != null) {
       await spinState.waitForSpinAndSettle(Future<void>.value());
     } else {
       await Future.delayed(const Duration(milliseconds: 3900));
     }
+  }
+
+  Future<void> _goToLoginAfterSpin() async {
+    await _waitForSpinCompleted();
     if (!mounted) return;
     if (ref.read(authProvider).value == true) {
       ref.read(authProvider.notifier).markUnauthenticated();
     }
     OtlobLoginEntranceCoordinator.markFromSplash();
     context.go('/login');
+  }
+
+  Future<void> _goToRouteAfterSpin(String route) async {
+    await _waitForSpinCompleted();
+    if (!mounted) return;
+    OtlobLoginEntranceCoordinator.reset();
+    context.go(route);
   }
 
   void _handleState(AsyncValue<AppStartupState> state) {
@@ -83,10 +135,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           _goToLoginAfterSpin();
           break;
         case AppStartupState.suspended:
-          context.go('/suspended');
+          _goToRouteAfterSpin('/suspended');
           break;
         case AppStartupState.needsTerms:
-          context.go('/terms-acceptance');
+          _goToRouteAfterSpin('/terms-acceptance');
           break;
         case AppStartupState.dashboard:
           _maybeShowOptionalUpdate('/dashboard');
@@ -95,10 +147,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           _maybeShowOptionalUpdate('/order-execution');
           break;
         case AppStartupState.maintenance:
-          context.go('/maintenance');
+          _goToRouteAfterSpin('/maintenance');
           break;
         case AppStartupState.forceUpdate:
-          context.go('/update-required');
+          _goToRouteAfterSpin('/update-required');
           break;
         case AppStartupState.loading:
           _navigated = false;
@@ -110,13 +162,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void dispose() {
     _watchdogTimer?.cancel();
+    _animController.dispose();
     super.dispose();
   }
 
   Future<void> _maybeShowOptionalUpdate(String target) async {
+    await _waitForSpinCompleted();
     if (!mounted) return;
     if (ref.read(appUpdateAvailableProvider) != true) {
-      if (mounted) context.go(target);
+      OtlobLoginEntranceCoordinator.reset();
+      context.go(target);
       return;
     }
     ref.read(appUpdateAvailableProvider.notifier).set(false);
@@ -133,7 +188,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (shouldUpdate == true) {
       await _openStore(ref.read(updateStoreUrlProvider));
     }
-    if (mounted) context.go(target);
+    if (mounted) {
+      OtlobLoginEntranceCoordinator.reset();
+      context.go(target);
+    }
   }
 
   Future<void> _openStore(String? storeUrl) async {
@@ -156,74 +214,71 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: _animController,
+          builder: (context, child) => Center(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: (constraints.maxHeight - 32).clamp(0.0, double.infinity),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      OtlobSplashSpinLogo(
-                        key: _spinLogoKey,
-                        onInitialSpinCompleted: () => _spinLogoKey
-                            .currentState
-                            ?.continueSpinningWhileWaiting(),
-                        child: Image.asset(
-                          isDark
-                              ? 'assets/logo_delivery_dark.png'
-                              : 'assets/logo_delivery.png',
-                          width: 140,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      Text(
-                        AppLocalizations.of(context)?.appName ?? 'Otlob Driver',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                      ),
-                      if (_showRetry) ...[
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _showRetry = false;
-                              _navigated = false;
-                            });
-                            ref.invalidate(splashProvider);
-                            _watchdogTimer?.cancel();
-                            _watchdogTimer =
-                                Timer(const Duration(seconds: 30), () {
-                              if (!mounted) return;
-                              final state = ref.read(splashProvider);
-                              if (state.isLoading || state.hasError) {
-                                setState(() => _showRetry = true);
-                              }
-                            });
-                          },
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ],
-                  ),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Transform.translate(
+                  offset: Offset(0, _slideAnimation.value),
+                  child: child,
                 ),
               ),
             ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OtlobSplashSpinLogo(
+                key: _spinLogoKey,
+                scaleAnimation: _scaleAnimation,
+                onInitialSpinCompleted: () => _spinLogoKey.currentState
+                    ?.continueSpinningWhileWaiting(),
+                child: Image.asset(
+                  'assets/logo_without_background.png',
+                  width: 140,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                  color: isDark ? Theme.of(context).colorScheme.primary : null,
+                  colorBlendMode: isDark ? BlendMode.srcIn : null,
+                ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                AppLocalizations.of(context)?.appName ?? 'Otlob Driver',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+              ),
+              if (_showRetry) ...[
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _showRetry = false;
+                      _navigated = false;
+                    });
+                    ref.invalidate(splashProvider);
+                    _watchdogTimer?.cancel();
+                    _watchdogTimer = Timer(const Duration(seconds: 30), () {
+                      if (!mounted) return;
+                      final state = ref.read(splashProvider);
+                      if (state.isLoading || state.hasError) {
+                        setState(() => _showRetry = true);
+                      }
+                    });
+                  },
+                  child: const Text('Retry'),
+                ),
+              ],
+            ],
           ),
         ),
       ),

@@ -19,10 +19,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   final GlobalKey<OtlobSplashSpinLogoState> _spinLogoKey =
       GlobalKey<OtlobSplashSpinLogoState>();
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _fadeAnimation;
+  late final Animation<double> _slideAnimation;
   Timer? _watchdogTimer;
   bool _navigated = false;
+  bool _precached = false;
 
   @override
   void initState() {
@@ -31,7 +34,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
+    _scaleAnimation = Tween<double>(begin: 0.82, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutBack),
+      ),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
+    );
+    _slideAnimation = Tween<double>(begin: 16.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 0.9, curve: Curves.easeOutCubic),
+      ),
+    );
     _controller.forward();
 
     // Watchdog timer: If anything upstream hangs, never leave the user frozen
@@ -47,16 +67,38 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     });
   }
 
-  Future<void> _goToLoginAfterSpin() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_precached) return;
+    _precached = true;
+    precacheImage(
+      const AssetImage('assets/logo_without_background.png'),
+      context,
+    ).catchError((_) {});
+  }
+
+  Future<void> _waitForSpinCompleted() async {
     final spinState = _spinLogoKey.currentState;
     if (spinState != null) {
       await spinState.waitForSpinAndSettle(Future<void>.value());
     } else {
       await Future.delayed(const Duration(milliseconds: 3900));
     }
+  }
+
+  Future<void> _goToLoginAfterSpin() async {
+    await _waitForSpinCompleted();
     if (!mounted) return;
     OtlobLoginEntranceCoordinator.markFromSplash();
     context.go('/login');
+  }
+
+  Future<void> _goToRouteAfterSpin(String route) async {
+    await _waitForSpinCompleted();
+    if (!mounted) return;
+    OtlobLoginEntranceCoordinator.reset();
+    context.go(route);
   }
 
   Future<void> _runAppGate() async {
@@ -76,16 +118,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         );
         if (status.maintenance && !isStaff) {
           _navigated = true;
-          context.go('/maintenance');
+          await _goToRouteAfterSpin('/maintenance');
           return;
         }
         if (status.mustUpdate) {
           _navigated = true;
           ref.read(updateStoreUrlProvider.notifier).set(status.storeUrl);
-          context.go('/update-required');
+          await _goToRouteAfterSpin('/update-required');
           return;
         }
         if (status.shouldUpdate) {
+          await _waitForSpinCompleted();
+          if (!mounted || _navigated) return;
           final l10n = AppLocalizations.of(context);
           if (l10n != null) {
             final shouldUpdate = await AppConfirmDialog.show(
@@ -140,8 +184,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       if (!context.mounted) return;
       _navigated = true;
       if (state.value == true) {
-        OtlobLoginEntranceCoordinator.reset();
-        context.go(ref.read(vendorPostAuthRouteProvider));
+        _goToRouteAfterSpin(ref.read(vendorPostAuthRouteProvider));
       } else {
         _goToLoginAfterSpin();
       }
@@ -157,7 +200,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     ref.listen<AsyncValue<bool>>(authProvider, (previous, state) {
       _onAuthStateChanged(context, state);
     });
@@ -165,36 +207,47 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
-        child: Center(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OtlobSplashSpinLogo(
-                  key: _spinLogoKey,
-                  onInitialSpinCompleted: () => _spinLogoKey.currentState
-                      ?.continueSpinningWhileWaiting(),
-                  child: Image.asset(
-                    isDark
-                        ? 'assets/logo_dark.png'
-                        : 'assets/logo_without_background.png',
-                    width: 150,
-                    fit: BoxFit.contain,
-                  ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) => Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Transform.translate(
+                  offset: Offset(0, _slideAnimation.value),
+                  child: child,
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  'OTLOB ADMIN',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 4,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ],
+              ),
             ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OtlobSplashSpinLogo(
+                key: _spinLogoKey,
+                scaleAnimation: _scaleAnimation,
+                onInitialSpinCompleted: () => _spinLogoKey.currentState
+                    ?.continueSpinningWhileWaiting(),
+                child: Image.asset(
+                  'assets/logo_without_background.png',
+                  width: 150,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'OTLOB ADMIN',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 4,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
           ),
         ),
       ),

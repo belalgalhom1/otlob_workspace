@@ -368,4 +368,32 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'OtlobLoginWelcomeOverlay renders Arabic welcome message with RTL and zero letterSpacing',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const Directionality(
+            textDirection: TextDirection.rtl,
+            child: Scaffold(
+              body: OtlobLoginWelcomeOverlay(
+                forceAnimateCelebration: true,
+                child: Center(child: Text('تسجيل الدخول')),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final welcomeFinder = find.text('مرحباً بك في أطلب');
+      expect(welcomeFinder, findsOneWidget);
+      final textWidget = tester.widget<Text>(welcomeFinder);
+      expect(textWidget.textDirection, TextDirection.rtl);
+      expect(textWidget.style?.letterSpacing, 0.0);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

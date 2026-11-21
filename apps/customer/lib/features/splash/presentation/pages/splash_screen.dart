@@ -32,6 +32,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late final Animation<double> _scaleAnimation;
   late final Animation<double> _fadeAnimation;
   late final Animation<double> _slideAnimation;
+  bool _precached = false;
 
   @override
   void initState() {
@@ -67,6 +68,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeApp();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_precached) return;
+    _precached = true;
+    precacheImage(
+      const AssetImage('assets/logo_without_background.png'),
+      context,
+    ).catchError((_) {});
+    precacheImage(const AssetImage('assets/logo.png'), context)
+        .catchError((_) {});
   }
 
   @override

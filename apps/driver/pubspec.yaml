@@ -134,8 +134,6 @@ flutter:
     - assets/translations/
     - assets/logo.png
     - assets/logo_without_background.png
-    - assets/logo_delivery.png
-    - assets/logo_delivery_dark.png
     - assets/home_cover.jpg
 
 flutter_launcher_icons:

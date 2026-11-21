@@ -317,7 +317,7 @@ void main() {
       final signRect = tester.getRect(
         find
             .ancestor(
-              of: find.text('WELCOME TO OTLOB'),
+              of: find.text('مرحباً بك في أطلب'),
               matching: find.byType(Container),
             )
             .first,

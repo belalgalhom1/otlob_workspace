@@ -56,7 +56,9 @@ class AppPreferences extends _$AppPreferences {
       locale = Locale(localeString);
     }
     
-    state = state.copyWith(themeMode: mode, locale: locale);
+    if (mode != state.themeMode || locale != state.locale) {
+      state = state.copyWith(themeMode: mode, locale: locale);
+    }
   }
 
   Future<void> toggleTheme() async {

@@ -31,6 +31,16 @@ class _FakeVendorPlatformRepo extends Fake
       };
 }
 
+class _FakeVendorAuthAuthenticated extends AuthNotifier {
+  @override
+  AsyncValue<bool> build() => const AsyncValue.data(false);
+
+  @override
+  Future<void> checkAuth() async {
+    state = const AsyncValue.data(true);
+  }
+}
+
 void main() {
   tearDown(OtlobLoginEntranceCoordinator.reset);
 
@@ -116,7 +126,10 @@ void main() {
 
           await tester.pumpAndSettle(const Duration(seconds: 1));
 
-          expect(find.text('WELCOME TO OTLOB'), findsOneWidget);
+          final expectedWelcome = locale.languageCode == 'ar'
+              ? 'مرحباً بك في أطلب'
+              : 'WELCOME TO OTLOB';
+          expect(find.text(expectedWelcome), findsOneWidget);
           expect(find.text('Otlob Admin'), findsWidgets);
           expect(find.byIcon(LucideIcons.package), findsNothing);
 
@@ -128,15 +141,13 @@ void main() {
           final logoImage = tester.widget<Image>(logoFinder);
           expect(
             (logoImage.image as AssetImage).assetName,
-            themeMode == ThemeMode.dark
-                ? 'assets/logo_dark.png'
-                : 'assets/logo_without_background.png',
+            'assets/logo_without_background.png',
           );
 
           final signRect = tester.getRect(
             find
                 .ancestor(
-                  of: find.text('WELCOME TO OTLOB'),
+                  of: find.text(expectedWelcome),
                   matching: find.byType(Container),
                 )
                 .first,
@@ -150,4 +161,59 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'Vendor Splash stays on ~4s spin before navigating to dashboard when authenticated',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/splash',
+        routes: [
+          GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+          GoRoute(
+            path: '/dashboard',
+            builder: (_, _) => const Scaffold(body: Text('DASHBOARD')),
+          ),
+        ],
+      );
+
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        router.dispose();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(_FakeVendorAuthAuthenticated.new),
+            sharedPlatformSettingsRepositoryProvider
+                .overrideWithValue(_FakeVendorPlatformRepo()),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('en'),
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.dark,
+            routerConfig: router,
+          ),
+        ),
+      );
+
+      await tester.pump();
+      expect(find.byType(OtlobSplashSpinLogo), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byType(OtlobSplashSpinLogo), findsOneWidget);
+      expect(find.text('DASHBOARD'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 2100));
+      await tester.pumpAndSettle();
+      expect(find.text('DASHBOARD'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

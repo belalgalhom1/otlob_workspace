@@ -82,17 +82,19 @@ class OtlobLoginWelcomeOverlay extends StatefulWidget {
   final Widget child;
   final double signTopOffset;
   final bool? forceAnimateCelebration;
+  final String? welcomeText;
 
   const OtlobLoginWelcomeOverlay({
     super.key,
     required this.child,
     this.signTopOffset = 6.0,
     this.forceAnimateCelebration,
+    this.welcomeText,
   });
 
   /// Minimum top padding inside [child]'s [SafeArea] so the brand logo and
-  /// login form start cleanly below the `WELCOME TO OTLOB` banner without
-  /// overlapping it, even under larger accessibility text scaling.
+  /// login form start cleanly below the welcome banner without overlapping it,
+  /// even under larger accessibility text scaling.
   static double recommendedTopClearance(
     BuildContext context, {
     double signTopOffset = 6.0,
@@ -100,8 +102,8 @@ class OtlobLoginWelcomeOverlay extends StatefulWidget {
   }) {
     final textScale =
         MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.5);
-    // _CompactWelcomeSign height at 1.0x: vertical padding (12) + border (3.2) + 13.5px*1.25 text (~17) ≈ 34px.
-    const double baseSignHeight = 36.0;
+    // _CompactWelcomeSign height at 1.0x: vertical padding (12) + border (3.2) + ~20px line height ≈ 38px.
+    const double baseSignHeight = 38.0;
     return signTopOffset + (baseSignHeight * textScale) + gap;
   }
 
@@ -311,7 +313,9 @@ class OtlobLoginWelcomeOverlayState extends State<OtlobLoginWelcomeOverlay>
                                 ),
                               );
                             },
-                            child: const _CompactWelcomeSign(),
+                            child: _CompactWelcomeSign(
+                              welcomeText: widget.welcomeText,
+                            ),
                           ),
                         ),
                       ),
@@ -328,10 +332,17 @@ class OtlobLoginWelcomeOverlayState extends State<OtlobLoginWelcomeOverlay>
 }
 
 class _CompactWelcomeSign extends StatelessWidget {
-  const _CompactWelcomeSign();
+  final String? welcomeText;
+
+  const _CompactWelcomeSign({this.welcomeText});
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Directionality.of(context) == TextDirection.rtl ||
+        Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+    final label =
+        welcomeText ?? (isArabic ? 'مرحباً بك في أطلب' : 'WELCOME TO OTLOB');
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
@@ -349,17 +360,18 @@ class _CompactWelcomeSign extends StatelessWidget {
           width: 1.6,
         ),
       ),
-      child: const FittedBox(
+      child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Text(
-          'WELCOME TO OTLOB',
-          textDirection: TextDirection.ltr,
+          label,
+          textDirection:
+              welcomeText == null && isArabic ? TextDirection.rtl : null,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 13.5,
+            fontSize: isArabic ? 14.0 : 13.5,
             height: 1.25,
             fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
+            letterSpacing: isArabic ? 0.0 : 1.5,
             color: _CelebrationColors.goldBright,
           ),
         ),

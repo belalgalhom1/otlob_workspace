@@ -31,6 +31,16 @@ class _FakeStaleDriverAuth extends Auth {
   AsyncValue<bool> build() => const AsyncValue.data(true);
 }
 
+class _FakeDriverSplashAuthenticated extends Splash {
+  @override
+  Future<AppStartupState> build() async => AppStartupState.dashboard;
+}
+
+class _FakeDriverAuthAuthenticated extends Auth {
+  @override
+  AsyncValue<bool> build() => const AsyncValue.data(true);
+}
+
 void main() {
   tearDown(OtlobLoginEntranceCoordinator.reset);
 
@@ -123,7 +133,10 @@ void main() {
 
           await tester.pumpAndSettle(const Duration(seconds: 1));
 
-          expect(find.text('WELCOME TO OTLOB'), findsOneWidget);
+          final expectedWelcome = locale.languageCode == 'ar'
+              ? 'مرحباً بك في أطلب'
+              : 'WELCOME TO OTLOB';
+          expect(find.text(expectedWelcome), findsOneWidget);
           expect(find.byIcon(LucideIcons.package), findsNothing);
 
           final logoFinder = find.descendant(
@@ -134,15 +147,13 @@ void main() {
           final logoImage = tester.widget<Image>(logoFinder);
           expect(
             (logoImage.image as AssetImage).assetName,
-            themeMode == ThemeMode.dark
-                ? 'assets/logo_delivery_dark.png'
-                : 'assets/logo_delivery.png',
+            'assets/logo_without_background.png',
           );
 
           final signRect = tester.getRect(
             find
                 .ancestor(
-                  of: find.text('WELCOME TO OTLOB'),
+                  of: find.text(expectedWelcome),
                   matching: find.byType(Container),
                 )
                 .first,
@@ -157,6 +168,60 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'Driver Splash stays on ~4s spin before navigating to dashboard when authenticated',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const SplashScreen()),
+          GoRoute(
+            path: '/dashboard',
+            builder: (_, _) => const Scaffold(body: Text('DASHBOARD')),
+          ),
+        ],
+      );
+
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        router.dispose();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            splashProvider.overrideWith(_FakeDriverSplashAuthenticated.new),
+            authProvider.overrideWith(_FakeDriverAuthAuthenticated.new),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('en'),
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.dark,
+            routerConfig: router,
+          ),
+        ),
+      );
+
+      await tester.pump();
+      expect(find.byType(OtlobSplashSpinLogo), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byType(OtlobSplashSpinLogo), findsOneWidget);
+      expect(find.text('DASHBOARD'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 2100));
+      await tester.pumpAndSettle();
+      expect(find.text('DASHBOARD'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'Driver Splash clears stale authProvider == true when unauthenticated so celebration still plays on Login',
@@ -246,7 +311,7 @@ void main() {
       );
       expect(overlayState.effectsController.isAnimating, isTrue);
       await tester.pumpAndSettle(const Duration(seconds: 1));
-      expect(find.text('WELCOME TO OTLOB'), findsOneWidget);
+      expect(find.text('مرحباً بك في أطلب'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
