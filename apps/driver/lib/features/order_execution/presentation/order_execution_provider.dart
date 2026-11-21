@@ -22,10 +22,6 @@ class OrderExecution extends _$OrderExecution {
     _fetchActiveOrder();
   }
 
-  void clearSelectedOrder() {
-    _selectedOrderId = null;
-  }
-
   Future<void> refresh() => _fetchActiveOrder();
 
   Future<void> _fetchActiveOrder() async {

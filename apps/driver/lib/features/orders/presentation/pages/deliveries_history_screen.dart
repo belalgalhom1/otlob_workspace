@@ -51,7 +51,8 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(driverOrdersHistoryProvider);
-    final currency = ref.watch(configurationProvider.notifier).currency;
+    final currency =
+        ref.watch(configurationProvider).value?['currency']?.toString() ?? 'EGP';
 
     return Scaffold(
       appBar: AppBar(

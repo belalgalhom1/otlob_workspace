@@ -30,7 +30,10 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
       final profile = await repo.getMyProfile();
       if (!mounted) return;
 
-      final status = profile?['status']?.toString();
+      final profileMap = (profile is Map && profile['data'] is Map)
+          ? profile['data'] as Map
+          : profile;
+      final status = profileMap?['status']?.toString();
       if (status != null && status != 'SUSPENDED') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -88,7 +91,8 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final warmAccent = isDark ? AppColors.primary : const Color(0xFF92400E);
     final warningAccent = isDark ? AppColors.warning : const Color(0xFF92400E);
-    final rawCurrency = ref.watch(configurationProvider.notifier).currency;
+    final rawCurrency =
+        ref.watch(configurationProvider).value?['currency']?.toString() ?? 'EGP';
     final currency = (isAr && rawCurrency == 'EGP') ? 'ج.م' : rawCurrency;
 
     final profileValue = ref.watch(driverProfileProvider).value;

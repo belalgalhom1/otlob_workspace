@@ -189,7 +189,9 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
             decoration: InputDecoration(
               labelText: AppLocalizations.of(context)!.amount,
               border: const OutlineInputBorder(),
-              suffixText: ref.watch(configurationProvider.notifier).currency,
+              suffixText:
+                  ref.watch(configurationProvider).value?['currency']?.toString() ??
+                      'EGP',
             ),
           ),
           const SizedBox(height: 16),

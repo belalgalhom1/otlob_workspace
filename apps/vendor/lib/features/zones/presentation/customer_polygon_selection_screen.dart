@@ -23,6 +23,12 @@ class _CustomerPolygonSelectionScreenState extends ConsumerState<CustomerPolygon
   bool _isLoading = false;
   List<dynamic> _customers = [];
 
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
   void _handleTap(TapPosition tapPosition, LatLng latlng) {
     if (_customers.isNotEmpty) {
       // Clear results if user starts drawing again

@@ -94,6 +94,7 @@ class OrdersState {
     bool? hasMoreActive,
     bool? hasMorePast,
     String? error,
+    bool clearError = false,
   }) {
     return OrdersState(
       activeOrders: activeOrders ?? this.activeOrders,
@@ -105,7 +106,7 @@ class OrdersState {
       pastPage: pastPage ?? this.pastPage,
       hasMoreActive: hasMoreActive ?? this.hasMoreActive,
       hasMorePast: hasMorePast ?? this.hasMorePast,
-      error: error ?? this.error,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }
@@ -146,17 +147,40 @@ class Orders extends _$Orders {
       clear();
       return;
     }
-    state = state.copyWith(isLoading: true, error: null, activePage: 1, pastPage: 1);
+    state = state.copyWith(isLoading: true, clearError: true, activePage: 1, pastPage: 1);
     try {
-      final activeResult = await _fetchFromApi(page: 1, limit: _limit, isActive: true);
-      final pastResult = await _fetchFromApi(page: 1, limit: _limit, isActive: false);
-      
+      final repo = ref.read(customerOrderRepositoryProvider);
+      final allOrders = await repo.getMyOrders(page: 1, limit: _limit);
+      final rawList = allOrders is Map
+          ? (allOrders['orders'] ?? allOrders['data'] ?? allOrders['items'])
+          : allOrders;
+      final totalPages =
+          allOrders is Map ? (allOrders['totalPages'] as num?)?.toInt() ?? 1 : 1;
+      final hasMore = 1 < totalPages;
+
+      final active = <Map<String, dynamic>>[];
+      final past = <Map<String, dynamic>>[];
+      if (rawList is List) {
+        final revisions = ref.read(orderRevisionTrackerProvider);
+        for (final item in rawList.whereType<Map>()) {
+          final order = Map<String, dynamic>.from(item);
+          final st = order['status']?.toString();
+          if (_activeStatuses.contains(st)) {
+            revisions.observeOrder(order);
+            active.add(order);
+          } else if (_pastStatuses.contains(st)) {
+            revisions.observeOrder(order);
+            past.add(order);
+          }
+        }
+      }
+
       state = state.copyWith(
-        activeOrders: activeResult.orders,
-        pastOrders: pastResult.orders,
+        activeOrders: active,
+        pastOrders: past,
         isLoading: false,
-        hasMoreActive: activeResult.hasMore,
-        hasMorePast: pastResult.hasMore,
+        hasMoreActive: hasMore,
+        hasMorePast: hasMore,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -169,7 +193,7 @@ class Orders extends _$Orders {
     'READY_FOR_PICKUP', 'PARTIALLY_PICKED_UP', 'PICKED_UP',
   };
 
-  static const _pastStatuses = {'DELIVERED', 'CANCELLED'};
+  static const _pastStatuses = {'DELIVERED', 'CANCELLED', 'REJECTED'};
 
   Future<({List<Map<String, dynamic>> orders, bool hasMore})> _fetchFromApi({
     required int page,

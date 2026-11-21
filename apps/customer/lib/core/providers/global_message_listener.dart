@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/socket_service.dart';
@@ -11,9 +12,15 @@ part 'global_message_listener.g.dart';
 @Riverpod(keepAlive: true)
 class GlobalMessageListener extends _$GlobalMessageListener {
   String? _lastShownOfferId;
+  StreamSubscription<dynamic>? _chatSub;
 
   @override
   void build() {
+    ref.onDispose(() {
+      _chatSub?.cancel();
+      _chatSub = null;
+    });
+
     final authStatus = ref.watch(authControllerProvider);
 
     if (authStatus == AuthStatus.authenticated) {
@@ -27,6 +34,8 @@ class GlobalMessageListener extends _$GlobalMessageListener {
 
   void _disconnect() {
     _lastShownOfferId = null;
+    _chatSub?.cancel();
+    _chatSub = null;
     ref.read(socketServiceProvider).disconnect();
   }
 
@@ -34,13 +43,16 @@ class GlobalMessageListener extends _$GlobalMessageListener {
     final socket = ref.read(socketServiceProvider);
     final tokenService = ref.read(tokenServiceProvider);
     final accessToken = await tokenService.getAccessToken();
-    
+    if (!ref.mounted) return;
+
     if (accessToken != null) {
-      socket.initSocket(accessToken);
-      
-      socket.off('chat.message.global'); // Clean up old listeners
-      socket.on('chat.message', (data) {
-        _handleIncomingMessage(data);
+      await socket.initSocket(accessToken);
+      if (!ref.mounted) return;
+
+      _chatSub?.cancel();
+      _chatSub = socket.onEvent('chat.message').listen((data) {
+        if (!ref.mounted || data is! Map) return;
+        _handleIncomingMessage(Map<String, dynamic>.from(data));
       });
     }
   }

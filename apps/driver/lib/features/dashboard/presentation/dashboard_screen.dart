@@ -1,4 +1,5 @@
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -168,7 +169,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               child: InkWell(
               onTap: () {
                 FocusManager.instance.primaryFocus?.unfocus();
-                ref.read(appPreferencesProvider.notifier).setLocale(isArabic ? 'en' : 'ar');
+                final nextLang = isArabic ? 'en' : 'ar';
+                ref.read(appPreferencesProvider.notifier).setLocale(nextLang);
+                try {
+                  context.setLocale(Locale(nextLang));
+                } catch (_) {}
               },
               borderRadius: BorderRadius.circular(10),
               child: Container(
@@ -770,7 +775,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildHomeTab(AsyncValue<dynamic> profileState, AppLocalizations l10n) {
-    final currency = ref.watch(configurationProvider.notifier).currency;
+    final currency =
+        ref.watch(configurationProvider).value?['currency']?.toString() ?? 'EGP';
     return profileState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => _buildProfileError(error, l10n),
@@ -954,8 +960,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             Expanded(
                               child: OutlinedButton(
                                 onPressed: () async {
-                                  await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: false);
-                                  ref.invalidate(pendingAssistOffersProvider);
+                                  try {
+                                    await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: false);
+                                    if (!mounted) return;
+                                    ref.invalidate(pendingAssistOffersProvider);
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(ErrorUtils.translate(context, e)),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
                                 },
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Theme.of(context).colorScheme.onSurface,
@@ -968,12 +986,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () async {
-                                  await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: true);
-                                  ref.invalidate(pendingAssistOffersProvider);
-                                  ref.invalidate(driverProfileProvider);
-                                  await ref.read(orderExecutionProvider.notifier).refresh();
-                                  if (context.mounted) {
-                                    context.push('/order-execution');
+                                  try {
+                                    await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: true);
+                                    if (!mounted) return;
+                                    ref.invalidate(pendingAssistOffersProvider);
+                                    ref.invalidate(driverProfileProvider);
+                                    await ref.read(orderExecutionProvider.notifier).refresh();
+                                    if (context.mounted) {
+                                      context.push('/order-execution');
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(ErrorUtils.translate(context, e)),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(

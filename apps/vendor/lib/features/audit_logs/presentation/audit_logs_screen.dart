@@ -809,6 +809,7 @@ class _AuditLogCardState extends State<_AuditLogCard> {
       // Roles
       'SUPER_ADMIN': 'مدير عام',
       'ADMIN': 'مدير',
+      'DRIVER_MANAGER': 'مدير السائقين',
       'VENDOR_MEMBER': 'عضو متجر',
       'VENDOR': 'متجر',
       'DRIVER': 'سائق',

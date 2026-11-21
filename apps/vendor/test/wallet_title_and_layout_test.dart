@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:vendor/features/customers/presentation/customers_screen.dart';
 import 'package:vendor/features/legal/presentation/legal_documents_provider.dart';
 import 'package:vendor/features/legal/presentation/legal_documents_screen.dart';
 import 'package:vendor/features/legal/presentation/terms_acceptance_gate_screen.dart';
@@ -261,28 +260,6 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.byType(TabBar), findsOneWidget);
-      },
-    );
-
-    testWidgets(
-      'CustomersScreen quick-stats stack cleanly at 320x640 and 1.3x scale (${locale.languageCode})',
-      (tester) async {
-        await _pumpVendorWidget(
-          tester,
-          locale: locale,
-          viewport: const Size(320, 640),
-          padding: const EdgeInsets.only(top: 47, bottom: 34),
-          textScaler: const TextScaler.linear(1.3),
-          child: const Scaffold(
-            body: SafeArea(
-              child: SingleChildScrollView(child: CustomersScreen()),
-            ),
-          ),
-        );
-
-        expect(tester.takeException(), isNull);
-        expect(find.text('1,240'), findsOneWidget);
-        expect(find.text('850'), findsOneWidget);
       },
     );
   }

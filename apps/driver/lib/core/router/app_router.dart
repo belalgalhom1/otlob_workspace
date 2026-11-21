@@ -1,5 +1,6 @@
 import 'package:driver/features/legal/presentation/pages/terms_acceptance_gate_screen.dart';
 import 'package:driver/features/legal/presentation/pages/legal_document_viewer_page.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -36,10 +37,10 @@ GoRouter appRouter(Ref ref) {
   ref.listen(authProvider, (_, _) => authRefresh.value++);
   ref.onDispose(authRefresh.dispose);
 
-  return GoRouter(
+  final router = GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/',
-    debugLogDiagnostics: true,
+    debugLogDiagnostics: kDebugMode,
     refreshListenable: authRefresh,
     redirect: (context, state) {
       // App-status gates and legal documents manage themselves; never redirect away from them.
@@ -141,9 +142,14 @@ GoRouter appRouter(Ref ref) {
         path: '/chat/:orderId',
         builder: (context, state) {
           final orderId = state.pathParameters['orderId']!;
+          final extra = state.extra is Map ? state.extra as Map : null;
+          final chatType = extra?['type']?.toString() ?? 'order';
+          final title = extra?['title']?.toString();
           return OrderChatScreen(
-            key: ValueKey('driver_chat_$orderId'),
+            key: ValueKey('driver_chat_${chatType}_$orderId'),
             orderId: orderId,
+            chatType: chatType,
+            title: title,
           );
         },
       ),
@@ -197,4 +203,6 @@ GoRouter appRouter(Ref ref) {
       ),
     ],
   );
+  ref.onDispose(router.dispose);
+  return router;
 }

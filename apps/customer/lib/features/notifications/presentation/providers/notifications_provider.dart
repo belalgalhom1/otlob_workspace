@@ -94,6 +94,7 @@ class Notifications extends _$Notifications {
       final response = await dio.get('/notifications?page=$page&limit=20');
       
       if (response.data != null && response.data['data'] != null) {
+        if (!ref.mounted) return;
         final data = response.data['data'];
         List<Map<String, dynamic>> notifs = [];
         
@@ -121,9 +122,11 @@ class Notifications extends _$Notifications {
           );
         }
       } else {
+        if (!ref.mounted) return;
         state = state.copyWith(isLoading: false, hasMore: false);
       }
     } catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
@@ -147,6 +150,7 @@ class Notifications extends _$Notifications {
     try {
       final dio = ref.read(dioProvider);
       await dio.patch('/notifications/$id/read');
+      if (!ref.mounted) return;
       
       final updated = state.notifications.map((n) {
         if (n['id'] == id) {
@@ -165,6 +169,7 @@ class Notifications extends _$Notifications {
     try {
       final dio = ref.read(dioProvider);
       await dio.patch('/notifications/read', data: {});
+      if (!ref.mounted) return;
       
       final updated = state.notifications.map((n) {
         return {...n, 'isRead': true};

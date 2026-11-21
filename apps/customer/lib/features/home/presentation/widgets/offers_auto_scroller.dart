@@ -56,9 +56,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
     
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_controller.hasClients && _controller.page != null) {
-        setState(() {
-          _page = _controller.page!.round() + 1;
-        });
+        _page = _controller.page!.round() + 1;
         _controller.animateToPage(
           _page,
           duration: const Duration(milliseconds: 800),
@@ -82,7 +80,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
     return PageView.builder(
       controller: _controller,
       onPageChanged: (index) {
-        setState(() => _page = index);
+        _page = index;
       },
       itemBuilder: (context, index) {
         final offer = widget.offers[index % widget.offers.length];
@@ -384,6 +382,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                                 'id': vendorId,
                                 'name': vendorName,
                                 'productId': offer['productId']?.toString(),
+                                'variantId': offer['variantId']?.toString(),
                               });
                             }
                           },

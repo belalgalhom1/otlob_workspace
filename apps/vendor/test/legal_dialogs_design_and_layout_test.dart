@@ -276,7 +276,10 @@ void main() {
       final formEx = tester.takeException();
       expect(formEx, isNull, reason: formEx?.toString());
       expect(find.byType(AppDialog), findsOneWidget);
-      await tester.tap(find.text('Cancel').last);
+      final cancelBtn = find.text('Cancel').last;
+      await tester.ensureVisible(cancelBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(cancelBtn);
       await tester.pumpAndSettle();
 
       // 2. Collapse NestedScrollView header so active banner buttons are in view
@@ -296,7 +299,10 @@ void main() {
       final previewEx = tester.takeException();
       expect(previewEx, isNull, reason: previewEx?.toString());
       expect(find.byType(AppDialog), findsOneWidget);
-      await tester.tap(find.text('Close').last);
+      final previewCloseBtn = find.text('Close').last;
+      await tester.ensureVisible(previewCloseBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(previewCloseBtn);
       await tester.pumpAndSettle();
 
       // 4. Open Metrics / Stats dialog
@@ -309,7 +315,10 @@ void main() {
       expect(statsEx, isNull, reason: statsEx?.toString());
       expect(find.byType(AppDialog), findsOneWidget);
       expect(find.text('482'), findsOneWidget);
-      await tester.tap(find.text('Close').last);
+      final statsCloseBtn = find.text('Close').last;
+      await tester.ensureVisible(statsCloseBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(statsCloseBtn);
       await tester.pumpAndSettle();
 
       // 5. Scroll header back into view and switch to Privacy Policy tab (empty state)

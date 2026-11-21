@@ -126,7 +126,6 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
         isDark ? Colors.amber.shade300 : const Color(0xFFB45309);
     final readablePrimaryText =
         isDark ? AppColors.primary : const Color(0xFFB45309);
-    final orderType = order['type']?.toString() ?? 'STANDARD';
 
     // Customer
     final customer = order['customer'] is Map ? order['customer'] as Map : {};
@@ -148,11 +147,11 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
             : (vendorBranch['name'] ?? vendorBranch['nameAr']))
         ?.toString() ??
         '';
-    final vendorName = (vendorStoreName != null && vendorStoreName.toString().trim().isNotEmpty)
-        ? (branchName != null && branchName.toString().trim().isNotEmpty
-            ? '$vendorStoreName - $branchName'
-            : vendorStoreName.toString().trim())
-        : (branchName?.toString().trim() ?? (isArabic ? 'المتجر' : 'Vendor'));
+    final trimmedBranch = branchName.trim();
+    final trimmedStore = vendorStoreName?.toString().trim() ?? '';
+    final vendorName = trimmedStore.isNotEmpty
+        ? (trimmedBranch.isNotEmpty ? '$trimmedStore - $trimmedBranch' : trimmedStore)
+        : (trimmedBranch.isNotEmpty ? trimmedBranch : (isArabic ? 'المتجر' : 'Vendor'));
     final vendorLogo = ImageUtils.resolveVendorLogoUrl(vendor);
     final pickupAddress = order['pickupAddress']?.toString() ??
         vendorBranch['address']?.toString() ??

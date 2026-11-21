@@ -47,7 +47,7 @@ class DriverStatisticsScreen extends ConsumerWidget {
         chartTitleAr: 'اتجاه الأرباح',
         chartTitleEn: 'Earnings Trend',
         tooltipSuffix: 'EGP',
-        filenamePrefix: 'driver_statistics_${driverName.replaceAll(RegExp(r'\\s+'), '_')}',
+        filenamePrefix: 'driver_statistics_${driverName.replaceAll(RegExp(r'\s+'), '_')}',
         fetch: (period, {from, to}) => ref.read(
             driverStatsProvider((
               period: period,

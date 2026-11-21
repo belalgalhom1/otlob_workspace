@@ -71,7 +71,13 @@ class _ManageWalletsBottomSheetState extends ConsumerState<ManageWalletsBottomSh
 
   String _getWalletTypeName(String type, AppLocalizations l10n) {
     final normalizedType = type.toUpperCase();
-    if (normalizedType.contains('VODAFONE')) return l10n.mobileWallet;
+    if (normalizedType.contains('VODAFONE') ||
+        normalizedType.contains('ORANGE') ||
+        normalizedType.contains('ETISALAT') ||
+        normalizedType.contains('WE_PAY') ||
+        normalizedType == 'WE') {
+      return l10n.mobileWallet;
+    }
     if (normalizedType.contains('INSTAPAY')) return l10n.instaPay;
     return type;
   }

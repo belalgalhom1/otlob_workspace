@@ -38,6 +38,12 @@ class DriverWallet extends _$DriverWallet {
       final driverWallets = results[3];
       final topUpRequests = results[4];
 
+      num parseNum(dynamic value) {
+        if (value is num) return value;
+        if (value == null) return 0.0;
+        return num.tryParse(value.toString()) ?? 0.0;
+      }
+
       num parsedBalance = 0.0;
       if (balanceResponse is num) {
         parsedBalance = balanceResponse;
@@ -46,29 +52,23 @@ class DriverWallet extends _$DriverWallet {
         if (innerData is num) {
           parsedBalance = innerData;
         } else if (innerData is Map) {
-          parsedBalance = innerData['balance'] ?? innerData['walletBalance'] ?? 0.0;
+          parsedBalance = parseNum(innerData['balance'] ?? innerData['walletBalance']);
         } else {
-          parsedBalance = balanceResponse['balance'] ?? balanceResponse['walletBalance'] ?? 0.0;
+          parsedBalance = parseNum(balanceResponse['balance'] ?? balanceResponse['walletBalance']);
         }
       }
 
-      try {
-        state = AsyncValue.data({
-          'balance': parsedBalance,
-          'transactions': _listFrom(txResponse, 'transactions'),
-          'platformWallets': platformWallets is List ? platformWallets : (platformWallets?['data'] ?? []),
-          'driverWallets': driverWallets is List ? driverWallets : (driverWallets?['data'] ?? []),
-          'topUpRequests': topUpRequests is List ? topUpRequests : (topUpRequests?['data'] ?? []),
-        });
-      } catch (_) {
-        // Provider was disposed, ignore
-      }
+      if (!ref.mounted) return;
+      state = AsyncValue.data({
+        'balance': parsedBalance,
+        'transactions': _listFrom(txResponse, 'transactions'),
+        'platformWallets': platformWallets is List ? platformWallets : (platformWallets?['data'] ?? []),
+        'driverWallets': driverWallets is List ? driverWallets : (driverWallets?['data'] ?? []),
+        'topUpRequests': topUpRequests is List ? topUpRequests : (topUpRequests?['data'] ?? []),
+      });
     } catch (e, st) {
-      try {
-        state = AsyncValue.error(e, st);
-      } catch (_) {
-        // Provider was disposed, ignore
-      }
+      if (!ref.mounted) return;
+      state = AsyncValue.error(e, st);
     }
   }
 

@@ -131,25 +131,29 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     _lastEstimateKey = estimateKey;
 
     setState(() => _isEstimating = true);
-    final result = await ref.read(ordersProvider.notifier).estimateCustomOrder(
-      type: _serviceType,
-      pickup: _pickupController.text.trim().isEmpty ? 'Pickup' : _pickupController.text.trim(),
-      pickupLocation: [_pickupLocation!.longitude, _pickupLocation!.latitude],
-      dropoff: _dropoffController.text.trim().isEmpty ? 'Dropoff' : _dropoffController.text.trim(),
-      deliveryLocation: [_dropoffLocation!.longitude, _dropoffLocation!.latitude],
-      vehicleType: _selectedVehicle,
-      details: detailsText.isEmpty ? null : detailsText,
-      paymentMethod: _paymentMethod,
-      coinsToUse: coinsToUse,
-    );
-    if (mounted) {
-      setState(() {
-        _estimate = result;
-        if (result == null) {
-          _lastEstimateKey = null;
-        }
-        _isEstimating = false;
-      });
+    Map<String, dynamic>? result;
+    try {
+      result = await ref.read(ordersProvider.notifier).estimateCustomOrder(
+        type: _serviceType,
+        pickup: _pickupController.text.trim().isEmpty ? 'Pickup' : _pickupController.text.trim(),
+        pickupLocation: [_pickupLocation!.longitude, _pickupLocation!.latitude],
+        dropoff: _dropoffController.text.trim().isEmpty ? 'Dropoff' : _dropoffController.text.trim(),
+        deliveryLocation: [_dropoffLocation!.longitude, _dropoffLocation!.latitude],
+        vehicleType: _selectedVehicle,
+        details: detailsText.isEmpty ? null : detailsText,
+        paymentMethod: _paymentMethod,
+        coinsToUse: coinsToUse,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _estimate = result;
+          if (result == null) {
+            _lastEstimateKey = null;
+          }
+          _isEstimating = false;
+        });
+      }
     }
   }
 

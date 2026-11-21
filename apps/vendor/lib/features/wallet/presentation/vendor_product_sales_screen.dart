@@ -570,7 +570,7 @@ class _VendorProductSalesScreenState
                   spacing: 8,
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [dateButton, if (clearButton != null) clearButton],
+                  children: [dateButton, ?clearButton],
                 ),
               ],
             );
@@ -585,7 +585,7 @@ class _VendorProductSalesScreenState
               dateButton,
               SizedBox(width: 175, child: sortDropdown),
               sortOrderButton,
-              if (clearButton != null) clearButton,
+              ?clearButton,
             ],
           );
         },

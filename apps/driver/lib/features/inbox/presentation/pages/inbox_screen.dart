@@ -289,7 +289,13 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         if (type == 'ORDER') {
           await context.push('/chat/${convo['orderId'] ?? id}');
         } else {
-          await context.push('/chat/$id', extra: {'title': title});
+          await context.push(
+            '/chat/$id',
+            extra: {
+              'title': title,
+              'type': type == 'SUPPORT' ? 'support' : 'vendor',
+            },
+          );
         }
         if (mounted) {
           ref.read(sharedInboxProvider.notifier).refresh();

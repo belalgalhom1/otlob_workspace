@@ -78,8 +78,10 @@ class Splash extends _$Splash {
       debugPrint('🚀 Splash: gate check done: ${appStatus == null ? 'offline-skip' : 'maintenance=${appStatus.maintenance} mustUpdate=${appStatus.mustUpdate}'}');
       if (appStatus != null) {
         if (appStatus.maintenance) return AppStartupState.maintenance;
-        if (appStatus.mustUpdate) {
+        if (appStatus.mustUpdate || appStatus.shouldUpdate) {
           ref.read(updateStoreUrlProvider.notifier).set(appStatus.storeUrl);
+        }
+        if (appStatus.mustUpdate) {
           return AppStartupState.forceUpdate;
         }
         ref.read(appUpdateAvailableProvider.notifier).set(

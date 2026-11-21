@@ -78,8 +78,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   final MapController _mapController = MapController();
   Position? _currentPosition;
   StreamSubscription<Position>? _positionStreamSub;
-  StreamSubscription<dynamic>? _fulfillmentSub;
   ProviderSubscription<AsyncValue<dynamic>>? _orderExecSub;
+  bool _routeRefreshScheduled = false;
   RoadSpeedLimit? _roadSpeedLimit;
   bool _isMapReady = false;
   XFile? _pickupPhoto;
@@ -373,29 +373,12 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         _maybeLeaveForDashboard(state);
       },
     );
-    final socket = ref.read(coreSocketServiceProvider);
-    _fulfillmentSub = socket
-        .onEvent(SocketEvent.orderFulfillmentUpdated)
-        .listen((data) {
-      if (!mounted) return;
-      final currentOrder = ref.read(orderExecutionProvider).value;
-      final activeOrderId =
-          currentOrder is Map ? currentOrder['id']?.toString() : null;
-      final incomingOrderId =
-          data is Map ? (data['orderId'] ?? data['id'])?.toString() : null;
-      if (activeOrderId == null ||
-          incomingOrderId == null ||
-          incomingOrderId == activeOrderId) {
-        ref.read(orderExecutionProvider.notifier).refresh();
-      }
-    });
   }
 
   @override
   void dispose() {
     _routeCancelToken?.cancel('disposed');
     _orderExecSub?.close();
-    _fulfillmentSub?.cancel();
     _positionStreamSub?.cancel();
     _mapController.dispose();
     super.dispose();
@@ -403,35 +386,46 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
 
   Future<void> _initLocationTracking() async {
     await _getCurrentLocation();
+    if (!mounted) return;
     try {
       final permission = await Geolocator.checkPermission();
+      if (!mounted) return;
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         return;
       }
-      _positionStreamSub?.cancel();
+      await _positionStreamSub?.cancel();
+      if (!mounted) return;
       _positionStreamSub = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           distanceFilter: 5,
         ),
-      ).listen((pos) {
-        if (!mounted) return;
-        setState(() {
-          _currentPosition = pos;
-        });
-        SpeedLimitService.instance.getSpeedLimit(pos.latitude, pos.longitude).then((limit) {
-          if (mounted && limit != null) {
-            setState(() => _roadSpeedLimit = limit);
-          }
-        });
-      });
+      ).listen(
+        (pos) {
+          if (!mounted) return;
+          setState(() {
+            _currentPosition = pos;
+          });
+          SpeedLimitService.instance
+              .getSpeedLimit(pos.latitude, pos.longitude)
+              .then((limit) {
+            if (mounted && limit != null) {
+              setState(() => _roadSpeedLimit = limit);
+            }
+          }).catchError((_) {});
+        },
+        onError: (Object err) {
+          debugPrint('OrderExecutionScreen GPS stream error: $err');
+        },
+      );
     } catch (_) {}
   }
 
   Future<void> _getCurrentLocation() async {
     try {
       final permission = await Geolocator.checkPermission();
+      if (!mounted) return;
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         return;
@@ -443,11 +437,13 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         setState(() {
           _currentPosition = pos;
         });
-        SpeedLimitService.instance.getSpeedLimit(pos.latitude, pos.longitude).then((limit) {
+        SpeedLimitService.instance
+            .getSpeedLimit(pos.latitude, pos.longitude)
+            .then((limit) {
           if (mounted && limit != null) {
             setState(() => _roadSpeedLimit = limit);
           }
-        });
+        }).catchError((_) {});
         if (_isMapReady) {
           _mapController.move(LatLng(pos.latitude, pos.longitude), 14);
         }
@@ -1060,16 +1056,20 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       }
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _maybeRefreshDriverRoadRoute(
-        order: order,
-        isDelivering: isDelivering,
-        pickupStops: pickupStops,
-        customerLat: customerLat,
-        customerLng: customerLng,
-      );
-    });
+    if (!_routeRefreshScheduled) {
+      _routeRefreshScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _routeRefreshScheduled = false;
+        if (!mounted) return;
+        _maybeRefreshDriverRoadRoute(
+          order: order,
+          isDelivering: isDelivering,
+          pickupStops: pickupStops,
+          customerLat: customerLat,
+          customerLng: customerLng,
+        );
+      });
+    }
 
     final List<LatLng> renderedRoutePoints;
     if (_roadRoutePoints.length >= 2) {
@@ -2137,6 +2137,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             await ref
                 .read(orderExecutionProvider.notifier)
                 .confirmPickupWithPhoto(photo, fulfillmentId: curFulfillmentId);
+            if (!mounted) return;
             int nextPending = -1;
             setState(() {
               _collectedStopIndices.add(_currentStopIndex);
@@ -2515,8 +2516,12 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     Map<String, dynamic> order,
     AppLocalizations l10n,
   ) async {
-    final repo = ref.read(driverOrdersRepositoryProvider);
-    final activeOrders = await repo.getActiveDriverOrders();
+    List<dynamic> activeOrders = const [];
+    try {
+      final repo = ref.read(driverOrdersRepositoryProvider);
+      activeOrders = await repo.getActiveDriverOrders();
+    } catch (_) {}
+    if (!mounted) return;
 
     if (activeOrders.isNotEmpty) {
       final currentId = order['id']?.toString();

@@ -37,8 +37,16 @@ class SocketService with WidgetsBindingObserver {
   /// Fires on every (re)connect, including after token-rotation re-auth.
   Stream<void> get onConnect => _connectController.stream;
 
-  StreamController<dynamic> _controllerFor(String event) =>
-      _controllers.putIfAbsent(event, () => StreamController<dynamic>.broadcast());
+  StreamController<dynamic> _controllerFor(String event) {
+    final existing = _controllers[event];
+    if (existing != null) return existing;
+    final ctrl = StreamController<dynamic>.broadcast();
+    _controllers[event] = ctrl;
+    _socket?.on(event, (dynamic data) {
+      if (!ctrl.isClosed) ctrl.add(data);
+    });
+    return ctrl;
+  }
 
   /// Subscribe to a socket event. The returned [StreamSubscription] can be
   /// cancelled without affecting any other consumer listening to the same event.
@@ -46,7 +54,9 @@ class SocketService with WidgetsBindingObserver {
 
   void _forwardAllControllers() {
     for (final entry in _controllers.entries) {
-      _socket?.on(entry.key, (dynamic data) => entry.value.add(data));
+      _socket?.on(entry.key, (dynamic data) {
+        if (!entry.value.isClosed) entry.value.add(data);
+      });
     }
   }
 
@@ -215,5 +225,12 @@ class SocketService with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     disconnect();
+    if (!_connectController.isClosed) {
+      _connectController.close();
+    }
+    for (final ctrl in _controllers.values) {
+      if (!ctrl.isClosed) ctrl.close();
+    }
+    _controllers.clear();
   }
 }

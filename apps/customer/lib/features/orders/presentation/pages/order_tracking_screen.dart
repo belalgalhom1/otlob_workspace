@@ -448,7 +448,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     final order = await ref
         .read(ordersProvider.notifier)
         .fetchOrderDetails(widget.orderId);
-    if (mounted && order != null) {
+    if (!mounted) return;
+    if (order != null) {
       setState(() {
         _orderDetails = order;
         _orderStatus = order['status'] ?? 'LOOKING_FOR_DRIVER';
@@ -483,17 +484,15 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           }
         }
       });
-      if (_orderStatus == 'DRIVER_ASSIGNED' ||
-          _orderStatus == 'PENDING_PAYMENT') {
-        _fetchOrderDetails();
-      }
       _extractDriverLocationFromOrder();
       _maybeRefreshOrderRoadRoute();
     }
 
     final token = await tokenService.getAccessToken();
+    if (!mounted) return;
     if (token != null) {
       await socket.initSocket(token);
+      if (!mounted) return;
 
       // Seed the driver marker immediately: request the last known location
       // (live Redis, or last persisted) for drivers that are stationary and
@@ -621,6 +620,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   void dispose() {
     _routeCancelToken?.cancel('disposed');
     _driverMoveController.dispose();
+    _mapController.dispose();
     _statusSub?.cancel();
     _fulfillmentSub?.cancel();
     _assistSub?.cancel();

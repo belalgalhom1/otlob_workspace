@@ -408,7 +408,7 @@ class _AdminVendorWalletScreenState
                   spacing: 8,
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [dateButton, if (clearButton != null) clearButton],
+                  children: [dateButton, ?clearButton],
                 ),
               ],
             );
@@ -421,7 +421,7 @@ class _AdminVendorWalletScreenState
             children: [
               SizedBox(width: 210, child: typeDropdown),
               dateButton,
-              if (clearButton != null) clearButton,
+              ?clearButton,
             ],
           );
         },

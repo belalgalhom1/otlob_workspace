@@ -64,7 +64,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
   }
 
   static String? _fmtDay(DateTime? date) =>
-      date == null ? null : date.toIso8601String().substring(0, 10);
+      date?.toIso8601String().substring(0, 10);
 
   void _applyServerFilter() {
     final range = _range;

@@ -47,9 +47,10 @@ class VendorCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tag = vendor['tag'] as String? ?? '';
-    final favorites = ref.watch(favoritesProvider);
     final vendorId = vendor['id']?.toString() ?? '';
-    final isFav = favorites.contains(vendorId);
+    final isFav = ref.watch(
+      favoritesProvider.select((favorites) => favorites.contains(vendorId)),
+    );
     final strings = AppStrings.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

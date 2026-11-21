@@ -30,13 +30,16 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isLoggingOut = false;
 
-  void _navigateToLoginAfterLogout() {
+  void _navigateToLoginAfterLogout({
+    required bool hasSeenOnboarding,
+    required NavigationService navService,
+  }) {
     if (mounted) {
       context.go(RoutePaths.login);
       return;
     }
-    if (ref.read(appSettingsProvider).hasSeenOnboarding) {
-      ref.read(navigationServiceProvider).go(RoutePaths.login);
+    if (hasSeenOnboarding) {
+      navService.go(RoutePaths.login);
     }
   }
 
@@ -54,10 +57,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     if (confirmed != true || !mounted) return;
 
+    final hasSeenOnboarding = ref.read(appSettingsProvider).hasSeenOnboarding;
+    final navService = ref.read(navigationServiceProvider);
     setState(() => _isLoggingOut = true);
     try {
       await ref.read(authControllerProvider.notifier).logout();
-      _navigateToLoginAfterLogout();
+      _navigateToLoginAfterLogout(
+        hasSeenOnboarding: hasSeenOnboarding,
+        navService: navService,
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoggingOut = false);
@@ -100,6 +108,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           onChanged: (val) async {
                             final langCode = val ? 'ar' : 'en';
                             await context.setLocale(Locale(langCode));
+                            if (!mounted) return;
                             ref
                                 .read(appSettingsProvider.notifier)
                                 .changeLanguage(langCode);
@@ -755,7 +764,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           );
         },
       ),
-    );
+    ).whenComplete(() {
+      nameCtrl.dispose();
+      emailCtrl.dispose();
+      phoneCtrl.dispose();
+    });
   }
 
   void _showChangePassword(BuildContext context, WidgetRef ref, AppStrings s) {
@@ -780,6 +793,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _showDeleteAccount(BuildContext context, WidgetRef ref, AppStrings s) {
     final navService = ref.read(navigationServiceProvider);
+    final hasSeenOnboarding = ref.read(appSettingsProvider).hasSeenOnboarding;
     final deletedMessage =
         s.isArabic ? 'تم حذف الحساب بنجاح' : 'Account deleted successfully';
     showDialog(
@@ -788,8 +802,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         onConfirm: () async {
           final userRepo = ref.read(sharedUserRepositoryProvider);
           await userRepo.deleteAccount();
+          if (!mounted) return;
           await ref.read(authControllerProvider.notifier).logout();
-          _navigateToLoginAfterLogout();
+          _navigateToLoginAfterLogout(
+            hasSeenOnboarding: hasSeenOnboarding,
+            navService: navService,
+          );
           final targetContext = mounted ? context : navService.context;
           if (targetContext != null && targetContext.mounted) {
             ScaffoldMessenger.maybeOf(targetContext)?.showSnackBar(

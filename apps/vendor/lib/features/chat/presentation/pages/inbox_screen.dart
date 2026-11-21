@@ -32,6 +32,8 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   void _setupSocket() {
     Future.microtask(() async {
       await ref.read(socketServiceProvider).init();
+      if (!mounted) return;
+      _messageSubscription?.cancel();
       _messageSubscription = ref
           .read(socketServiceProvider)
           .onEvent(SocketEvent.chatMessage)

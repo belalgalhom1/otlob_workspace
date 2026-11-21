@@ -22,12 +22,13 @@ class CoinHistoryState {
     int? currentBalance,
     bool? isLoading,
     String? error,
+    bool clearError = false,
   }) {
     return CoinHistoryState(
       transactions: transactions ?? this.transactions,
       currentBalance: currentBalance ?? this.currentBalance,
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }
@@ -60,10 +61,11 @@ class CoinHistory extends _$CoinHistory {
       return;
     }
 
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, clearError: true);
     try {
       final dio = ref.read(dioProvider);
       final response = await dio.get('/customers/me/coins/history?page=1&limit=100');
+      if (!ref.mounted) return;
       
       if (response.data != null && response.data['data'] != null) {
         final data = response.data['data'];
@@ -76,6 +78,7 @@ class CoinHistory extends _$CoinHistory {
         state = state.copyWith(isLoading: false);
       }
     } catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }

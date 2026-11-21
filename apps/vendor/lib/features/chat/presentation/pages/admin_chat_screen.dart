@@ -157,14 +157,20 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
     _recorder = FlutterSoundRecorder();
     await _recorder!.openRecorder();
-    await _recorder!.setSubscriptionDuration(const Duration(milliseconds: 100));
-    if (mounted) {
-      setState(() {
-        _isRecorderInitialized = true;
-      });
-    } else {
-      _isRecorderInitialized = true;
+    if (!mounted) {
+      await _recorder?.closeRecorder();
+      _recorder = null;
+      return false;
     }
+    await _recorder!.setSubscriptionDuration(const Duration(milliseconds: 100));
+    if (!mounted) {
+      await _recorder?.closeRecorder();
+      _recorder = null;
+      return false;
+    }
+    setState(() {
+      _isRecorderInitialized = true;
+    });
     return true;
   }
 
@@ -185,6 +191,8 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
   void _setupSocket() async {
     await ref.read(socketServiceProvider).init();
+    if (!mounted) return;
+    _messageSubscription?.cancel();
     _messageSubscription = ref
         .read(socketServiceProvider)
         .onEvent(SocketEvent.chatMessage)
@@ -368,7 +376,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
         _loadMessages();
       } catch (e) {
-        if (!context.mounted) return;
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1424,7 +1432,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     if (pickedFile == null || !mounted) return;
 
     final path = pickedFile.path;
-    if (!await _validateMediaSize(path)) return;
+    if (!await _validateMediaSize(path) || !mounted) return;
 
     final caption = await ChatMediaCaptionDialog.show(
       context,

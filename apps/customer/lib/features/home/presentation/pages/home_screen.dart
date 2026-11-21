@@ -109,12 +109,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final searchQuery = _searchController.text.toLowerCase();
 
     final filtered = data.products.where((v) {
-      final matchType =
-          _selectedType == 'all' ? true : v['type'] == _selectedType;
       final matchSearch = searchQuery.isEmpty ||
-          (v['name'] as String).toLowerCase().contains(searchQuery) ||
-          (v['vendor'] as String? ?? '').toLowerCase().contains(searchQuery);
-      return matchType && matchSearch;
+          (v['name']?.toString() ?? '').toLowerCase().contains(searchQuery) ||
+          (v['nameAr']?.toString() ?? '').toLowerCase().contains(searchQuery) ||
+          (v['vendor']?.toString() ?? '').toLowerCase().contains(searchQuery);
+      return matchSearch;
     }).toList();
 
     return CustomScrollView(

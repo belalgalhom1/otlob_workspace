@@ -641,8 +641,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
     final rawDeliveryFee = est != null ? toNum(est['deliveryFee']) : 0.0;
     final driverBonusFee = est != null ? toNum(est['driverBonusFee']) : 0.0;
-    // Fold driverBonusFee into deliveryFee for clean customer display
-    final deliveryFee = rawDeliveryFee + driverBonusFee;
+    final bonusPaidByCustomer = est?['driverBonusPaidByCustomer'] != false;
+    // Fold driverBonusFee into deliveryFee only when paid by customer (matching CheckoutScreen)
+    final deliveryFee =
+        rawDeliveryFee + (bonusPaidByCustomer ? driverBonusFee : 0.0);
     final serviceFee = est != null ? toNum(est['serviceFee']) : 0.0;
     final tax = est != null ? toNum(est['tax']) : 0.0;
     final total = est != null

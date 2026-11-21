@@ -785,6 +785,7 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
       } catch (_) {
         // Fallback if sharedRoutingRepositoryProvider isn't mounted in isolated tests
       }
+      if (_disposed) return;
       points ??= await fetchRoadRoutePoints(
         ref.read(dioProvider),
         pickup,

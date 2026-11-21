@@ -5,7 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/features/users/presentation/user_provider.dart';
-import '../../../l10n/l10n_error_helper.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class UserFormDialog extends ConsumerStatefulWidget {
   final dynamic user;
@@ -270,7 +270,9 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
                   : null,
               title: titleController.text.isNotEmpty ? titleController.text : null,
               titleAr: titleArController.text.isNotEmpty ? titleArController.text : null,
-              permissions: selectedRole == 'ADMIN' ? selectedPermissions : null,
+              permissions: (selectedRole == 'ADMIN' || selectedRole == 'DRIVER_MANAGER')
+                  ? selectedPermissions
+                  : null,
             );
         successMsg = l10n.common_success_resource_updated;
       }
@@ -288,7 +290,7 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
       if (mounted) {
         setState(() {
           _isSaving = false;
-          _errorMessage = L10nErrorHelper.translate(context, e);
+          _errorMessage = ErrorUtils.translate(context, e);
         });
       }
     }

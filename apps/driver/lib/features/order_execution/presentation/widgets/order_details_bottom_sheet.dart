@@ -8,6 +8,23 @@ import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/providers/configuration_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+final _driverAssistRequestsProvider = FutureProvider.autoDispose<List<dynamic>>(
+  (ref) async {
+    try {
+      final res =
+          await ref.read(driverOrdersRepositoryProvider).getMyAssistRequests();
+      if (res is List) return res;
+      if (res is Map && res['data'] is List) {
+        return res['data'] as List<dynamic>;
+      }
+      if (res is Map && res['items'] is List) {
+        return res['items'] as List<dynamic>;
+      }
+    } catch (_) {}
+    return const <dynamic>[];
+  },
+);
+
 class OrderDetailsBottomSheet extends ConsumerWidget {
   final Map<String, dynamic> order;
 
@@ -46,7 +63,8 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final currency = ref.watch(configurationProvider.notifier).currency;
+    final currency =
+        ref.watch(configurationProvider).value?['currency']?.toString() ?? 'EGP';
 
     final orderType = OrderTypeHelper.resolve(order);
     final isAr = l10n.localeName == 'ar';
@@ -115,7 +133,12 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                       child: Directionality(
                         textDirection: TextDirection.ltr,
                         child: Text(
-                          order['orderNumber']?.toString() ?? '#${(order['id'] ?? '').toString().substring(0, 8)}',
+                          () {
+                            final numStr = order['orderNumber']?.toString();
+                            if (numStr != null && numStr.isNotEmpty) return numStr;
+                            final idStr = (order['id'] ?? '').toString();
+                            return '#${idStr.length > 8 ? idStr.substring(0, 8) : idStr}';
+                          }(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1197,24 +1220,11 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 final isFinished =
                     order['status'] == 'DELIVERED' || order['status'] == 'CANCELLED';
 
-                return FutureBuilder<List<dynamic>>(
-                  future: () async {
-                    try {
-                      final res = await ref
-                          .read(driverOrdersRepositoryProvider)
-                          .getMyAssistRequests();
-                      if (res is List) return res;
-                      if (res is Map && res['data'] is List) {
-                        return res['data'] as List<dynamic>;
-                      }
-                      if (res is Map && res['items'] is List) {
-                        return res['items'] as List<dynamic>;
-                      }
-                    } catch (_) {}
-                    return const <dynamic>[];
-                  }(),
-                  builder: (context, snap) {
-                    final fetchedRequests = snap.data ?? const <dynamic>[];
+                final fetchedRequests =
+                    ref.watch(_driverAssistRequestsProvider).value ??
+                        const <dynamic>[];
+                return Builder(
+                  builder: (context) {
                     final allRequests = [
                       ...fetchedRequests,
                       ...embeddedRequests,

@@ -140,16 +140,20 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
     try {
       final dio = ref.read(dioProvider);
       final response = await dio.get('/orders/my');
+      if (!mounted) return;
       final raw = response.data['data'];
       final list = (raw is Map ? raw['orders'] : raw) as List? ?? [];
       setState(() {
         _orders = list
             .whereType<Map<String, dynamic>>()
-            .where((o) => o['type'] != 'custom_delivery')
+            .where((o) {
+              final t = o['type']?.toString().toUpperCase();
+              return t != 'CUSTOM_DELIVERY' && t != 'RIDE';
+            })
             .toList();
       });
     } catch (_) {
-      setState(() => _orders = []);
+      if (mounted) setState(() => _orders = []);
     } finally {
       if (mounted) setState(() => _loadingOrders = false);
     }
@@ -322,11 +326,13 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
 
     try {
       final tickets = await ref.read(supportTicketProvider.notifier).getTickets();
+      if (!mounted) return;
       for (final t in tickets) {
         if (_isTicketChatActive(t) && t is Map) {
           final existingId = t['id']?.toString();
           if (existingId != null && existingId.isNotEmpty) {
             await ref.read(supportTicketProvider.notifier).closeTicket(existingId);
+            if (!mounted) return;
           }
         }
       }
@@ -338,6 +344,7 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
             orderId: orderId,
             vendorId: vendorId,
           );
+      if (!mounted) return;
 
       // Ensure Conversations List and unread counts reflect the new ticket conversation
       ref.read(sharedInboxProvider.notifier).refresh();
@@ -360,6 +367,7 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
           );
         } else {
           await _loadTickets();
+          if (!mounted) return;
           setState(() {
             _step = _SupportStep.category;
             _selectedCategory = null;

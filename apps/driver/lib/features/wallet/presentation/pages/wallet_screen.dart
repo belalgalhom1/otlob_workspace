@@ -20,7 +20,8 @@ class WalletScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final walletState = ref.watch(driverWalletProvider);
-    final rawCurrency = ref.watch(configurationProvider.notifier).currency;
+    final rawCurrency =
+        ref.watch(configurationProvider).value?['currency']?.toString() ?? 'EGP';
     final currency =
         (l10n.localeName == 'ar' && rawCurrency == 'EGP') ? 'ج.م' : rawCurrency;
 
@@ -30,6 +31,7 @@ class WalletScreen extends ConsumerWidget {
       data: (data) {
         final balance = data['balance'] ?? 0.0;
         final transactions = data['transactions'] as List<dynamic>? ?? [];
+        final adjustments = _extractAdjustments(transactions);
         final topUpRequests = data['topUpRequests'] as List<dynamic>? ?? [];
         final pendingTopUps = topUpRequests.where((e) => e['status'] == 'PENDING').toList();
         final profileValue = ref.watch(driverProfileProvider).value;
@@ -106,10 +108,10 @@ class WalletScreen extends ConsumerWidget {
                         }),
                         const SizedBox(height: 24),
                       ],
-                      if (_extractAdjustments(transactions).isNotEmpty) ...[
+                      if (adjustments.isNotEmpty) ...[
                         _buildAdjustmentHistorySection(
                           context,
-                          _extractAdjustments(transactions),
+                          adjustments,
                           currency,
                           l10n,
                         ),

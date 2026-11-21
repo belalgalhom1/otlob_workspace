@@ -6,7 +6,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'access_control_provider.dart';
-import '../../../l10n/l10n_error_helper.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class AccessControlScreen extends ConsumerStatefulWidget {
   const AccessControlScreen({super.key});
@@ -467,7 +467,7 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
   );
 },
 loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text(L10nErrorHelper.translate(context, e))),
+      error: (e, s) => Center(child: Text(ErrorUtils.translate(context, e))),
     );
   }
 

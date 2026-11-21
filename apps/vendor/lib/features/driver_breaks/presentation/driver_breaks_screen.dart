@@ -126,6 +126,7 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen>
     try {
       final repo = ref.read(driverBreaksRepositoryProvider);
       await call(repo);
+      if (!mounted) return;
       ref.invalidate(pendingBreaksProvider);
       if (_selectedDriver != null) {
         ref.invalidate(
@@ -176,7 +177,7 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen>
   Widget _buildPendingTab(AppLocalizations l10n) {
     final pendingAsync = ref.watch(pendingBreaksProvider);
     return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(pendingBreaksProvider),
+      onRefresh: () => ref.refresh(pendingBreaksProvider.future),
       child: pendingAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
@@ -194,9 +195,18 @@ class _DriverBreaksScreenState extends ConsumerState<DriverBreaksScreen>
         ),
         data: (items) {
           if (items.isEmpty) {
-            return Center(child: Text(l10n.noPendingBreaks));
+            return LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: constraints.maxHeight,
+                  child: Center(child: Text(l10n.noPendingBreaks)),
+                ),
+              ),
+            );
           }
           return ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             itemCount: items.length,
             itemBuilder: (context, i) => _buildPendingCard(items[i], l10n),
           );

@@ -135,8 +135,6 @@ class _AddProductInChatDialogState
           finalImage = image;
         }
 
-        if (finalImage == null) return;
-
         final bytes = await finalImage.readAsBytes();
         if (mounted) {
           setState(() {

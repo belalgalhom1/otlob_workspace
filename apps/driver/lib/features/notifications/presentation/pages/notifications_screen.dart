@@ -136,10 +136,11 @@ class NotificationsScreen extends ConsumerWidget {
                         )
                       : null,
                   onTap: () async {
-                    if (!isRead) {
+                    final notifId = notification['id']?.toString();
+                    if (!isRead && notifId != null && notifId.isNotEmpty) {
                       ref
                           .read(driverNotificationsProvider.notifier)
-                          .markAsRead(notification['id']);
+                          .markAsRead(notifId);
                     }
                     final coordinator =
                         ref.read(driverDispatchCoordinatorProvider);
@@ -177,7 +178,7 @@ class NotificationsScreen extends ConsumerWidget {
                     } else if (notifType?.contains('SHIFT') == true) {
                       context.push('/shifts');
                     } else if (data != null && data['kind'] == 'break') {
-                      context.go('/dashboard');
+                      context.push('/breaks');
                     }
                   },
                 );

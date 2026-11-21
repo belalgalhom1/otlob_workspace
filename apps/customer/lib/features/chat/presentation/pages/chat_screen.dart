@@ -117,9 +117,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     _loadOrderDetails();
-    _controller.addListener(() {
-      if (mounted) setState(() {});
-    });
     _focusNode.addListener(_onFocusChange);
   }
 
@@ -154,7 +151,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       } catch (_) {}
       effectiveOrderId ??= widget.conversationId;
     }
-    if (effectiveOrderId == null || effectiveOrderId.isEmpty) return;
+    if (effectiveOrderId == null || effectiveOrderId.isEmpty || !mounted) return;
     try {
       final repo = ref.read(customerOrderRepositoryProvider);
       final res = await repo.getOrderById(effectiveOrderId);
@@ -472,12 +469,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (!ready || !mounted) return;
     _waveformSamples.clear();
     await VoiceAudioHelper.configureForRecording();
+    if (!mounted) return;
     final tempDir = await getTemporaryDirectory();
+    if (!mounted || _recorder == null) return;
     _recordingPath = VoiceAudioHelper.buildRecordingPath(tempDir.path);
     await _recorder!.startRecorder(
       toFile: _recordingPath,
       codec: VoiceAudioHelper.recordingCodec,
     );
+    if (!mounted) {
+      await _recorder?.stopRecorder();
+      return;
+    }
+    await _recordingSubscription?.cancel();
     _recordingSubscription = _recorder!.onProgress!.listen((e) {
       if (mounted) {
         setState(() {
@@ -501,8 +505,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _cancelRecording() async {
     if (!_isRecording) return;
-    await _recorder!.stopRecorder();
-    _recordingSubscription?.cancel();
+    await _recorder?.stopRecorder();
+    await _recordingSubscription?.cancel();
+    _recordingSubscription = null;
     _waveformSamples.clear();
     
     if (_recordingPath != null) {
@@ -512,6 +517,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     }
 
+    if (!mounted) return;
     setState(() {
       _isRecording = false;
       _recordingDuration = Duration.zero;
@@ -520,15 +526,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _stopRecording() async {
     if (!_isRecording) return;
-    await _recorder!.stopRecorder();
-    _recordingSubscription?.cancel();
+    await _recorder?.stopRecorder();
+    await _recordingSubscription?.cancel();
+    _recordingSubscription = null;
 
     final duration = _recordingDuration;
 
-    setState(() {
-      _isRecording = false;
-      _recordingDuration = Duration.zero;
-    });
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _recordingDuration = Duration.zero;
+      });
+    }
 
     if (_recordingPath != null) {
       final file = File(_recordingPath!);
@@ -540,6 +549,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           return;
         }
       }
+      if (!mounted) return;
 
       const targetCount = 35;
       final List<double> finalWaveform = [];
@@ -568,7 +578,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       final replyId = _replyingTo?.id;
       final replyPayload = _buildReplyPayload();
-      if (_replyingTo != null) {
+      if (_replyingTo != null && mounted) {
         setState(() => _replyingTo = null);
       }
 
@@ -599,7 +609,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     _controller.clear();
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
+      if (mounted && _scrollController.hasClients) {
         _scrollController.animateTo(
           0.0,
           duration: const Duration(milliseconds: 300),
@@ -1211,161 +1221,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _AudioPlayerWidget extends StatefulWidget {
-  final String url;
-  final bool isMe;
-
-  const _AudioPlayerWidget({required this.url, required this.isMe});
-
-  @override
-  State<_AudioPlayerWidget> createState() => _AudioPlayerWidgetState();
-}
-
-class _AudioPlayerWidgetState extends State<_AudioPlayerWidget> {
-  FlutterSoundPlayer? _player;
-  bool _isPlaying = false;
-  bool _isPlayerInitialized = false;
-  StreamSubscription? _playerSubscription;
-  Duration _position = Duration.zero;
-  Duration _duration = Duration.zero;
-
-  @override
-  void initState() {
-    super.initState();
-    _initPlayer();
-  }
-
-  Future<void> _initPlayer() async {
-    _player = FlutterSoundPlayer();
-    await _player!.openPlayer();
-    _player!.setSubscriptionDuration(const Duration(milliseconds: 100));
-    _playerSubscription = _player!.onProgress!.listen((e) {
-      if (mounted) {
-        setState(() {
-          _position = e.position;
-          _duration = e.duration;
-        });
-      }
-    });
-    if (mounted) {
-      setState(() {
-        _isPlayerInitialized = true;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _playerSubscription?.cancel();
-    _player?.closePlayer();
-    _player = null;
-    super.dispose();
-  }
-
-  Future<void> _playPause() async {
-    if (!_isPlayerInitialized || _player == null) return;
-    
-    if (_isPlaying) {
-      await _player!.pausePlayer();
-      if (mounted) {
-        setState(() => _isPlaying = false);
-      }
-    } else {
-      if (_player!.isPaused) {
-        await _player!.resumePlayer();
-        if (mounted) {
-          setState(() => _isPlaying = true);
-        }
-      } else {
-        if (mounted) {
-          setState(() => _isPlaying = true);
-        }
-        try {
-          await VoiceAudioHelper.configureForPlayback();
-          await _player!.startPlayer(
-            fromURI: widget.url,
-            codec: VoiceAudioHelper.codecFromSource(widget.url),
-            whenFinished: () {
-              if (mounted) {
-                setState(() {
-                  _isPlaying = false;
-                  _position = Duration.zero;
-                });
-              }
-            },
-          );
-        } catch (e) {
-          debugPrint('Error playing audio: $e');
-          if (mounted) {
-            setState(() => _isPlaying = false);
-          }
-        }
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String posStr = "${_position.inMinutes.toString().padLeft(2, "0")}:${(_position.inSeconds % 60).toString().padLeft(2, "0")}";
-    String durStr = "${_duration.inMinutes.toString().padLeft(2, "0")}:${(_duration.inSeconds % 60).toString().padLeft(2, "0")}";
-    
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: _playPause,
-          child: Icon(
-            _isPlaying ? LucideIcons.pauseCircle : LucideIcons.playCircle,
-            color: widget.isMe ? Colors.white : AppColors.primary,
-            size: 32,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 120,
-              height: 20,
-              child: SliderTheme(
-                data: SliderThemeData(
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                  trackHeight: 2,
-                ),
-                child: Slider(
-                  value: _duration.inMilliseconds > 0 
-                      ? (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0) 
-                      : 0.0,
-                  activeColor: widget.isMe ? Colors.white : AppColors.primary,
-                  inactiveColor: widget.isMe ? Colors.white.withValues(alpha: 0.3) : AppColors.primary.withValues(alpha: 0.2),
-                  onChanged: (val) async {
-                    if (_duration != Duration.zero && _player != null) {
-                      final position = val * _duration.inMilliseconds;
-                      await _player!.seekToPlayer(Duration(milliseconds: position.round()));
-                    }
-                  },
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 8.0),
-              child: Text(
-                _duration == Duration.zero ? AppStrings.of(context).voiceMessage : "$posStr / $durStr",
-                style: TextStyle(
-                  fontSize: 10,
-                  color: widget.isMe ? Colors.white.withValues(alpha: 0.8) : AppColors.textHint,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

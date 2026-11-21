@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:core/core.dart' show ImageUtils;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -8,7 +9,6 @@ import 'package:vendor/features/vendors/presentation/widgets/add_vertical_dialog
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
-import '../../../l10n/l10n_error_helper.dart';
 
 class VerticalsScreen extends ConsumerStatefulWidget {
   const VerticalsScreen({super.key});
@@ -391,7 +391,7 @@ class _VerticalsScreenState extends ConsumerState<VerticalsScreen> {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(L10nErrorHelper.translate(context, e)),
+                content: Text(ErrorUtils.translate(context, e)),
                 backgroundColor: AppColors.error,
               ),
             );
@@ -421,7 +421,7 @@ class _VerticalsScreenState extends ConsumerState<VerticalsScreen> {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(L10nErrorHelper.translate(context, e)),
+                content: Text(ErrorUtils.translate(context, e)),
                 backgroundColor: AppColors.error,
               ),
             );
@@ -469,9 +469,7 @@ class _VerticalsScreenState extends ConsumerState<VerticalsScreen> {
     }
 
     // Prepend base URL for relative media paths from the server
-    final fullUrl = url.startsWith('/media/')
-        ? 'https://api.otlob-egy.online$url'
-        : url;
+    final fullUrl = ImageUtils.formatImageUrl(url);
 
     return Image.network(
       fullUrl,

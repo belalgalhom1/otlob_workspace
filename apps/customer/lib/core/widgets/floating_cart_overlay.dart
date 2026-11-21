@@ -171,7 +171,7 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
                     setState(() {
                       _offset = Offset(
                         (_offset.dx + details.delta.dx).clamp(_margin, maxX),
-                        (_offset.dy + details.delta.dy).clamp(_margin, maxY),
+                        (_offset.dy + details.delta.dy).clamp(minY, maxY),
                       );
                       _isOverTrash = _isOverTrashZone(
                         _offset.dx + _cartWidth / 2,

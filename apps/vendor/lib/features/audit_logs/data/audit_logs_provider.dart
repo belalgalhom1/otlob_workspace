@@ -48,7 +48,7 @@ class AuditLogs extends _$AuditLogs {
   }
 
   Future<AuditLogsState> _fetchLogs({required int page}) async {
-    final repo = ref.watch(adminAuditLogsRepositoryProvider);
+    final repo = ref.read(adminAuditLogsRepositoryProvider);
     final resultMap = await repo.getAuditLogs(
       page: page,
       actionType: _actionType,
@@ -69,15 +69,18 @@ class AuditLogs extends _$AuditLogs {
   }
 
   Future<void> loadMore() async {
-    if (state.value?.isLoading == true || state.value?.hasMore == false) return;
+    final current = state.value;
+    if (current == null || current.isLoading || !current.hasMore) return;
 
-    state = AsyncData(state.value!.copyWith(isLoading: true));
+    state = AsyncData(current.copyWith(isLoading: true));
     try {
-      final nextPage = state.value!.page + 1;
+      final nextPage = current.page + 1;
       final newState = await _fetchLogs(page: nextPage);
+      if (!ref.mounted) return;
+      final latest = state.value ?? current;
       state = AsyncData(
-        state.value!.copyWith(
-          logs: [...state.value!.logs, ...newState.logs],
+        latest.copyWith(
+          logs: [...latest.logs, ...newState.logs],
           page: newState.page,
           total: newState.total,
           isLoading: false,
@@ -85,6 +88,7 @@ class AuditLogs extends _$AuditLogs {
         ),
       );
     } catch (e, stack) {
+      if (!ref.mounted) return;
       state = AsyncError(ApiErrorMapper.fromError(e), stack);
     }
   }

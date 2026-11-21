@@ -167,8 +167,9 @@ class RouterNotifier extends ChangeNotifier {
 GoRouter appRouter(Ref ref) {
   final navigationService = ref.read(navigationServiceProvider);
   final routerNotifier = RouterNotifier(ref);
+  ref.onDispose(routerNotifier.dispose);
 
-  return GoRouter(
+  final router = GoRouter(
     navigatorKey: navigationService.navigatorKey,
     initialLocation: RoutePaths.splash,
     debugLogDiagnostics: kDebugMode,
@@ -416,4 +417,6 @@ GoRouter appRouter(Ref ref) {
       ),
     ],
   );
+  ref.onDispose(router.dispose);
+  return router;
 }

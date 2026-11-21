@@ -79,6 +79,7 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
 
   Future<void> _onAccept() async {
     if (_isLoading) return;
+    _timer?.cancel();
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(driverDispatchRepositoryProvider);
@@ -95,6 +96,9 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+        if (_secondsLeft > 0) {
+          _startTimer();
+        }
         final errMsg = ErrorUtils.translate(context, e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context)!.failedToAcceptDispatch(errMsg))),
@@ -104,6 +108,8 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
   }
 
   Future<void> _onDecline() async {
+    if (_isLoading) return;
+    _timer?.cancel();
     setState(() => _isLoading = true);
     try {
       final repo = ref.read(driverDispatchRepositoryProvider);
@@ -120,7 +126,8 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
 
   @override
   Widget build(BuildContext context) {
-    final rawCurrency = ref.watch(configurationProvider.notifier).currency;
+    final rawCurrency =
+        ref.watch(configurationProvider).value?['currency']?.toString() ?? 'EGP';
     final l10n = AppLocalizations.of(context)!;
     final isAr = l10n.localeName == 'ar';
     final currency = (isAr && rawCurrency == 'EGP') ? 'ج.م' : rawCurrency;
@@ -138,7 +145,10 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
         ? '${isAr ? 'رسوم التوصيل' : 'Delivery fee'}: ${deliveryFeeNum.toStringAsFixed(0)} $currency'
         : null;
 
-    final distVal = widget.dispatchData['distanceKm'] ?? widget.dispatchData['estimatedDistanceKm'] ?? 0.0;
+    final rawDist = widget.dispatchData['distanceKm'] ?? widget.dispatchData['estimatedDistanceKm'];
+    final double distVal = rawDist is num
+        ? rawDist.toDouble()
+        : (double.tryParse(rawDist?.toString() ?? '0') ?? 0.0);
     final distance = '${distVal.toStringAsFixed(1)} ${isAr ? 'كم' : 'km'}';
 
     final orderType = OrderTypeHelper.resolve(widget.dispatchData);

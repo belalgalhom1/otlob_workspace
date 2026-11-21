@@ -511,7 +511,6 @@ class DriverMapDetailsCard extends StatelessWidget {
     final orderNumber = order['orderNumber']?.toString() ?? order['id']?.toString() ?? '';
     final status = (order['status']?.toString() ?? 'PENDING').toUpperCase();
     final statusColor = _getStatusColor(status);
-    final orderType = order['type']?.toString() ?? 'STANDARD';
 
     // Customer
     final customer = order['customer'] is Map ? order['customer'] as Map : {};

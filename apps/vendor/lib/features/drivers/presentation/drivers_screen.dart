@@ -249,10 +249,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
     if (_driverAnimStart != null &&
         _driverAnimTarget != null &&
         _driverMoveController.isAnimating) {
-      final t = CurvedAnimation(
-        parent: _driverMoveController,
-        curve: Curves.easeInOut,
-      ).value;
+      final t = Curves.easeInOut.transform(_driverMoveController.value);
       final curLat = _driverAnimStart!.latitude +
           (_driverAnimTarget!.latitude - _driverAnimStart!.latitude) * t;
       final curLng = _driverAnimStart!.longitude +
@@ -264,10 +261,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
 
   double get _currentDriverHeading {
     if (_driverMoveController.isAnimating) {
-      final t = CurvedAnimation(
-        parent: _driverMoveController,
-        curve: Curves.easeInOut,
-      ).value;
+      final t = Curves.easeInOut.transform(_driverMoveController.value);
       return _lerpAngle(_driverStartHeading, _driverTargetHeading, t);
     }
     return _driverHeading;
@@ -1321,7 +1315,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
           ),
         );
       },
-    );
+    ).whenComplete(sheetMapController.dispose);
   }
 
   Widget _buildFilters(bool isMobile) {

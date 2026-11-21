@@ -67,6 +67,7 @@ class Notifications extends _$Notifications {
   }
 
   Future<void> _fetchNotifications(int page) async {
+    if (!ref.mounted) return;
     if (page == 1) {
       state = state.copyWith(isLoading: true, error: null);
     } else {
@@ -76,6 +77,7 @@ class Notifications extends _$Notifications {
     try {
       final dio = ref.read(dioProvider);
       final response = await dio.get('/notifications?page=$page&limit=20');
+      if (!ref.mounted) return;
       
       if (response.data != null && response.data['data'] != null) {
         final data = response.data['data'];
@@ -108,6 +110,7 @@ class Notifications extends _$Notifications {
         state = state.copyWith(isLoading: false, hasMore: false);
       }
     } catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(isLoading: false, error: ApiErrorMapper.fromError(e));
     }
   }
@@ -125,6 +128,7 @@ class Notifications extends _$Notifications {
     try {
       final dio = ref.read(dioProvider);
       await dio.patch('/notifications/$id/read');
+      if (!ref.mounted) return;
       
       final updated = state.notifications.map((n) {
         if (n['id'] == id) {
@@ -143,6 +147,7 @@ class Notifications extends _$Notifications {
     try {
       final dio = ref.read(dioProvider);
       await dio.patch('/notifications/read', data: {});
+      if (!ref.mounted) return;
       
       final updated = state.notifications.map((n) {
         return {...n, 'isRead': true};
@@ -167,6 +172,7 @@ class Notifications extends _$Notifications {
       await dio.delete('/notifications/$id');
     } catch (e) {
       debugPrint('Failed to delete notification: $e');
+      if (!ref.mounted) rethrow;
       final restored = List<Map<String, dynamic>>.from(state.notifications);
       if (index >= 0 && index <= restored.length) {
         restored.insert(index, previous[index]);

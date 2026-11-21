@@ -619,28 +619,27 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               confirmIcon: LucideIcons.check,
             );
 
-                    if (confirm == true) {
+                    if (confirm == true && mounted) {
                       final res = await ref
                           .read(ordersProvider.notifier)
                           .markPaymentPaid(
                             order['id'],
                             receiptPath: receiptFile.path,
                           );
+                      if (!mounted) return;
                       if (res) {
                         setState(() => _receiptFiles.remove(orderId));
                       }
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text(res
-                                ? (s.isArabic
-                                    ? 'تم تأكيد الدفع وجاري مراجعة المندوب'
-                                    : 'Payment confirmed, waiting for driver to verify')
-                                : (s.isArabic
-                                    ? 'فشل التأكيد. حاول مرة أخرى.'
-                                    : 'Confirmation failed. Try again.')),
-                            backgroundColor:
-                                res ? null : Colors.red));
-                      }
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(res
+                              ? (s.isArabic
+                                  ? 'تم تأكيد الدفع وجاري مراجعة المندوب'
+                                  : 'Payment confirmed, waiting for driver to verify')
+                              : (s.isArabic
+                                  ? 'فشل التأكيد. حاول مرة أخرى.'
+                                  : 'Confirmation failed. Try again.')),
+                          backgroundColor:
+                              res ? null : Colors.red));
                     }
           },
           style: ElevatedButton.styleFrom(
@@ -1614,22 +1613,35 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
-                  ...reasons.map((r) {
-                    final isSelected = selectedReason == r;
-                    return RadioListTile<String>(
-                      title: Text(r, style: TextStyle(fontSize: 14, fontWeight: isSelected ? FontWeight.w800 : FontWeight.normal)),
-                      value: r,
-                      groupValue: selectedReason,
-                      activeColor: Colors.red,
-                      contentPadding: EdgeInsets.zero,
-                      onChanged: isCancelling ? null : (val) {
-                        setModalState(() {
-                          selectedReason = val!;
-                          showCustomField = val == (s.isArabic ? 'أخرى' : 'Other');
-                        });
-                      },
-                    );
-                  }),
+                  RadioGroup<String>(
+                    groupValue: selectedReason,
+                    onChanged: (val) {
+                      if (isCancelling || val == null) return;
+                      setModalState(() {
+                        selectedReason = val;
+                        showCustomField = val == (s.isArabic ? 'أخرى' : 'Other');
+                      });
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: reasons.map((r) {
+                        final isSelected = selectedReason == r;
+                        return RadioListTile<String>(
+                          title: Text(
+                            r,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.normal,
+                            ),
+                          ),
+                          value: r,
+                          enabled: !isCancelling,
+                          activeColor: Colors.red,
+                          contentPadding: EdgeInsets.zero,
+                        );
+                      }).toList(),
+                    ),
+                  ),
                   if (showCustomField) ...[
                     const SizedBox(height: 8),
                     TextField(
@@ -1712,6 +1724,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           },
         );
       },
-    );
+    ).whenComplete(customController.dispose);
   }
 }

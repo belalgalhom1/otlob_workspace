@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'customer_location_provider.dart';
 
-final discoverySearchControllerProvider = FutureProvider.family<List<Map<String, dynamic>>, ({String query, String? verticalId})>((ref, arg) async {
+final discoverySearchControllerProvider = FutureProvider.autoDispose.family<List<Map<String, dynamic>>, ({String query, String? verticalId})>((ref, arg) async {
   final dio = ref.read(dioProvider);
   
   if (arg.query.isEmpty) return [];

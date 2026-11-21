@@ -15,6 +15,12 @@ import 'package:driver/features/notifications/presentation/notifications_provide
 import 'package:driver/features/shifts/presentation/shifts_provider.dart';
 import 'package:driver/core/providers/driver_breaks_provider.dart';
 import 'package:driver/features/profile/presentation/settings_provider.dart';
+import 'package:driver/features/wallet/presentation/wallet_provider.dart';
+import 'package:driver/features/ranking/presentation/driver_ranking_provider.dart';
+import 'package:driver/features/dashboard/presentation/dashboard_screen.dart'
+    show pendingAssistOffersProvider;
+import 'package:driver/features/statistics/presentation/driver_statistics_provider.dart';
+import 'package:driver/features/profile/presentation/nearby_vendors_provider.dart';
 import 'package:data/providers.dart' as data_providers;
 import 'package:core/core.dart';
 
@@ -69,17 +75,17 @@ class Auth extends _$Auth {
   }
 
   void _initPushInBackground() {
-    unawaited(
-      Future<void>(() async {
-        try {
-          if (!ref.mounted) return;
-          final pushService = ref.read(pushNotificationServiceProvider);
-          await pushService.initialize();
-          if (!ref.mounted) return;
-          await pushService.subscribeToRoleTopics('DRIVER');
-        } catch (_) {}
-      }),
-    );
+    unawaited(_runInitPush());
+  }
+
+  Future<void> _runInitPush() async {
+    try {
+      if (!ref.mounted) return;
+      final pushService = ref.read(pushNotificationServiceProvider);
+      await pushService.initialize();
+      if (!ref.mounted) return;
+      await pushService.subscribeToRoleTopics('DRIVER');
+    } catch (_) {}
   }
 
   Future<void> _checkInitialAuth() async {
@@ -292,6 +298,11 @@ class Auth extends _$Auth {
     ref.invalidate(driverShiftsProvider);
     ref.invalidate(breaksOverviewProvider);
     ref.invalidate(settingsProvider);
+    ref.invalidate(driverWalletProvider);
+    ref.invalidate(driverRankingSummaryProvider);
+    ref.invalidate(pendingAssistOffersProvider);
+    ref.invalidate(driverStatsProvider);
+    ref.invalidate(nearbyVendorsProvider);
   }
 
   Future<void> logout() async {

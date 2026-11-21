@@ -18,7 +18,6 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
-import '../../../l10n/l10n_error_helper.dart';
 
 class VendorsScreen extends ConsumerStatefulWidget {
   final String? userRole;
@@ -425,7 +424,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(L10nErrorHelper.translate(context, e)),
+              content: Text(ErrorUtils.translate(context, e)),
               backgroundColor: AppColors.error,
             ),
           );
@@ -1331,7 +1330,7 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(L10nErrorHelper.translate(context, e)),
+              content: Text(ErrorUtils.translate(context, e)),
               backgroundColor: AppColors.error,
             ),
           );
@@ -1368,8 +1367,8 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
     if (confirmed != true || !mounted) return;
     try {
       await ref.read(vendorProvider.notifier).deleteVendor(v['id']);
-      if (this.context.mounted) {
-        ScaffoldMessenger.of(this.context).showSnackBar(
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l10n.common_success_resource_deleted),
             backgroundColor: AppColors.success,
@@ -1377,10 +1376,10 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
         );
       }
     } catch (e) {
-      if (this.context.mounted) {
-        ScaffoldMessenger.of(this.context).showSnackBar(
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(L10nErrorHelper.translate(this.context, e)),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );

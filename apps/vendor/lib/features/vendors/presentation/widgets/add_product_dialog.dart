@@ -7,6 +7,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:api/api.dart';
+import 'package:core/core.dart' show ImageUtils;
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
@@ -293,8 +294,6 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
           debugPrint('ImageCropper failed or not available, using original image: $cropErr');
           finalImage = image;
         }
-
-        if (finalImage == null) return;
 
         final bytes = await finalImage.readAsBytes();
         if (mounted) {
@@ -2343,10 +2342,6 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     });
   }
 
-  String _formatImageUrl(String? url) {
-    if (url == null || url.isEmpty) return '';
-    if (url.startsWith('http')) return url;
-    return 'https://api.otlob-egy.online$url';
-  }
+  String _formatImageUrl(String? url) => ImageUtils.formatImageUrl(url);
 }
 

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -383,7 +384,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           child: InkWell(
           onTap: () {
             FocusManager.instance.primaryFocus?.unfocus();
-            ref.read(appPreferencesProvider.notifier).setLocale(isArabic ? 'en' : 'ar');
+            final nextLang = isArabic ? 'en' : 'ar';
+            ref.read(appPreferencesProvider.notifier).setLocale(nextLang);
+            try {
+              context.setLocale(Locale(nextLang));
+            } catch (_) {}
           },
           borderRadius: BorderRadius.circular(10),
           child: Container(

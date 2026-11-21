@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///
 /// The backend picks the closest branch per vendor and counts active in-flight orders
 /// (preparing, ready for pickup, looking for driver) + orders in the current time window.
-final nearbyVendorsProvider = FutureProvider.family<List<dynamic>,
+final nearbyVendorsProvider = FutureProvider.autoDispose.family<List<dynamic>,
     ({double lat, double lng, double radiusKm, int? hours, int? days})>(
   (ref, args) async {
     final dio = ref.watch(dioProvider);

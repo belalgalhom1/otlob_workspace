@@ -133,7 +133,6 @@ class AuthNotifier extends _$AuthNotifier {
       debugPrint('DEBUG: Calling repository.login...');
       final repository = ref.read(sharedAuthRepositoryProvider);
       final response = await repository.login(email, password, appType: 'vendor');
-      debugPrint('DEBUG: repository.login returned: $response');
       if (response != null && response['access_token'] != null) {
         await _finishVendorLogin(repository);
       } else {

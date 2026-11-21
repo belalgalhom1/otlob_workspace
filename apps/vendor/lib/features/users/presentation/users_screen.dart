@@ -13,7 +13,6 @@ import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/features/chat/presentation/pages/admin_chat_screen.dart';
 import 'package:data/data.dart';
 import 'user_form_dialog.dart';
-import '../../../l10n/l10n_error_helper.dart';
 
 class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
@@ -967,7 +966,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
                 if (dialogContext.mounted) {
                   setDialogState(() {
                     isSubmitting = false;
-                    errorMessage = L10nErrorHelper.translate(ctx, e);
+                    errorMessage = ErrorUtils.translate(ctx, e);
                   });
                 }
               }
@@ -1035,8 +1034,8 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     if (confirmed != true || !mounted) return;
     try {
       await ref.read(userProvider.notifier).deleteUser(user['id']);
-      if (this.context.mounted) {
-        ScaffoldMessenger.of(this.context).showSnackBar(
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l10n.common_success_resource_deleted),
             backgroundColor: AppColors.success,
@@ -1044,10 +1043,10 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
         );
       }
     } catch (e) {
-      if (this.context.mounted) {
-        ScaffoldMessenger.of(this.context).showSnackBar(
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(L10nErrorHelper.translate(this.context, e)),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );

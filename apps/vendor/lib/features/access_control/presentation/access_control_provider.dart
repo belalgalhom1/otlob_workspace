@@ -17,28 +17,25 @@ class AccessControlStateData {
 class AccessControlNotifier extends _$AccessControlNotifier {
   @override
   AsyncValue<AccessControlStateData> build() {
-    fetchAdministrativeUsers();
+    Future.microtask(fetchAdministrativeUsers);
     return const AsyncValue.loading();
   }
 
   Future<void> fetchAdministrativeUsers() async {
+    if (!ref.mounted) return;
     try {
       state = const AsyncValue.loading();
       final repository = ref.read(adminUsersRepositoryProvider);
       
-      // Fetch admins (limit 100 for matrix display)
-      final adminResult = await repository.getUsers(
-        page: 1,
-        limit: 100,
-        role: 'ADMIN',
-      );
-      
-      // Fetch super admins
-      final superAdminResult = await repository.getUsers(
-        page: 1,
-        limit: 100,
-        role: 'SUPER_ADMIN',
-      );
+      // Fetch admins and super admins in parallel
+      final results = await Future.wait([
+        repository.getUsers(page: 1, limit: 100, role: 'ADMIN'),
+        repository.getUsers(page: 1, limit: 100, role: 'SUPER_ADMIN'),
+      ]);
+      if (!ref.mounted) return;
+
+      final adminResult = results[0];
+      final superAdminResult = results[1];
 
       final admins = adminResult['users'] ?? adminResult['items'] ?? [];
       final superAdmins = superAdminResult['users'] ?? superAdminResult['items'] ?? [];
@@ -50,6 +47,7 @@ class AccessControlNotifier extends _$AccessControlNotifier {
         ),
       );
     } catch (error, stackTrace) {
+      if (!ref.mounted) return;
       state = AsyncValue.error(error, stackTrace);
     }
   }

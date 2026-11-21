@@ -464,7 +464,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [dateButton, if (clearButton != null) clearButton],
+                  children: [dateButton, ?clearButton],
                 ),
               ],
             );
@@ -479,7 +479,7 @@ class _VendorWalletScreenState extends ConsumerState<VendorWalletScreen> {
               if (branches.length > 1)
                 SizedBox(width: 210, child: branchDropdown),
               dateButton,
-              if (clearButton != null) clearButton,
+              ?clearButton,
             ],
           );
         },

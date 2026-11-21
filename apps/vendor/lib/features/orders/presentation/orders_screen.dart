@@ -55,7 +55,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       _expandedOrders[targetId] = true;
       _fetchPinnedOrder(targetId);
     }
-    _loadUserRole();
     _checkPermissions();
     // Real-time updates (order.new / order.status / order.cancelled),
     // foreground FCM fallback and app-resume refreshes are handled by the
@@ -70,17 +69,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       setState(() {
         _userRole = role ?? '';
         _canManageDrivers = role == 'SUPER_ADMIN' || role == 'DRIVER_MANAGER' || permissions.contains('MANAGE_DRIVERS');
-        _canManageVendors = role == 'SUPER_ADMIN' || role == 'ADMIN' || permissions.contains('MANAGE_VENDORS');
-        _canManageOrders = role == 'SUPER_ADMIN' || role == 'ADMIN' || permissions.contains('MANAGE_ORDERS');
-      });
-    }
-  }
-
-  Future<void> _loadUserRole() async {
-    final role = await appSecureStorage.read(key: 'user_role');
-    if (mounted) {
-      setState(() {
-        _userRole = role ?? '';
+        _canManageVendors = role == 'SUPER_ADMIN' || permissions.contains('MANAGE_VENDORS');
+        _canManageOrders = role == 'SUPER_ADMIN' || permissions.contains('MANAGE_ORDERS');
       });
     }
   }
@@ -3392,7 +3382,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           },
         );
       },
-    );
+    ).whenComplete(controller.dispose);
   }
 
   Widget _buildPricingBreakdown(dynamic order, bool isArabic) {

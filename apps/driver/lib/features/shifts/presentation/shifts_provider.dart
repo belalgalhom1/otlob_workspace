@@ -1,6 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
-import 'package:core/core.dart';
 
 part 'shifts_provider.g.dart';
 
@@ -54,42 +53,6 @@ class DriverShifts extends _$DriverShifts {
       state = AsyncValue.error(e, st);
       if (prev.hasValue) state = prev;
       rethrow;
-    }
-  }
-
-  Future<void> endShift(String shiftId) async {
-    final prev = state;
-    try {
-      final repository = ref.read(driverShiftsRepositoryProvider);
-      await repository.endShift(shiftId);
-      await _fetchMyShifts();
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      if (prev.hasValue) state = prev;
-      rethrow;
-    }
-  }
-
-  Future<void> deleteShift(String shiftId) async {
-    final prev = state;
-    try {
-      await ref.read(dioProvider).delete('/drivers/me/shifts/$shiftId');
-      await _fetchMyShifts();
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      if (prev.hasValue) state = prev;
-      rethrow;
-    }
-  }
-
-  Future<void> offerSwap(String shiftId, String reason) async {
-    try {
-      final repository = ref.read(driverShiftsRepositoryProvider);
-      await repository.offerSwap(shiftId, reason);
-      await _fetchMyShifts();
-      ref.invalidate(swapBoardProvider);
-    } catch (e) {
-      // Ignore or log error to avoid unhandled exception crash
     }
   }
 }

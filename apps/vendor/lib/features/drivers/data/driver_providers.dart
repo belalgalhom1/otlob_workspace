@@ -49,7 +49,7 @@ class DriversNotifier extends _$DriversNotifier {
   }
 
   Future<DriversState> _fetchDrivers({required int page}) async {
-    final repo = ref.watch(adminDriversRepositoryProvider);
+    final repo = ref.read(adminDriversRepositoryProvider);
     final result = await repo.getDrivers(page: page, status: _status, search: _search, zoneId: _zoneId);
     
     List<DriverProfile> items = [];

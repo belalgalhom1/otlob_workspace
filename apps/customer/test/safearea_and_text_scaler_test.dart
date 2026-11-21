@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:data/data.dart';
+import 'package:data/data.dart' hide InboxCountsState, inboxCountsProvider;
 import 'package:data/providers.dart' as data_providers;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:otlob_customer/core/l10n/app_strings.dart';
 import 'package:otlob_customer/core/router/route_paths.dart';
 import 'package:otlob_customer/core/services/token_service.dart';
 import 'package:otlob_customer/core/widgets/auth_prompt_dialog.dart';
@@ -16,6 +17,9 @@ import 'package:otlob_customer/features/auth/presentation/pages/login_screen.dar
 import 'package:otlob_customer/features/auth/presentation/providers/auth_controller.dart';
 import 'package:otlob_customer/features/cart/presentation/providers/cart_controller.dart';
 import 'package:otlob_customer/features/chat/presentation/pages/inbox_screen.dart';
+import 'package:otlob_customer/features/chat/presentation/pages/support_menu_screen.dart';
+import 'package:otlob_customer/features/chat/presentation/providers/inbox_counts_provider.dart';
+import 'package:otlob_customer/features/chat/presentation/providers/support_ticket_provider.dart';
 import 'package:otlob_customer/features/legal/presentation/pages/terms_acceptance_gate_screen.dart';
 import 'package:otlob_customer/features/onboarding/presentation/pages/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -50,6 +54,45 @@ class _FakeSharedInbox extends data_providers.SharedInbox {
 
   @override
   Future<void> loadMore() async {}
+}
+
+class _FakePopulatedSharedInbox extends data_providers.SharedInbox {
+  final List<Map<String, dynamic>> sampleConvos;
+  _FakePopulatedSharedInbox(this.sampleConvos);
+
+  @override
+  data_providers.InboxState build() {
+    return data_providers.InboxState(
+      conversations: sampleConvos,
+      isLoading: false,
+      hasMore: false,
+    );
+  }
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  Future<void> loadMore() async {}
+}
+
+class _FakeInboxCounts extends InboxCounts {
+  @override
+  InboxCountsState build() => InboxCountsState();
+
+  @override
+  Future<void> refresh() async {}
+}
+
+class _FakeSupportTicket extends SupportTicket {
+  final List<Map<String, dynamic>> tickets;
+  _FakeSupportTicket(this.tickets);
+
+  @override
+  Future<void> build() async {}
+
+  @override
+  Future<List<dynamic>> getTickets() async => tickets;
 }
 
 class _FailingLegalDocsRepo extends Fake

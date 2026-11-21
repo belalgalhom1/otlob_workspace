@@ -639,22 +639,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ),
                     )
                   else ...[
-                    ...profileState.addresses.map((addr) => Material(
-                          type: MaterialType.transparency,
-                          child: RadioListTile<String>(
-                            value: addr['id'],
-                            groupValue: selectedAddress?['id'],
-                            onChanged: (val) =>
-                                ref.read(manualSelectedAddressIdProvider.notifier).setAddressId(val),
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(addr['label'] ?? '',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 14)),
-                            subtitle: Text(addr['address'] ?? '',
-                                style: const TextStyle(fontSize: 12)),
-                            activeColor: AppColors.primary,
-                          ),
-                        )),
+                    RadioGroup<String>(
+                      groupValue: selectedAddress?['id']?.toString(),
+                      onChanged: (val) => ref
+                          .read(manualSelectedAddressIdProvider.notifier)
+                          .setAddressId(val),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: profileState.addresses
+                            .map((addr) => Material(
+                                  type: MaterialType.transparency,
+                                  child: RadioListTile<String>(
+                                    value: addr['id'].toString(),
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(addr['label'] ?? '',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold, fontSize: 14)),
+                                    subtitle: Text(addr['address'] ?? '',
+                                        style: const TextStyle(fontSize: 12)),
+                                    activeColor: AppColors.primary,
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    ),
                     const Divider(height: 1, indent: 8, endIndent: 8),
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
@@ -674,9 +682,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ]),
                 const SizedBox(height: 16),
                 _sectionCard(s.paymentMethod, [
-                  _paymentOption(s.cashOnDelivery, Icons.delivery_dining_outlined, 'CASH_ON_DELIVERY'),
-                  _paymentOption(s.mobileWallet, Icons.wallet_outlined, 'MOBILE_WALLET_VODAFONE'),
-                  _paymentOption(s.instapay, Icons.account_balance_outlined, 'MOBILE_WALLET_INSTAPAY'),
+                  RadioGroup<String>(
+                    groupValue: _selectedPayment,
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedPayment = v);
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _paymentOption(s.cashOnDelivery, Icons.delivery_dining_outlined, 'CASH_ON_DELIVERY'),
+                        _paymentOption(s.mobileWallet, Icons.wallet_outlined, 'MOBILE_WALLET_VODAFONE'),
+                        _paymentOption(s.instapay, Icons.account_balance_outlined, 'MOBILE_WALLET_INSTAPAY'),
+                      ],
+                    ),
+                  ),
                   if (_selectedPayment.startsWith('MOBILE_WALLET'))
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0, left: 8.0, right: 8.0),
@@ -1278,11 +1297,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         contentPadding: EdgeInsets.zero,
         leading: Icon(icon, color: isSelected ? AppColors.primary : Colors.grey),
         title: Text(title),
-        trailing: Radio(
-            value: val,
-            groupValue: _selectedPayment,
-            onChanged: (v) => setState(() => _selectedPayment = v as String),
-            activeColor: AppColors.primary),
+        trailing: Radio<String>(
+          value: val,
+          activeColor: AppColors.primary,
+        ),
       ),
     );
   }

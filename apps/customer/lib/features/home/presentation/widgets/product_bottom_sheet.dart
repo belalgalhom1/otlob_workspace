@@ -204,7 +204,10 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     final bool atStockLimit = stockLimit != null && stockPoolQty >= stockLimit;
     
     final bool supportsStrips = item['sellByStrip'] == true && item['stripsPerPackage'] != null;
-    final int stripsCount = item['stripsPerPackage'] as int? ?? 1;
+    final int rawStrips = (item['stripsPerPackage'] as num?)?.toInt() ??
+        int.tryParse(item['stripsPerPackage']?.toString() ?? '') ??
+        1;
+    final int stripsCount = rawStrips > 0 ? rawStrips : 1;
 
     double effectiveBasePrice = 0.0;
     double originalBasePrice = 0.0;
@@ -526,12 +529,14 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             child: Row(
                               children: [
-                                Radio<String>(
-                                  value: vId,
+                                RadioGroup<String>(
                                   groupValue: _selectedVariant?['id']?.toString(),
-                                  activeColor: AppColors.primary,
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   onChanged: (_) => selectVariant(),
+                                  child: Radio<String>(
+                                    value: vId,
+                                    activeColor: AppColors.primary,
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -727,14 +732,19 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                     child: Row(
                                       children: [
                                         if (maxSelect == 1)
-                                          Radio<String>(
-                                            value: optId,
+                                          RadioGroup<String>(
                                             groupValue: (_selectedOptions[gId]?.isNotEmpty ?? false)
                                                 ? _selectedOptions[gId]!.first['id']?.toString()
                                                 : null,
-                                            activeColor: AppColors.primary,
-                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            onChanged: (_) => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
+                                            onChanged: (_) => _toggleOption(
+                                              group as Map<String, dynamic>,
+                                              opt as Map<String, dynamic>,
+                                            ),
+                                            child: Radio<String>(
+                                              value: optId,
+                                              activeColor: AppColors.primary,
+                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
                                           )
                                         else
                                           Checkbox(

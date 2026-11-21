@@ -191,7 +191,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
         initialDateRange: _customRange,
         builder: AppDialogStyles.adaptivePickerTheme,
       );
-      if (picked == null) return;
+      if (picked == null || !mounted) return;
       setState(() {
         _customRange = picked;
         _datePreset = DateRangePreset.custom;
@@ -249,7 +249,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                             initialDateRange: custom,
                             builder: AppDialogStyles.adaptivePickerTheme,
                           );
-                          if (picked == null) return;
+                          if (picked == null || !ctx.mounted) return;
                           setSheet(() {
                             custom = picked;
                             preset = DateRangePreset.custom;
@@ -610,10 +610,21 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
         width: double.infinity,
         child: FilledButton.icon(
           onPressed: poolIds.length == 6
-              ? () {
-                  ref
-                      .read(availablePoolsProvider(currentZoneId).notifier)
-                      .bookWeeklyShifts(poolIds);
+              ? () async {
+                  try {
+                    await ref
+                        .read(availablePoolsProvider(currentZoneId).notifier)
+                        .bookWeeklyShifts(poolIds);
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(ErrorUtils.translate(context, e)),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
+                  }
                 }
               : null,
           style: FilledButton.styleFrom(
@@ -690,15 +701,26 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
           ),
           const SizedBox(width: 12),
           FilledButton(
-            onPressed: () {
-              if (isWeekly) {
-                ref
-                    .read(availablePoolsProvider(currentZoneId).notifier)
-                    .bookWeeklyShifts([pool['id']]);
-              } else {
-                ref
-                    .read(availablePoolsProvider(currentZoneId).notifier)
-                    .bookOvertimeShift(pool['id']);
+            onPressed: () async {
+              try {
+                if (isWeekly) {
+                  await ref
+                      .read(availablePoolsProvider(currentZoneId).notifier)
+                      .bookWeeklyShifts([pool['id']]);
+                } else {
+                  await ref
+                      .read(availablePoolsProvider(currentZoneId).notifier)
+                      .bookOvertimeShift(pool['id']);
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ErrorUtils.translate(context, e)),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
               }
             },
             style: FilledButton.styleFrom(

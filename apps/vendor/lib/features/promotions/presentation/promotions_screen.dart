@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:api/api.dart';
+import 'package:core/core.dart' show ImageUtils;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -14,8 +15,6 @@ import 'package:dio/dio.dart' as dio;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import 'widgets/add_offer_dialog.dart';
-
-import '../../../l10n/l10n_error_helper.dart';
 
 class PromotionsScreen extends ConsumerStatefulWidget {
   const PromotionsScreen({super.key});
@@ -751,7 +750,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-                  ).showSnackBar(SnackBar(content: Text(L10nErrorHelper.translate(context, e))));
+                  ).showSnackBar(SnackBar(content: Text(ErrorUtils.translate(context, e))));
         }
       }
     }
@@ -787,8 +786,8 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
             .read(adminVendorsRepositoryProvider)
             .deletePromotion(item['id'] ?? item['_id']);
       }
-      if (this.context.mounted) {
-        ScaffoldMessenger.of(this.context).showSnackBar(
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               isOffer ? l10n.offerDeleted : l10n.deletePromotion,
@@ -799,10 +798,10 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         ref.read(promotionProvider.notifier).fetchPromotions();
       }
     } catch (e) {
-      if (this.context.mounted) {
-        ScaffoldMessenger.of(this.context).showSnackBar(
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(L10nErrorHelper.translate(this.context, e)),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );
@@ -810,10 +809,6 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
     }
   }
 
-  String _formatImageUrl(String? url) {
-    if (url == null || url.isEmpty) return '';
-    if (url.startsWith('http')) return url;
-    return 'https://api.otlob-egy.online$url';
-  }
+  String _formatImageUrl(String? url) => ImageUtils.formatImageUrl(url);
 }
 

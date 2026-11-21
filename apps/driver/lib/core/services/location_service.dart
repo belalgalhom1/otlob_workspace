@@ -196,16 +196,17 @@ class LocationService {
 
   Future<void> startTracking() async {
     if (_isTracking) return;
+    final seq = ++_restartSeq;
 
     final hasPermission = await requestPermissions();
-    if (!hasPermission) return;
+    if (!hasPermission || seq != _restartSeq) return;
 
     _isTracking = true;
     // Reset the coalescing baseline so the first fix of this session is always
     // broadcast (and the customer's marker appears instantly).
     _lastEmitted = null;
     _lastEmitAt = null;
-    await _startPositionStream(fetchInitial: true);
+    await _startPositionStream(seq: seq, fetchInitial: true);
   }
 
   Future<void> _restartTracking() async {
@@ -216,40 +217,57 @@ class LocationService {
     final seq = ++_restartSeq;
     await _positionStreamSubscription?.cancel();
     _positionStreamSubscription = null;
-    if (seq != _restartSeq) return;
-    await _startPositionStream(fetchInitial: false);
+    if (!_isTracking || seq != _restartSeq) return;
+    await _startPositionStream(seq: seq, fetchInitial: false);
   }
 
-  Future<void> _startPositionStream({bool fetchInitial = true}) async {
+  Future<void> _startPositionStream({
+    required int seq,
+    bool fetchInitial = true,
+  }) async {
     final locationSettings = _getLocationSettings();
 
     if (fetchInitial) {
       try {
         final lastKnown = await Geolocator.getLastKnownPosition();
+        if (!_isTracking || seq != _restartSeq) return;
         if (lastKnown != null && _lastPosition == null) {
           _broadcastLocation(lastKnown);
         }
         final initialPosition = await Geolocator.getCurrentPosition(
           locationSettings: locationSettings,
         ).timeout(const Duration(seconds: 10));
+        if (!_isTracking || seq != _restartSeq) return;
         _broadcastLocation(initialPosition);
       } catch (e) {
         debugPrint('❌ LocationService: Failed to fetch initial position: $e');
       }
     }
 
+    if (!_isTracking || seq != _restartSeq) return;
+
+    await _positionStreamSubscription?.cancel();
+    if (!_isTracking || seq != _restartSeq) return;
+
     _positionStreamSubscription = Geolocator.getPositionStream(
       locationSettings: locationSettings,
-    ).listen((Position position) {
-      _broadcastLocation(position);
-    });
+    ).listen(
+      (Position position) {
+        if (!_isTracking) return;
+        _broadcastLocation(position);
+      },
+      onError: (Object error) {
+        debugPrint('❌ LocationService: Position stream error: $error');
+      },
+    );
   }
 
   Future<void> stopTracking() async {
-    if (!_isTracking) return;
+    _restartSeq++;
     _isTracking = false;
-    await _positionStreamSubscription?.cancel();
+    final sub = _positionStreamSubscription;
     _positionStreamSubscription = null;
+    await sub?.cancel();
   }
 
   void dispose() {

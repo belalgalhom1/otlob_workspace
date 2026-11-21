@@ -10,17 +10,20 @@ part 'vendor_members_provider.g.dart';
 class VendorMembersNotifier extends _$VendorMembersNotifier {
   @override
   AsyncValue<List<dynamic>> build(String vendorId) {
-    fetchMembers();
+    Future.microtask(fetchMembers);
     return const AsyncValue.loading();
   }
 
   Future<void> fetchMembers() async {
+    if (!ref.mounted) return;
     state = const AsyncValue.loading();
     try {
       final repository = ref.read(vendorMembersRepositoryProvider);
       final result = await repository.getMembers(vendorId);
+      if (!ref.mounted) return;
       state = AsyncValue.data(result is List ? result : []);
     } catch (e, st) {
+      if (!ref.mounted) return;
       state = AsyncValue.error(ApiErrorMapper.fromError(e), st);
     }
   }

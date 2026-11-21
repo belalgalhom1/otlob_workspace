@@ -24,6 +24,8 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
   final LatLng _defaultLocation = const LatLng(30.0444, 31.2357);
 
   final TextEditingController _searchController = TextEditingController();
+  final Dio _nominatimDio = Dio();
+  CancelToken? _searchCancelToken;
   List<Map<String, dynamic>> _searchResults = [];
   bool _searching = false;
   bool _hasSearched = false;
@@ -35,6 +37,7 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
   /// refresh automatically for anything typed (3+ chars), no submit needed.
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
+    _searchCancelToken?.cancel('new_query');
     final query = value.trim();
     if (query.length < 3) {
       setState(() {
@@ -55,11 +58,15 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
   }
 
   Future<void> _searchPlaces(String query) async {
+    _searchCancelToken?.cancel('superseded');
+    final cancelToken = CancelToken();
+    _searchCancelToken = cancelToken;
     setState(() => _searching = true);
     try {
-      final res = await Dio()
+      final res = await _nominatimDio
           .get(
             'https://nominatim.openstreetmap.org/search',
+            cancelToken: cancelToken,
             queryParameters: {
               'q': query,
               'format': 'jsonv2',
@@ -73,6 +80,7 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
             ),
           )
           .timeout(const Duration(seconds: 10));
+      if (cancelToken.isCancelled) return;
       final list = ((res.data as List?) ?? [])
           .whereType<Map>()
           .map((e) => {
@@ -89,7 +97,8 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
           _hasSearched = true;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       if (mounted) {
         setState(() {
           _searchResults = [];
@@ -121,7 +130,9 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
     _mapController = MapController();
     _selectedLocation = widget.initialLocation;
     if (_selectedLocation == null) {
-      _getCurrentLocation();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _getCurrentLocation();
+      });
     }
   }
 
@@ -218,6 +229,8 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
 
   @override
   void dispose() {
+    _searchCancelToken?.cancel('disposed');
+    _nominatimDio.close(force: true);
     _mapController.dispose();
     _searchController.dispose();
     _searchDebounce?.cancel();

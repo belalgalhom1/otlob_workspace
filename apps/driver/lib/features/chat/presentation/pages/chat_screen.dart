@@ -18,8 +18,15 @@ import 'package:path_provider/path_provider.dart';
 
 class OrderChatScreen extends ConsumerStatefulWidget {
   final String orderId;
+  final String chatType;
+  final String? title;
 
-  const OrderChatScreen({super.key, required this.orderId});
+  const OrderChatScreen({
+    super.key,
+    required this.orderId,
+    this.chatType = 'order',
+    this.title,
+  });
 
   @override
   ConsumerState<OrderChatScreen> createState() => _OrderChatScreenState();
@@ -29,7 +36,8 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
 
-  SharedChatArgs get _args => SharedChatArgs(id: widget.orderId, type: 'order');
+  bool get _isOrderChat => widget.chatType == 'order';
+  SharedChatArgs get _args => SharedChatArgs(id: widget.orderId, type: widget.chatType);
 
   FlutterSoundRecorder? _recorder;
   bool _isRecorderInitialized = false;
@@ -101,7 +109,9 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadOrderDetails();
+    if (_isOrderChat) {
+      _loadOrderDetails();
+    }
     _textController.addListener(() {
       final hasText = _textController.text.trim().isNotEmpty;
       if (_hasText.value != hasText) _hasText.value = hasText;
@@ -112,11 +122,13 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   @override
   void didUpdateWidget(covariant OrderChatScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.orderId != widget.orderId) {
+    if (oldWidget.orderId != widget.orderId || oldWidget.chatType != widget.chatType) {
       _hasPoppedForClosed = false;
       _replyingTo = null;
       _orderData = null;
-      _loadOrderDetails();
+      if (_isOrderChat) {
+        _loadOrderDetails();
+      }
     }
   }
 
@@ -276,12 +288,20 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     }
     _recorder ??= FlutterSoundRecorder();
     await _recorder!.openRecorder();
-    await _recorder!.setSubscriptionDuration(const Duration(milliseconds: 100));
-    if (mounted) {
-      setState(() {
-        _isRecorderInitialized = true;
-      });
+    if (!mounted) {
+      await _recorder?.closeRecorder();
+      _recorder = null;
+      return false;
     }
+    await _recorder!.setSubscriptionDuration(const Duration(milliseconds: 100));
+    if (!mounted) {
+      await _recorder?.closeRecorder();
+      _recorder = null;
+      return false;
+    }
+    setState(() {
+      _isRecorderInitialized = true;
+    });
     return true;
   }
 
@@ -308,7 +328,9 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     if (!ready || !mounted) return;
     _waveformSamples.clear();
     await VoiceAudioHelper.configureForRecording();
+    if (!mounted) return;
     final tempDir = await getTemporaryDirectory();
+    if (!mounted || _recorder == null) return;
     _recordingPath = VoiceAudioHelper.buildRecordingPath(
       tempDir.path,
       prefix: 'driver_recording',
@@ -317,6 +339,11 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
       toFile: _recordingPath,
       codec: VoiceAudioHelper.recordingCodec,
     );
+    if (!mounted) {
+      await _recorder?.stopRecorder();
+      return;
+    }
+    await _recordingSubscription?.cancel();
     _recordingSubscription = _recorder!.onProgress!.listen((e) {
       if (mounted) {
         setState(() {
@@ -340,8 +367,9 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
   Future<void> _cancelRecording() async {
     if (!_isRecording) return;
-    await _recorder!.stopRecorder();
-    _recordingSubscription?.cancel();
+    await _recorder?.stopRecorder();
+    await _recordingSubscription?.cancel();
+    _recordingSubscription = null;
     _waveformSamples.clear();
     if (_recordingPath != null) {
       final file = File(_recordingPath!);
@@ -349,6 +377,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
         await file.delete();
       }
     }
+    if (!mounted) return;
     setState(() {
       _isRecording = false;
       _recordingDuration = Duration.zero;
@@ -357,13 +386,16 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
   Future<void> _stopRecording() async {
     if (!_isRecording) return;
-    await _recorder!.stopRecorder();
-    _recordingSubscription?.cancel();
+    await _recorder?.stopRecorder();
+    await _recordingSubscription?.cancel();
+    _recordingSubscription = null;
     final duration = _recordingDuration;
-    setState(() {
-      _isRecording = false;
-      _recordingDuration = Duration.zero;
-    });
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _recordingDuration = Duration.zero;
+      });
+    }
 
     if (_recordingPath != null) {
       final file = File(_recordingPath!);
@@ -375,6 +407,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
           return;
         }
       }
+      if (!mounted) return;
 
       const targetCount = 35;
       final List<double> finalWaveform = [];
@@ -403,7 +436,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
       final replyId = _replyingTo?.id;
       final replyPayload = _buildReplyPayload();
-      if (_replyingTo != null) {
+      if (_replyingTo != null && mounted) {
         setState(() => _replyingTo = null);
       }
 
@@ -447,7 +480,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
       );
       _textController.clear();
       Future.delayed(const Duration(milliseconds: 100), () {
-        if (_scrollController.hasClients) {
+        if (mounted && _scrollController.hasClients) {
           _scrollController.animateTo(
             0.0,
             duration: const Duration(milliseconds: 300),
@@ -541,15 +574,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     );
   }
 
-  String _formatImageUrl(String url) {
-    if (url.startsWith('http')) return url;
-    var baseUrl = ref.read(dioProvider).options.baseUrl;
-    if (baseUrl.endsWith('/')) {
-      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
-    }
-    final path = url.startsWith('/') ? url : '/$url';
-    return '$baseUrl$path';
-  }
+  String _formatImageUrl(String url) => ImageUtils.formatImageUrl(url);
 
   @override
   Widget build(BuildContext context) {
@@ -585,7 +610,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
           ),
           onPressed: () => context.pop(),
         ),
-        title: Text(l10n.orderChat),
+        title: Text(widget.title?.isNotEmpty == true ? widget.title! : l10n.orderChat),
         backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
@@ -608,7 +633,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
                 if (context.canPop()) {
                   context.pop();
                 } else {
-                  context.push('/order/${widget.orderId}');
+                  context.go('/order-execution');
                 }
               },
               onCall: _hasCustomerPhone() ? _callCustomer : null,
@@ -680,8 +705,12 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
                           time: DateFormat.jm().format(msg.timestamp.toLocal()),
                           isRead: msg.isRead,
                           metadata: msg.metadata,
-                          uploadingText: 'Uploading...',
-                          fileAttachmentText: 'File Attachment',
+                          uploadingText: l10n.localeName == 'ar'
+                              ? 'جاري الرفع...'
+                              : 'Uploading...',
+                          fileAttachmentText: l10n.localeName == 'ar'
+                              ? 'ملف مرفق'
+                              : 'File Attachment',
                           uploadProgress: msg.uploadProgress,
                           localFilePath: msg.localFilePath,
                           isUploadFailed: msg.isUploadFailed,

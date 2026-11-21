@@ -227,6 +227,8 @@ final globalMessageListenerProvider = Provider<void>((ref) {
         // No polling while backgrounded: socket push + resume check cover it,
         // and background HTTP polling just burns radio/battery.
         if (!lifecycleObserver.isResumed) return;
+        // Skip HTTP sweep when a dispatch modal is already on screen.
+        if (coordinator.currentShowingDispatchId != null) return;
         coordinator.checkPendingDispatches(checkOnline: false);
       });
     } else if (!shouldRun && dispatchSweepTimer != null) {
@@ -262,7 +264,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   subscriptions.add(socketService.onEvent(SocketEvent.orderStatus).listen((eventData) {
     if (!ref.mounted) return;
     debugPrint('Global listener: Received orderStatus -> $eventData');
-    if (eventData == null) return;
+    if (eventData is! Map) return;
 
     // Reject transitions older than the revision already applied for this
     // order. Socket.IO does not guarantee ordering, so without this a delayed

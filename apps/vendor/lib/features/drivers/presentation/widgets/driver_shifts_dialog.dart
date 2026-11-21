@@ -145,8 +145,8 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                     );
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
-                setDialogState(() => saving = false);
                 if (ctx.mounted) {
+                  setDialogState(() => saving = false);
                   ScaffoldMessenger.of(ctx).showSnackBar(
                     SnackBar(
                       content: Text(ErrorUtils.translate(ctx, e)),
@@ -547,7 +547,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                                 );
                               }
                             } catch (e) {
-                              if (!mounted) return;
+                              if (!context.mounted) return;
                               ScaffoldMessenger.maybeOf(context)?.showSnackBar(
                                 SnackBar(
                                   content: Text(
@@ -590,7 +590,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
         },
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           content: Text(ErrorUtils.translate(context, e)),

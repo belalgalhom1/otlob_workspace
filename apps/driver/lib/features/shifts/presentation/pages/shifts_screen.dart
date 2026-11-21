@@ -265,8 +265,12 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
         ),
       ),
     );
-    if (confirmed != true) {
-      // Retake: restart the flow.
+    if (confirmed == null) {
+      // User dismissed the sheet (back/tap outside) -> cancel flow cleanly.
+      return;
+    }
+    if (confirmed == false) {
+      // Explicit Retake button -> restart the flow.
       if (mounted) _startShiftWithSelfie(shift, l10n);
       return;
     }
@@ -453,7 +457,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
         initialDateRange: _customRange,
         builder: AppDialogStyles.adaptivePickerTheme,
       );
-      if (picked == null) return;
+      if (picked == null || !mounted) return;
       setState(() {
         _customRange = picked;
         _datePreset = DateRangePreset.custom;
@@ -533,7 +537,7 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                             initialDateRange: custom,
                             builder: AppDialogStyles.adaptivePickerTheme,
                           );
-                          if (picked == null) return;
+                          if (picked == null || !ctx.mounted) return;
                           setSheet(() {
                             custom = picked;
                             preset = DateRangePreset.custom;

@@ -35,6 +35,8 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
   List<dynamic> _searchResults = [];
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+  final Dio _nominatimDio = Dio();
+  CancelToken? _searchCancelToken;
   Timer? _debounce;
 
   @override
@@ -88,6 +90,8 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _searchCancelToken?.cancel('disposed');
+    _nominatimDio.close(force: true);
     _mapController.dispose();
     _searchController.dispose();
     _nameController.dispose();
@@ -124,31 +128,37 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
       });
       return;
     }
+    _searchCancelToken?.cancel('superseded');
+    final cancelToken = CancelToken();
+    _searchCancelToken = cancelToken;
     setState(() {
       _isSearching = true;
     });
     try {
-      final dio = Dio();
-      final response = await dio.get(
-        'https://nominatim.openstreetmap.org/search',
-        queryParameters: {
-          'q': query,
-          'format': 'json',
-          'limit': 5,
-        },
-        options: Options(headers: {
-          'User-Agent': 'OtlobVendorApp/1.0',
-        }),
-      );
-      if (response.statusCode == 200 && mounted) {
+      final response = await _nominatimDio
+          .get(
+            'https://nominatim.openstreetmap.org/search',
+            cancelToken: cancelToken,
+            queryParameters: {
+              'q': query,
+              'format': 'json',
+              'limit': 5,
+            },
+            options: Options(headers: {
+              'User-Agent': 'OtlobVendorApp/1.0',
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+      if (!cancelToken.isCancelled && response.statusCode == 200 && mounted) {
         setState(() {
           _searchResults = response.data as List<dynamic>;
         });
       }
     } catch (e) {
+      if (e is DioException && CancelToken.isCancel(e)) return;
       // Ignore
     } finally {
-      if (mounted) {
+      if (!cancelToken.isCancelled && mounted) {
         setState(() {
           _isSearching = false;
         });

@@ -41,13 +41,13 @@ class DriverProfile {
   });
 
   factory DriverProfile.fromJson(Map<String, dynamic> json) {
-    double _toDouble(dynamic v) {
+    double toDouble(dynamic v) {
       if (v == null) return 0;
       if (v is num) return v.toDouble();
       return double.tryParse(v.toString()) ?? 0;
     }
 
-    List<double>? _toLocation(dynamic v) {
+    List<double>? toLocation(dynamic v) {
       try {
         if (v == null) return null;
         if (v is List) {
@@ -92,8 +92,8 @@ class DriverProfile {
       isApproved: json['isApproved'] is bool
           ? json['isApproved'] as bool
           : (json['isApproved']?.toString().toLowerCase() == 'true'),
-      walletBalance: _toDouble(json['walletBalance']),
-      location: _toLocation(json['location']),
+      walletBalance: toDouble(json['walletBalance']),
+      location: toLocation(json['location']),
       user: rawUser,
       driverManager: json['driverManager'] is Map ? Map<String, dynamic>.from(json['driverManager']) : null,
     );

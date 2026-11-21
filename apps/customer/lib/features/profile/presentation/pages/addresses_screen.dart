@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -214,10 +215,14 @@ class AddressesScreen extends ConsumerWidget {
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const LocationPickerMap(),
+                        builder: (context) => LocationPickerMap(
+                          initialLocation: (selectedLat != null && selectedLng != null)
+                              ? LatLng(selectedLat!, selectedLng!)
+                              : null,
+                        ),
                       ),
                     );
-                    if (result != null) {
+                    if (result != null && ctx.mounted) {
                       setState(() {
                         selectedLat = result.latitude;
                         selectedLng = result.longitude;
@@ -264,7 +269,10 @@ class AddressesScreen extends ConsumerWidget {
           );
         }
       ),
-    );
+    ).whenComplete(() {
+      labelCtrl.dispose();
+      addressCtrl.dispose();
+    });
   }
 
   Future<bool> _detectCurrentPosition(
@@ -370,10 +378,14 @@ class AddressesScreen extends ConsumerWidget {
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const LocationPickerMap(),
+                        builder: (context) => LocationPickerMap(
+                          initialLocation: (selectedLat != null && selectedLng != null)
+                              ? LatLng(selectedLat!, selectedLng!)
+                              : null,
+                        ),
                       ),
                     );
-                    if (result != null) {
+                    if (result != null && ctx.mounted) {
                       setState(() {
                         selectedLat = result.latitude;
                         selectedLng = result.longitude;
@@ -427,6 +439,9 @@ class AddressesScreen extends ConsumerWidget {
           );
         }
       ),
-    );
+    ).whenComplete(() {
+      labelCtrl.dispose();
+      addressCtrl.dispose();
+    });
   }
 }

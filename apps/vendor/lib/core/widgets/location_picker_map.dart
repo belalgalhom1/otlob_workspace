@@ -75,12 +75,19 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
     });
   }
 
+  final Dio _nominatimDio = Dio();
+  CancelToken? _searchCancelToken;
+
   Future<void> _searchPlaces(String query) async {
+    _searchCancelToken?.cancel('superseded');
+    final cancelToken = CancelToken();
+    _searchCancelToken = cancelToken;
     setState(() => _searching = true);
     try {
-      final res = await Dio()
+      final res = await _nominatimDio
           .get(
             'https://nominatim.openstreetmap.org/search',
+            cancelToken: cancelToken,
             queryParameters: {
               'q': query,
               'format': 'jsonv2',
@@ -94,6 +101,7 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
             ),
           )
           .timeout(const Duration(seconds: 10));
+      if (cancelToken.isCancelled) return;
       final list = ((res.data as List?) ?? [])
           .whereType<Map>()
           .map((e) => {
@@ -258,6 +266,8 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
 
   @override
   void dispose() {
+    _searchCancelToken?.cancel('disposed');
+    _nominatimDio.close(force: true);
     _mapController.dispose();
     _searchController.dispose();
     _searchDebounce?.cancel();

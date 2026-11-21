@@ -132,8 +132,7 @@ class _UserProfileDialogState extends ConsumerState<UserProfileDialog> {
       finalFile = image;
     }
 
-    if (finalFile == null) return;
-
+    if (!mounted) return;
     setState(() {
       _isUploadingAvatar = true;
       _errorMessage = null;

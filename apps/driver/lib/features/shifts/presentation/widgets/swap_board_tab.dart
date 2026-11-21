@@ -194,8 +194,19 @@ class SwapBoardTab extends ConsumerWidget {
           const SizedBox(height: 16),
           PrimaryButton(
             text: l10n.acceptSwap,
-            onPressed: () {
-              ref.read(swapBoardProvider.notifier).acceptSwap(swap['id']);
+            onPressed: () async {
+              try {
+                await ref.read(swapBoardProvider.notifier).acceptSwap(swap['id']);
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(ErrorUtils.translate(context, e)),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
             },
           ),
         ],

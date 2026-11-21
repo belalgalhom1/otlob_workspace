@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:core/core.dart' show ImageUtils;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -54,7 +55,6 @@ class _AddVerticalDialogState extends State<AddVerticalDialog> {
 
       final result = await FilePicker.pickFiles(
         type: FileType.image,
-        allowMultiple: false,
       );
 
       if (result != null && result.files.single.path != null && mounted) {
@@ -297,9 +297,7 @@ class _AddVerticalDialogState extends State<AddVerticalDialog> {
       );
     }
 
-    final fullUrl = url.startsWith('/media/')
-        ? 'https://api.otlob-egy.online$url'
-        : url;
+    final fullUrl = ImageUtils.formatImageUrl(url);
 
     return Image.network(
       fullUrl,

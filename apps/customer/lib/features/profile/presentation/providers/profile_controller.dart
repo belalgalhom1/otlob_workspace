@@ -94,7 +94,10 @@ class Profile extends _$Profile {
     final localEmail = await tokenService.getUserEmail() ?? '';
     final localPhone = await tokenService.getUserPhone() ?? '';
     final localAvatar = await tokenService.getUserAvatar() ?? '';
-    
+    if (!ref.mounted || ref.read(authControllerProvider) != AuthStatus.authenticated) {
+      return;
+    }
+
     state = state.copyWith(
       name: localName,
       email: localEmail,
@@ -105,6 +108,9 @@ class Profile extends _$Profile {
     // 2. Fetch latest from backend to ensure accuracy
     try {
       final data = await userRepo.getUser();
+      if (!ref.mounted || ref.read(authControllerProvider) != AuthStatus.authenticated) {
+        return;
+      }
       final name = data['name'] ?? '';
       final email = data['email'] ?? '';
       final phone = data['phone'] ?? '';
@@ -115,6 +121,9 @@ class Profile extends _$Profile {
       await tokenService.saveUserEmail(email);
       await tokenService.saveUserPhone(phone);
       await tokenService.saveUserAvatar(avatar);
+      if (!ref.mounted || ref.read(authControllerProvider) != AuthStatus.authenticated) {
+        return;
+      }
 
       state = state.copyWith(
         name: name, 
@@ -129,6 +138,9 @@ class Profile extends _$Profile {
     // 3. Fetch addresses
     try {
       final addresses = await addressRepo.getAddresses();
+      if (!ref.mounted || ref.read(authControllerProvider) != AuthStatus.authenticated) {
+        return;
+      }
       if (addresses is List) {
         state = state.copyWith(addresses: List<Map<String, dynamic>>.from(addresses));
       }

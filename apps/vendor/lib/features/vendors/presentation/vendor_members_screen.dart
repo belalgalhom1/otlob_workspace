@@ -6,7 +6,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/features/vendors/presentation/vendor_members_provider.dart';
-import '../../../l10n/l10n_error_helper.dart';
+import 'package:vendor/core/utils/error_utils.dart';
 
 class VendorMembersScreen extends ConsumerStatefulWidget {
   final String vendorId;
@@ -27,7 +27,7 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
   List<dynamic> _branches = [];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String _selectedRoleFilter = 'ALL';
+  final String _selectedRoleFilter = 'ALL';
 
   @override
   void initState() {
@@ -311,7 +311,7 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                 if (dialogCtx.mounted) {
                   setDialogState(() {
                     isSubmitting = false;
-                    errorMessage = L10nErrorHelper.translate(context, e);
+                    errorMessage = ErrorUtils.translate(context, e);
                   });
                 }
               }
@@ -538,7 +538,7 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                   if (dialogCtx.mounted) {
                     setDialogState(() {
                       isSubmitting = false;
-                      errorMessage = L10nErrorHelper.translate(context, e);
+                      errorMessage = ErrorUtils.translate(context, e);
                     });
                   }
                 }
@@ -587,7 +587,7 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(L10nErrorHelper.translate(context, e)),
+            content: Text(ErrorUtils.translate(context, e)),
             backgroundColor: AppColors.error,
           ),
         );
@@ -927,7 +927,6 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                                   final user = member['user'];
                                   if (user == null) return const SizedBox.shrink();
 
-                                  final memberId = member['id'];
                                   final currentRole = (member['role'] ?? 'STAFF').toString();
                                   final branchName = _resolveBranchName(member, isAr);
                                   final userName = (user['name'] ?? l10n.unknown).toString();
@@ -1162,7 +1161,7 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                         const Icon(LucideIcons.alertTriangle, size: 48, color: AppColors.error),
                         const SizedBox(height: 12),
                         Text(
-                          L10nErrorHelper.translate(context, e),
+                          ErrorUtils.translate(context, e),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium,
                         ),

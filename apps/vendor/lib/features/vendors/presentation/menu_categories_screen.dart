@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -443,6 +444,7 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
       text: category?['nameAr'] ?? '',
     );
     PlatformFile? selectedIcon;
+    Uint8List? selectedIconBytes;
     String branchAvailabilityMode = category?['branchAvailabilityMode']?.toString() ?? 'ALL';
     final Set<String> selectedBranchIds = {};
     if (category?['branchAvailability'] is List) {
@@ -488,13 +490,16 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                                 try {
                                   final picked = await FilePicker.pickFiles(
                                     type: FileType.image,
-                                    allowMultiple: false,
                                   );
                                   if (picked != null &&
                                       picked.files.isNotEmpty) {
-                                    setDialogState(
-                                      () => selectedIcon = picked.files.first,
-                                    );
+                                    final file = picked.files.first;
+                                    final bytes = await file.readAsBytes();
+                                    if (!ctx.mounted) return;
+                                    setDialogState(() {
+                                      selectedIcon = file;
+                                      selectedIconBytes = bytes;
+                                    });
                                   }
                                 } catch (e) {
                                   debugPrint('Error picking icon: $e');
@@ -517,9 +522,9 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                           child: selectedIcon != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(18),
-                                  child: selectedIcon!.bytes != null
+                                  child: selectedIconBytes != null
                                       ? Image.memory(
-                                          selectedIcon!.bytes!,
+                                          selectedIconBytes!,
                                           fit: BoxFit.cover,
                                         )
                                       : Image.file(
@@ -814,8 +819,8 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                     }
 
                     if (categoryId != null) {
-                      final iconBytes = selectedIcon!.bytes ??
-                          await File(selectedIcon!.path!).readAsBytes();
+                      final iconBytes = selectedIconBytes ??
+                          await selectedIcon!.readAsBytes();
 
                       await ref
                           .read(adminVendorsRepositoryProvider)

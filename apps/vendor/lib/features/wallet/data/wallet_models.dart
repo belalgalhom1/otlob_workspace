@@ -98,26 +98,3 @@ class WalletTransaction {
     );
   }
 }
-
-class ManualTransactionDto {
-  final String type;
-  final double amount;
-  final String? description;
-  final String? referenceId;
-
-  ManualTransactionDto({
-    required this.type,
-    required this.amount,
-    this.description,
-    this.referenceId,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'type': type,
-      'amount': amount,
-      if (description != null) 'description': description,
-      if (referenceId != null) 'referenceId': referenceId,
-    };
-  }
-}
