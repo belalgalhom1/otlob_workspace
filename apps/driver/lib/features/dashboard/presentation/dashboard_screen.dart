@@ -1332,7 +1332,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           Icon(LucideIcons.navigation, color: Theme.of(context).colorScheme.onPrimary, size: 48),
           const SizedBox(height: 16),
           Text(
-            l10n.activeDeliveryInProgress,
+            activeExecOrder is Map && OrderTypeHelper.isRide(activeExecOrder)
+                ? (l10n.localeName == 'ar'
+                    ? 'رحلة نشطة قيد التنفيذ'
+                    : 'Active Ride in Progress')
+                : l10n.activeDeliveryInProgress,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onPrimary,
               fontSize: 20,

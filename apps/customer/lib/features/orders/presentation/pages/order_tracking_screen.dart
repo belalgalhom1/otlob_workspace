@@ -5,7 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:core/core.dart'
-    show SocketEvent, orderRevisionOf, orderRevisionTrackerProvider;
+    show
+        AppOrderType,
+        OrderTypeHelper,
+        SocketEvent,
+        orderRevisionOf,
+        orderRevisionTrackerProvider;
 import '../../../../core/utils/image_utils.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -859,8 +864,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     }
   }
 
+  AppOrderType get _orderType => OrderTypeHelper.resolve(_orderDetails);
+
   String _getDisplayStatus(String rawStatus, bool isAr) =>
-      formatTrackingDisplayStatus(rawStatus, isAr);
+      formatTrackingDisplayStatus(rawStatus, isAr, orderType: _orderType);
 
   // Status label shown in the header. During the PICKED_UP leg (which covers the
   // whole drive to the customer, since the backend has no ARRIVING/IN_TRANSIT),
@@ -869,6 +876,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   String _statusLabel(bool isAr) {
     if (_orderStatus == 'PICKED_UP') {
       final distance = _driverDistanceMeters();
+      if (_orderType.isRide) {
+        if (distance != null && distance < 1000) {
+          return isAr ? 'على وشك الوصول للوجهة' : 'Arriving at destination';
+        }
+        return isAr ? 'الرحلة قيد التنفيذ' : 'Ride is in progress';
+      }
       if (distance != null && distance < 1000) {
         return isAr ? 'الكابتن على وشك الوصول' : 'Driver is almost there';
       }
@@ -1144,7 +1157,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.isArabic ? 'تتبع الطلب' : 'Track Order'),
+        title: Text(
+          OrderTypeHelper.trackingScreenTitle(_orderType, isArabic: s.isArabic),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/home'),
@@ -1273,7 +1288,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                     ],
                                   ),
                                   child: Icon(
-                                    isPickedUp ? Icons.check_rounded : Icons.storefront_rounded,
+                                    isPickedUp
+                                        ? Icons.check_rounded
+                                        : (_orderType.isRide
+                                            ? Icons.person_pin_circle_rounded
+                                            : (_orderType.isCustomDelivery
+                                                ? Icons.inventory_2_rounded
+                                                : Icons.storefront_rounded)),
                                     color: Colors.white,
                                     size: 16,
                                   ),
@@ -1332,7 +1353,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                   border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
                                 ),
                                 child: Text(
-                                  s.isArabic ? 'موقع التوصيل' : 'Delivery Address',
+                                  _orderType.isRide
+                                      ? (s.isArabic ? 'وجهة الوصول' : 'Destination')
+                                      : (_orderType.isCustomDelivery
+                                          ? (s.isArabic ? 'نقطة التسليم' : 'Dropoff')
+                                          : (s.isArabic
+                                              ? 'موقع التوصيل'
+                                              : 'Delivery Address')),
                                   style: TextStyle(
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.bold,
@@ -1460,7 +1487,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             (widget.orderId.length >= 8
                 ? widget.orderId.substring(0, 8)
                 : widget.orderId);
-        final title = s.isArabic ? 'طلب #$orderNum' : 'Order #$orderNum';
+        final title = _orderType.isRide
+            ? (s.isArabic ? 'رحلة #$orderNum' : 'Ride #$orderNum')
+            : (s.isArabic ? 'طلب #$orderNum' : 'Order #$orderNum');
         ref.read(sharedInboxProvider.notifier).refresh();
         await context.push(
           '/chat/order/$convoId',

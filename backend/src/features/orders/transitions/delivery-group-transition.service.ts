@@ -8,6 +8,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DeliveryGroupStatus,
   OrderStatus,
+  OrderType,
   OrderVendorFulfillmentStatus,
   PaymentMethod,
   Prisma,
@@ -16,7 +17,10 @@ import {
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { OrdersRepository } from '../orders.repository';
 import { UpdateOrderStatusDto } from '../dto/order.dto';
-import { DRIVER_ALLOWED_TRANSITIONS } from './order-state.constants';
+import {
+  DRIVER_ALLOWED_TRANSITIONS,
+  requiresOrderProofPhotos,
+} from './order-state.constants';
 import { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interface';
 import {
   OrderFulfillmentDecidedEvent,
@@ -157,20 +161,23 @@ export class DeliveryGroupTransitionService {
       }
     }
 
-    // Proof photos belong strictly to the delivery that produced them.
-    if (
-      dto.status === OrderStatus.PICKED_UP &&
-      !dto.pickupImageUrl &&
-      !group.pickupImageUrl
-    ) {
-      throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
-    }
-    if (
-      dto.status === OrderStatus.DELIVERED &&
-      !dto.deliveryImageUrl &&
-      !group.deliveryImageUrl
-    ) {
-      throw new BadRequestException(OrderErrors.DELIVERY_PHOTO_REQUIRED);
+    // Proof photos belong strictly to the delivery that produced them, and
+    // are skipped for normal passenger rides (OrderType.RIDE).
+    if (requiresOrderProofPhotos(order.type)) {
+      if (
+        dto.status === OrderStatus.PICKED_UP &&
+        !dto.pickupImageUrl &&
+        !group.pickupImageUrl
+      ) {
+        throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
+      }
+      if (
+        dto.status === OrderStatus.DELIVERED &&
+        !dto.deliveryImageUrl &&
+        !group.deliveryImageUrl
+      ) {
+        throw new BadRequestException(OrderErrors.DELIVERY_PHOTO_REQUIRED);
+      }
     }
 
     if (
@@ -277,7 +284,10 @@ export class DeliveryGroupTransitionService {
           : dto.status === OrderStatus.PICKED_UP
             ? OrderStatus.PICKED_UP
             : order.status,
-      note: `Delivery ${group.sequence}: ${group.status} → ${dto.status}`,
+      note:
+        order.type === OrderType.RIDE
+          ? `Ride ${group.sequence}: ${group.status} → ${dto.status}`
+          : `Delivery ${group.sequence}: ${group.status} → ${dto.status}`,
       createdBy: actor.sub,
       actor: driverActorSnapshot,
     });

@@ -1111,6 +1111,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final vehicleType = driver['vehicleType']?.toString() ?? '';
     final vehiclePlate = driver['vehiclePlate']?.toString() ?? '';
 
+    final orderType = OrderTypeHelper.resolve(order);
     final items = (order['items'] as List<dynamic>?) ?? [];
     final isExpanded = _expandedOrders[orderId] ?? false;
 
@@ -1230,7 +1231,45 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                     status,
                                     isArabic,
                                   ),
-                                  if (isMultiVendor && multiVendorStoresText != null)
+                                  if (orderType.isNonStandard)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: AppColors.primary.withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            orderType.isRide
+                                                ? LucideIcons.car
+                                                : LucideIcons.package,
+                                            size: 13,
+                                            color: AppColors.primary,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            OrderTypeHelper.requestTypeLabel(
+                                              orderType,
+                                              isArabic: isArabic,
+                                            ),
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  else if (isMultiVendor && multiVendorStoresText != null)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
@@ -1717,8 +1756,70 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                         ),
                         const SizedBox(height: 20),
 
-                        // Order items / Multi-vendor stops section
-                        if ((isMultiVendor && fulfillments.isNotEmpty) ||
+                        // Request route details (RIDE / CUSTOM_DELIVERY) or store items
+                        if (orderType.isNonStandard)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.07),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      orderType.isRide ? LucideIcons.car : LucideIcons.package,
+                                      size: 16,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      OrderTypeHelper.requestTypeLabel(
+                                        orderType,
+                                        isArabic: isArabic,
+                                      ),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if ((order['pickupAddress']?.toString().trim() ?? '').isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${isArabic ? 'نقطة الاستلام' : 'Pickup'}: ${order['pickupAddress']}',
+                                    style: const TextStyle(fontSize: 12.5),
+                                  ),
+                                ],
+                                if (address.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${orderType.isRide ? (isArabic ? 'الوجهة' : 'Destination') : (isArabic ? 'عنوان التوصيل' : 'Dropoff')}: $address',
+                                    style: const TextStyle(fontSize: 12.5),
+                                  ),
+                                ],
+                                if (orderType.isCustomDelivery &&
+                                    (order['itemDetails']?.toString().trim() ?? '').isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    order['itemDetails'].toString().trim(),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          )
+                        else if ((isMultiVendor && fulfillments.isNotEmpty) ||
                             fulfillments.length > 1)
                           _buildMultiVendorFulfillments(
                             context,
@@ -2218,6 +2319,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     dynamic order,
     bool isArabic,
   ) {
+    if (OrderTypeHelper.isRide(order)) {
+      return const SizedBox.shrink();
+    }
     final rawEvents = order['statusEvents'];
     if (rawEvents is! List || rawEvents.isEmpty) {
       return const SizedBox.shrink();

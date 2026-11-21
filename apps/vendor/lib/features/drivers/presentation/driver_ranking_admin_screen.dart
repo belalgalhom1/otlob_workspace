@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:api/api.dart';
 import 'package:data/data.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/features/drivers/data/driver_providers.dart';
 import 'package:vendor/features/drivers/presentation/widgets/driver_rank_history_dialog.dart';
 
@@ -36,6 +39,7 @@ class _DriverRankingAdminScreenState
   int _previewPage = 1;
   DriverTier? _previewTierFilter;
   final _previewSearchController = TextEditingController();
+  Timer? _searchDebounce;
 
   // Tab 2: Evaluation Runs state
   PaginatedRankingRunsResponseDto? _runs;
@@ -59,8 +63,16 @@ class _DriverRankingAdminScreenState
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _previewSearchController.dispose();
     super.dispose();
+  }
+
+  void _onPreviewSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _loadPreview(page: 1);
+    });
   }
 
   Future<void> _initScreen() async {
@@ -301,58 +313,67 @@ class _DriverRankingAdminScreenState
   @override
   Widget build(BuildContext context) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final isCompactTabs = MediaQuery.sizeOf(context).width < 720;
 
     final content = DefaultTabController(
       length: 3,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildScheduleHeader(context, isAr),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: Theme.of(context).dividerColor.withValues(alpha: 0.35),
-              ),
-            ),
-            child: TabBar(
-              indicatorColor: AppColors.primary,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.65),
-              tabs: [
-                Tab(
-                  text: isAr
-                      ? 'معاينة التقييم الأسبوعي'
-                      : 'Dry-Run Preview',
-                ),
-                Tab(
-                  text: isAr
-                      ? 'سجل التشغيلات الأسبوعية'
-                      : 'Evaluation Runs',
-                ),
-                Tab(
-                  text: isAr
-                      ? 'حوادث ومسؤولية التوصيل'
-                      : 'Delivery Incidents',
-                ),
-              ],
+      child: NestedScrollView(
+        headerSliverBuilder: (context, _) => [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildScheduleHeader(context, isAr),
             ),
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildPreviewTab(context, isAr),
-                _buildRunsTab(context, isAr),
-                _buildIncidentsTab(context, isAr),
-              ],
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.35),
+                ),
+              ),
+              child: TabBar(
+                isScrollable: isCompactTabs,
+                tabAlignment:
+                    isCompactTabs ? TabAlignment.start : TabAlignment.fill,
+                indicatorColor: AppColors.primary,
+                labelColor: AppColors.primary,
+                unselectedLabelColor: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.65),
+                tabs: [
+                  Tab(
+                    text: isAr
+                        ? 'معاينة التقييم الأسبوعي'
+                        : 'Dry-Run Preview',
+                  ),
+                  Tab(
+                    text: isAr
+                        ? 'سجل التشغيلات الأسبوعية'
+                        : 'Evaluation Runs',
+                  ),
+                  Tab(
+                    text: isAr
+                        ? 'حوادث ومسؤولية التوصيل'
+                        : 'Delivery Incidents',
+                  ),
+                ],
+              ),
             ),
           ),
         ],
+        body: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: TabBarView(
+            children: [
+              _buildPreviewTab(context, isAr),
+              _buildRunsTab(context, isAr),
+              _buildIncidentsTab(context, isAr),
+            ],
+          ),
+        ),
       ),
     );
 
@@ -556,181 +577,180 @@ class _DriverRankingAdminScreenState
   Widget _buildPreviewTab(BuildContext context, bool isAr) {
     final preview = _preview;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (preview != null) ...[
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _SummaryStatPill(
-                  label: isAr ? 'الأسبوع المستهدف' : 'Target Week',
-                  value: preview.week.periodKey,
-                  color: AppColors.primary,
-                  icon: LucideIcons.calendar,
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (preview != null) ...[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _SummaryStatPill(
+                        label: isAr ? 'الأسبوع المستهدف' : 'Target Week',
+                        value: preview.week.periodKey,
+                        color: AppColors.primary,
+                        icon: LucideIcons.calendar,
+                      ),
+                      const SizedBox(width: 8),
+                      _SummaryStatPill(
+                        label: isAr ? 'إجمالي السائقين' : 'Total Drivers',
+                        value: '${preview.totalDrivers.toInt()}',
+                        color: AppColors.info,
+                        icon: LucideIcons.users,
+                      ),
+                      const SizedBox(width: 8),
+                      _SummaryStatPill(
+                        label: isAr ? 'ترقية' : 'Promoted',
+                        value: '${preview.promotedCount.toInt()}',
+                        color: AppColors.success,
+                        icon: LucideIcons.trendingUp,
+                      ),
+                      const SizedBox(width: 8),
+                      _SummaryStatPill(
+                        label: isAr ? 'تراجع' : 'Demoted',
+                        value: '${preview.demotedCount.toInt()}',
+                        color: AppColors.error,
+                        icon: LucideIcons.trendingDown,
+                      ),
+                      const SizedBox(width: 8),
+                      _SummaryStatPill(
+                        label: isAr ? 'ثابت' : 'Unchanged',
+                        value: '${preview.unchangedCount.toInt()}',
+                        color: Colors.blueGrey,
+                        icon: LucideIcons.minus,
+                      ),
+                      const SizedBox(width: 8),
+                      _SummaryStatPill(
+                        label: isAr ? 'غير نشط' : 'Inactive',
+                        value: '${preview.inactiveCount.toInt()}',
+                        color: AppColors.warning,
+                        icon: LucideIcons.moon,
+                      ),
+                      const SizedBox(width: 8),
+                      _SummaryStatPill(
+                        label: isAr ? 'الحد الذهبي' : 'Gold Tier',
+                        value: '≥ ${preview.goldThreshold.toInt()}%',
+                        color: const Color(0xFFD4920E),
+                        icon: LucideIcons.trophy,
+                      ),
+                      const SizedBox(width: 8),
+                      _SummaryStatPill(
+                        label: isAr ? 'الحد الفضي' : 'Silver Tier',
+                        value: '≥ ${preview.silverThreshold.toInt()}%',
+                        color: const Color(0xFF64748B),
+                        icon: LucideIcons.award,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 8),
-                _SummaryStatPill(
-                  label: isAr ? 'إجمالي السائقين' : 'Total Drivers',
-                  value: '${preview.totalDrivers.toInt()}',
-                  color: AppColors.info,
-                  icon: LucideIcons.users,
-                ),
-                const SizedBox(width: 8),
-                _SummaryStatPill(
-                  label: isAr ? 'ترقية' : 'Promoted',
-                  value: '${preview.promotedCount.toInt()}',
-                  color: AppColors.success,
-                  icon: LucideIcons.trendingUp,
-                ),
-                const SizedBox(width: 8),
-                _SummaryStatPill(
-                  label: isAr ? 'تراجع' : 'Demoted',
-                  value: '${preview.demotedCount.toInt()}',
-                  color: AppColors.error,
-                  icon: LucideIcons.trendingDown,
-                ),
-                const SizedBox(width: 8),
-                _SummaryStatPill(
-                  label: isAr ? 'ثابت' : 'Unchanged',
-                  value: '${preview.unchangedCount.toInt()}',
-                  color: Colors.blueGrey,
-                  icon: LucideIcons.minus,
-                ),
-                const SizedBox(width: 8),
-                _SummaryStatPill(
-                  label: isAr ? 'غير نشط' : 'Inactive',
-                  value: '${preview.inactiveCount.toInt()}',
-                  color: AppColors.warning,
-                  icon: LucideIcons.moon,
-                ),
-                const SizedBox(width: 8),
-                _SummaryStatPill(
-                  label: isAr ? 'الحد الذهبي' : 'Gold Tier',
-                  value: '≥ ${preview.goldThreshold.toInt()}%',
-                  color: const Color(0xFFD4920E),
-                  icon: LucideIcons.trophy,
-                ),
-                const SizedBox(width: 8),
-                _SummaryStatPill(
-                  label: isAr ? 'الحد الفضي' : 'Silver Tier',
-                  value: '≥ ${preview.silverThreshold.toInt()}%',
-                  color: const Color(0xFF64748B),
-                  icon: LucideIcons.award,
-                ),
+                const SizedBox(height: 10),
               ],
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
+              DashboardSearchBar(
                 controller: _previewSearchController,
-                onSubmitted: (_) => _loadPreview(page: 1),
-                decoration: InputDecoration(
-                  hintText: isAr
-                      ? 'ابحث باسم السائق أو رقم الهاتف...'
-                      : 'Search driver by name or phone...',
-                  prefixIcon: const Icon(LucideIcons.search, size: 16),
-                  suffixIcon: _previewSearchController.text.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(LucideIcons.x, size: 15),
-                          onPressed: () {
-                            _previewSearchController.clear();
+                onChanged: _onPreviewSearchChanged,
+                onClear: () {
+                  _searchDebounce?.cancel();
+                  _loadPreview(page: 1);
+                },
+                hintText: isAr
+                    ? 'ابحث باسم السائق أو رقم الهاتف...'
+                    : 'Search driver by name or phone...',
+                height: 46,
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final tier in <DriverTier?>[
+                      null,
+                      DriverTier.GOLD,
+                      DriverTier.SILVER,
+                      DriverTier.BRONZE,
+                    ])
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 8),
+                        child: ChoiceChip(
+                          label: Text(
+                            tier == null
+                                ? (isAr ? 'الكل' : 'All')
+                                : AdminDriverTierVisuals.of(tier).label(isAr),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          selected: _previewTierFilter == tier,
+                          onSelected: (_) {
+                            setState(() => _previewTierFilter = tier);
                             _loadPreview(page: 1);
                           },
                         ),
-                  isDense: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final tier in <DriverTier?>[
-                    null,
-                    DriverTier.GOLD,
-                    DriverTier.SILVER,
-                    DriverTier.BRONZE,
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: ChoiceChip(
-                        label: Text(
-                          tier == null
-                              ? (isAr ? 'الكل' : 'All')
-                              : AdminDriverTierVisuals.of(tier).label(isAr),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        selected: _previewTierFilter == tier,
-                        onSelected: (_) {
-                          setState(() => _previewTierFilter = tier);
-                          _loadPreview(page: 1);
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: _previewLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _previewError != null
-              ? _buildErrorView(
-                  _previewError!,
-                  () => _loadPreview(page: _previewPage),
-                  isAr,
-                )
-              : (preview == null || preview.drivers.isEmpty)
-              ? Center(
-                  child: Text(
-                    isAr
-                        ? 'لا يوجد سائقون مطابقون للبحث'
-                        : 'No matching drivers found',
-                  ),
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: preview.drivers.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final item = preview.drivers[index];
-                          return _PreviewDriverCard(
-                            item: item,
-                            isAr: isAr,
-                            canOverride:
-                                _isAdminOrSuperAdmin && !_isDriverManager,
-                            onUpdated: () {
-                              _loadPreview(page: _previewPage);
-                              ref.read(driversProvider.notifier).refresh();
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    if (preview.meta.totalPages > 1)
-                      _buildPaginationBar(
-                        page: _previewPage,
-                        totalPages: preview.meta.totalPages.toInt(),
-                        onPageChanged: (p) => _loadPreview(page: p),
                       ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         ),
+        if (_previewLoading)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_previewError != null)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _buildErrorView(
+              _previewError!,
+              () => _loadPreview(page: _previewPage),
+              isAr,
+            ),
+          )
+        else if (preview == null || preview.drivers.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  isAr
+                      ? 'لا يوجد سائقون مطابقون للبحث'
+                      : 'No matching drivers found',
+                ),
+              ),
+            ),
+          )
+        else ...[
+          SliverList.separated(
+            itemCount: preview.drivers.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final item = preview.drivers[index];
+              return _PreviewDriverCard(
+                item: item,
+                isAr: isAr,
+                canOverride: _isAdminOrSuperAdmin && !_isDriverManager,
+                onUpdated: () {
+                  _loadPreview(page: _previewPage);
+                  ref.read(driversProvider.notifier).refresh();
+                },
+              );
+            },
+          ),
+          if (preview.meta.totalPages > 1)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: _buildPaginationBar(
+                  page: _previewPage,
+                  totalPages: preview.meta.totalPages.toInt(),
+                  onPageChanged: (p) => _loadPreview(page: p),
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }
@@ -800,56 +820,62 @@ class _DriverRankingAdminScreenState
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            isAr
-                                ? 'تقييم الأسبوع ${run.periodKey}'
-                                : 'Week ${run.periodKey} Evaluation',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusCol.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            run.status.name,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: statusCol,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest
-                                .withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            run.triggerSource ==
-                                    DriverRankingTriggerSource.MANUAL
-                                ? (isAr ? 'يدوي' : 'MANUAL')
-                                : (isAr ? 'تلقائي' : 'SCHEDULED'),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                isAr
+                                    ? 'تقييم الأسبوع ${run.periodKey}'
+                                    : 'Week ${run.periodKey} Evaluation',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusCol.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  run.status.name,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: statusCol,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  run.triggerSource ==
+                                          DriverRankingTriggerSource.MANUAL
+                                      ? (isAr ? 'يدوي' : 'MANUAL')
+                                      : (isAr ? 'تلقائي' : 'SCHEDULED'),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -907,57 +933,62 @@ class _DriverRankingAdminScreenState
                       ),
                     ],
                     const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (run.status == DriverRankingRunStatus.FAILED &&
-                            _isAdminOrSuperAdmin &&
-                            !_isDriverManager) ...[
-                          FilledButton.icon(
-                            onPressed: _retryingRunId == run.id
-                                ? null
-                                : () => _retryFailedRun(run.id),
-                            icon: _retryingRunId == run.id
-                                ? const SizedBox(
-                                    width: 12,
-                                    height: 12,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(LucideIcons.rotateCcw, size: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (run.status == DriverRankingRunStatus.FAILED &&
+                              _isAdminOrSuperAdmin &&
+                              !_isDriverManager)
+                            FilledButton.icon(
+                              onPressed: _retryingRunId == run.id
+                                  ? null
+                                  : () => _retryFailedRun(run.id),
+                              icon: _retryingRunId == run.id
+                                  ? const SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(LucideIcons.rotateCcw, size: 14),
+                              label: Text(
+                                isAr ? 'إعادة المحاولة' : 'Retry Failed Run',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.error,
+                                foregroundColor: Colors.white,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => _RunDetailsDialog(
+                                  runId: run.id,
+                                  periodKey: run.periodKey,
+                                ),
+                              );
+                            },
+                            icon: const Icon(LucideIcons.listOrdered, size: 14),
                             label: Text(
-                              isAr ? 'إعادة المحاولة' : 'Retry Failed Run',
+                              isAr
+                                  ? 'عرض نتائج السائقين'
+                                  : 'View Driver Entries',
                               style: const TextStyle(fontSize: 12),
                             ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.error,
-                              foregroundColor: Colors.white,
+                            style: OutlinedButton.styleFrom(
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
-                          const SizedBox(width: 8),
                         ],
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (_) => _RunDetailsDialog(
-                                runId: run.id,
-                                periodKey: run.periodKey,
-                              ),
-                            );
-                          },
-                          icon: const Icon(LucideIcons.listOrdered, size: 14),
-                          label: Text(
-                            isAr ? 'عرض نتائج السائقين' : 'View Driver Entries',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1080,64 +1111,82 @@ class _DriverRankingAdminScreenState
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      child: Text(
-                                        '#$orderNum • $drvName',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: respColor.withValues(
-                                          alpha: 0.14,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        _responsibilityLabel(
-                                          inc.responsibility,
-                                          isAr,
-                                        ),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: respColor,
-                                        ),
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 6,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        alignment:
+                                            WrapAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '#$orderNum • $drvName',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: respColor.withValues(
+                                                alpha: 0.14,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              _responsibilityLabel(
+                                                inc.responsibility,
+                                                isAr,
+                                              ),
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: respColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Text(
-                                      _incidentTypeLabel(
-                                        inc.incidentType,
-                                        isAr,
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    alignment: WrapAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        _incidentTypeLabel(
+                                          inc.incidentType,
+                                          isAr,
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                      Text(
+                                        dateStr,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.6),
+                                        ),
                                       ),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      dateStr,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withValues(alpha: 0.6),
-                                      ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                                 if (reason != null && reason.isNotEmpty) ...[
                                   const SizedBox(height: 6),
@@ -1460,29 +1509,40 @@ class _PreviewDriverCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  item.driverName,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: outcomeCol.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _outcomeLabel(item.outcome),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: outcomeCol,
-                  ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      item.driverName,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: outcomeCol.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _outcomeLabel(item.outcome),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: outcomeCol,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -1507,60 +1567,97 @@ class _PreviewDriverCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              DriverTierBadgePill(tier: item.previousTier, compact: true),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(LucideIcons.arrowRight, size: 14),
-              ),
-              DriverTierBadgePill(tier: item.newTier, compact: true),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (_) => DriverRankHistoryDialog(
-                      driverId: item.driverId,
-                      driverName: item.driverName,
-                      initialTier: item.previousTier,
-                      canOverride: canOverride,
-                    ),
-                  ).then((_) => onUpdated());
-                },
-                icon: const Icon(LucideIcons.history, size: 14),
-                label: Text(
-                  isAr ? 'السجل' : 'History',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-              if (canOverride)
-                TextButton.icon(
-                  onPressed: () async {
-                    final newTier = await showDialog<DriverTier>(
-                      context: context,
-                      builder: (_) => OverrideDriverTierDialog(
-                        driverId: item.driverId,
-                        driverName: item.driverName,
-                        currentTier: item.previousTier,
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DriverTierBadgePill(tier: item.previousTier, compact: true),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        isAr ? LucideIcons.arrowLeft : LucideIcons.arrowRight,
+                        size: 14,
                       ),
-                    );
-                    if (newTier != null) onUpdated();
-                  },
-                  icon: const Icon(LucideIcons.award, size: 14),
-                  label: Text(
-                    isAr ? 'تعديل الشارة' : 'Override',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
+                    ),
+                    DriverTierBadgePill(tier: item.newTier, compact: true),
+                  ],
                 ),
-            ],
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => DriverRankHistoryDialog(
+                            driverId: item.driverId,
+                            driverName: item.driverName,
+                            initialTier: item.previousTier,
+                            canOverride: canOverride,
+                          ),
+                        ).then((_) => onUpdated());
+                      },
+                      icon: const Icon(LucideIcons.history, size: 14),
+                      label: Text(
+                        isAr ? 'السجل' : 'History',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    if (canOverride)
+                      FilledButton.icon(
+                        onPressed: () async {
+                          final newTier = await showDialog<DriverTier>(
+                            context: context,
+                            builder: (_) => OverrideDriverTierDialog(
+                              driverId: item.driverId,
+                              driverName: item.driverName,
+                              currentTier: item.previousTier,
+                            ),
+                          );
+                          if (newTier != null) onUpdated();
+                        },
+                        icon: const Icon(LucideIcons.award, size: 14),
+                        label: Text(
+                          isAr ? 'تعديل الشارة' : 'Override',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary.withValues(
+                            alpha: 0.16,
+                          ),
+                          foregroundColor: AppColors.primary,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -1919,6 +2016,7 @@ class _RunDetailsDialogState extends ConsumerState<_RunDetailsDialog> {
   int _page = 1;
   DriverTier? _tierFilter;
   final _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -1928,8 +2026,16 @@ class _RunDetailsDialogState extends ConsumerState<_RunDetailsDialog> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _load(page: 1);
+    });
   }
 
   Future<void> _load({int page = 1}) async {
@@ -1984,49 +2090,42 @@ class _RunDetailsDialogState extends ConsumerState<_RunDetailsDialog> {
       ),
       body: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  onSubmitted: (_) => _load(page: 1),
-                  decoration: InputDecoration(
-                    hintText: isAr
-                        ? 'بحث باسم السائق...'
-                        : 'Search driver...',
-                    prefixIcon: const Icon(LucideIcons.search, size: 15),
-                    isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+          DashboardSearchBar(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            onClear: () {
+              _searchDebounce?.cancel();
+              _load(page: 1);
+            },
+            hintText: isAr ? 'بحث باسم السائق...' : 'Search driver...',
+            height: 44,
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: DropdownButton<DriverTier?>(
+              value: _tierFilter,
+              hint: Text(isAr ? 'الكل' : 'All'),
+              items: [
+                DropdownMenuItem(
+                  value: null,
+                  child: Text(isAr ? 'الكل' : 'All'),
                 ),
-              ),
-              const SizedBox(width: 8),
-              DropdownButton<DriverTier?>(
-                value: _tierFilter,
-                hint: Text(isAr ? 'الكل' : 'All'),
-                items: [
+                for (final t in [
+                  DriverTier.GOLD,
+                  DriverTier.SILVER,
+                  DriverTier.BRONZE,
+                ])
                   DropdownMenuItem(
-                    value: null,
-                    child: Text(isAr ? 'الكل' : 'All'),
+                    value: t,
+                    child: Text(AdminDriverTierVisuals.of(t).label(isAr)),
                   ),
-                  for (final t in [
-                    DriverTier.GOLD,
-                    DriverTier.SILVER,
-                    DriverTier.BRONZE,
-                  ])
-                    DropdownMenuItem(
-                      value: t,
-                      child: Text(AdminDriverTierVisuals.of(t).label(isAr)),
-                    ),
-                ],
-                onChanged: (val) {
-                  setState(() => _tierFilter = val);
-                  _load(page: 1);
-                },
-              ),
-            ],
+              ],
+              onChanged: (val) {
+                setState(() => _tierFilter = val);
+                _load(page: 1);
+              },
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -2059,40 +2158,59 @@ class _RunDetailsDialogState extends ConsumerState<_RunDetailsDialog> {
                             color: AppDialogStyles.borderColor(context),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
                                 drvName,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13.5,
                                 ),
                               ),
-                            ),
-                            DriverTierBadgePill(
-                              tier: entry.previousTier,
-                              compact: true,
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 6),
-                              child: Icon(LucideIcons.arrowRight, size: 13),
-                            ),
-                            DriverTierBadgePill(
-                              tier: entry.newTier,
-                              compact: true,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              pct,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                                fontFeatures: [FontFeature.tabularFigures()],
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  DriverTierBadgePill(
+                                    tier: entry.previousTier,
+                                    compact: true,
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                    ),
+                                    child: Icon(
+                                      isAr
+                                          ? LucideIcons.arrowLeft
+                                          : LucideIcons.arrowRight,
+                                      size: 13,
+                                    ),
+                                  ),
+                                  DriverTierBadgePill(
+                                    tier: entry.newTier,
+                                    compact: true,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    pct,
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                      fontFeatures: [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },

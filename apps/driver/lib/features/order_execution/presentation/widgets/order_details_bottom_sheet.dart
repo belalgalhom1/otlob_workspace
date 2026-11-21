@@ -48,6 +48,8 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final currency = ref.watch(configurationProvider.notifier).currency;
 
+    final orderType = OrderTypeHelper.resolve(order);
+    final isAr = l10n.localeName == 'ar';
     final customer = order['customer'] is Map ? order['customer'] : {};
     final vendor = order['vendor'] is Map ? order['vendor'] : {};
     
@@ -92,7 +94,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      l10n.localeName == 'ar' ? 'تفاصيل الطلب' : 'Order Details',
+                      orderType.isRide
+                          ? (isAr ? 'تفاصيل الرحلة' : 'Ride Details')
+                          : (isAr ? 'تفاصيل الطلب' : 'Order Details'),
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -125,7 +129,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               
               // Customer Details
               Text(
-                l10n.localeName == 'ar' ? 'العميل والتوصيل' : 'Customer (Dropoff)',
+                orderType.isRide
+                    ? (isAr ? 'العميل والوجهة' : 'Customer (Passenger)')
+                    : (isAr ? 'العميل والتوصيل' : 'Customer (Dropoff)'),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -216,11 +222,13 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      isCustomOrRide
-                          ? (l10n.localeName == 'ar' ? 'موقع الاستلام' : 'Pickup Location')
-                          : (isMultiVendor
-                              ? (l10n.localeName == 'ar' ? 'محطات استلام المتاجر (${fulfillments.length} متاجر)' : 'Store Pickup Stops (${fulfillments.length} Stores)')
-                              : (l10n.localeName == 'ar' ? 'المتجر (الاستلام)' : 'Store (Pickup)')),
+                      orderType.isRide
+                          ? (isAr ? 'موقع ركوب العميل' : 'Pickup Location (Customer)')
+                          : (isCustomOrRide
+                              ? (isAr ? 'موقع الاستلام' : 'Pickup Location')
+                              : (isMultiVendor
+                                  ? (isAr ? 'محطات استلام المتاجر (${fulfillments.length} متاجر)' : 'Store Pickup Stops (${fulfillments.length} Stores)')
+                                  : (isAr ? 'المتجر (الاستلام)' : 'Store (Pickup)'))),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -815,7 +823,8 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                     ),
                     const SizedBox(height: 10),
 
-                    // 2. Store Pickup Payment Instruction Card
+                    // 2. Store Pickup Payment Instruction Card (STANDARD store orders only)
+                    if (orderType.hasStoreFulfillment) ...[
                     () {
                       final storePayments = (financials?['storePayments'] as List?) ?? [];
                       if (storePayments.length > 1) {
@@ -988,8 +997,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                       );
                     }(),
                     const SizedBox(height: 10),
+                    ],
 
-                    // 3. Driver Delivery Earnings Card
+                    // 3. Driver Delivery / Ride Earnings Card
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
@@ -1008,11 +1018,17 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                               Expanded(
                                 child: Row(
                                   children: [
-                                    const Icon(LucideIcons.bike, size: 18, color: AppColors.primary),
+                                    Icon(
+                                      orderType.isRide ? LucideIcons.car : LucideIcons.bike,
+                                      size: 18,
+                                      color: AppColors.primary,
+                                    ),
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
-                                        isAr ? 'أرباحك الصافية من هذا التوصيل' : 'Your Net Delivery Earnings',
+                                        orderType.isRide
+                                            ? (isAr ? 'أرباحك الصافية من هذه الرحلة' : 'Your Net Ride Earnings')
+                                            : (isAr ? 'أرباحك الصافية من هذا التوصيل' : 'Your Net Delivery Earnings'),
                                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                       ),
                                     ),
@@ -1041,7 +1057,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    isAr ? 'إجمالي رسوم التوصيل (العميل)' : 'Total Delivery Fee (Customer)',
+                                    orderType.isRide
+                                        ? (isAr ? 'إجمالي أجرة الرحلة (العميل)' : 'Total Ride Fare (Customer)')
+                                        : (isAr ? 'إجمالي رسوم التوصيل (العميل)' : 'Total Delivery Fee (Customer)'),
                                     style: TextStyle(
                                       fontSize: 11.5,
                                       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
@@ -1322,7 +1340,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                       );
                     }
 
-                    if (!isFinished) {
+                    if (!isFinished && !orderType.isRide) {
                       return Padding(
                         padding: const EdgeInsets.only(top: 16),
                         child: OutlinedButton.icon(

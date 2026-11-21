@@ -115,6 +115,13 @@ class OrderExecution extends _$OrderExecution {
     }
   }
 
+  /// Marks pickup without uploading a proof photo (allowed by backend ONLY for
+  /// `OrderType.RIDE`, where no store items or parcels exist).
+  Future<void> confirmPickupWithoutPhoto() => updateOrderStatus('PICKED_UP');
+
+  /// Marks ride completion without uploading a proof photo (`OrderType.RIDE`).
+  Future<void> confirmDeliveryWithoutPhoto() => updateOrderStatus('DELIVERED');
+
   Future<void> confirmPayment({required bool received}) async {
     final prev = state;
     final orderId = _activeOrderId(prev);

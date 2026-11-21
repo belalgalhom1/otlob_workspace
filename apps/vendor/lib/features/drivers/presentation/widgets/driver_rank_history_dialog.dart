@@ -247,64 +247,88 @@ class _OverrideDriverTierDialogState
             label: isAr ? 'اختر الشارة الجديدة' : 'Select New Badge',
             isRequired: true,
           ),
-          Row(
-            children: [
-              for (int i = 0; i < tiers.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      final t = tiers[i];
-                      final v = AdminDriverTierVisuals.of(t, isDark: isDark);
-                      final selected = _selectedTier == t;
-                      final isCurrent = widget.currentTier == t;
-                      return InkWell(
-                        onTap: (_isSaving || isCurrent)
-                            ? null
-                            : () => setState(() => _selectedTier = t),
-                        borderRadius: BorderRadius.circular(12),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 160),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? v.background
-                                : AppDialogStyles.subtleSurfaceColor(context),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: selected
-                                  ? v.primary
-                                  : AppDialogStyles.borderColor(context),
-                              width: selected ? 1.8 : 1.0,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final fontScale = MediaQuery.textScalerOf(context).scale(14.0) / 14.0;
+              final useWrap = constraints.maxWidth < 290 || fontScale > 1.35;
+
+              Widget buildTierTile(DriverTier t) {
+                final v = AdminDriverTierVisuals.of(t, isDark: isDark);
+                final selected = _selectedTier == t;
+                final isCurrent = widget.currentTier == t;
+                return InkWell(
+                  onTap: (_isSaving || isCurrent)
+                      ? null
+                      : () => setState(() => _selectedTier = t),
+                  borderRadius: BorderRadius.circular(12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? v.background
+                          : AppDialogStyles.subtleSurfaceColor(context),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selected
+                            ? v.primary
+                            : AppDialogStyles.borderColor(context),
+                        width: selected ? 1.8 : 1.0,
+                      ),
+                    ),
+                    child: Opacity(
+                      opacity: isCurrent ? 0.45 : 1.0,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(v.icon, size: 20, color: v.primary),
+                          const SizedBox(height: 6),
+                          Text(
+                            v.label(isAr),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: v.primary,
                             ),
                           ),
-                          child: Opacity(
-                            opacity: isCurrent ? 0.45 : 1.0,
-                            child: Column(
-                              children: [
-                                Icon(v.icon, size: 20, color: v.primary),
-                                const SizedBox(height: 6),
-                                Text(
-                                  v.label(isAr),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: v.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ],
+                );
+              }
+
+              if (useWrap) {
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final t in tiers)
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: (constraints.maxWidth - 8) / 2,
+                        ),
+                        child: buildTierTile(t),
+                      ),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  for (int i = 0; i < tiers.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    Expanded(child: buildTierTile(tiers[i])),
+                  ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           AppFieldLabel(
@@ -442,10 +466,9 @@ class _DriverRankHistoryDialogState
         icon: LucideIcons.trophy,
         title: isAr ? 'سجل الشارة والتصنيف الأسبوعي' : 'Weekly Badge & Rank History',
         subtitle: widget.driverName,
+        badge: DriverTierBadgePill(tier: _currentTier),
         actions: [
-          DriverTierBadgePill(tier: _currentTier),
-          if (widget.canOverride) ...[
-            const SizedBox(width: 8),
+          if (widget.canOverride)
             FilledButton.icon(
               onPressed: _openOverrideDialog,
               icon: const Icon(LucideIcons.pencil, size: 14),
@@ -456,14 +479,13 @@ class _DriverRankHistoryDialogState
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 visualDensity: VisualDensity.compact,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
-          ],
         ],
         onClose: () => Navigator.of(context).pop(),
       ),
@@ -596,32 +618,47 @@ class _DriverRankHistoryDialogState
                               ],
                             ),
                             const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                DriverTierBadgePill(
-                                  tier: entry.previousTier,
-                                  compact: true,
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 8),
-                                  child: Icon(LucideIcons.arrowRight, size: 14),
-                                ),
-                                DriverTierBadgePill(
-                                  tier: entry.newTier,
-                                  compact: true,
-                                ),
-                                const Spacer(),
-                                Text(
-                                  dateStr,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.6),
+                            SizedBox(
+                              width: double.infinity,
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      DriverTierBadgePill(
+                                        tier: entry.previousTier,
+                                        compact: true,
+                                      ),
+                                      Icon(
+                                        isAr
+                                            ? LucideIcons.arrowLeft
+                                            : LucideIcons.arrowRight,
+                                        size: 14,
+                                      ),
+                                      DriverTierBadgePill(
+                                        tier: entry.newTier,
+                                        compact: true,
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
+                                  Text(
+                                    dateStr,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             if (overrideReason != null &&
                                 overrideReason.isNotEmpty) ...[
@@ -679,7 +716,12 @@ class _DriverRankHistoryDialogState
                           onPressed: _page > 1
                               ? () => _fetchHistory(page: _page - 1)
                               : null,
-                          icon: const Icon(LucideIcons.chevronLeft, size: 18),
+                          icon: Icon(
+                            isAr
+                                ? LucideIcons.chevronRight
+                                : LucideIcons.chevronLeft,
+                            size: 18,
+                          ),
                         ),
                         Text(
                           '$_page / $_totalPages',
@@ -693,7 +735,12 @@ class _DriverRankHistoryDialogState
                           onPressed: _page < _totalPages
                               ? () => _fetchHistory(page: _page + 1)
                               : null,
-                          icon: const Icon(LucideIcons.chevronRight, size: 18),
+                          icon: Icon(
+                            isAr
+                                ? LucideIcons.chevronLeft
+                                : LucideIcons.chevronRight,
+                            size: 18,
+                          ),
                         ),
                       ],
                     ),

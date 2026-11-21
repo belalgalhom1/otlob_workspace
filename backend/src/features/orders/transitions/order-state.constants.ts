@@ -1,4 +1,14 @@
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, OrderType } from '@prisma/client';
+
+/**
+ * Single source of truth for whether an order type requires proof photos
+ * (pickup and delivery photos). Normal passenger rides (OrderType.RIDE)
+ * have no store items or parcels to photograph; regular store orders and
+ * custom deliveries require proof photos.
+ */
+export function requiresOrderProofPhotos(orderType?: string | null): boolean {
+  return orderType !== OrderType.RIDE;
+}
 
 export const VENDOR_ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDING]: [OrderStatus.ACCEPTED],

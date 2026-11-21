@@ -42,6 +42,7 @@ import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
 import {
   DRIVER_ALLOWED_TRANSITIONS,
   VENDOR_ALLOWED_TRANSITIONS,
+  requiresOrderProofPhotos,
 } from './transitions/order-state.constants';
 import { OrderCancellationService } from './transitions/order-cancellation.service';
 import {
@@ -339,10 +340,13 @@ export class OrdersStateService {
   async driverConfirmPickup(
     actor: JwtAccessPayload,
     orderId: string,
-    file: Express.Multer.File,
+    file?: Express.Multer.File,
     fulfillmentId?: string,
   ) {
     if (fulfillmentId) {
+      if (!file) {
+        throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
+      }
       return this.driverConfirmFulfillmentPickup(
         actor,
         orderId,
@@ -390,6 +394,9 @@ export class OrdersStateService {
           f.status !== 'REJECTED' && f.status !== 'CANCELLED' && !f.pickedUpAt,
       );
       if (nextUnpicked) {
+        if (!file) {
+          throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
+        }
         return this.driverConfirmFulfillmentPickup(
           actor,
           orderId,
@@ -397,6 +404,15 @@ export class OrdersStateService {
           file,
         );
       }
+    }
+
+    if (!file) {
+      if (requiresOrderProofPhotos(order?.type)) {
+        throw new BadRequestException(OrderErrors.PICKUP_PHOTO_REQUIRED);
+      }
+      return this.driverUpdateStatus(actor, orderId, {
+        status: OrderStatus.PICKED_UP,
+      });
     }
 
     const imageUrl = await this.storage.upload(file, 'pickups');
@@ -414,9 +430,20 @@ export class OrdersStateService {
   async driverConfirmDelivery(
     actor: JwtAccessPayload,
     orderId: string,
-    file: Express.Multer.File,
+    file?: Express.Multer.File,
     deliveryGroupId?: string,
   ) {
+    const order = await this.ordersRepository.findById(orderId);
+    if (!file) {
+      if (requiresOrderProofPhotos(order?.type)) {
+        throw new BadRequestException(OrderErrors.DELIVERY_PHOTO_REQUIRED);
+      }
+      return this.driverUpdateStatus(actor, orderId, {
+        status: OrderStatus.DELIVERED,
+        ...(deliveryGroupId ? { deliveryGroupId } : {}),
+      });
+    }
+
     const imageUrl = await this.storage.upload(file, 'deliveries');
     try {
       return await this.driverUpdateStatus(actor, orderId, {

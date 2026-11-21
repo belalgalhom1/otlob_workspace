@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:core/core.dart' show OrderActivityHelper;
+import 'package:core/core.dart'
+    show AppOrderType, OrderActivityHelper, OrderTypeHelper;
 import 'package:flutter/material.dart';
 import 'package:ui_kit/ui_kit.dart' show AppNetworkAvatar;
 
@@ -8,44 +9,18 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/image_utils.dart';
 
-/// Maps a raw backend order or fulfillment status code to a localized label.
-String formatTrackingDisplayStatus(String rawStatus, bool isAr) {
-  switch (rawStatus) {
-    case 'PENDING':
-      return isAr ? 'بإنتظار المطعم' : 'Pending Vendor';
-    case 'LOOKING_FOR_DRIVER':
-      return isAr ? 'جاري البحث عن كابتن...' : 'Looking for Driver...';
-    case 'ACCEPTED':
-      return isAr ? 'تم القبول' : 'Accepted';
-    case 'PREPARING':
-      return isAr ? 'قيد التحضير' : 'Preparing';
-    case 'READY_FOR_PICKUP':
-      return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
-    case 'PARTIALLY_PICKED_UP':
-      return isAr ? 'جاري الاستلام من المتاجر' : 'Partially Picked Up';
-    case 'PICKED_UP':
-      return isAr ? 'الطلب في الطريق إليك' : 'On the Way';
-    case 'DELIVERED':
-      return isAr ? 'تم التوصيل' : 'Delivered';
-    case 'CANCELLED':
-      return isAr ? 'تم الإلغاء' : 'Cancelled';
-    case 'REJECTED':
-      return isAr ? 'مرفوض من المتجر' : 'Rejected by Store';
-    case 'DRIVER_ASSIGNED':
-      return isAr ? 'تم تعيين كابتن' : 'Driver Assigned';
-    case 'PENDING_PAYMENT':
-      return isAr ? 'بانتظار الدفع' : 'Pending Payment';
-    default:
-      return rawStatus
-          .replaceAll('_', ' ')
-          .split(' ')
-          .map(
-            (word) => word.isNotEmpty
-                ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
-                : '',
-          )
-          .join(' ');
-  }
+/// Maps a raw backend order or fulfillment status code to a localized label,
+/// respecting request type (`RIDE` vs `CUSTOM_DELIVERY` vs `STANDARD`).
+String formatTrackingDisplayStatus(
+  String rawStatus,
+  bool isAr, {
+  AppOrderType orderType = AppOrderType.standard,
+}) {
+  return OrderTypeHelper.customerStatusLabel(
+    orderType,
+    rawStatus,
+    isArabic: isAr,
+  );
 }
 
 /// Floating map controls paired with a collapsible bottom sheet so the live map
@@ -338,6 +313,7 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                               const SizedBox(height: 12),
                             ],
                             _buildCancellationBanner(s, isDark),
+                            _buildRequestSummaryCard(s, isDark),
                             ..._buildStoreFulfillmentSections(s, isDark),
                             if (widget.assignedDriversWidgets.isNotEmpty)
                               ...widget.assignedDriversWidgets,
@@ -348,7 +324,11 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                                 onPressed: widget.onOpenChat,
                                 icon: const Icon(Icons.chat_rounded, size: 20),
                                 label: Text(
-                                  s.isArabic ? 'محادثة الطلب' : 'Order Chat',
+                                  OrderTypeHelper.isRide(widget.orderDetails)
+                                      ? (s.isArabic
+                                          ? 'محادثة الكابتن'
+                                          : 'Chat with Driver')
+                                      : (s.isArabic ? 'محادثة الطلب' : 'Order Chat'),
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary.withValues(
@@ -376,7 +356,13 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                                     size: 20,
                                   ),
                                   label: Text(
-                                    s.isArabic ? 'تقييم الطلب' : 'Rate Order',
+                                    OrderTypeHelper.isRide(widget.orderDetails)
+                                        ? (s.isArabic
+                                            ? 'تقييم الرحلة'
+                                            : 'Rate Ride')
+                                        : (s.isArabic
+                                            ? 'تقييم الطلب'
+                                            : 'Rate Order'),
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.amber,
@@ -407,9 +393,17 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
   }
 
   Widget _buildSheetHeader(AppStrings s, bool isDark, Color statusColor) {
+    final orderType = OrderTypeHelper.resolve(widget.orderDetails);
     final fulfillmentsRaw = widget.orderDetails?['vendorFulfillments'];
-    final storeCount = fulfillmentsRaw is List ? fulfillmentsRaw.length : 0;
+    final storeCount = orderType.hasStoreFulfillment && fulfillmentsRaw is List
+        ? fulfillmentsRaw.length
+        : 0;
     final muted = isDark ? Colors.white60 : Colors.grey.shade600;
+    final statusHeaderTitle = orderType.isRide
+        ? (s.isArabic ? 'حالة الرحلة' : 'Ride Status')
+        : (orderType.isCustomDelivery
+            ? (s.isArabic ? 'حالة التوصيل' : 'Delivery Status')
+            : (s.isArabic ? 'حالة الطلب' : 'Order Status'));
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -458,7 +452,7 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
-                            s.isArabic ? 'حالة الطلب' : 'Order Status',
+                            statusHeaderTitle,
                             style: TextStyle(fontSize: 12, color: muted),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -466,6 +460,28 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                         ),
                       ],
                     ),
+                    if (orderType.isNonStandard)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          OrderTypeHelper.requestTypeLabel(
+                            orderType,
+                            isArabic: s.isArabic,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
                     if (storeCount > 1)
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -603,9 +619,119 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
     );
   }
 
+  Widget _buildRequestSummaryCard(AppStrings s, bool isDark) {
+    final details = widget.orderDetails;
+    if (details == null) return const SizedBox.shrink();
+    final orderType = OrderTypeHelper.resolve(details);
+    if (!orderType.isNonStandard) return const SizedBox.shrink();
+
+    final pickup = (details['pickupAddress'] ?? details['pickup'] ?? '').toString().trim();
+    final dropoff = (details['deliveryAddress'] ?? details['dropoff'] ?? '').toString().trim();
+    final itemDetails = (details['itemDetails'] ?? '').toString().trim();
+    final rawTotal = details['grandTotal'] ?? details['total'] ?? details['deliveryFee'];
+    final total = rawTotal is num
+        ? rawTotal.toDouble()
+        : double.tryParse(rawTotal?.toString() ?? '');
+    final muted = isDark ? Colors.white60 : Colors.grey.shade600;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? Colors.white12 : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                orderType.isRide
+                    ? Icons.directions_car_filled_rounded
+                    : Icons.local_shipping_rounded,
+                size: 18,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  orderType.isRide
+                      ? (s.isArabic ? 'تفاصيل الرحلة' : 'Ride Details')
+                      : (s.isArabic ? 'تفاصيل التوصيل' : 'Delivery Details'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+              if (total != null && total > 0)
+                Text(
+                  '${total.toStringAsFixed(0)} ${s.egp}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                    color: AppColors.primary,
+                  ),
+                ),
+            ],
+          ),
+          if (pickup.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 3),
+                  child: Icon(Icons.circle, size: 9, color: AppColors.primary),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${orderType.isRide ? (s.isArabic ? 'نقطة الركوب' : 'Pickup') : s.pickupLocation}: $pickup',
+                    style: const TextStyle(fontSize: 12.5, height: 1.35),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (dropoff.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.location_on_rounded, size: 13, color: Colors.red),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${orderType.isRide ? (s.isArabic ? 'الوجهة' : 'Destination') : s.dropoffLocation}: $dropoff',
+                    style: const TextStyle(fontSize: 12.5, height: 1.35),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (orderType.isCustomDelivery && itemDetails.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              itemDetails,
+              style: TextStyle(fontSize: 12, color: muted, height: 1.35),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   List<Widget> _buildStoreFulfillmentSections(AppStrings s, bool isDark) {
     final details = widget.orderDetails;
-    if (details == null) return const [];
+    if (details == null ||
+        !OrderTypeHelper.shouldShowStoreFulfillmentSections(details)) {
+      return const [];
+    }
 
     final fulfillmentsRaw = details['vendorFulfillments'];
     final fulfillments = fulfillmentsRaw is List ? fulfillmentsRaw : const [];
@@ -947,7 +1073,12 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
   }
 
   Widget _buildOrderUpdatesCard(AppStrings s, bool isDark) {
-    final rawEvents = widget.orderDetails?['statusEvents'];
+    final details = widget.orderDetails;
+    if (!OrderTypeHelper.shouldShowActivityLogOnTracking(details)) {
+      return const SizedBox.shrink();
+    }
+    final orderType = OrderTypeHelper.resolve(details);
+    final rawEvents = details?['statusEvents'];
     if (rawEvents is! List || rawEvents.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -1046,6 +1177,7 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                                 formatTrackingDisplayStatus(
                                   evStatus,
                                   s.isArabic,
+                                  orderType: orderType,
                                 ),
                                 style: TextStyle(
                                   fontWeight: isLatest

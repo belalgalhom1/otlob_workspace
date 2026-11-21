@@ -7,7 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart'
     show
+        AppOrderType,
         OrderActivityHelper,
+        OrderTypeHelper,
         SocketEvent,
         orderRevisionOf,
         orderRevisionTrackerProvider;
@@ -97,24 +99,16 @@ class OrdersScreen extends ConsumerStatefulWidget {
   ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
 }
 
-String _translateStatus(String status, bool isArabic) {
-  switch (status) {
-    case 'PENDING': return isArabic ? 'قيد الانتظار' : 'Pending';
-    case 'ACCEPTED': return isArabic ? 'مقبول' : 'Accepted';
-    case 'PREPARING': return isArabic ? 'قيد التحضير' : 'Preparing';
-    case 'LOOKING_FOR_DRIVER': return isArabic ? 'جاري البحث عن مندوب' : 'Looking for Driver';
-    case 'DRIVER_ASSIGNED': return isArabic ? 'تم تعيين المندوب' : 'Driver Assigned';
-    case 'PENDING_PAYMENT': return isArabic ? 'في انتظار الدفع' : 'Pending Payment';
-    case 'READY_FOR_PICKUP': return isArabic ? 'جاهز للاستلام' : 'Ready for Pickup';
-    case 'PARTIALLY_PICKED_UP': return isArabic ? 'جاري الاستلام من المتاجر' : 'Partially Picked Up';
-    case 'PICKED_UP': return isArabic ? 'تم الاستلام من المتجر' : 'Picked Up';
-    case 'IN_TRANSIT':
-    case 'ARRIVING': return isArabic ? 'في الطريق' : 'On the Way';
-    case 'DELIVERED': return isArabic ? 'تم التوصيل' : 'Delivered';
-    case 'CANCELLED': return isArabic ? 'ملغي' : 'Cancelled';
-    default:
-      return status.replaceAll('_', ' ').split(' ').map((word) => word.isNotEmpty ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}' : '').join(' ');
-  }
+String _translateStatus(
+  String status,
+  bool isArabic, {
+  AppOrderType orderType = AppOrderType.standard,
+}) {
+  return OrderTypeHelper.customerStatusLabel(
+    orderType,
+    status,
+    isArabic: isArabic,
+  );
 }
 
 /// Wallet label using existing translations only: InstaPay wallets show
@@ -662,7 +656,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   }
 
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Map<String, dynamic> order, AppStrings s) {
-    final isCustom = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
+    final orderType = OrderTypeHelper.resolve(order);
+    final isNonStandard = orderType.isNonStandard;
+    final assignedDriver = order['driver'] is Map
+        ? Map<String, dynamic>.from(order['driver'] as Map)
+        : _resolveGroupDriver(order);
+    final customerMap = order['customer'] is Map
+        ? Map<String, dynamic>.from(order['customer'] as Map)
+        : null;
     final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
     final rawItems = (order['items'] as List<dynamic>?) ?? [];
     final items = rawItems.isNotEmpty
@@ -775,13 +776,29 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final cancelledByActor =
         isCancelled ? OrderActivityHelper.resolveCancelledBy(order) : null;
 
-    final isCustomSearchScreen = isCustom &&
+    final isCustomSearchScreen = isNonStandard &&
         (status == 'PENDING' ||
             status == 'ACCEPTED' ||
             status == 'LOOKING_FOR_DRIVER' ||
             (status == 'CANCELLED' &&
                 order['driver'] == null &&
                 order['driverId'] == null));
+
+    final cardTitle = OrderTypeHelper.customerCardTitle(
+      order,
+      isArabic: s.isArabic,
+      vendorFallback: s.vendor,
+      resolvedVendorName: vendorName,
+    );
+    final rawOrderNo =
+        (order['orderNumber'] ?? order['id'].toString().split('-').last.toUpperCase())
+            .toString();
+    final cardSubtitle = isNonStandard
+        ? '${OrderTypeHelper.customerCardSubtitle(order, isArabic: s.isArabic, customDeliveryLabel: s.customDeliveryTitle)} • #$rawOrderNo'
+        : '${s.orderNo}$rawOrderNo';
+    final driverAvatar =
+        (assignedDriver?['avatar'] ?? assignedDriver?['user']?['avatar'])
+            ?.toString();
 
     return GestureDetector(
       onTap: () {
@@ -811,10 +828,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             Row(
               children: [
                 AppNetworkAvatar(
-                  imageUrl: ImageUtils.formatImageUrl(vendorLogoUrl),
+                  imageUrl: ImageUtils.formatImageUrl(
+                    orderType.isRide
+                        ? driverAvatar
+                        : (orderType.isCustomDelivery ? null : vendorLogoUrl),
+                  ),
                   size: 42,
-                  borderRadius: 10,
-                  fallbackIcon: Icons.storefront_rounded,
+                  borderRadius: orderType.isRide ? null : 10,
+                  fallbackIcon: orderType.isRide
+                      ? Icons.directions_car_filled_rounded
+                      : (orderType.isCustomDelivery
+                          ? Icons.local_shipping_rounded
+                          : Icons.storefront_rounded),
                   fallbackIconSize: 20,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                   foregroundColor: AppColors.primary,
@@ -825,7 +850,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      vendorName,
+                      cardTitle,
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 16,
@@ -834,9 +859,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      isCustom
-                          ? s.customDeliveryTitle
-                          : '${s.orderNo}${order['orderNumber'] ?? order['id'].toString().split('-').last.toUpperCase()}',
+                      cardSubtitle,
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark ? Colors.white38 : Colors.grey.shade500,
@@ -854,7 +877,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  _translateStatus(status, s.isArabic),
+                  _translateStatus(status, s.isArabic, orderType: orderType),
                   style: TextStyle(
                     color: statusColor,
                     fontSize: 11,
@@ -865,7 +888,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             ],
           ),
 
-          if (!isCustom) _buildStatusTimeline(status, isDark, s),
+          if (!isNonStandard) _buildStatusTimeline(status, isDark, s),
 
           if (cancelledByActor != null) ...[
             const SizedBox(height: 12),
@@ -960,7 +983,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
           const Divider(height: 20),
 
-          if (isCustom) ...[
+          if (isNonStandard) ...[
             Row(
               children: [
                 const Icon(Icons.circle, size: 10, color: AppColors.primary),
@@ -990,6 +1013,95 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 ),
               ],
             ),
+            if (orderType.isCustomDelivery &&
+                (order['itemDetails']?.toString().trim().isNotEmpty ?? false)) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    size: 13,
+                    color: isDark ? Colors.white54 : Colors.grey.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      order['itemDetails'].toString().trim(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: isDark ? Colors.white60 : Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (assignedDriver != null &&
+                ((assignedDriver['name']?.toString().trim().isNotEmpty ?? false) ||
+                    (assignedDriver['vehicleType']?.toString().trim().isNotEmpty ??
+                        false))) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? Colors.white10 : Colors.grey.shade200,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    AppNetworkAvatar(
+                      imageUrl: ImageUtils.formatImageUrl(driverAvatar),
+                      size: 28,
+                      fallbackIcon: orderType.isRide
+                          ? Icons.directions_car_filled_rounded
+                          : Icons.person_rounded,
+                      fallbackIconSize: 15,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        [
+                          if (assignedDriver['name']?.toString().trim().isNotEmpty ??
+                              false)
+                            assignedDriver['name'].toString().trim(),
+                          if (assignedDriver['vehiclePlate']
+                                  ?.toString()
+                                  .trim()
+                                  .isNotEmpty ??
+                              false)
+                            assignedDriver['vehiclePlate'].toString().trim(),
+                        ].join(' • '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (orderType.isRide &&
+                (customerMap?['name']?.toString().trim().isNotEmpty ?? false)) ...[
+              const SizedBox(height: 6),
+              Text(
+                '${s.isArabic ? 'العميل' : 'Passenger'}: ${customerMap!['name'].toString().trim()}',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: isDark ? Colors.white54 : Colors.grey.shade600,
+                ),
+              ),
+            ],
           ] else
             ...items.map((i) {
               final product = i['product'] is Map ? i['product'] as Map : null;
@@ -1086,39 +1198,44 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Column(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        s.subtotal,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.white38 : Colors.grey.shade600,
-                          fontWeight: FontWeight.bold,
+                if (orderType.isStandard || subtotal > 0) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          s.subtotal,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white38 : Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${subtotal.toStringAsFixed(2)} ${s.egp}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white70 : Colors.black87,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                      const SizedBox(width: 8),
+                      Text(
+                        '${subtotal.toStringAsFixed(2)} ${s.egp}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
                 if (!isCancelled) ...[
-                  const SizedBox(height: 6),
+                  if (orderType.isStandard || subtotal > 0)
+                    const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Flexible(
                         child: Text(
-                          s.deliveryFee,
+                          orderType.isRide
+                              ? (s.isArabic ? 'أجرة الرحلة' : 'Ride Fare')
+                              : s.deliveryFee,
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.white38 : Colors.grey.shade600,
@@ -1246,14 +1363,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      areFeesFinalized ? s.total : (s.isArabic ? 'المجموع المستحق حالياً' : 'Current Subtotal'),
+                      areFeesFinalized
+                          ? s.total
+                          : (orderType.isStandard
+                              ? (s.isArabic ? 'المجموع المستحق حالياً' : 'Current Subtotal')
+                              : (s.isArabic ? 'إجمالي رسوم الإلغاء' : 'Cancellation Total')),
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 14,
                         color: isDark ? Colors.white70 : Colors.black54,
                       ),
                     ),
-                    if (!areFeesFinalized)
+                    if (!areFeesFinalized && orderType.isStandard)
                       Text(
                         s.isArabic ? '(غير شامل التوصيل)' : '(Excl. delivery)',
                         style: TextStyle(
@@ -1288,8 +1409,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () =>
-                        _showCancelBottomSheet(context, ref, order['id'], s, isDark),
+                    onPressed: () => _showCancelBottomSheet(
+                      context,
+                      ref,
+                      order['id'],
+                      s,
+                      isDark,
+                      orderType: orderType,
+                    ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.red, width: 1.5),
                       shape: RoundedRectangleBorder(
@@ -1297,7 +1424,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: Text(
-                      isCustom
+                      isNonStandard
                           ? (s.isArabic ? 'إلغاء البحث' : 'Cancel Search')
                           : (s.isArabic ? 'إلغاء الطلب' : 'Cancel Order'),
                       style: const TextStyle(
@@ -1330,7 +1457,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   );
                 },
                 icon: const Icon(Icons.star_rate_rounded, size: 20),
-                label: Text(s.isArabic ? 'تقييم الطلب' : 'Rate Order'),
+                label: Text(
+                  orderType.isRide
+                      ? (s.isArabic ? 'تقييم الرحلة' : 'Rate Ride')
+                      : (s.isArabic ? 'تقييم الطلب' : 'Rate Order'),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber,
                   foregroundColor: Colors.white,
@@ -1364,7 +1495,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 label: Text(
                   isCustomSearchScreen
                       ? (s.isArabic ? 'حالة البحث عن سائق' : 'Driver Search Status')
-                      : (s.isArabic ? 'تتبع الطلب' : 'Track Order'),
+                      : (orderType.isRide
+                          ? (s.isArabic ? 'تتبع الرحلة' : 'Track Ride')
+                          : (s.isArabic ? 'تتبع الطلب' : 'Track Order')),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -1383,7 +1516,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     );
   }
 
-  void _showCancelBottomSheet(BuildContext context, WidgetRef ref, String orderId, AppStrings s, bool isDark) {
+  void _showCancelBottomSheet(
+    BuildContext context,
+    WidgetRef ref,
+    String orderId,
+    AppStrings s,
+    bool isDark, {
+    AppOrderType orderType = AppOrderType.standard,
+  }) {
     String selectedReason = s.isArabic ? 'غيرت رأيي' : 'Change of mind';
     final customController = TextEditingController();
     bool showCustomField = false;
@@ -1400,9 +1540,20 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final reasons = s.isArabic
-                ? ['غيرت رأيي', 'نسيت إضافة منتج', 'عنوان التوصيل خاطئ', 'وقت التحضير طويل جداً', 'أخرى']
-                : ['Change of mind', 'Forgot to add item', 'Wrong delivery address', 'Prep time too long', 'Other'];
+            final List<String> reasons;
+            if (orderType.isRide) {
+              reasons = s.isArabic
+                  ? ['غيرت رأيي', 'تأخر الكابتن', 'موقع الركوب أو الوجهة خاطئ', 'وجدت وسيلة أخرى', 'أخرى']
+                  : ['Change of mind', 'Driver took too long', 'Wrong pickup/dropoff location', 'Found another ride', 'Other'];
+            } else if (orderType.isCustomDelivery) {
+              reasons = s.isArabic
+                  ? ['غيرت رأيي', 'عنوان الاستلام أو التسليم خاطئ', 'لم يتم العثور على سائق', 'أخرى']
+                  : ['Change of mind', 'Wrong pickup/dropoff location', 'No driver available', 'Other'];
+            } else {
+              reasons = s.isArabic
+                  ? ['غيرت رأيي', 'نسيت إضافة منتج', 'عنوان التوصيل خاطئ', 'وقت التحضير طويل جداً', 'أخرى']
+                  : ['Change of mind', 'Forgot to add item', 'Wrong delivery address', 'Prep time too long', 'Other'];
+            }
 
             return SingleChildScrollView(
               padding: EdgeInsets.only(
@@ -1429,7 +1580,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    s.isArabic ? 'إلغاء الطلب' : 'Cancel Order',
+                    orderType.isRide
+                        ? (s.isArabic ? 'إلغاء الرحلة' : 'Cancel Ride')
+                        : (s.isArabic ? 'إلغاء الطلب' : 'Cancel Order'),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                     textAlign: TextAlign.center,
                   ),

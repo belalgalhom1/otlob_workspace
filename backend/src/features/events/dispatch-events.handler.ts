@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DispatchStatus, NotificationType, Role } from '@prisma/client';
+import {
+  DispatchStatus,
+  NotificationType,
+  OrderType,
+  Role,
+} from '@prisma/client';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StatisticsService } from '../statistics/statistics.service';
@@ -53,12 +58,28 @@ export class DispatchEventsHandler {
       },
     );
 
+    const distanceLabel = Number(event.distanceKm ?? 0).toFixed(1);
+    const isRide = event.type === OrderType.RIDE;
+    const isCustomDelivery = event.type === OrderType.CUSTOM_DELIVERY;
+
     await this.notificationsService.create({
       userId: event.driverUserId,
-      title: 'New Delivery Request',
-      titleAr: 'طلب توصيل جديد',
-      body: `Order ${event.orderNumber} — ${event.distanceKm.toFixed(1)}km`,
-      bodyAr: `طلب ${event.orderNumber} — ${event.distanceKm.toFixed(1)} كم`,
+      title: isRide
+        ? 'New Ride Request'
+        : isCustomDelivery
+          ? 'New Custom Delivery Request'
+          : 'New Delivery Request',
+      titleAr: isRide
+        ? 'طلب رحلة جديد'
+        : isCustomDelivery
+          ? 'طلب توصيل خاص جديد'
+          : 'طلب توصيل جديد',
+      body: isRide
+        ? `Ride ${event.orderNumber} — ${distanceLabel}km`
+        : `Order ${event.orderNumber} — ${distanceLabel}km`,
+      bodyAr: isRide
+        ? `رحلة ${event.orderNumber} — ${distanceLabel} كم`
+        : `طلب ${event.orderNumber} — ${distanceLabel} كم`,
       type: NotificationType.ORDER_UPDATE,
       data: {
         dispatchId: event.dispatchId,

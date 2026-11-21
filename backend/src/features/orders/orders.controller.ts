@@ -270,16 +270,16 @@ export class OrdersController {
   @ApiStandardResponse()
   @Post('driver/:orderId/pickup')
   @Roles(Role.DRIVER)
-  @ApiFileUpload({ type: 'IMAGE' })
+  @ApiFileUpload({ type: 'IMAGE', required: false })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Driver confirms pickup with a photo of the order (STAGE to READY_FOR_PICKUP / CUSTOM_DELIVERY)',
+      'Driver confirms pickup (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)',
   })
   async driverConfirmPickup(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
     @Query('fulfillmentId') fulfillmentId?: string,
   ) {
     const order = await this.stateService.driverConfirmPickup(
@@ -318,16 +318,16 @@ export class OrdersController {
   @ApiStandardResponse()
   @Post('driver/:orderId/delivery')
   @Roles(Role.DRIVER)
-  @ApiFileUpload({ type: 'IMAGE' })
+  @ApiFileUpload({ type: 'IMAGE', required: false })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)',
+      'Driver confirms delivery (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)',
   })
   async driverConfirmDelivery(
     @CurrentUser() actor: JwtAccessPayload,
     @Param('orderId') orderId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
     @Query('deliveryGroupId') deliveryGroupId?: string,
   ) {
     const order = await this.stateService.driverConfirmDelivery(

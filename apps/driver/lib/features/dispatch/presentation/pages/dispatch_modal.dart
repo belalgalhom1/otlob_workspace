@@ -121,7 +121,8 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
   @override
   Widget build(BuildContext context) {
     final currency = ref.watch(configurationProvider.notifier).currency;
-    final isAr = AppLocalizations.of(context)!.localeName == 'ar';
+    final l10n = AppLocalizations.of(context)!;
+    final isAr = l10n.localeName == 'ar';
     final rawEarnings = widget.dispatchData['estimatedEarnings'];
     final double earningsNum = rawEarnings is num
         ? rawEarnings.toDouble()
@@ -139,16 +140,24 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
     final distVal = widget.dispatchData['distanceKm'] ?? widget.dispatchData['estimatedDistanceKm'] ?? 0.0;
     final distance = '${distVal.toStringAsFixed(1)} km';
 
-    final pickupName = widget.dispatchData['pickupLocationName']?.toString() ?? AppLocalizations.of(context)!.vendorFallback;
+    final orderType = OrderTypeHelper.resolve(widget.dispatchData);
+    final pickupFallback = orderType.isRide
+        ? l10n.customerFallback
+        : (orderType.isCustomDelivery ? l10n.pickupLabel : l10n.vendorFallback);
+    final pickupName =
+        widget.dispatchData['pickupLocationName']?.toString() ?? pickupFallback;
     final pickupLogo = widget.dispatchData['pickupLocationLogo']?.toString();
-    final dropoffName = widget.dispatchData['dropoffLocationName']?.toString() ?? AppLocalizations.of(context)!.customerFallback;
-    final dropoffAvatar = widget.dispatchData['dropoffCustomerAvatar']?.toString();
-    final isStacked = widget.dispatchData['isStacked'] == true || widget.dispatchData['isStacked'] == 'true';
+    final dropoffName =
+        widget.dispatchData['dropoffLocationName']?.toString() ??
+            l10n.customerFallback;
+    final dropoffAvatar =
+        widget.dispatchData['dropoffCustomerAvatar']?.toString();
+    final isStacked = widget.dispatchData['isStacked'] == true ||
+        widget.dispatchData['isStacked'] == 'true';
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isMobile = AppDialogStyles.isMobile(context);
-    final l10n = AppLocalizations.of(context)!;
     final accentTextColor =
         isDark ? AppColors.primary : const Color(0xFFB45309);
     final earningsColor =
@@ -159,8 +168,8 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
       maxWidth: 460,
       canPop: false,
       header: AppDialogHeader(
-        icon: LucideIcons.zap,
-        title: l10n.newDeliveryRequest,
+        icon: orderType.isRide ? LucideIcons.car : LucideIcons.zap,
+        title: OrderTypeHelper.dispatchModalTitle(orderType, isArabic: isAr),
         showCloseButton: false,
         subtitleWidget: isStacked
             ? Padding(
@@ -224,12 +233,18 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildLocationRow(
-                  LucideIcons.store,
+                  orderType.isRide
+                      ? LucideIcons.user
+                      : (orderType.isCustomDelivery
+                          ? LucideIcons.package
+                          : LucideIcons.store),
                   pickupName,
-                  l10n.pickupLabel,
+                  orderType.isRide
+                      ? '${l10n.pickupLabel} (${l10n.customerFallback})'
+                      : l10n.pickupLabel,
                   context,
-                  avatarUrl: pickupLogo,
-                  isStore: true,
+                  avatarUrl: orderType.isRide ? dropoffAvatar : pickupLogo,
+                  isStore: orderType.isStandard,
                 ),
                 Divider(
                   height: 22,
@@ -270,7 +285,10 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             PrimaryButton(
-              text: l10n.acceptDelivery,
+              text: OrderTypeHelper.dispatchAcceptButtonLabel(
+                orderType,
+                isArabic: isAr,
+              ),
               isLoading: _isLoading,
               onPressed: _isLoading ? null : _onAccept,
             ),

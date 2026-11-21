@@ -148,7 +148,9 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
       createdAt = DateTime.tryParse(order['createdAt'].toString())?.toLocal();
     }
 
-    final isCustom = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
+    final orderType = OrderTypeHelper.resolve(order);
+    final isAr = l10n.localeName == 'ar';
+    final statusStr = order['status']?.toString() ?? 'DELIVERED';
 
     return InkWell(
       onTap: () => OrderDetailsBottomSheet.show(context, order),
@@ -194,7 +196,7 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                           ),
                         ),
                       ),
-                      if (isCustom)
+                      if (orderType.isNonStandard)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
@@ -202,7 +204,10 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            order['type'] == 'RIDE' ? 'Ride' : 'Courier',
+                            OrderTypeHelper.requestTypeLabel(
+                              orderType,
+                              isArabic: isAr,
+                            ),
                             style: const TextStyle(
                               color: Colors.amber,
                               fontWeight: FontWeight.w600,
@@ -228,7 +233,11 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
-                            l10n.statusApproved,
+                            OrderTypeHelper.customerStatusLabel(
+                              orderType,
+                              statusStr,
+                              isArabic: isAr,
+                            ),
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: AppColors.success,
@@ -251,8 +260,12 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                 AppNetworkAvatar(
                   imageUrl: ImageUtils.formatImageUrl(vendorLogo),
                   size: 28,
-                  borderRadius: isCustom ? null : 7,
-                  fallbackIcon: isCustom ? LucideIcons.mapPin : LucideIcons.store,
+                  borderRadius: orderType.isNonStandard ? null : 7,
+                  fallbackIcon: orderType.isRide
+                      ? LucideIcons.car
+                      : (orderType.isCustomDelivery
+                          ? LucideIcons.mapPin
+                          : LucideIcons.store),
                   fallbackIconSize: 15,
                 ),
                 const SizedBox(width: 8),

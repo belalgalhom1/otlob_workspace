@@ -628,83 +628,121 @@ class AppDialogHeader extends StatelessWidget {
             isMobile ? 10 : 16,
             14,
           ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: effectiveIconBg,
-              borderRadius: BorderRadius.circular(iconRadius ?? 10),
-              border: effectiveIconBorder == Colors.transparent
-                  ? null
-                  : Border.all(color: effectiveIconBorder),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final fontScale = MediaQuery.textScalerOf(context).scale(14.0) / 14.0;
+          // Stack header actions onto a dedicated row below the title whenever
+          // horizontal space is constrained (mobile dialogs or enlarged fonts)
+          // so the title can never be squeezed into a narrow vertical strip.
+          final placeActionsBelow = actions.isNotEmpty &&
+              (isMobile ||
+                  constraints.maxWidth < 560 ||
+                  fontScale > 1.25);
+
+          final closeBtn = showCloseButton
+              ? IconButton(
+                  tooltip: closeTooltip ?? (isAr ? 'إغلاق' : 'Close'),
+                  icon: const Icon(LucideIcons.x, size: 20),
+                  onPressed: isCloseDisabled
+                      ? null
+                      : (onClose ?? () => Navigator.of(context).maybePop()),
+                )
+              : null;
+
+          final titleWidget = Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 16.5,
+              color: titleColor ?? theme.colorScheme.onSurface,
             ),
-            child: Icon(icon, color: effectiveIconFg, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (badge != null)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
+            softWrap: true,
+          );
+
+          final topRow = Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: effectiveIconBg,
+                  borderRadius: BorderRadius.circular(iconRadius ?? 10),
+                  border: effectiveIconBorder == Colors.transparent
+                      ? null
+                      : Border.all(color: effectiveIconBorder),
+                ),
+                child: Icon(icon, color: effectiveIconFg, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (badge != null)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          titleWidget,
+                          badge!,
+                        ],
+                      )
+                    else
+                      titleWidget,
+                    if (subtitleWidget != null) ...[
+                      const SizedBox(height: 3),
+                      subtitleWidget!,
+                    ] else if (subtitle != null && subtitle!.isNotEmpty) ...[
+                      const SizedBox(height: 3),
                       Text(
-                        title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16.5,
-                          color: titleColor ?? theme.colorScheme.onSurface,
+                        subtitle!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                         softWrap: true,
                       ),
-                      badge!,
                     ],
-                  )
-                else
-                  Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16.5,
-                      color: titleColor ?? theme.colorScheme.onSurface,
-                    ),
-                    softWrap: true,
+                  ],
+                ),
+              ),
+              if (actions.isNotEmpty && !placeActionsBelow) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: actions,
                   ),
-                if (subtitleWidget != null) ...[
-                  const SizedBox(height: 3),
-                  subtitleWidget!,
-                ] else if (subtitle != null && subtitle!.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    softWrap: true,
-                  ),
-                ],
+                ),
               ],
-            ),
-          ),
-          if (actions.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            ...actions,
-          ],
-          if (showCloseButton)
-            IconButton(
-              tooltip: closeTooltip ?? (isAr ? 'إغلاق' : 'Close'),
-              icon: const Icon(LucideIcons.x, size: 20),
-              onPressed: isCloseDisabled
-                  ? null
-                  : (onClose ?? () => Navigator.of(context).maybePop()),
-            ),
-        ],
+              if (closeBtn != null) closeBtn,
+            ],
+          );
+
+          if (!placeActionsBelow) {
+            return topRow;
+          }
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              topRow,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.start,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: actions,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -353,6 +353,16 @@ class OrderActivityHelper {
       return 'استلم السائق الطلب من ${pickedUpStopMatch.group(1)}';
     }
 
+    final rideTransitionMatch = RegExp(
+      r'^Ride\s+(\d+):\s*([A-Z_]+)\s*(?:→|->)\s*([A-Z_]+)$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (rideTransitionMatch != null) {
+      final to = rideTransitionMatch.group(3)?.toUpperCase();
+      if (to == 'PICKED_UP') return 'بدأت الرحلة';
+      if (to == 'DELIVERED') return 'اكتملت الرحلة';
+    }
+
     return trimmed;
   }
 

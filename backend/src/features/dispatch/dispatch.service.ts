@@ -578,10 +578,14 @@ export class DispatchService implements DispatchPort {
           .filter((v): v is string => Boolean(v)),
       ),
     );
+    const fallbackPickup =
+      order.type === OrderType.RIDE
+        ? order.customer?.user?.name || 'Customer Pickup'
+        : `Delivery ${group.sequence}`;
     const resolvedPickupName =
       pickupNames.length > 0
         ? pickupNames.join(' • ')
-        : order.pickupAddress || `Delivery ${group.sequence}`;
+        : order.pickupAddress || fallbackPickup;
     const resolvedPickupLogo =
       group.items
         .map(({ fulfillment: f }) => f.vendor?.logo)

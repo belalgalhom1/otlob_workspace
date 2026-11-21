@@ -1,3 +1,4 @@
+import 'package:core/core.dart' show OrderTypeHelper;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart' show AppNetworkAvatar;
@@ -264,6 +265,7 @@ class _RateOrderBottomSheetState extends ConsumerState<RateOrderBottomSheet> {
     final groups = order != null
         ? _unratedGroups(order, ratedGroupIds)
         : const <Map<String, dynamic>>[];
+    final orderType = OrderTypeHelper.resolve(order);
     final hasTargets = fulfillments.isNotEmpty || groups.isNotEmpty;
 
     return SingleChildScrollView(
@@ -274,7 +276,9 @@ class _RateOrderBottomSheetState extends ConsumerState<RateOrderBottomSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              s.isArabic ? 'تقييم الطلب' : 'Rate Order',
+              orderType.isRide
+                  ? (s.isArabic ? 'تقييم الرحلة' : 'Rate Ride')
+                  : (s.isArabic ? 'تقييم الطلب' : 'Rate Order'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
@@ -363,7 +367,9 @@ class _RateOrderBottomSheetState extends ConsumerState<RateOrderBottomSheet> {
                     : null;
                 final tripPrefix = groups.length > 1
                     ? (s.isArabic ? 'التوصيل $seq' : 'Delivery #$seq')
-                    : (s.isArabic ? 'كابتن التوصيل' : 'Delivery Captain');
+                    : (orderType.isRide
+                        ? (s.isArabic ? 'كابتن الرحلة' : 'Ride Captain')
+                        : (s.isArabic ? 'كابتن التوصيل' : 'Delivery Captain'));
                 final title = (driverName != null && driverName.isNotEmpty)
                     ? '$tripPrefix • $driverName'
                     : tripPrefix;
@@ -395,7 +401,9 @@ class _RateOrderBottomSheetState extends ConsumerState<RateOrderBottomSheet> {
                                   ?.toString(),
                             ),
                             size: 28,
-                            fallbackIcon: Icons.delivery_dining_rounded,
+                            fallbackIcon: orderType.isRide
+                                ? Icons.directions_car_filled_rounded
+                                : Icons.delivery_dining_rounded,
                             fallbackIconSize: 16,
                           ),
                           const SizedBox(width: 8),

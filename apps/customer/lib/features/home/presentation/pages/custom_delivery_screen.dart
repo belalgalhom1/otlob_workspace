@@ -356,7 +356,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           },
         ),
         title: Text(
-          s.customDeliveryTitle,
+          _serviceType == 'ride'
+              ? (isAr ? 'طلب رحلة' : 'Request Ride')
+              : s.customDeliveryTitle,
           style: TextStyle(
             color: isDark ? Colors.white : Colors.black87,
             fontWeight: FontWeight.w900,
@@ -503,7 +505,13 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
               ),
               child: Column(
                 children: [
-                  _priceRow(isAr ? 'رسوم التوصيل المقدرة' : 'Estimated Delivery Fare', _isEstimating ? '...' : '${totalFee.toStringAsFixed(0)} ${s.egp}', isDark),
+                  _priceRow(
+                    _serviceType == 'ride'
+                        ? (isAr ? 'الأجرة المقدرة للرحلة' : 'Estimated Ride Fare')
+                        : (isAr ? 'رسوم التوصيل المقدرة' : 'Estimated Delivery Fare'),
+                    _isEstimating ? '...' : '${totalFee.toStringAsFixed(0)} ${s.egp}',
+                    isDark,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     isAr 

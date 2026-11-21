@@ -79,6 +79,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   Position? _currentPosition;
   StreamSubscription<Position>? _positionStreamSub;
   StreamSubscription<dynamic>? _fulfillmentSub;
+  ProviderSubscription<AsyncValue<dynamic>>? _orderExecSub;
   RoadSpeedLimit? _roadSpeedLimit;
   bool _isMapReady = false;
   XFile? _pickupPhoto;
@@ -221,9 +222,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   void initState() {
     super.initState();
     _initLocationTracking();
-    // NOTE: ref.listen must stay here (not in build) — listening during
-    // build re-subscribes on every rebuild and throws in debug builds.
-    ref.listen<AsyncValue<dynamic>>(
+    // Use listenManual in initState so Riverpod's debugDoingBuild assertion
+    // passes and subscription cleanup is explicit in dispose().
+    _orderExecSub = ref.listenManual<AsyncValue<dynamic>>(
       orderExecutionProvider,
       (previous, state) {
         final prevId = previous?.value is Map ? previous!.value['id']?.toString() : null;
@@ -259,6 +260,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
 
   @override
   void dispose() {
+    _orderExecSub?.close();
     _fulfillmentSub?.cancel();
     _positionStreamSub?.cancel();
     _mapController.dispose();
@@ -378,21 +380,35 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                       final item = activeOrders[index] as Map<String, dynamic>;
                       final id = item['id']?.toString() ?? '';
                       final isSelected = id == currentId;
+                      final itemType = OrderTypeHelper.resolve(item);
+                      final isItemAr = l10n.localeName == 'ar';
                       final orderNumber = item['orderNumber']?.toString() ?? (id.length >= 6 ? id.substring(0, 6) : id);
-                      final vendorName = item['vendor']?['storeName'] ?? item['type'] ?? '';
-                      final vendorLogo =
-                          (item['vendor']?['logo'] ?? item['vendor']?['logoUrl'])
-                              ?.toString();
+                      final itemCustomer = item['customer'] is Map ? item['customer'] as Map : const {};
+                      final itemCustomerName = (itemCustomer['name'] ?? itemCustomer['user']?['name'])?.toString().trim();
+                      final displayLabel = itemType.isRide
+                          ? (itemCustomerName != null && itemCustomerName.isNotEmpty
+                              ? '${isItemAr ? 'رحلة' : 'Ride'} • $itemCustomerName'
+                              : (isItemAr ? 'رحلة' : 'Ride'))
+                          : (itemType.isCustomDelivery
+                              ? (isItemAr ? 'توصيل خاص' : 'Custom Delivery')
+                              : (item['vendor']?['storeName'] ?? l10n.vendorFallback).toString());
+                      final itemAvatar = itemType.isRide
+                          ? (itemCustomer['avatar'] ?? itemCustomer['user']?['avatar'])?.toString()
+                          : (item['vendor']?['logo'] ?? item['vendor']?['logoUrl'])?.toString();
                       final status = item['status']?.toString() ?? '';
 
                       return ListTile(
                         leading: AppNetworkAvatar(
-                          imageUrl: ImageUtils.formatImageUrl(vendorLogo),
+                          imageUrl: ImageUtils.formatImageUrl(itemAvatar),
                           size: 40,
-                          borderRadius: 10,
+                          borderRadius: itemType.isRide ? null : 10,
                           fallbackText: '${index + 1}',
-                          preferInitialFallback: true,
-                          fallbackIcon: LucideIcons.store,
+                          preferInitialFallback: !itemType.isRide,
+                          fallbackIcon: itemType.isRide
+                              ? LucideIcons.car
+                              : (itemType.isCustomDelivery
+                                  ? LucideIcons.package
+                                  : LucideIcons.store),
                           backgroundColor: isSelected
                               ? AppColors.primary
                               : Colors.grey.shade200,
@@ -403,7 +419,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                '#$orderNumber - $vendorName',
+                                '#$orderNumber - $displayLabel',
                                 style: TextStyle(
                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                 ),
@@ -454,15 +470,24 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   Widget build(BuildContext context) {
     final orderState = ref.watch(orderExecutionProvider);
     final l10n = AppLocalizations.of(context)!;
+    final activeOrder = orderState.asData?.value;
+    final activeType = OrderTypeHelper.resolve(activeOrder is Map ? activeOrder : null);
+    final isAr = l10n.localeName == 'ar';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.activeDelivery),
+        title: Text(
+          OrderTypeHelper.driverExecutionScreenTitle(
+            activeType,
+            isArabic: isAr,
+            standardFallback: l10n.activeDelivery,
+          ),
+        ),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.listOrdered),
-            tooltip: l10n.localeName == 'ar' ? 'الطلبات النشطة' : 'Active Orders',
+            tooltip: isAr ? 'الطلبات النشطة' : 'Active Orders',
             onPressed: () => _showActiveOrdersBottomSheet(context),
           ),
         ],
@@ -481,8 +506,17 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   }
 
   Widget _buildMapAndControls(Map<String, dynamic> order, AppLocalizations l10n) {
-    final isCustomOrRide = order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
+    final orderType = OrderTypeHelper.resolve(order);
+    final isCustomOrRide = orderType.isNonStandard;
     final vendorData = order['vendor'];
+    final customerMap =
+        order['customer'] is Map ? (order['customer'] as Map) : const {};
+    final customerName =
+        (customerMap['name'] ?? customerMap['user']?['name'])?.toString().trim();
+    final customerPhone =
+        (customerMap['phone'] ?? customerMap['user']?['phone'])?.toString().trim() ?? '';
+    final customerAvatar =
+        (customerMap['avatar'] ?? customerMap['user']?['avatar'])?.toString();
     final pickupLoc = order['pickupLocation'];
     final isAr = l10n.localeName == 'ar';
     final currency = 'EGP';
@@ -607,10 +641,21 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     }
 
     if (pickupStops.isEmpty && (vendorLat != 0.0 || vendorData is Map || isCustomOrRide)) {
-      final storeName = (vendorData is Map ? (vendorData['storeNameAr'] ?? vendorData['storeName'] ?? vendorData['name']) : (isCustomOrRide ? (isAr ? 'موقع الاستلام' : 'Pickup Location') : 'Store')).toString();
+      final storeName = orderType.isRide
+          ? (isAr ? 'العميل' : 'Customer')
+          : (vendorData is Map
+                  ? (vendorData['storeNameAr'] ?? vendorData['storeName'] ?? vendorData['name'])
+                  : (orderType.isCustomDelivery
+                      ? (isAr ? 'موقع الاستلام' : 'Pickup Location')
+                      : 'Store'))
+              .toString();
       final branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : {};
       final branchName = (branch['nameAr'] ?? branch['name'] ?? '').toString();
-      final phone = (branch['phone'] ?? (vendorData is Map ? vendorData['phone'] : '') ?? '').toString();
+      final phone = isCustomOrRide
+          ? (order['pickupPhone']?.toString().trim().isNotEmpty == true
+              ? order['pickupPhone'].toString().trim()
+              : customerPhone)
+          : (branch['phone'] ?? (vendorData is Map ? vendorData['phone'] : '') ?? '').toString();
       final address = (branch['address'] ?? order['pickupAddress'] ?? '').toString();
       final subtotal = double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
       final isContracted = (branch['isContracted'] ?? (vendorData is Map ? vendorData['isContracted'] : false)) ?? false;
@@ -625,8 +670,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         'vendorId': order['vendorId']?.toString() ?? '',
         'storeName': storeName,
         'branchName': branchName,
-        'vendorLogo':
-            (vendorData is Map ? (vendorData['logo'] ?? vendorData['logoUrl']) : null)
+        'vendorLogo': orderType.isRide
+            ? customerAvatar
+            : (vendorData is Map ? (vendorData['logo'] ?? vendorData['logoUrl']) : null)
                 ?.toString(),
         'name': branchName.isNotEmpty ? '$storeName ($branchName)' : storeName,
         'phone': phone,
@@ -802,7 +848,13 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                             ],
                           ),
                           child: Icon(
-                            isCollected ? LucideIcons.check : LucideIcons.store,
+                            isCollected
+                                ? LucideIcons.check
+                                : (orderType.isRide
+                                    ? LucideIcons.user
+                                    : (orderType.isCustomDelivery
+                                        ? LucideIcons.package
+                                        : LucideIcons.store)),
                             color: isCollected || !isSelected ? Colors.white : Colors.black,
                             size: 16,
                           ),
@@ -1005,10 +1057,10 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                       children: [
                         AppNetworkAvatar(
                           imageUrl: ImageUtils.formatImageUrl(
-                            (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
-                                ? (order['customer']?['avatar'] ??
-                                        order['customer']?['user']?['avatar'])
-                                    ?.toString()
+                            (orderType.isRide ||
+                                    status == 'PICKED_UP' ||
+                                    status == 'PENDING_PAYMENT')
+                                ? customerAvatar
                                 : (currentStop?['vendorLogo'] ??
                                         (order['vendor'] is Map
                                             ? (order['vendor']['logo'] ??
@@ -1017,14 +1069,18 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                     ?.toString(),
                           ),
                           size: 46,
-                          borderRadius: (status == 'PICKED_UP' ||
+                          borderRadius: (orderType.isRide ||
+                                  status == 'PICKED_UP' ||
                                   status == 'PENDING_PAYMENT')
                               ? null
                               : 12,
-                          fallbackIcon: (status == 'PICKED_UP' ||
+                          fallbackIcon: (orderType.isRide ||
+                                  status == 'PICKED_UP' ||
                                   status == 'PENDING_PAYMENT')
                               ? LucideIcons.user
-                              : LucideIcons.store,
+                              : (orderType.isCustomDelivery
+                                  ? LucideIcons.package
+                                  : LucideIcons.store),
                           fallbackIconSize: 22,
                         ),
                         const SizedBox(width: 14),
@@ -1039,12 +1095,16 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                       status == 'PENDING_PAYMENT'
                                           ? (isAr ? 'بانتظار الدفع من العميل' : 'Waiting for Customer Payment')
                                           : (status == 'PICKED_UP')
-                                              ? l10n.navigatingToCustomer
+                                              ? (orderType.isRide
+                                                  ? (isAr ? 'التوجه إلى الوجهة' : 'Navigate to Dropoff')
+                                                  : l10n.navigatingToCustomer)
                                               : (pickupStops.length > 1
                                                   ? (isAr ? 'المحطة ${_currentStopIndex + 1} من ${pickupStops.length} (استلام)' : 'Stop ${_currentStopIndex + 1} of ${pickupStops.length} (Pickup)')
-                                                  : (isCustomOrRide
-                                                      ? (isAr ? 'التوجه إلى موقع الاستلام' : 'Navigating to Pickup')
-                                                      : l10n.navigatingToVendor)),
+                                                  : (orderType.isRide
+                                                      ? (isAr ? 'التوجه إلى نقطة الاستلام' : 'Navigate to Pickup')
+                                                      : (orderType.isCustomDelivery
+                                                          ? (isAr ? 'التوجه إلى موقع الاستلام' : 'Navigating to Pickup')
+                                                          : l10n.navigatingToVendor))),
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -1077,17 +1137,49 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
-                                    ? ((order['customer'] is Map ? order['customer']['name'] : null) ?? l10n.customerFallback)
-                                    : (currentStop != null
-                                        ? currentStop['name']
-                                        : (isCustomOrRide
-                                            ? (order['pickupAddress']?.toString() ?? (isAr ? 'موقع الاستلام' : 'Pickup Location'))
-                                            : ((order['vendor'] is Map ? order['vendor']['name'] ?? order['vendor']['storeName'] : null) ?? l10n.vendorFallback))),
+                                    ? (customerName?.isNotEmpty == true ? customerName! : l10n.customerFallback)
+                                    : (orderType.isRide
+                                        ? (isAr ? 'العميل' : 'Customer')
+                                        : (currentStop != null
+                                            ? currentStop['name']
+                                            : (isCustomOrRide
+                                                ? (order['pickupAddress']?.toString() ?? (isAr ? 'موقع الاستلام' : 'Pickup Location'))
+                                                : ((order['vendor'] is Map ? order['vendor']['name'] ?? order['vendor']['storeName'] : null) ?? l10n.vendorFallback)))),
                                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              if (!isDelivering && currentStop != null && (currentStop['address'] as String).isNotEmpty) ...[
+                              if (orderType.isRide) ...[
+                                Builder(builder: (_) {
+                                  final addrText = isDelivering
+                                      ? (order['deliveryAddress'] is String
+                                          ? order['deliveryAddress'].toString()
+                                          : (order['deliveryAddress'] is Map
+                                              ? (order['deliveryAddress']['address'] ?? '').toString()
+                                              : ''))
+                                      : ((currentStop?['address'] ?? order['pickupAddress'] ?? '').toString());
+                                  final infoLine = !isDelivering &&
+                                          customerName != null &&
+                                          customerName.isNotEmpty
+                                      ? (addrText.isNotEmpty
+                                          ? '$customerName • $addrText'
+                                          : customerName)
+                                      : addrText;
+                                  if (infoLine.isEmpty) return const SizedBox.shrink();
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      infoLine,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }),
+                              ] else if (!isDelivering && currentStop != null && (currentStop['address'] as String).isNotEmpty) ...[
                                 const SizedBox(height: 2),
                                 Text(
                                   currentStop['address'],
@@ -1103,8 +1195,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // 3. Store Payment Instruction Banner (Specific to current stop when picking up)
-                    if (!isDelivering && currentStop != null) ...[
+                    // 3. Store Payment Instruction Banner (STANDARD store orders only)
+                    if (!isDelivering && currentStop != null && orderType.hasStoreFulfillment) ...[
                       Builder(builder: (context) {
                         final bool isContracted = currentStop['isContracted'] == true;
                         final double cashToPay =
@@ -1218,9 +1310,8 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
-                              if (isDelivering) {
-                                final cust = order['customer'] is Map ? order['customer'] : {};
-                                _callPhone(context, (cust['phone'] ?? cust['user']?['phone'])?.toString());
+                              if (isDelivering || orderType.isRide) {
+                                _callPhone(context, customerPhone);
                               } else if (currentStop != null) {
                                 _callPhone(context, currentStop['phone'] as String?);
                               }
@@ -1266,7 +1357,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    if (!isDelivering && currentStop != null && (currentStop['items'] as List).isNotEmpty) ...[
+                    if (!isDelivering && !orderType.isRide && currentStop != null && (currentStop['items'] as List).isNotEmpty) ...[
                       Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1424,6 +1515,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     Map<String, dynamic> order, [
     List<Map<String, dynamic>> pickupStops = const [],
   ]) {
+    if (!OrderTypeHelper.requiresOrderPhotos(order)) {
+      return const SizedBox.shrink();
+    }
     final isCustomOrRide =
         order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
     final currentStopStatus = (pickupStops.isNotEmpty && !isCustomOrRide)
@@ -1531,6 +1625,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     AppLocalizations l10n,
     Map<String, dynamic> order,
   ) {
+    if (!OrderTypeHelper.requiresOrderPhotos(order)) {
+      return const SizedBox.shrink();
+    }
     final showCapture = status == 'PICKED_UP';
     final activeGroupId = _resolveActiveDriverGroupId(order);
     String? remoteUrl = order['deliveryImageUrl']?.toString();
@@ -1686,7 +1783,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           setState(() => _currentPosition = freshPos);
         }
       } catch (_) {
-        freshPos ??= await Geolocator.getLastKnownPosition();
+        try {
+          freshPos ??= await Geolocator.getLastKnownPosition();
+        } catch (_) {}
       }
 
       bool withinFence = true;
@@ -1873,14 +1972,28 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         );
       }
 
+      final requiresPhotos = OrderTypeHelper.requiresOrderPhotos(order);
+      final isAr = l10n.localeName == 'ar';
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           PrimaryButton(
             text: hasMultiple
-                ? (l10n.localeName == 'ar' ? 'تأكيد استلام المحطة الأخيرة مع الصورة' : 'Confirm Final Stop Pickup (Photo)')
+                ? (isAr ? 'تأكيد استلام المحطة الأخيرة مع الصورة' : 'Confirm Final Stop Pickup (Photo)')
                 : l10n.confirmPickup,
             onPressed: () => handleAction(() async {
+              if (!requiresPhotos) {
+                await ref
+                    .read(orderExecutionProvider.notifier)
+                    .confirmPickupWithoutPhoto();
+                if (!mounted) return;
+                setState(() {
+                  _collectedStopIndices.add(_currentStopIndex);
+                  _pickupPhoto = null;
+                });
+                return;
+              }
               var photo = _pickupPhoto;
               if (photo == null) {
                 photo = await _capturePickupPhoto();
@@ -1895,25 +2008,31 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               await ref
                   .read(orderExecutionProvider.notifier)
                   .confirmPickupWithPhoto(photo, fulfillmentId: curFulfillmentId);
+              if (!mounted) return;
               setState(() {
                 _collectedStopIndices.add(_currentStopIndex);
                 _pickupPhoto = null;
               });
             }),
           ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.pickupPhotoRequired,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          if (requiresPhotos) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.pickupPhotoRequired,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+          ],
         ],
       );
     } else if (status == 'PICKED_UP') {
-      String? label;
+      final orderType = OrderTypeHelper.resolve(order);
+      final requiresPhotos = orderType.requiresOrderPhotos;
+      final isAr = l10n.localeName == 'ar';
+      String label;
       if (isCashOnDelivery) {
         final totalStr = order['total']?.toString() ?? order['grandTotal']?.toString() ?? order['totalFee']?.toString() ?? '0.00';
         final total = double.tryParse(totalStr) ?? 0.0;
@@ -1928,9 +2047,17 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             ? double.parse(rawCashToCollect.toString())
             : (total - upfront);
         final collectAmount = toCollect > 0 ? toCollect : 0.0;
-        label = '${l10n.collectCashAndDeliver} (${collectAmount.toStringAsFixed(2)} EGP)';
+        if (orderType.isRide) {
+          label = isAr
+              ? 'تحصيل الكاش وإنهاء الرحلة (${collectAmount.toStringAsFixed(2)} ج.م)'
+              : 'Collect Cash & Complete Ride (${collectAmount.toStringAsFixed(2)} EGP)';
+        } else {
+          label = '${l10n.collectCashAndDeliver} (${collectAmount.toStringAsFixed(2)} EGP)';
+        }
       } else {
-        label = l10n.confirmDelivery;
+        label = orderType.isRide
+            ? (isAr ? 'إنهاء الرحلة' : 'Complete Ride')
+            : l10n.confirmDelivery;
       }
 
       return Column(
@@ -1939,93 +2066,39 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           PrimaryButton(
             text: label,
             onPressed: () => handleAction(() async {
-              var photo = _deliveryPhoto;
-              if (photo == null) {
-                photo = await _captureDeliveryPhoto();
-                if (photo == null) return;
-              }
-              final activeGroupId = _resolveActiveDriverGroupId(order);
-              await ref
-                  .read(orderExecutionProvider.notifier)
-                  .confirmDeliveryWithPhoto(
-                    photo,
-                    deliveryGroupId: activeGroupId,
-                  );
-              if (!mounted) return;
-
-              // Check if driver still has another delivery group on this same order
-              // or other active orders queued.
-              final repo = ref.read(driverOrdersRepositoryProvider);
-              final activeOrders = await repo.getActiveDriverOrders();
-
-              if (activeOrders.isNotEmpty) {
-                final currentId = order['id']?.toString();
-                final stillHasCurrent = currentId != null &&
-                    activeOrders.any((o) => o['id']?.toString() == currentId);
-                if (stillHasCurrent) {
-                  setState(() {
-                    _pickupPhoto = null;
-                    _deliveryPhoto = null;
-                    _collectedStopIndices.clear();
-                    _currentStopIndex = 0;
-                  });
-                  ref.read(orderExecutionProvider.notifier).selectOrder(currentId);
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        l10n.localeName == 'ar'
-                            ? 'تم تسليم المجموعة بنجاح! لديك رحلة أخرى ضمن نفس الطلب'
-                            : 'Trip delivered! Moving to your next trip for this order',
-                      ),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                  return;
+              if (!requiresPhotos) {
+                await ref
+                    .read(orderExecutionProvider.notifier)
+                    .confirmDeliveryWithoutPhoto();
+              } else {
+                var photo = _deliveryPhoto;
+                if (photo == null) {
+                  photo = await _captureDeliveryPhoto();
+                  if (photo == null) return;
                 }
-                final remaining = activeOrders
-                    .where((o) => o['id']?.toString() != currentId)
-                    .toList();
-                if (remaining.isNotEmpty) {
-                  final nextOrder = remaining.first;
-                  final nextId = nextOrder['id']?.toString();
-                  if (nextId != null) {
-                    setState(() {
-                      _pickupPhoto = null;
-                      _deliveryPhoto = null;
-                      _collectedStopIndices.clear();
-                      _currentStopIndex = 0;
-                    });
-                    ref.read(orderExecutionProvider.notifier).selectOrder(nextId);
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          l10n.localeName == 'ar'
-                              ? 'تم تسليم الطلب بنجاح! جاري التوجه للمحطة التالية (${remaining.length} متبقي)'
-                              : 'Order delivered successfully! Moving to next stop (${remaining.length} remaining)',
-                        ),
-                        backgroundColor: AppColors.success,
-                      ),
+                final activeGroupId = _resolveActiveDriverGroupId(order);
+                await ref
+                    .read(orderExecutionProvider.notifier)
+                    .confirmDeliveryWithPhoto(
+                      photo,
+                      deliveryGroupId: activeGroupId,
                     );
-                    return;
-                  }
-                }
               }
-
-              // No remaining active orders in the route — return to dashboard
-              if (context.mounted) context.go('/dashboard');
+              if (!mounted || !context.mounted) return;
+              await _navigateAfterOrderCompleted(context, order, l10n);
             }),
           ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.deliveryPhotoRequired,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          if (requiresPhotos) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.deliveryPhotoRequired,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+          ],
         ],
       );
     } else if (status == 'PENDING_PAYMENT') {
@@ -2230,5 +2303,74 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       );
     }
     return const SizedBox.shrink();
+  }
+
+  Future<void> _navigateAfterOrderCompleted(
+    BuildContext context,
+    Map<String, dynamic> order,
+    AppLocalizations l10n,
+  ) async {
+    final repo = ref.read(driverOrdersRepositoryProvider);
+    final activeOrders = await repo.getActiveDriverOrders();
+
+    if (activeOrders.isNotEmpty) {
+      final currentId = order['id']?.toString();
+      final stillHasCurrent = currentId != null &&
+          activeOrders.any((o) => o['id']?.toString() == currentId);
+      if (stillHasCurrent) {
+        if (mounted) {
+          setState(() {
+            _pickupPhoto = null;
+            _deliveryPhoto = null;
+            _collectedStopIndices.clear();
+            _currentStopIndex = 0;
+          });
+        }
+        ref.read(orderExecutionProvider.notifier).selectOrder(currentId);
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.localeName == 'ar'
+                  ? 'تم التسليم بنجاح! لديك محطة أخرى ضمن نفس الطلب'
+                  : 'Trip delivered! Moving to your next trip for this order',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        return;
+      }
+      final remaining =
+          activeOrders.where((o) => o['id']?.toString() != currentId).toList();
+      if (remaining.isNotEmpty) {
+        final nextOrder = remaining.first;
+        final nextId = nextOrder['id']?.toString();
+        if (nextId != null) {
+          if (mounted) {
+            setState(() {
+              _pickupPhoto = null;
+              _deliveryPhoto = null;
+              _collectedStopIndices.clear();
+              _currentStopIndex = 0;
+            });
+          }
+          ref.read(orderExecutionProvider.notifier).selectOrder(nextId);
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                l10n.localeName == 'ar'
+                    ? 'تم الإنهاء بنجاح! جاري التوجه للمحطة التالية (${remaining.length} متبقي)'
+                    : 'Completed! Moving to next stop (${remaining.length} remaining)',
+              ),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          return;
+        }
+      }
+    }
+
+    if (context.mounted) context.go('/dashboard');
   }
 }

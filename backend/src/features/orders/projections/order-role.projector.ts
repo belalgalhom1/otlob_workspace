@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { OrderType, Role } from '@prisma/client';
 import { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interface';
 import { OrderEarningsCalculator } from '../../../common/orders/order-earnings.calculator';
 import {
@@ -1028,7 +1028,10 @@ export class OrderRoleProjector {
       ]);
     }
     let fulfillmentSummary: any = null;
-    if (sanitized.vendorFulfillments) {
+    if (
+      Array.isArray(sanitized.vendorFulfillments) &&
+      sanitized.vendorFulfillments.length > 0
+    ) {
       const allGroupItems = (order.deliveryGroups ?? []).flatMap((g: any) =>
         Array.isArray(g.items) ? g.items : [],
       );
@@ -1085,22 +1088,24 @@ export class OrderRoleProjector {
         (f: any) => Boolean(f.pickedUpAt) || f.status === 'PICKED_UP',
       ).length;
 
-      fulfillmentSummary = {
-        totalStops,
-        completedStops,
-        currentStopSequence: activeFulfillment
-          ? (allGroupItems.find(
-              (it: any) => it.fulfillmentId === activeFulfillment.id,
-            )?.sequence ?? 1)
-          : totalStops,
-        currentStopBranchName:
-          activeFulfillment?.vendorBranch?.nameAr ??
-          activeFulfillment?.vendorBranch?.name ??
-          activeFulfillment?.vendor?.storeNameAr ??
-          activeFulfillment?.vendor?.storeName ??
-          null,
-        isFullyCollected: completedStops >= totalStops,
-      };
+      if (order.type == null || order.type === OrderType.STANDARD) {
+        fulfillmentSummary = {
+          totalStops,
+          completedStops,
+          currentStopSequence: activeFulfillment
+            ? (allGroupItems.find(
+                (it: any) => it.fulfillmentId === activeFulfillment.id,
+              )?.sequence ?? 1)
+            : totalStops,
+          currentStopBranchName:
+            activeFulfillment?.vendorBranch?.nameAr ??
+            activeFulfillment?.vendorBranch?.name ??
+            activeFulfillment?.vendor?.storeNameAr ??
+            activeFulfillment?.vendor?.storeName ??
+            null,
+          isFullyCollected: completedStops >= totalStops,
+        };
+      }
 
       if (!sanitized.vendor && sanitized.vendorFulfillments.length === 1) {
         sanitized.vendor = sanitized.vendorFulfillments[0].vendor ?? null;
