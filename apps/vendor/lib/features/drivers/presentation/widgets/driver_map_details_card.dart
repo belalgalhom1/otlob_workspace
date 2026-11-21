@@ -5,6 +5,7 @@ import 'package:ui_kit/ui_kit.dart';
 import 'package:core/core.dart';
 import '../../data/driver_models.dart';
 import 'driver_vehicle_icon.dart';
+import 'horizontal_action_strip.dart';
 
 class DriverMapDetailsCard extends StatelessWidget {
   final DriverProfile driver;
@@ -318,49 +319,91 @@ class DriverMapDetailsCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: isLive ? AppColors.success : AppColors.warning,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            isLive
-                                ? (isArabic ? 'موقع مباشر الآن' : 'Live location')
-                                : (isArabic ? 'آخر موقع مسجل' : 'Last known location'),
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: isLive ? AppColors.success : AppColors.warning,
-                            ),
-                          ),
-                          if ((driver.vehiclePlate != null && driver.vehiclePlate!.isNotEmpty) ||
-                              (driver.vehicleType != null && driver.vehicleType!.isNotEmpty)) ...[
-                            const SizedBox(width: 6),
-                            Icon(
-                              driverVehicleIcon(driver.vehicleType),
-                              size: 14,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                            ),
-                            const SizedBox(width: 3),
-                            Flexible(
-                              child: Text(
-                                '${driver.vehicleType ?? ""} ${driver.vehiclePlate ?? ""}'.trim(),
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                      LayoutBuilder(
+                        builder: (context, locationConstraints) {
+                          return Wrap(
+                            spacing: 6,
+                            runSpacing: 3,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                      color: isLive
+                                          ? AppColors.success
+                                          : AppColors.warning,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth:
+                                          (locationConstraints.maxWidth - 16)
+                                              .clamp(40.0, double.infinity),
+                                    ),
+                                    child: Text(
+                                      isLive
+                                          ? (isArabic
+                                              ? 'موقع مباشر الآن'
+                                              : 'Live location')
+                                          : (isArabic
+                                              ? 'آخر موقع مسجل'
+                                              : 'Last known location'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: isLive
+                                            ? AppColors.success
+                                            : AppColors.warning,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ],
+                              if ((driver.vehiclePlate != null &&
+                                      driver.vehiclePlate!.isNotEmpty) ||
+                                  (driver.vehicleType != null &&
+                                      driver.vehicleType!.isNotEmpty))
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      driverVehicleIcon(driver.vehicleType),
+                                      size: 14,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.6),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth:
+                                            (locationConstraints.maxWidth - 20)
+                                                .clamp(40.0, double.infinity),
+                                      ),
+                                      child: Text(
+                                        '${driver.vehicleType ?? ""} ${driver.vehiclePlate ?? ""}'
+                                            .trim(),
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.6),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -510,7 +553,7 @@ class DriverMapDetailsCard extends StatelessWidget {
             ? '$vendorStoreName - $branchName'
             : vendorStoreName.toString().trim())
         : (branchName?.toString().trim() ?? (isArabic ? 'المتجر' : 'Vendor'));
-    final vendorLogo = (vendor['logo'] ?? vendor['logoUrl'])?.toString();
+    final vendorLogo = ImageUtils.resolveVendorLogoUrl(vendor);
     final pickupAddress = order['pickupAddress']?.toString() ??
         vendorBranch['address']?.toString() ??
         vendor['address']?.toString() ??
@@ -556,9 +599,9 @@ class DriverMapDetailsCard extends StatelessWidget {
               Row(
                 children: [
                   AppNetworkAvatar(
-                    imageUrl: ImageUtils.formatImageUrl(
-                      isHeadingToCustomer ? customerAvatar : vendorLogo,
-                    ),
+                    imageUrl: isHeadingToCustomer
+                        ? ImageUtils.formatImageUrl(customerAvatar)
+                        : vendorLogo,
                     size: 32,
                     borderRadius: isHeadingToCustomer ? null : 8,
                     fallbackIcon: isHeadingToCustomer
@@ -655,12 +698,16 @@ class DriverMapDetailsCard extends StatelessWidget {
                           children: [
                             const Icon(LucideIcons.clock, size: 13, color: AppColors.primary),
                             const SizedBox(width: 4),
-                            Text(
-                              '${isArabic ? "الوقت التقديري: ~" : "ETA: ~"}$etaMinutes ${isArabic ? "دقيقة" : "min"}',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
+                            Flexible(
+                              child: Text(
+                                '${isArabic ? "الوقت التقديري: ~" : "ETA: ~"}$etaMinutes ${isArabic ? "دقيقة" : "min"}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
                               ),
                             ),
                           ],
@@ -686,23 +733,23 @@ class DriverMapDetailsCard extends StatelessWidget {
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Flexible(
-                          child: Directionality(
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            '\u2066#$orderNumber\u2069',
                             textDirection: TextDirection.ltr,
-                            child: Text(
-                              '\u2066#$orderNumber\u2069',
-                              textDirection: TextDirection.ltr,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
@@ -886,9 +933,8 @@ class DriverMapDetailsCard extends StatelessWidget {
     final orderStatus = activeOrder != null ? _effectiveOrderStatus(activeOrder!) : '';
     final isHeadingToCustomer = (orderStatus == 'PICKED_UP');
 
-    return Wrap(
+    return HorizontalActionStrip(
       spacing: 8,
-      runSpacing: 8,
       children: [
         // 1. Call Driver
         if (driver.phone != null && driver.phone!.isNotEmpty)

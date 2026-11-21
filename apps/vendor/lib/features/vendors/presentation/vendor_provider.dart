@@ -1,6 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:vendor/features/orders/presentation/orders_provider.dart';
 import 'package:api/api.dart';
 import 'package:built_value/json_object.dart';
 import 'package:core/core.dart';
@@ -86,21 +89,35 @@ class VendorNotifier extends _$VendorNotifier {
       })
     );
 
-    if (data['coverImage'] != null) {
-      try {
-        final file = data['coverImage'];
-        final bytes = await file.readAsBytes();
-        final name = file.name;
-        final vendorId = response['id'];
-        if (vendorId != null) {
-          await ref.read(adminVendorsRepositoryProvider).uploadVendorCover(
-            vendorId: vendorId,
+    final createdVendorId = response is Map ? response['id']?.toString() : null;
+    if (createdVendorId != null && createdVendorId.isNotEmpty) {
+      if (data['logo'] != null) {
+        try {
+          final file = data['logo'];
+          final bytes = await file.readAsBytes();
+          final name = file.name;
+          await ref.read(adminVendorsRepositoryProvider).uploadVendorLogo(
+            vendorId: createdVendorId,
             fileBytes: bytes,
             fileName: name,
           );
+        } catch (e) {
+          debugPrint('Failed to upload vendor logo: $e');
         }
-      } catch (e) {
-        debugPrint('Failed to upload cover: $e');
+      }
+      if (data['coverImage'] != null) {
+        try {
+          final file = data['coverImage'];
+          final bytes = await file.readAsBytes();
+          final name = file.name;
+          await ref.read(adminVendorsRepositoryProvider).uploadVendorCover(
+            vendorId: createdVendorId,
+            fileBytes: bytes,
+            fileName: name,
+          );
+        } catch (e) {
+          debugPrint('Failed to upload cover: $e');
+        }
       }
     }
     await fetchVendors();
@@ -181,8 +198,36 @@ class VendorNotifier extends _$VendorNotifier {
     }
   }
 
+  Future<void> _evictVendorImageCaches(String id) async {
+    final currentVendors = state.asData?.value.vendors;
+    if (currentVendors == null) return;
+    for (final v in currentVendors) {
+      if (v is Map && v['id']?.toString() == id) {
+        for (final key in const ['logo', 'logoUrl', 'coverImage', 'image']) {
+          final raw = v[key]?.toString().trim() ?? '';
+          if (raw.isEmpty) continue;
+          await CachedNetworkImage.evictFromCache(raw)
+              .timeout(const Duration(milliseconds: 500), onTimeout: () => false)
+              .catchError((_) => false);
+          final formatted = ImageUtils.formatImageUrl(raw);
+          if (formatted.isNotEmpty) {
+            await CachedNetworkImage.evictFromCache(formatted)
+                .timeout(
+                  const Duration(milliseconds: 500),
+                  onTimeout: () => false,
+                )
+                .catchError((_) => false);
+          }
+        }
+        break;
+      }
+    }
+    PaintingBinding.instance.imageCache.clearLiveImages();
+  }
+
   Future<void> updateVendor(String id, Map<String, dynamic> data) async {
     final role = await ref.read(sharedAuthRepositoryProvider).getUserRole();
+    final hasImageUpdate = data['logo'] != null || data['coverImage'] != null;
     final updateDto = UpdateVendorDto((b) {
       if (data['storeName'] != null) b.storeName = data['storeName'];
       if (data['storeNameAr'] != null) b.storeNameAr = data['storeNameAr'];
@@ -199,6 +244,17 @@ class VendorNotifier extends _$VendorNotifier {
 
     if (role == 'VENDOR_MEMBER') {
       await ref.read(vendorProfileRepositoryProvider).vendorProfileUpdate(id, updateDto);
+      if (data['logo'] != null) {
+        try {
+          final file = data['logo'];
+          final bytes = await file.readAsBytes();
+          final name = file.name;
+          final multipartFile = MultipartFile.fromBytes(bytes, filename: name);
+          await ref.read(vendorProfileRepositoryProvider).uploadLogo(id, multipartFile);
+        } catch (e) {
+          debugPrint('Failed to upload vendor logo: $e');
+        }
+      }
       if (data['coverImage'] != null) {
         try {
           final file = data['coverImage'];
@@ -210,12 +266,29 @@ class VendorNotifier extends _$VendorNotifier {
           debugPrint('Failed to upload cover: $e');
         }
       }
+      if (hasImageUpdate) {
+        await _evictVendorImageCaches(id);
+      }
       await fetchVendors(vendorId: id);
     } else {
       await ref.read(adminVendorsRepositoryProvider).vendorsUpdate(
         vendorId: id,
         updateVendorDto: updateDto
       );
+      if (data['logo'] != null) {
+        try {
+          final file = data['logo'];
+          final bytes = await file.readAsBytes();
+          final name = file.name;
+          await ref.read(adminVendorsRepositoryProvider).uploadVendorLogo(
+            vendorId: id,
+            fileBytes: bytes,
+            fileName: name,
+          );
+        } catch (e) {
+          debugPrint('Failed to upload vendor logo: $e');
+        }
+      }
       if (data['coverImage'] != null) {
         try {
           final file = data['coverImage'];
@@ -230,7 +303,17 @@ class VendorNotifier extends _$VendorNotifier {
           debugPrint('Failed to upload cover: $e');
         }
       }
+      if (hasImageUpdate) {
+        await _evictVendorImageCaches(id);
+      }
       await fetchVendors();
+    }
+
+    if (hasImageUpdate) {
+      ref.invalidate(vendorMembershipsProvider);
+      if (ref.read(ordersProvider).hasValue) {
+        await ref.read(ordersProvider.notifier).fetchOrders();
+      }
     }
   }
 

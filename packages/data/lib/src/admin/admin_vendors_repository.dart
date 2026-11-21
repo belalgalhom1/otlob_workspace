@@ -89,6 +89,19 @@ class AdminVendorsRepository {
     return ResponseParser.parse(response);
   }
 
+  Future<dynamic> uploadVendorLogo({
+    required String vendorId,
+    required List<int> fileBytes,
+    required String fileName,
+  }) async {
+    final file = MultipartFile.fromBytes(fileBytes, filename: fileName);
+    final response = await _api.vendorsControllerUploadLogo(
+      vendorId: vendorId,
+      file: file,
+    );
+    return ResponseParser.parse(response);
+  }
+
   Future<dynamic> uploadVendorCover({
     required String vendorId,
     required List<int> fileBytes,

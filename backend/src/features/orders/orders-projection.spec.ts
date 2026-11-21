@@ -666,5 +666,137 @@ describe('OrdersService financial projections & vendor isolation', () => {
         '/products/latte.png',
       ]);
     });
+
+    it('falls back to coverImage per vendor when logo is null across Admin, Vendor, Customer, and Driver projections without cross-vendor leakage', async () => {
+      mockPrisma.vendorMember = {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { vendorId: 'v-bk', branchId: null, role: 'OWNER' },
+          ]),
+      };
+      mockPrisma.driver.findUnique.mockResolvedValue({
+        id: 'drv-1',
+        tier: 'SILVER',
+      });
+
+      const singleOrder = {
+        id: 'ord-bk-1',
+        status: 'PENDING',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        grandTotal: 120,
+        deliveryFee: 20,
+        vendorFulfillments: [
+          {
+            id: 'ff-bk',
+            vendorId: 'v-bk',
+            status: 'PENDING',
+            subtotal: 100,
+            vendor: {
+              id: 'v-bk',
+              storeName: 'Burger King',
+              logo: null,
+              coverImage: '/media/vendors/covers/bk-cover.webp',
+            },
+            items: [],
+          },
+        ],
+        deliveryGroups: [],
+        items: [],
+      };
+
+      const adminProjected = await (ordersService as any).enrichWithAdminHelpers(
+        singleOrder,
+      );
+      expect(adminProjected.vendor?.logo).toBe(
+        '/media/vendors/covers/bk-cover.webp',
+      );
+      expect(adminProjected.vendorFulfillments[0].vendor.logo).toBe(
+        '/media/vendors/covers/bk-cover.webp',
+      );
+      expect(adminProjected.financials.storePayments[0].vendorLogo).toBe(
+        '/media/vendors/covers/bk-cover.webp',
+      );
+
+      const vendorProjected = await (ordersService as any).projectForVendor(
+        singleOrder,
+        { sub: 'u-bk', role: 'VENDOR_MEMBER' },
+        'v-bk',
+      );
+      expect(vendorProjected.vendor?.logo).toBe(
+        '/media/vendors/covers/bk-cover.webp',
+      );
+
+      const multiOrder = {
+        ...singleOrder,
+        id: 'ord-mv-mix',
+        vendorFulfillments: [
+          singleOrder.vendorFulfillments[0],
+          {
+            id: 'ff-cafe',
+            vendorId: 'v-cafe',
+            status: 'PENDING',
+            subtotal: 80,
+            vendor: {
+              id: 'v-cafe',
+              storeName: 'Explicit Cafe',
+              logo: '/media/vendors/logos/cafe-logo.webp',
+              coverImage: '/media/vendors/covers/cafe-cover.webp',
+            },
+            items: [],
+          },
+          {
+            id: 'ff-empty',
+            vendorId: 'v-empty',
+            status: 'PENDING',
+            subtotal: 50,
+            vendor: {
+              id: 'v-empty',
+              storeName: 'No Logo Store',
+              logo: null,
+              coverImage: null,
+            },
+            items: [],
+          },
+        ],
+      };
+
+      const adminMulti = await (ordersService as any).enrichWithAdminHelpers(
+        multiOrder,
+      );
+      expect(adminMulti.vendorFulfillments[0].vendor.logo).toBe(
+        '/media/vendors/covers/bk-cover.webp',
+      );
+      expect(adminMulti.vendorFulfillments[1].vendor.logo).toBe(
+        '/media/vendors/logos/cafe-logo.webp',
+      );
+      expect(adminMulti.vendorFulfillments[2].vendor.logo).toBeNull();
+      expect(adminMulti.financials.storePayments.map((s: any) => s.vendorLogo)).toEqual([
+        '/media/vendors/covers/bk-cover.webp',
+        '/media/vendors/logos/cafe-logo.webp',
+        null,
+      ]);
+
+      const custMulti = (ordersService as any).projectForCustomer(multiOrder);
+      expect(
+        custMulti.vendorFulfillments.map((f: any) => f.vendor.logo),
+      ).toEqual([
+        '/media/vendors/covers/bk-cover.webp',
+        '/media/vendors/logos/cafe-logo.webp',
+        null,
+      ]);
+
+      const drvMulti = await (ordersService as any).projectForDriver(
+        multiOrder,
+        { sub: 'u-drv' },
+      );
+      expect(
+        drvMulti.vendorFulfillments.map((f: any) => f.vendor.logo),
+      ).toEqual([
+        '/media/vendors/covers/bk-cover.webp',
+        '/media/vendors/logos/cafe-logo.webp',
+        null,
+      ]);
+    });
   });
 });

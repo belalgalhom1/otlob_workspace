@@ -76,14 +76,14 @@ class VendorSelectionScreen extends ConsumerWidget {
                           ? (vendor['storeNameAr'] ?? vendor['storeName'])
                           : (vendor['storeName'] ?? vendor['storeNameAr']))
                       ?.toString();
-              final storeLogo =
-                  (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
+              final storeLogo = ImageUtils.resolveVendorLogoUrl(vendor);
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: AppNetworkAvatar(
-                    imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                    key: ValueKey('vendor_sel_${vendorId}_$storeLogo'),
+                    imageUrl: storeLogo,
                     size: 40,
                     borderRadius: 10,
                     fallbackIcon: LucideIcons.store,

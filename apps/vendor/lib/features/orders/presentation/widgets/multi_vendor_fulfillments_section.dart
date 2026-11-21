@@ -194,8 +194,24 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
         fBranch['phone']?.toString() ?? fVendor['phone']?.toString() ?? '';
     final isContracted =
         (fBranch['isContracted'] ?? fVendor['isContracted'] ?? false) == true;
-    final storeLogo =
-        (fVendor['logo'] ?? fVendor['logoUrl'])?.toString().trim() ?? '';
+    var storeLogo = ImageUtils.resolveVendorLogoUrl(fVendor);
+    if (storeLogo.isEmpty && order['financials'] is Map) {
+      final storePayments = (order['financials'] as Map)['storePayments'];
+      if (storePayments is List) {
+        final vendorId = f['vendorId']?.toString() ?? fVendor['id']?.toString();
+        for (final sp in storePayments) {
+          if (sp is Map &&
+              ((fId.isNotEmpty && sp['fulfillmentId']?.toString() == fId) ||
+                  (vendorId != null && sp['vendorId']?.toString() == vendorId))) {
+            final fallback = ImageUtils.formatImageUrl(sp['vendorLogo']?.toString());
+            if (fallback.isNotEmpty) {
+              storeLogo = fallback;
+              break;
+            }
+          }
+        }
+      }
+    }
 
     final fSubtotal =
         double.tryParse(f['subtotal']?.toString() ?? '0') ?? 0.0;
@@ -340,7 +356,10 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AppNetworkAvatar(
-                imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                key: ValueKey(
+                  'fulfillment_vendor_logo_${fId}_${fVendor['id'] ?? f['vendorId'] ?? ''}_$storeLogo',
+                ),
+                imageUrl: storeLogo,
                 size: 40,
                 borderRadius: 10,
                 fallbackIcon: LucideIcons.store,

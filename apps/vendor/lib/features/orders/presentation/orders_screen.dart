@@ -943,12 +943,36 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
-  String? _firstNonEmptyMedia(List<dynamic> candidates) {
-    for (final c in candidates) {
-      final s = c?.toString().trim();
-      if (s != null && s.isNotEmpty) return s;
+  String? _firstNonEmptyMedia(List<dynamic> candidates) =>
+      ImageUtils.firstNonEmptyString(candidates);
+
+  String _resolveOrderVendorLogo(
+    Map? vendor, {
+    dynamic order,
+    String? fulfillmentId,
+  }) {
+    final direct = ImageUtils.resolveVendorLogoUrl(vendor);
+    if (direct.isNotEmpty) return direct;
+    if (order is Map && order['financials'] is Map) {
+      final storePayments = (order['financials'] as Map)['storePayments'];
+      if (storePayments is List) {
+        final vendorId = vendor?['id']?.toString();
+        for (final sp in storePayments) {
+          if (sp is Map &&
+              ((fulfillmentId != null &&
+                      fulfillmentId.isNotEmpty &&
+                      sp['fulfillmentId']?.toString() == fulfillmentId) ||
+                  (vendorId != null &&
+                      vendorId.isNotEmpty &&
+                      sp['vendorId']?.toString() == vendorId))) {
+            final fallback =
+                ImageUtils.formatImageUrl(sp['vendorLogo']?.toString());
+            if (fallback.isNotEmpty) return fallback;
+          }
+        }
+      }
     }
-    return null;
+    return '';
   }
 
   Map<dynamic, dynamic> _resolveAssignedDriver(dynamic order) {
@@ -1002,6 +1026,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       driverUser?['avatar'],
     ]);
     final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
+    final distinctVendorIds = <String>{};
+    for (final f in fulfillments) {
+      if (f is Map) {
+        final vid = (f['vendorId'] ?? (f['vendor'] is Map ? f['vendor']['id'] : null))
+            ?.toString();
+        if (vid != null && vid.isNotEmpty) distinctVendorIds.add(vid);
+      }
+    }
     final Map? singleVendor = order['vendor'] is Map
         ? (order['vendor'] as Map)
         : (fulfillments.length == 1 &&
@@ -1022,10 +1054,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     ''))
             .toString()
             .trim();
-    final String? singleVendorLogo = _firstNonEmptyMedia([
-      singleVendor?['logo'],
-      singleVendor?['logoUrl'],
-    ]);
+    final String singleVendorLogo = _resolveOrderVendorLogo(
+      singleVendor,
+      order: order,
+      fulfillmentId: fulfillments.length == 1 && fulfillments.first is Map
+          ? fulfillments.first['id']?.toString()
+          : null,
+    );
+    final String multiBadgeVendorLogo = distinctVendorIds.length <= 1 &&
+            fulfillments.isNotEmpty &&
+            fulfillments.first is Map &&
+            fulfillments.first['vendor'] is Map
+        ? _resolveOrderVendorLogo(
+            fulfillments.first['vendor'] as Map,
+            order: order,
+            fulfillmentId: fulfillments.first['id']?.toString(),
+          )
+        : singleVendorLogo;
     final Map? branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : null;
     final String? branchName = branch == null
         ? null
@@ -1291,24 +1336,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                           children: [
                                             AppNetworkAvatar(
-                                              imageUrl: ImageUtils.formatImageUrl(
-                                                singleVendorLogo ??
-                                                    (fulfillments.isNotEmpty &&
-                                                            fulfillments.first
-                                                                is Map &&
-                                                            fulfillments.first[
-                                                                    'vendor']
-                                                                is Map
-                                                        ? _firstNonEmptyMedia([
-                                                            fulfillments.first[
-                                                                    'vendor']
-                                                                ['logo'],
-                                                            fulfillments.first[
-                                                                    'vendor']
-                                                                ['logoUrl'],
-                                                          ])
-                                                        : null),
+                                              key: ValueKey(
+                                                'ord_mv_logo_${orderId}_$multiBadgeVendorLogo',
                                               ),
+                                              imageUrl: multiBadgeVendorLogo,
                                               size: 18,
                                               borderRadius: 5,
                                               fallbackIcon: LucideIcons.store,
@@ -1349,7 +1380,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           AppNetworkAvatar(
-                                            imageUrl: ImageUtils.formatImageUrl(singleVendorLogo),
+                                            key: ValueKey(
+                                              'ord_hdr_logo_${orderId}_${singleVendor?['id'] ?? ''}_$singleVendorLogo',
+                                            ),
+                                            imageUrl: singleVendorLogo,
                                             size: 18,
                                             borderRadius: 5,
                                             fallbackIcon: LucideIcons.store,
@@ -1936,8 +1970,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
             final fId = f['id']?.toString() ?? '';
             final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
-            final fVendorLogo =
-                (fVendor['logo'] ?? fVendor['logoUrl'])?.toString();
+            final fVendorLogo = ImageUtils.resolveVendorLogoUrl(fVendor);
             final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
             final sName = isArabic
                 ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? fVendor['name'] ?? 'متجر')
@@ -1962,7 +1995,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   AppNetworkAvatar(
-                    imageUrl: ImageUtils.formatImageUrl(fVendorLogo),
+                    key: ValueKey(
+                      'ord_mv_chip_${fId}_${fVendor['id'] ?? i}_$fVendorLogo',
+                    ),
+                    imageUrl: fVendorLogo,
                     size: 20,
                     borderRadius: 6,
                     fallbackIcon: LucideIcons.store,
@@ -2560,8 +2596,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     bool isArabic,
   ) {
     final theme = Theme.of(context);
-    final vendor = order['vendor'] is Map ? (order['vendor'] as Map) : null;
-    final branch = order['vendorBranch'] is Map ? (order['vendorBranch'] as Map) : null;
+    final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? const [];
+    final singleFulfillment =
+        fulfillments.length == 1 && fulfillments.first is Map
+            ? fulfillments.first as Map
+            : null;
+    final vendor = order['vendor'] is Map
+        ? (order['vendor'] as Map)
+        : (singleFulfillment?['vendor'] is Map
+            ? singleFulfillment!['vendor'] as Map
+            : null);
+    final branch = order['vendorBranch'] is Map
+        ? (order['vendorBranch'] as Map)
+        : (singleFulfillment?['vendorBranch'] is Map
+            ? singleFulfillment!['vendorBranch'] as Map
+            : null);
 
     final storeName = isArabic
         ? (vendor?['storeNameAr'] ?? vendor?['storeName'] ?? vendor?['name'] ?? '')
@@ -2574,11 +2623,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final branchAddress = branch?['address']?.toString() ?? '';
     final branchPhone = branch?['phone']?.toString() ?? vendor?['phone']?.toString() ?? '';
     final isContracted = branch?['isContracted'] ?? vendor?['isContracted'] ?? false;
-    final storeLogo = _firstNonEmptyMedia([
-          vendor?['logo'],
-          vendor?['logoUrl'],
-        ]) ??
-        '';
+    final storeLogo = _resolveOrderVendorLogo(
+      vendor,
+      order: order,
+      fulfillmentId: singleFulfillment?['id']?.toString(),
+    );
 
     final specialRequest = order['specialRequest']?.toString();
 
@@ -2601,7 +2650,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AppNetworkAvatar(
-                  imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                  key: ValueKey(
+                    'ord_single_vendor_${order['id'] ?? ''}_${vendor?['id'] ?? ''}_$storeLogo',
+                  ),
+                  imageUrl: storeLogo,
                   size: 38,
                   borderRadius: 10,
                   fallbackIcon: LucideIcons.store,
@@ -4149,7 +4201,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
       final custUser = order['customer'] is Map ? (order['customer']['user'] as Map?) : null;
       final vendorMap = order['vendor'] is Map ? (order['vendor'] as Map) : null;
-      final chatAvatar = custUser?['avatar']?.toString() ?? vendorMap?['logo']?.toString();
+      final resolvedVLogo = _resolveOrderVendorLogo(vendorMap, order: order);
+      final chatAvatar = custUser?['avatar']?.toString() ??
+          (resolvedVLogo.isNotEmpty ? resolvedVLogo : null);
 
       if (!context.mounted) return;
       Navigator.of(context).push(

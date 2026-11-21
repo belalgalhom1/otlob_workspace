@@ -3,11 +3,38 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/env_config.dart';
 
 class ImageUtils {
+  /// Returns the first non-null, non-empty string in [candidates], trimmed.
+  static String? firstNonEmptyString(Iterable<dynamic> candidates) {
+    for (final candidate in candidates) {
+      final s = candidate?.toString().trim();
+      if (s != null && s.isNotEmpty) return s;
+    }
+    return null;
+  }
+
+  /// Resolves a vendor's display image URL (`logo` -> `logoUrl` -> `vendorLogo`
+  /// -> `coverImage` -> `image`) and normalizes relative paths against `API_URL`.
+  static String resolveVendorLogoUrl(dynamic vendor) {
+    if (vendor is! Map) return '';
+    return formatImageUrl(
+      firstNonEmptyString([
+        vendor['logo'],
+        vendor['logoUrl'],
+        vendor['vendorLogo'],
+        vendor['coverImage'],
+        vendor['image'],
+      ]),
+    );
+  }
+
   static String formatImageUrl(String? url) {
-    if (url == null || url.isEmpty) return '';
-    if (url.startsWith('http')) return url;
+    final trimmed = url?.trim();
+    if (trimmed == null || trimmed.isEmpty) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
     if (!dotenv.isInitialized || (dotenv.env['API_URL'] ?? '').isEmpty) {
-      return url;
+      return trimmed;
     }
 
     var base = EnvConfig.apiUrl;
@@ -16,7 +43,7 @@ class ImageUtils {
     }
 
     // Ensure URL starts with /
-    final path = url.startsWith('/') ? url : '/$url';
+    final path = trimmed.startsWith('/') ? trimmed : '/$trimmed';
     return '$base$path';
   }
 

@@ -153,7 +153,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
             ? '$vendorStoreName - $branchName'
             : vendorStoreName.toString().trim())
         : (branchName?.toString().trim() ?? (isArabic ? 'المتجر' : 'Vendor'));
-    final vendorLogo = (vendor['logo'] ?? vendor['logoUrl'])?.toString();
+    final vendorLogo = ImageUtils.resolveVendorLogoUrl(vendor);
     final pickupAddress = order['pickupAddress']?.toString() ??
         vendorBranch['address']?.toString() ??
         vendor['address']?.toString() ??
@@ -301,8 +301,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                 final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
                 final fId = f['id']?.toString() ?? '';
                 final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
-                final fVendorLogo =
-                    (fVendor['logo'] ?? fVendor['logoUrl'])?.toString();
+                final fVendorLogo = ImageUtils.resolveVendorLogoUrl(fVendor);
                 final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
                 final sName = isArabic
                     ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? 'متجر')
@@ -656,8 +655,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
               () {
                 final f = fulfillments[i] is Map ? fulfillments[i] as Map : {};
                 final fVendor = f['vendor'] is Map ? f['vendor'] as Map : {};
-                final fVendorLogo =
-                    (fVendor['logo'] ?? fVendor['logoUrl'])?.toString();
+                final fVendorLogo = ImageUtils.resolveVendorLogoUrl(fVendor);
                 final fBranch = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
                 final sName = isArabic
                     ? (fVendor['storeNameAr'] ?? fVendor['storeName'] ?? 'متجر')
@@ -673,7 +671,8 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       AppNetworkAvatar(
-                        imageUrl: ImageUtils.formatImageUrl(fVendorLogo),
+                        key: ValueKey('dlg_route_stop_logo_${fVendor['id'] ?? i}_$fVendorLogo'),
+                        imageUrl: fVendorLogo,
                         size: 24,
                         borderRadius: 6,
                         fallbackIcon: LucideIcons.store,

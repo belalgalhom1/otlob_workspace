@@ -37,6 +37,8 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
   bool _isLoadingVerticals = true;
   XFile? _pickedImage;
   Uint8List? _pickedImageBytes;
+  XFile? _pickedLogo;
+  Uint8List? _pickedLogoBytes;
   bool _isContracted = false;
   bool _isScheduleActive = true;
   bool _is24Hours = false;
@@ -490,16 +492,133 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
   Widget _buildImagePicker() {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final existingCover =
-        widget.vendor?['coverImage'] ?? widget.vendor?['image'];
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final existingLogo = ImageUtils.firstNonEmptyString([
+      widget.vendor?['logo'],
+      widget.vendor?['logoUrl'],
+    ]);
+    final existingCover = ImageUtils.firstNonEmptyString([
+      widget.vendor?['coverImage'],
+      widget.vendor?['image'],
+    ]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        AppFieldLabel(label: isArabic ? 'شعار المتجر (Logo)' : 'Store Logo'),
+        Row(
+          children: [
+            Builder(
+              builder: (logoCtx) => InkWell(
+                onTap: () => _pickVendorMedia(logoCtx, isLogo: true),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 92,
+                  height: 92,
+                  decoration: BoxDecoration(
+                    color: AppDialogStyles.subtleSurfaceColor(context),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppDialogStyles.borderColor(context),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: _pickedLogo != null
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: _buildLocalImagePreview(
+                                file: _pickedLogo!,
+                                bytes: _pickedLogoBytes,
+                                height: 92,
+                                width: 92,
+                              ),
+                            ),
+                            PositionedDirectional(
+                              end: 4,
+                              top: 4,
+                              child: _buildClearMediaButton(() {
+                                setState(() {
+                                  _pickedLogo = null;
+                                  _pickedLogoBytes = null;
+                                });
+                              }),
+                            ),
+                          ],
+                        )
+                      : existingLogo != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: AppNetworkAvatar(
+                                key: ValueKey('dlg_logo_$existingLogo'),
+                                imageUrl: ImageUtils.formatImageUrl(existingLogo),
+                                size: 92,
+                                borderRadius: 15,
+                                fallbackIcon: LucideIcons.store,
+                                fallbackIconSize: 28,
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  LucideIcons.store,
+                                  size: 24,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  isArabic ? 'شعار' : 'Logo',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Builder(
+                builder: (btnCtx) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isArabic
+                          ? 'يظهر شعار المتجر بجانب الطلبات وفي قائمة المتاجر.'
+                          : 'Appears next to store orders and in vendor cards.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _pickVendorMedia(btnCtx, isLogo: true),
+                      icon: const Icon(LucideIcons.upload, size: 14),
+                      label: Text(
+                        existingLogo != null || _pickedLogo != null
+                            ? (isArabic ? 'تغيير الشعار' : 'Change Logo')
+                            : (isArabic ? 'رفع الشعار' : 'Upload Logo'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         AppFieldLabel(label: l10n.uploadCover),
         Builder(
           builder: (imgCtx) => InkWell(
-            onTap: () => _pickImage(imgCtx),
+            onTap: () => _pickVendorMedia(imgCtx, isLogo: false),
             borderRadius: BorderRadius.circular(14),
             child: Container(
               height: 150,
@@ -517,45 +636,22 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(13),
-                          child: _pickedImageBytes != null
-                              ? Image.memory(
-                                  _pickedImageBytes!,
-                                  height: 150,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                )
-                              : kIsWeb
-                                  ? Image.network(
-                                      _pickedImage!.path,
-                                      height: 150,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.file(
-                                      File(_pickedImage!.path),
-                                      height: 150,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                    ),
+                          child: _buildLocalImagePreview(
+                            file: _pickedImage!,
+                            bytes: _pickedImageBytes,
+                            height: 150,
+                            width: double.infinity,
+                          ),
                         ),
                         PositionedDirectional(
                           end: 10,
                           top: 10,
-                          child: IconButton(
-                            icon: const Icon(
-                              LucideIcons.trash2,
-                              color: AppColors.error,
-                              size: 18,
-                            ),
-                            onPressed: () => setState(() {
+                          child: _buildClearMediaButton(() {
+                            setState(() {
                               _pickedImage = null;
                               _pickedImageBytes = null;
-                            }),
-                            style: IconButton.styleFrom(
-                              backgroundColor:
-                                  Colors.black.withValues(alpha: 0.72),
-                            ),
-                          ),
+                            });
+                          }),
                         ),
                       ],
                     )
@@ -617,6 +713,33 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
     );
   }
 
+  Widget _buildLocalImagePreview({
+    required XFile file,
+    required Uint8List? bytes,
+    required double height,
+    required double width,
+  }) {
+    if (bytes != null) {
+      return Image.memory(bytes, height: height, width: width, fit: BoxFit.cover);
+    }
+    if (kIsWeb) {
+      return Image.network(file.path, height: height, width: width, fit: BoxFit.cover);
+    }
+    return Image.file(File(file.path), height: height, width: width, fit: BoxFit.cover);
+  }
+
+  Widget _buildClearMediaButton(VoidCallback onPressed) {
+    return IconButton(
+      icon: const Icon(LucideIcons.trash2, color: AppColors.error, size: 16),
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.black.withValues(alpha: 0.72),
+        minimumSize: const Size(28, 28),
+        padding: const EdgeInsets.all(4),
+      ),
+    );
+  }
+
   Widget _buildCoverPlaceholder(ThemeData theme, AppLocalizations l10n) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -646,7 +769,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
     );
   }
 
-  Future<void> _pickImage(BuildContext ctx) async {
+  Future<void> _pickVendorMedia(BuildContext ctx, {required bool isLogo}) async {
     try {
       final picker = ImagePicker();
       final XFile? image = await picker.pickImage(
@@ -662,21 +785,25 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
       try {
         final cropped = await ImageCropper().cropImage(
           sourcePath: image.path,
-          aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 8),
+          aspectRatio: isLogo
+              ? const CropAspectRatio(ratioX: 1, ratioY: 1)
+              : const CropAspectRatio(ratioX: 16, ratioY: 8),
           compressQuality: 82,
-          maxWidth: 1440,
-          maxHeight: 720,
+          maxWidth: isLogo ? 1024 : 1440,
+          maxHeight: isLogo ? 1024 : 720,
           uiSettings: [
             AndroidUiSettings(
-              toolbarTitle: 'Crop Store Cover',
+              toolbarTitle: isLogo ? 'Crop Store Logo' : 'Crop Store Cover',
               toolbarColor: const Color(0xFFD4920E),
               toolbarWidgetColor: Colors.white,
               activeControlsWidgetColor: const Color(0xFFD4920E),
-              initAspectRatio: CropAspectRatioPreset.ratio16x9,
+              initAspectRatio: isLogo
+                  ? CropAspectRatioPreset.square
+                  : CropAspectRatioPreset.ratio16x9,
               lockAspectRatio: true,
             ),
             IOSUiSettings(
-              title: 'Crop Store Cover',
+              title: isLogo ? 'Crop Store Logo' : 'Crop Store Cover',
               aspectRatioLockEnabled: true,
               resetAspectRatioEnabled: false,
             ),
@@ -692,17 +819,20 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         finalImage = image;
       }
 
-      if (finalImage == null) return;
-
       final bytes = await finalImage.readAsBytes();
       if (mounted) {
         setState(() {
-          _pickedImage = finalImage;
-          _pickedImageBytes = bytes;
+          if (isLogo) {
+            _pickedLogo = finalImage;
+            _pickedLogoBytes = bytes;
+          } else {
+            _pickedImage = finalImage;
+            _pickedImageBytes = bytes;
+          }
         });
       }
     } catch (e) {
-      debugPrint('Error picking cover image: $e');
+      debugPrint('Error picking vendor image: $e');
       MediaPermissionHelper.handlePickerError(
         e,
         context: ctx.mounted ? ctx : (mounted ? context : null),
@@ -1202,6 +1332,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
         'commissionRate': double.tryParse(_commissionController.text) ?? 10.0,
       'verticalId': _selectedVerticalId,
       'phone': _phoneController.text,
+      'logo': _pickedLogo,
       'coverImage': _pickedImage,
       'isContracted': _isContracted,
       'isScheduleActive': _isScheduleActive,

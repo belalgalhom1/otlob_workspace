@@ -8,6 +8,7 @@ import {
 } from '../../../common/orders/order-financials.helper';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../../platform-settings/platform-settings.service';
+import { resolveVendorDisplayLogo } from '../helpers/order-actor.helper';
 import { OrderAuthorizationHelper } from '../helpers/order-authorization.helper';
 
 export interface RoleProjectionContext {
@@ -657,11 +658,12 @@ export class OrderRoleProjector {
       viewingDriverId: myDriver?.id ?? projectedDriverId,
       status: projectedStatus,
       isStacked: projectedIsStacked,
-      vendor:
+      vendor: this.normalizeVendorProjection(
         groupVendor ??
-        (normalizedScopedFulfillments?.length === 1
-          ? (order.vendor ?? null)
-          : null),
+          (normalizedScopedFulfillments?.length === 1
+            ? (order.vendor ?? null)
+            : null),
+      ),
       vendorBranch: groupVendorBranch,
       pickupLocation: groupPickupLocation,
       pickupAddress: groupPickupAddress,
@@ -1050,7 +1052,7 @@ export class OrderRoleProjector {
       deliveryGroups: [],
       driverId: portionGroup?.primaryDriverId ?? normalizedDriver?.id ?? null,
       driver: normalizedDriver,
-      vendor: primaryFulfillment?.vendor ?? null,
+      vendor: this.normalizeVendorProjection(primaryFulfillment?.vendor ?? null),
       vendorBranch: primaryFulfillment?.vendorBranch ?? null,
       financials: {
         viewRole: 'VENDOR',
@@ -1111,10 +1113,9 @@ export class OrderRoleProjector {
         .map((i: any) => this.normalizeItemImage(i));
     }
     if (sanitized.vendor) {
-      sanitized.vendor = omitKeys(sanitized.vendor, [
-        'commissionRate',
-        'walletBalance',
-      ]);
+      sanitized.vendor = this.normalizeVendorProjection(
+        omitKeys(sanitized.vendor, ['commissionRate', 'walletBalance']),
+      );
     }
     if (sanitized.vendorBranch) {
       sanitized.vendorBranch = omitKeys(sanitized.vendorBranch, [
@@ -1202,7 +1203,9 @@ export class OrderRoleProjector {
       }
 
       if (!sanitized.vendor && sanitized.vendorFulfillments.length === 1) {
-        sanitized.vendor = sanitized.vendorFulfillments[0].vendor ?? null;
+        sanitized.vendor = this.normalizeVendorProjection(
+          sanitized.vendorFulfillments[0].vendor ?? null,
+        );
         if (
           !sanitized.vendorBranch &&
           sanitized.vendorFulfillments[0].vendorBranch
@@ -1433,7 +1436,7 @@ export class OrderRoleProjector {
       };
       vendorBranch = null;
     } else if (fulfillments.length === 1) {
-      vendor = fulfillments[0].vendor ?? null;
+      vendor = this.normalizeVendorProjection(fulfillments[0].vendor ?? null);
       vendorBranch = fulfillments[0].vendorBranch ?? null;
     }
 
@@ -1530,7 +1533,7 @@ export class OrderRoleProjector {
     return {
       fulfillmentId: f.id,
       vendorId: f.vendorId,
-      vendorLogo: f.vendor?.logo ?? null,
+      vendorLogo: resolveVendorDisplayLogo(f.vendor),
       vendorName:
         f.vendor?.storeNameAr ??
         f.vendor?.storeName ??
@@ -1589,6 +1592,16 @@ export class OrderRoleProjector {
     return labels;
   }
 
+  private normalizeVendorProjection(vendor: any) {
+    if (!vendor || typeof vendor !== 'object') return vendor ?? null;
+    const resolvedLogo = resolveVendorDisplayLogo(vendor);
+    if (resolvedLogo == null || vendor.logo === resolvedLogo) return vendor;
+    return {
+      ...vendor,
+      logo: resolvedLogo,
+    };
+  }
+
   private normalizeDriverProjection(driver: any) {
     if (!driver || typeof driver !== 'object') return null;
     const resolvedAvatar = driver.avatar ?? driver.user?.avatar ?? null;
@@ -1630,6 +1643,9 @@ export class OrderRoleProjector {
             : [];
       return {
         ...f,
+        ...(f.vendor !== undefined
+          ? { vendor: this.normalizeVendorProjection(f.vendor) }
+          : {}),
         items: rawItems
           .filter((i: any) => i?.rejectedAt == null)
           .map((i: any) => this.normalizeItemImage(i)),

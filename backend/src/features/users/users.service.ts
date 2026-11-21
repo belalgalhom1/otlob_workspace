@@ -367,7 +367,14 @@ export class UsersService {
           ...USER_SELECT,
           vendorMemberships: {
             include: {
-              vendor: { select: { id: true, storeName: true, logo: true } },
+              vendor: {
+                select: {
+                  id: true,
+                  storeName: true,
+                  logo: true,
+                  coverImage: true,
+                },
+              },
             },
           },
         },
@@ -407,7 +414,14 @@ export class UsersService {
           select: {
             id: true,
             role: true,
-            vendor: { select: { id: true, storeName: true, logo: true } },
+            vendor: {
+              select: {
+                id: true,
+                storeName: true,
+                logo: true,
+                coverImage: true,
+              },
+            },
           },
         },
         // Customer profile snapshot (if CUSTOMER)

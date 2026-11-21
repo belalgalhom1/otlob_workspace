@@ -46,14 +46,14 @@ class VendorContextSwitcher extends ConsumerWidget {
                           ? (vendor?['storeNameAr'] ?? vendor?['storeName'])
                           : (vendor?['storeName'] ?? vendor?['storeNameAr']))
                       ?.toString();
-                  final storeLogo =
-                      (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
+                  final storeLogo = ImageUtils.resolveVendorLogoUrl(vendor);
                   final display =
                       (storeName != null && storeName.isNotEmpty) ? storeName : vId;
                   if (!isMobile) {
                     return Center(
                       child: AppNetworkAvatar(
-                        imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                        key: ValueKey('ctx_mob_logo_${vId}_$storeLogo'),
+                        imageUrl: storeLogo,
                         size: 24,
                         borderRadius: 6,
                         fallbackIcon: LucideIcons.store,
@@ -66,7 +66,8 @@ class VendorContextSwitcher extends ConsumerWidget {
                     child: Row(
                       children: [
                         AppNetworkAvatar(
-                          imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                          key: ValueKey('ctx_bar_logo_${vId}_$storeLogo'),
+                          imageUrl: storeLogo,
                           size: 22,
                           borderRadius: 6,
                           fallbackIcon: LucideIcons.store,
@@ -93,8 +94,7 @@ class VendorContextSwitcher extends ConsumerWidget {
                 final role = member['role']?.toString() ?? '';
                 final vendor = member['vendor'] as Map<String, dynamic>?;
                 final branch = member['branch'] as Map<String, dynamic>?;
-                final storeLogo =
-                    (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
+                final storeLogo = ImageUtils.resolveVendorLogoUrl(vendor);
                 final storeName = (isAr
                         ? (vendor?['storeNameAr'] ?? vendor?['storeName'])
                         : (vendor?['storeName'] ?? vendor?['storeNameAr']))
@@ -115,7 +115,8 @@ class VendorContextSwitcher extends ConsumerWidget {
                   child: Row(
                     children: [
                       AppNetworkAvatar(
-                        imageUrl: ImageUtils.formatImageUrl(storeLogo),
+                        key: ValueKey('ctx_item_logo_${vId}_$storeLogo'),
+                        imageUrl: storeLogo,
                         size: 28,
                         borderRadius: 7,
                         fallbackIcon: LucideIcons.store,

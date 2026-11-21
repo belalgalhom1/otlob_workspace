@@ -664,39 +664,21 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
 
   Widget _buildVendorThumbnail(BuildContext context, dynamic v) {
     final theme = Theme.of(context);
-    final imageUrl = ImageUtils.formatImageUrl(v['coverImage'] ?? v['image'] ?? v['logo']);
+    final imageUrl = ImageUtils.resolveVendorLogoUrl(v);
+    final vendorId = v is Map ? (v['id']?.toString() ?? '') : '';
 
-    return Container(
-      width: 68,
-      height: 68,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        border: Border.all(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(15),
-        child: imageUrl.isNotEmpty && imageUrl.startsWith('http')
-            ? Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Center(
-                  child: Icon(
-                    LucideIcons.store,
-                    color: AppColors.primary.withValues(alpha: 0.7),
-                    size: 26,
-                  ),
-                ),
-              )
-            : Center(
-                child: Icon(
-                  LucideIcons.store,
-                  color: AppColors.primary.withValues(alpha: 0.7),
-                  size: 26,
-                ),
-              ),
+    return AppNetworkAvatar(
+      key: ValueKey('vendor_list_logo_${vendorId}_$imageUrl'),
+      imageUrl: imageUrl,
+      size: 68,
+      borderRadius: 16,
+      fallbackIcon: LucideIcons.store,
+      fallbackIconSize: 26,
+      backgroundColor:
+          theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+      foregroundColor: AppColors.primary.withValues(alpha: 0.7),
+      border: Border.all(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
       ),
     );
   }

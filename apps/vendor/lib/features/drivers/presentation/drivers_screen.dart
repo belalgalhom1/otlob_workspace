@@ -27,6 +27,7 @@ import '../../zones/presentation/zone_provider.dart';
 import 'widgets/driver_map_details_card.dart';
 import 'widgets/driver_vehicle_icon.dart';
 import 'widgets/active_order_details_dialog.dart';
+import 'widgets/horizontal_action_strip.dart';
 
 class DriversScreen extends ConsumerStatefulWidget {
   const DriversScreen({super.key});
@@ -1395,42 +1396,57 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
           const SizedBox(height: 10),
 
           // Row 2: Status Filter Chips & Zone Selector & Auxiliary Action Buttons
-          SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _buildStatusChip(null, l10n.filterAll),
-                _buildStatusChip('ONLINE', l10n.statusOnline, color: AppColors.success),
-                _buildStatusChip('ON_DELIVERY', l10n.statusOnDelivery, color: Colors.blue),
-                _buildStatusChip('ON_BREAK', l10n.statusOnBreak, color: AppColors.warning),
-                _buildStatusChip('OFFLINE', l10n.statusOffline, color: Colors.grey),
-                _buildStatusChip('SUSPENDED', l10n.statusSuspended, color: AppColors.error),
+          HorizontalActionStrip(
+            spacing: 8,
+            children: [
+              _buildStatusChip(null, l10n.filterAll),
+              _buildStatusChip('ONLINE', l10n.statusOnline, color: AppColors.success),
+              _buildStatusChip('ON_DELIVERY', l10n.statusOnDelivery, color: Colors.blue),
+              _buildStatusChip('ON_BREAK', l10n.statusOnBreak, color: AppColors.warning),
+              _buildStatusChip('OFFLINE', l10n.statusOffline, color: Colors.grey),
+              _buildStatusChip('SUSPENDED', l10n.statusSuspended, color: AppColors.error),
 
-                Container(
-                  height: 24,
-                  width: 1,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
+              Container(
+                height: 24,
+                width: 1,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
+              ),
+
+              _buildZoneDropdown(zones, isArabic, l10n),
+
+              if (_canManageDrivers) ...[
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const DriverRankingAdminScreen(
+                          isEmbedded: false,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(LucideIcons.trophy, size: 14),
+                  label: Text(
+                    isArabic ? 'التصنيف الأسبوعي' : 'Weekly Ranking',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
-
-                _buildZoneDropdown(zones, isArabic, l10n),
-
-                if (_canManageDrivers) ...[
+                if (_canViewAllDriversStats)
                   OutlinedButton.icon(
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => const DriverRankingAdminScreen(
-                            isEmbedded: false,
-                          ),
+                          builder: (_) => const AllDriversStatisticsScreen(),
                         ),
                       );
                     },
-                    icon: const Icon(LucideIcons.trophy, size: 14),
+                    icon: const Icon(LucideIcons.chartNoAxesCombined, size: 14),
                     label: Text(
-                      isArabic ? 'التصنيف الأسبوعي' : 'Weekly Ranking',
+                      isArabic ? 'إحصائيات كل السائقين' : 'All Drivers Stats',
                       style: const TextStyle(fontSize: 12),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -1438,54 +1454,18 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
-                  if (_canViewAllDriversStats)
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const AllDriversStatisticsScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(LucideIcons.chartNoAxesCombined, size: 14),
-                      label: Text(
-                        isArabic ? 'إحصائيات كل السائقين' : 'All Drivers Stats',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  if (!_isDriverManager)
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const DriverManagersScreen(isEmbedded: false),
-                          ),
-                        );
-                      },
-                      icon: const Icon(LucideIcons.userCheck, size: 14),
-                      label: Text(
-                        isArabic ? 'مسؤولو السائقين' : 'Driver Managers',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
+                if (!_isDriverManager)
                   OutlinedButton.icon(
                     onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => const AssistRequestsDialog(),
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const DriverManagersScreen(isEmbedded: false),
+                        ),
                       );
                     },
-                    icon: const Icon(LucideIcons.lifeBuoy, size: 14),
+                    icon: const Icon(LucideIcons.userCheck, size: 14),
                     label: Text(
-                      isArabic ? 'طلبات المساعدة' : 'Assist Requests',
+                      isArabic ? 'مسؤولو السائقين' : 'Driver Managers',
                       style: const TextStyle(fontSize: 12),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -1493,27 +1473,43 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
-                ],
-
-                if (hasActiveFilters)
-                  TextButton.icon(
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {
-                        _selectedStatus = null;
-                        _selectedZoneId = null;
-                        _selectedZonePolygon = [];
-                      });
-                      _applyFilters();
-                    },
-                    icon: const Icon(LucideIcons.x, size: 14, color: AppColors.error),
-                    label: Text(
-                      l10n.resetFilters,
-                      style: const TextStyle(fontSize: 12, color: AppColors.error),
-                    ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const AssistRequestsDialog(),
+                    );
+                  },
+                  icon: const Icon(LucideIcons.lifeBuoy, size: 14),
+                  label: Text(
+                    isArabic ? 'طلبات المساعدة' : 'Assist Requests',
+                    style: const TextStyle(fontSize: 12),
                   ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
               ],
-            ),
+
+              if (hasActiveFilters)
+                TextButton.icon(
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _selectedStatus = null;
+                      _selectedZoneId = null;
+                      _selectedZonePolygon = [];
+                    });
+                    _applyFilters();
+                  },
+                  icon: const Icon(LucideIcons.x, size: 14, color: AppColors.error),
+                  label: Text(
+                    l10n.resetFilters,
+                    style: const TextStyle(fontSize: 12, color: AppColors.error),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -1805,14 +1801,18 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                                   color: AppColors.primary,
                                 ),
                                 const SizedBox(width: 5),
-                                Directionality(
-                                  textDirection: TextDirection.ltr,
-                                  child: Text(
-                                    driver.phone!,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary,
+                                Flexible(
+                                  child: Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: Text(
+                                      driver.phone!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1921,29 +1921,36 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        driver.walletBalance < 0
-                            ? LucideIcons.alertTriangle
-                            : LucideIcons.wallet,
-                        size: 15,
-                        color: driver.walletBalance < 0
-                            ? AppColors.error
-                            : AppColors.success,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        driver.walletBalance < 0
-                            ? (isArabic ? 'المديونية المستحقة: ' : 'Owed Debt: ')
-                            : (isArabic ? 'رصيد المحفظة: ' : 'Wallet Balance: '),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          driver.walletBalance < 0
+                              ? LucideIcons.alertTriangle
+                              : LucideIcons.wallet,
+                          size: 15,
+                          color: driver.walletBalance < 0
+                              ? AppColors.error
+                              : AppColors.success,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            driver.walletBalance < 0
+                                ? (isArabic ? 'المديونية المستحقة: ' : 'Owed Debt: ')
+                                : (isArabic ? 'رصيد المحفظة: ' : 'Wallet Balance: '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '${_formatBalance(driver.walletBalance.abs())} ${l10n.egp}',
                     style: TextStyle(
@@ -1959,10 +1966,9 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
             ),
             const SizedBox(height: 12),
 
-            // Row 4: Responsive Wrap Action Strip
-            Wrap(
+            // Row 4: Horizontally scrollable action strip (LTR/RTL aware)
+            HorizontalActionStrip(
               spacing: 8,
-              runSpacing: 8,
               children: [
                 _buildActionPill(
                   icon: LucideIcons.wallet,

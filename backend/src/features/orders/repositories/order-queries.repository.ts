@@ -6,6 +6,7 @@ import {
   normalizeLegacyEventNote,
   OrderCancelledBySummary,
   resolveEventActorSummary,
+  resolveVendorDisplayLogo,
   sanitizeCancelReason,
 } from '../helpers/order-actor.helper';
 
@@ -242,6 +243,7 @@ const ORDER_VENDOR_FULFILLMENTS_INCLUDE = {
         storeName: true,
         storeNameAr: true,
         logo: true,
+        coverImage: true,
         isContracted: true,
         commissionRate: true,
         phone: true,
@@ -300,7 +302,13 @@ const ORDER_STATUS_EVENTS_INCLUDE = {
         id: true,
         vendorId: true,
         vendor: {
-          select: { id: true, storeName: true, storeNameAr: true, logo: true },
+          select: {
+            id: true,
+            storeName: true,
+            storeNameAr: true,
+            logo: true,
+            coverImage: true,
+          },
         },
         vendorBranch: {
           select: { id: true, name: true, nameAr: true },
@@ -317,7 +325,13 @@ const ORDER_STATUS_EVENTS_INCLUDE = {
       },
     },
     actorVendor: {
-      select: { id: true, storeName: true, storeNameAr: true, logo: true },
+      select: {
+        id: true,
+        storeName: true,
+        storeNameAr: true,
+        logo: true,
+        coverImage: true,
+      },
     },
   },
 };
@@ -598,6 +612,7 @@ export class OrderQueriesRepository {
                   storeName: true,
                   storeNameAr: true,
                   logo: true,
+                  coverImage: true,
                 },
               },
             },
@@ -663,7 +678,8 @@ export class OrderQueriesRepository {
             actor.name = matchedVendor.storeName || actor.name;
             actor.nameAr =
               matchedVendor.storeNameAr || matchedVendor.storeName || null;
-            actor.avatar = matchedVendor.logo ?? actor.avatar;
+            actor.avatar =
+              resolveVendorDisplayLogo(matchedVendor) ?? actor.avatar;
           }
         }
 
@@ -756,7 +772,7 @@ export class OrderQueriesRepository {
           actor.name = matchedVendor.storeName || actor.name;
           actor.nameAr =
             matchedVendor.storeNameAr || matchedVendor.storeName || null;
-          actor.avatar = matchedVendor.logo ?? actor.avatar;
+          actor.avatar = resolveVendorDisplayLogo(matchedVendor) ?? actor.avatar;
         }
       }
       return {
@@ -811,7 +827,10 @@ export class OrderQueriesRepository {
             lastRejected.vendor.storeName ||
             null,
           role: Role.VENDOR_MEMBER,
-          avatar: lastRejected.vendor.logo ?? decidedUser?.avatar ?? null,
+          avatar:
+            resolveVendorDisplayLogo(lastRejected.vendor) ??
+            decidedUser?.avatar ??
+            null,
           vendorId: lastRejected.vendor.id ?? lastRejected.vendorId ?? null,
           reason: rejectionReason,
           cancelledAt,

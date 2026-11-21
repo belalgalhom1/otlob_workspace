@@ -1709,12 +1709,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   fulfillments.first['vendor'] is Map
                               ? fulfillments.first['vendor'] as Map
                               : null);
-                      final rawVendorLogo = primaryVendor != null
-                          ? (primaryVendor['logo'] ?? primaryVendor['logoUrl'])
-                          : null;
-                      final vendorLogo = orderType.isNonStandard
+                      final resolvedVendorLogo = orderType.isNonStandard
                           ? null
-                          : rawVendorLogo?.toString();
+                          : ImageUtils.resolveVendorLogoUrl(primaryVendor);
+                      final vendorLogo = (resolvedVendorLogo != null &&
+                              resolvedVendorLogo.isNotEmpty)
+                          ? resolvedVendorLogo
+                          : null;
 
                       String? resolvedVendorName;
                       if (fulfillments.length > 1) {

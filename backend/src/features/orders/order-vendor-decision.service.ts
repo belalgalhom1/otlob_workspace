@@ -595,6 +595,7 @@ export class OrderVendorDecisionService {
           storeName: true,
           storeNameAr: true,
           logo: true,
+          coverImage: true,
           isContracted: true,
           commissionRate: true,
           phone: true,

@@ -48,6 +48,18 @@ export interface EventActorVendorInfo {
   storeName?: string | null;
   storeNameAr?: string | null;
   logo?: string | null;
+  coverImage?: string | null;
+}
+
+export function resolveVendorDisplayLogo(
+  vendor?: { logo?: string | null; coverImage?: string | null } | null,
+): string | null {
+  if (!vendor) return null;
+  const logo = typeof vendor.logo === 'string' ? vendor.logo.trim() : '';
+  if (logo.length > 0) return logo;
+  const cover =
+    typeof vendor.coverImage === 'string' ? vendor.coverImage.trim() : '';
+  return cover.length > 0 ? cover : null;
 }
 
 export interface EventActorUserInfo {
@@ -208,6 +220,7 @@ export async function resolveOrderActorSnapshot(
                 storeName: true,
                 storeNameAr: true,
                 logo: true,
+                coverImage: true,
               },
             },
           },
@@ -244,6 +257,7 @@ export async function resolveOrderActorSnapshot(
                 storeName: true,
                 storeNameAr: true,
                 logo: true,
+                coverImage: true,
               },
             },
           },
@@ -278,6 +292,7 @@ export async function resolveOrderActorSnapshot(
                 storeName: true,
                 storeNameAr: true,
                 logo: true,
+                coverImage: true,
               },
             },
           },
@@ -294,7 +309,7 @@ export async function resolveOrderActorSnapshot(
           actorRole: Role.VENDOR_MEMBER,
           actorName: vendor.storeName || user.name || 'Vendor',
           actorNameAr: vendor.storeNameAr || vendor.storeName || null,
-          actorAvatar: vendor.logo ?? user.avatar ?? null,
+          actorAvatar: resolveVendorDisplayLogo(vendor) ?? user.avatar ?? null,
           actorVendorId: vendor.id ?? null,
           isSystem: false,
         };
@@ -487,7 +502,11 @@ export function resolveEventActorSummary(
     const storeName =
       vendor?.storeName ?? ev?.actorName ?? user?.name ?? 'Vendor';
     const storeNameAr = vendor?.storeNameAr ?? ev?.actorNameAr ?? null;
-    const avatar = vendor?.logo ?? ev?.actorAvatar ?? user?.avatar ?? null;
+    const avatar =
+      resolveVendorDisplayLogo(vendor) ??
+      ev?.actorAvatar ??
+      user?.avatar ??
+      null;
     return {
       id: uid,
       name: storeName,

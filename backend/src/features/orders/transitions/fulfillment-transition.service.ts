@@ -208,7 +208,12 @@ export class FulfillmentTransitionService {
           id: true,
           vendorId: true,
           vendor: {
-            select: { storeName: true, storeNameAr: true, logo: true },
+            select: {
+              storeName: true,
+              storeNameAr: true,
+              logo: true,
+              coverImage: true,
+            },
           },
           vendorBranch: { select: { name: true, nameAr: true } },
         },
@@ -359,7 +364,13 @@ export class FulfillmentTransitionService {
       where: { id: fulfillmentId, orderId },
       include: {
         vendor: {
-          select: { id: true, storeName: true, storeNameAr: true, logo: true },
+          select: {
+            id: true,
+            storeName: true,
+            storeNameAr: true,
+            logo: true,
+            coverImage: true,
+          },
         },
         vendorBranch: { select: { id: true, name: true, nameAr: true } },
         groups: {
