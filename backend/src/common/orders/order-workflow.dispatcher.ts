@@ -145,6 +145,8 @@ export class OrderWorkflowDispatcher {
   /**
    * Ensure outbox crash recovery re-drives workflow orchestration alongside
    * QUEUES.EVENTS fan-out without relying on EventsProcessor for dispatch/settle.
+   * Propagates errors so OutboxService does NOT mark the row processed when a
+   * workflow queue (QUEUES.DISPATCH / QUEUES.ORDERS) fails.
    */
   async triggerForOutboxRow(eventType: string, payload: any): Promise<void> {
     if (!payload) return;
@@ -160,6 +162,7 @@ export class OrderWorkflowDispatcher {
       this.logger.warn(
         `Failed workflow dispatch for outbox ${eventType}: ${error instanceof Error ? error.message : String(error)}`,
       );
+      throw error;
     }
   }
 }

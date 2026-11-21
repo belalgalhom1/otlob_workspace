@@ -106,6 +106,26 @@ export class LocationRepository {
     return ts !== null;
   }
 
+  /**
+   * Batch-check Redis GPS freshness keys in a single MGET round-trip.
+   * Returns the subset of `driverIds` whose freshness key is still alive.
+   */
+  async filterFreshDriverIds(driverIds: string[]): Promise<Set<string>> {
+    if (driverIds.length === 0) return new Set();
+    if (typeof this.redis.mget !== 'function') {
+      return new Set(driverIds);
+    }
+    const keys = driverIds.map((id) => `${DRIVER_FRESHNESS_KEY_PREFIX}${id}`);
+    const values = await this.redis.mget(keys);
+    const fresh = new Set<string>();
+    for (let i = 0; i < driverIds.length; i++) {
+      if (values[i] !== null && values[i] !== undefined) {
+        fresh.add(driverIds[i]);
+      }
+    }
+    return fresh;
+  }
+
   async getDriverLocation(
     driverId: string,
   ): Promise<{ lng: number; lat: number } | null> {
@@ -301,6 +321,7 @@ export class LocationRepository {
     maxCustomerMeters: number;
     activeOrderStatuses: readonly string[];
     dropoffLocation?: { lng: number; lat: number } | null;
+    allowStacking?: boolean;
   }): Promise<NearbyDriverCandidateRow[]> {
     const {
       candidateIds,
@@ -313,6 +334,7 @@ export class LocationRepository {
       maxCustomerMeters,
       activeOrderStatuses,
       dropoffLocation,
+      allowStacking = true,
     } = params;
 
     if (candidateIds.length === 0 || allowedVehicleTypes.length === 0) {
@@ -341,6 +363,7 @@ export class LocationRepository {
           LEFT JOIN vendor_branches b ON b.id = f."vendorBranchId"
           WHERE (g."primaryDriverId" = d.id OR g."assistDriverId" = d.id)
             ${activeStatusCond}
+            AND o.type::text <> 'RIDE'
             AND ST_DWithin(
               COALESCE(b."location", o."pickupLocation")::geography,
               ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
@@ -355,17 +378,20 @@ export class LocationRepository {
       : Prisma.empty;
 
     const driverAvailabilityCond =
-      maxActiveOrders > 1
+      maxActiveOrders > 1 && allowStacking
         ? Prisma.sql`AND (
             d.status::text = 'ONLINE'
             OR (
               d.status::text = 'ON_DELIVERY'
-              AND (
-                SELECT COUNT(*)::int
+              AND EXISTS (
+                SELECT 1
                 FROM order_delivery_groups g
+                JOIN orders o ON o.id = g."orderId"
                 WHERE (g."primaryDriverId" = d.id OR g."assistDriverId" = d.id)
                   ${activeStatusCond}
-              ) < ${maxActiveOrders}
+                HAVING COUNT(*)::int < ${maxActiveOrders}
+                  AND COUNT(*) FILTER (WHERE o.type::text = 'RIDE') = 0
+              )
               ${corridorCond}
             )
           )`

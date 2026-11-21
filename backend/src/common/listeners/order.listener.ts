@@ -2,33 +2,39 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { SocketService } from '../../infrastructure/socket/socket.service';
-import { NotificationType } from '@prisma/client';
 import {
-  OrderCreatedEvent,
-  OrderStatusChangedEvent,
+  NotificationType,
+  OrderVendorFulfillmentStatus,
+} from '@prisma/client';
+import { SocketService } from '../../infrastructure/socket/socket.service';
+import {
   OrderCancelledEvent,
-  OrderDispatchSentEvent,
-  OrderDispatchRespondedEvent,
+  OrderCreatedEvent,
   OrderDispatchCancelledEvent,
-  OrderSettledEvent,
-  OrderPaymentStatusChangedEvent,
-  OrderFulfillmentUpdatedEvent,
+  OrderDispatchRespondedEvent,
+  OrderDispatchSentEvent,
   OrderFulfillmentDecidedEvent,
+  OrderFulfillmentUpdatedEvent,
+  OrderPaymentStatusChangedEvent,
+  OrderSettledEvent,
+  OrderStatusChangedEvent,
+  OrderVendorRejectedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
+import { WS_EVENTS } from '../events/ws-events';
 import {
-  QUEUES,
   EVENT_JOBS,
+  QUEUES,
 } from '../../infrastructure/queue/queues.constants';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { OrderWorkflowDispatcher } from '../orders/order-workflow.dispatcher';
 
-const WS = {
-  ORDER_STATUS: 'order.status',
-  DISPATCH_CANCELLED: 'dispatch.cancelled',
-} as const;
-
+/**
+ * Owns all order lifecycle, payment, dispatch-queue fan-out, and multi-vendor
+ * fulfillment event listeners. Heavy side-effects run in worker processors
+ * (`EventsProcessor` on `QUEUES.EVENTS` and domain processors on
+ * `QUEUES.DISPATCH` / `QUEUES.ORDERS`).
+ */
 @Injectable()
 export class OrderListener {
   private readonly logger = new Logger(OrderListener.name);
@@ -39,12 +45,6 @@ export class OrderListener {
     private readonly outboxService: OutboxService,
     private readonly workflowDispatcher: OrderWorkflowDispatcher,
   ) {}
-
-  // Heavy side-effects run in worker processors (`EventsProcessor` on
-  // QUEUES.EVENTS and domain processors on QUEUES.DISPATCH / QUEUES.ORDERS).
-  // For outbox-backed lifecycle events we enqueue both paths before calling
-  // `outboxService.markProcessed`, so a partial queue failure is recovered by
-  // `OutboxService.relayPending()`.
 
   @OnEvent(EVENTS.ORDER_CREATED, { async: true })
   async handleOrderCreated(event: OrderCreatedEvent) {
@@ -91,13 +91,12 @@ export class OrderListener {
     ]);
     if (event.driverUserId) notifyUserIds.add(event.driverUserId);
 
-    // Socket-only, kept inline for realtime latency.
     notifyUserIds.forEach((uid) => {
       this.socketService
-        .emitToUser(uid, WS.ORDER_STATUS, socketPayload)
+        .emitToUser(uid, WS_EVENTS.ORDER_STATUS, socketPayload)
         .catch((err: unknown) =>
           this.logger.error(
-            `Failed to emit WS.ORDER_STATUS for user ${uid}: ${err instanceof Error ? err.message : String(err)}`,
+            `Failed to emit ${WS_EVENTS.ORDER_STATUS} for user ${uid}: ${err instanceof Error ? err.message : String(err)}`,
           ),
         );
     });
@@ -108,11 +107,14 @@ export class OrderListener {
   @OnEvent(EVENTS.ORDER_STATUS_CHANGED, { async: true })
   async handleOrderStatusChanged(event: OrderStatusChangedEvent) {
     try {
+      const dedupeSuffix = event.dedupeKey
+        ? `_${event.dedupeKey.replace(/:/g, '_')}`
+        : '';
       await Promise.all([
         this.eventsQueue.add(EVENT_JOBS.ORDER_STATUS_CHANGED, event, {
           jobId:
             typeof event.revision === 'number'
-              ? `notify_order_status_${event.orderId}_${event.revision}`
+              ? `notify_order_status_${event.orderId}_${event.revision}${dedupeSuffix}`
               : undefined,
           attempts: 3,
           backoff: { type: 'exponential', delay: 2_000 },
@@ -138,7 +140,10 @@ export class OrderListener {
     try {
       await Promise.all([
         this.eventsQueue.add(EVENT_JOBS.ORDER_CANCELLED, event, {
-          jobId: `notify_order_cancelled_${event.orderId}`,
+          jobId:
+            typeof event.revision === 'number'
+              ? `notify_order_cancelled_${event.orderId}_${event.revision}`
+              : `notify_order_cancelled_${event.orderId}`,
           attempts: 3,
           backoff: { type: 'exponential', delay: 2_000 },
         }),
@@ -182,15 +187,14 @@ export class OrderListener {
       `Dispatch cancelled for driver ${event.driverUserId} on order ${event.orderId}`,
     );
 
-    // Socket-only, kept inline for realtime latency.
     this.socketService
-      .emitToUser(event.driverUserId, WS.DISPATCH_CANCELLED, {
+      .emitToUser(event.driverUserId, WS_EVENTS.DISPATCH_CANCELLED, {
         dispatchId: event.dispatchId,
         orderId: event.orderId,
       })
       .catch((err: unknown) =>
         this.logger.error(
-          `Failed to emit WS.DISPATCH_CANCELLED for driver ${event.driverUserId}: ${err instanceof Error ? err.message : String(err)}`,
+          `Failed to emit ${WS_EVENTS.DISPATCH_CANCELLED} for driver ${event.driverUserId}: ${err instanceof Error ? err.message : String(err)}`,
         ),
       );
   }
@@ -214,49 +218,16 @@ export class OrderListener {
   // ─── Order settled ────────────────────────────────────────────────────────
 
   @OnEvent(EVENTS.ORDER_SETTLED)
-  async handleOrderSettled(event: OrderSettledEvent) {
+  handleOrderSettled(event: OrderSettledEvent) {
+    // Customer already receives the canonical outbox-backed "Your order was
+    // delivered!" notification on ORDER_STATUS_CHANGED (DELIVERED).
     this.logger.log(`Order ${event.orderNumber} settled`);
-
-    // Enqueue immediately on QUEUES.EVENTS so listeners never block on Prisma.
-    try {
-      if (event.customerUserId) {
-        await this.eventsQueue.add(
-          EVENT_JOBS.NOTIFY,
-          {
-            dto: {
-              userId: event.customerUserId,
-              title: 'Order delivered',
-              titleAr: 'تم توصيل الطلب',
-              body: `Order ${event.orderNumber} was delivered. Total: ${event.grandTotal}.`,
-              bodyAr: `تم توصيل الطلب ${event.orderNumber}. الإجمالي: ${event.grandTotal}.`,
-              type: NotificationType.ORDER_UPDATE,
-              data: { orderId: event.orderId, orderNumber: event.orderNumber },
-            },
-          },
-          { attempts: 1 },
-        );
-      } else {
-        await this.eventsQueue.add(
-          EVENT_JOBS.ORDER_SETTLED,
-          {
-            orderId: event.orderId,
-            orderNumber: event.orderNumber,
-            grandTotal: event.grandTotal,
-          },
-          { attempts: 2, backoff: { type: 'exponential', delay: 2_000 } },
-        );
-      }
-    } catch (error: unknown) {
-      this.logger.error(
-        `Failed to enqueue settled receipt: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
   }
 
-  // ─── Order fulfillment decided (Vendor Accept / Reject) ───────────────────
+  // ─── Multi-vendor fulfillment decisions & rejections ──────────────────────
 
-  @OnEvent(EVENTS.ORDER_FULFILLMENT_DECIDED)
-  handleOrderFulfillmentDecided(event: OrderFulfillmentDecidedEvent) {
+  @OnEvent(EVENTS.ORDER_FULFILLMENT_DECIDED, { async: true })
+  async handleOrderFulfillmentDecided(event: OrderFulfillmentDecidedEvent) {
     const notifyUserIds = new Set<string>([
       event.customerUserId,
       ...(event.vendorUserIds ?? []),
@@ -299,12 +270,77 @@ export class OrderListener {
     notifyUserIds.forEach((uid) => {
       if (!uid) return;
       this.socketService
-        .emitToUser(uid, 'order.fulfillment_updated', deltaPayload)
+        .emitToUser(uid, WS_EVENTS.ORDER_FULFILLMENT_UPDATED, deltaPayload)
         .catch(() => {});
       this.socketService
-        .emitToUser(uid, WS.ORDER_STATUS, statusPayload)
+        .emitToUser(uid, WS_EVENTS.ORDER_STATUS, statusPayload)
         .catch(() => {});
     });
+
+    if (event.status === OrderVendorFulfillmentStatus.ACCEPTED) {
+      try {
+        await this.eventsQueue.add(EVENT_JOBS.NOTIFY, {
+          dto: {
+            userId: event.customerUserId,
+            title: 'A vendor accepted part of your order',
+            titleAr: 'قبل أحد الموردين جزءًا من طلبك',
+            body: `Part of your order ${event.orderNumber} was accepted and is now being prepared.`,
+            bodyAr: `تم قبول جزء من طلبك ${event.orderNumber} ويجري تجهيزه الآن.`,
+            type: NotificationType.ORDER_UPDATE,
+            data: {
+              orderId: event.orderId,
+              type: 'FULFILLMENT_ACCEPTED',
+              fulfillmentId: event.fulfillmentId,
+            },
+          },
+        });
+      } catch (error: unknown) {
+        this.logger.error(
+          `Failed to enqueue fulfillment-accepted notification: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * A vendor rejected its portion. Tell the customer promptly, naming the
+   * vendor, the affected items, the reason, and the adjusted total.
+   */
+  @OnEvent(EVENTS.ORDER_VENDOR_REJECTED, { async: true })
+  async handleOrderVendorRejected(event: OrderVendorRejectedEvent) {
+    if (event.allPortionsRejected) return;
+
+    const items =
+      event.affectedItemNames.length > 0
+        ? event.affectedItemNames.join(', ')
+        : 'some items';
+    const money =
+      event.refundAmount > 0
+        ? ` ${event.refundAmount} EGP was removed from your total.`
+        : '';
+
+    try {
+      await this.eventsQueue.add(EVENT_JOBS.NOTIFY, {
+        dto: {
+          userId: event.customerUserId,
+          title: 'Part of your order was unavailable',
+          titleAr: 'جزء من طلبك غير متوفر',
+          body: `${event.vendorName} could not fulfil: ${items}. ${event.rejectionReason}.${money}`,
+          bodyAr: `${event.vendorNameAr ?? event.vendorName} لم يستطع تلبية الطلب: ${items}. ${event.rejectionReasonAr ?? event.rejectionReason}.${money}`,
+          type: NotificationType.ORDER_UPDATE,
+          data: {
+            orderId: event.orderId,
+            type: 'VENDOR_PORTION_REJECTED',
+            fulfillmentId: event.fulfillmentId,
+            refundAmount: event.refundAmount,
+          },
+        },
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to enqueue vendor-rejected notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   // ─── Order fulfillment updated (Multi-Vendor Delta) ───────────────────────
@@ -336,18 +372,16 @@ export class OrderListener {
     ]);
 
     notifyUserIds.forEach((uid) => {
-      // 1. Emit dedicated real-time delta event
       this.socketService
-        .emitToUser(uid, 'order.fulfillment_updated', deltaPayload)
+        .emitToUser(uid, WS_EVENTS.ORDER_FULFILLMENT_UPDATED, deltaPayload)
         .catch((err: unknown) =>
           this.logger.error(
-            `Failed to emit order.fulfillment_updated for user ${uid}: ${err instanceof Error ? err.message : String(err)}`,
+            `Failed to emit ${WS_EVENTS.ORDER_FULFILLMENT_UPDATED} for user ${uid}: ${err instanceof Error ? err.message : String(err)}`,
           ),
         );
 
-      // 2. Also emit on order.status with enriched delta for backwards compatibility
       this.socketService
-        .emitToUser(uid, WS.ORDER_STATUS, {
+        .emitToUser(uid, WS_EVENTS.ORDER_STATUS, {
           orderId: event.orderId,
           orderNumber: event.orderNumber,
           oldStatus: event.parentStatus,

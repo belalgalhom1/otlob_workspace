@@ -1,25 +1,28 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { SocketService } from '../../infrastructure/socket/socket.service';
 import {
   DriverRankChangeReason,
   DriverStatus,
   DriverTier,
   NotificationType,
+  Role,
 } from '@prisma/client';
+import { SocketService } from '../../infrastructure/socket/socket.service';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
-  DriverLocationUpdatedEvent,
-  DriverStatusChangedEvent,
   DriverBreakDecidedEvent,
   DriverBreakDecision,
+  DriverRankEvaluationFailedEvent,
   DriverRankUpdatedEvent,
+  DriverStatusChangedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
+import { WS_EVENTS } from '../events/ws-events';
 import {
-  QUEUES,
   EVENT_JOBS,
+  QUEUES,
 } from '../../infrastructure/queue/queues.constants';
 import { compareTiers } from '../../features/drivers/ranking/driver-ranking.calculator';
 
@@ -35,6 +38,10 @@ const TIER_LABEL_AR: Record<DriverTier, string> = {
   [DriverTier.BRONZE]: 'البرونزي',
 };
 
+/**
+ * Owns driver lifecycle notifications & socket effects: account status
+ * transitions, break decisions, and weekly ranking updates/failures.
+ */
 @Injectable()
 export class DriverListener {
   private readonly logger = new Logger(DriverListener.name);
@@ -42,43 +49,8 @@ export class DriverListener {
   constructor(
     private readonly socketService: SocketService,
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
-
-  @OnEvent(EVENTS.DRIVER_LOCATION_UPDATED)
-  handleLocationUpdated(event: DriverLocationUpdatedEvent) {
-    const payload = {
-      driverId: event.driverId,
-      longitude: event.longitude,
-      latitude: event.latitude,
-      timestamp: new Date().toISOString(),
-    };
-
-    if (event.activeOrderId && event.customerUserId) {
-      // High-frequency + socket-only, kept inline.
-      this.socketService
-        .emitToUser(event.customerUserId, 'driver.location', {
-          ...payload,
-          orderId: event.activeOrderId,
-        })
-        .catch((err: unknown) =>
-          this.logger.error(
-            `Failed to emit driver location: ${err instanceof Error ? err.message : String(err)}`,
-          ),
-        );
-    }
-
-    // Also broadcast to driver room so admin / dashboard locating this driver can listen in real-time
-    this.socketService
-      .emitToRoom(`driver_${event.driverId}`, 'driver.location', {
-        ...payload,
-        orderId: event.activeOrderId,
-      })
-      .catch((err: unknown) =>
-        this.logger.error(
-          `Failed to emit driver room location: ${err instanceof Error ? err.message : String(err)}`,
-        ),
-      );
-  }
 
   @OnEvent(EVENTS.DRIVER_STATUS_CHANGED, { async: true })
   async handleStatusChanged(event: DriverStatusChangedEvent) {
@@ -290,7 +262,7 @@ export class DriverListener {
     }
 
     await this.socketService
-      .emitToUser(event.driverUserId, 'driver.rank.updated', {
+      .emitToUser(event.driverUserId, WS_EVENTS.DRIVER_RANK_UPDATED, {
         driverId: event.driverId,
         previousTier: event.previousTier,
         newTier: event.newTier,
@@ -300,7 +272,7 @@ export class DriverListener {
       })
       .catch((err: unknown) =>
         this.logger.error(
-          `Failed to emit driver.rank.updated socket event: ${err instanceof Error ? err.message : String(err)}`,
+          `Failed to emit ${WS_EVENTS.DRIVER_RANK_UPDATED} socket event: ${err instanceof Error ? err.message : String(err)}`,
         ),
       );
 
@@ -327,6 +299,51 @@ export class DriverListener {
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue driver rank notification: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  @OnEvent(EVENTS.DRIVER_RANK_EVALUATION_FAILED, { async: true })
+  async handleRankEvaluationFailed(event: DriverRankEvaluationFailedEvent) {
+    if (!this.prisma) return;
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: {
+          role: { in: [Role.ADMIN, Role.SUPER_ADMIN] },
+          isBanned: false,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      await Promise.all(
+        admins.map((admin) =>
+          this.eventsQueue
+            .add(EVENT_JOBS.NOTIFY, {
+              dto: {
+                userId: admin.id,
+                title: 'Weekly Driver Ranking Failed',
+                titleAr: 'فشل تقييم مستويات السائقين الأسبوعي',
+                body: `Evaluation run for week ${event.periodKey} failed: ${event.errorMessage}. Open Driver Ranking to retry.`,
+                bodyAr: `فشل تشغيل تقييم الأسبوع ${event.periodKey}: ${event.errorMessage}. افتح تصنيف السائقين لإعادة المحاولة.`,
+                type: NotificationType.SYSTEM,
+                data: {
+                  kind: 'driver_rank_evaluation_failed',
+                  runId: event.runId,
+                  periodKey: event.periodKey,
+                },
+              },
+            })
+            .catch((err: unknown) =>
+              this.logger.error(
+                `Failed to enqueue ranking failure notification for admin ${admin.id}: ${err instanceof Error ? err.message : String(err)}`,
+              ),
+            ),
+        ),
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to notify admins about driver ranking failure: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

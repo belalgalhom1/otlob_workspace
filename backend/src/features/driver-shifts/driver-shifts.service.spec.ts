@@ -18,7 +18,7 @@ import {
 } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
-import { NotificationListener } from 'src/common/listeners/notification.listener';
+import { ShiftListener } from 'src/common/listeners/shift.listener';
 import type { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import type { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { EVENT_JOBS } from 'src/infrastructure/queue/queues.constants';
@@ -435,12 +435,12 @@ describe('DriverShiftsService.adminRemoveDriverBulk', () => {
   });
 });
 
-describe('NotificationListener.handleShiftDisabled', () => {
+describe('ShiftListener.handleShiftDisabled', () => {
   it('enqueues bulk notification copy when count > 1', async () => {
     const addMock = jest
       .fn<Promise<unknown>, [string, MockNotifyJobPayload]>()
       .mockResolvedValue({});
-    const listener = new NotificationListener({
+    const listener = new ShiftListener({
       add: addMock,
     } as unknown as Queue);
 
@@ -468,7 +468,7 @@ describe('NotificationListener.handleShiftDisabled', () => {
     const addMock = jest
       .fn<Promise<unknown>, [string, MockNotifyJobPayload]>()
       .mockResolvedValue({});
-    const listener = new NotificationListener({
+    const listener = new ShiftListener({
       add: addMock,
     } as unknown as Queue);
 

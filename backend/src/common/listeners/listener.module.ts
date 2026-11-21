@@ -7,6 +7,7 @@ import { SocketListener } from './socket.listener';
 import { OrderListener } from './order.listener';
 import { DriverListener } from './driver.listener';
 import { DriverAssistListener } from './driver-assist.listener';
+import { ShiftListener } from './shift.listener';
 import { AuditLogListener } from './audit-log.listener';
 import { DispatchListener } from './dispatch.listener';
 import { CartListener } from './cart.listener';
@@ -15,37 +16,29 @@ import { SettingsListener } from './settings.listener';
 import { CartModule } from '../../features/cart/cart.module';
 import { OrderSharedModule } from '../orders/order-shared.module';
 
+const LISTENERS = [
+  MailListener,
+  ChatListener,
+  NotificationListener,
+  OrderListener,
+  DriverListener,
+  DriverAssistListener,
+  ShiftListener,
+  AuditLogListener,
+  SocketListener,
+  DispatchListener,
+  CartListener,
+  ReviewListener,
+  SettingsListener,
+];
+
 @Global()
 @Module({
   imports: [
     OrderSharedModule,
     CartModule, // provides CartService for EventsProcessor
   ],
-  providers: [
-    MailListener,
-    ChatListener,
-    NotificationListener,
-    OrderListener,
-    DriverListener,
-    DriverAssistListener,
-    AuditLogListener,
-    SocketListener,
-    DispatchListener,
-    CartListener,
-    ReviewListener,
-    SettingsListener,
-  ],
-  exports: [
-    MailListener,
-    ChatListener,
-    NotificationListener,
-    SocketListener,
-    DriverListener,
-    DriverAssistListener,
-    AuditLogListener,
-    DispatchListener,
-    CartListener,
-    ReviewListener,
-  ],
+  providers: LISTENERS,
+  exports: LISTENERS,
 })
 export class ListenersModule {}

@@ -2,7 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { OrderStatus, OrderType } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { SocketService } from '../../infrastructure/socket/socket.service';
-import { EVENTS } from '../../common/events/event-names';
+import { WS_EVENTS } from '../../common/events/ws-events';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { DispatchRepository } from './dispatch.repository';
 import {
@@ -182,7 +182,7 @@ export class DispatchSearchTracker {
       };
 
       await this.socketService
-        ?.emitToUser(customerUserId, EVENTS.ORDER_SEARCH_PROGRESS, wsPayload)
+        ?.emitToUser(customerUserId, WS_EVENTS.ORDER_SEARCH_PROGRESS, wsPayload)
         .catch((err: unknown) => {
           this.logger.warn(
             `Failed to emit search progress for order ${input.orderId}: ${

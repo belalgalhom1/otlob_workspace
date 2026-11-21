@@ -597,7 +597,7 @@ export class AuthService {
     const code = await this.otpService.generateOtp(dto.contact, 'VERIFICATION');
 
     this.eventEmitter.emit(
-      'auth.otp.requested',
+      EVENTS.AUTH_OTP_REQUESTED,
       new OtpRequestedEvent(dto.contact, code, dto.method, 'VERIFICATION'),
     );
 
@@ -650,7 +650,7 @@ export class AuthService {
     );
 
     this.eventEmitter.emit(
-      'auth.otp.requested',
+      EVENTS.AUTH_OTP_REQUESTED,
       new OtpRequestedEvent(dto.contact, code, method, 'PASSWORD_RESET'),
     );
 

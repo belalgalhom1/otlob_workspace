@@ -1,3 +1,5 @@
+import { WS_EVENTS } from './ws-events';
+
 export const EVENTS = {
   // Auth
   AUTH_OTP_REQUESTED: 'auth.otp.requested',
@@ -22,9 +24,10 @@ export const EVENTS = {
   ORDER_DISPATCH_SENT: 'order.dispatch.sent',
   ORDER_DISPATCH_RESPONDED: 'order.dispatch.responded',
   ORDER_DISPATCH_CANCELLED: 'order.dispatch.cancelled',
-  ORDER_SEARCH_PROGRESS: 'order.search_progress',
+  /** @deprecated Prefer `WS_EVENTS.ORDER_SEARCH_PROGRESS` for socket emits. */
+  ORDER_SEARCH_PROGRESS: WS_EVENTS.ORDER_SEARCH_PROGRESS,
 
-  // Driver
+  // Driver & Shifts
   DRIVER_LOCATION_UPDATED: 'driver.location.updated',
   DRIVER_STATUS_CHANGED: 'driver.status.changed',
   DRIVER_BREAK_DECIDED: 'driver.break.decided',
@@ -35,7 +38,6 @@ export const EVENTS = {
   SHIFT_SWAP_CANCELLED: 'shift.swap.cancelled',
   SHIFT_DISABLED: 'shift.disabled',
   SHIFT_ASSIGNED: 'shift.assigned',
-  SHIFT_SWAP_ACCEPTED: 'shift.swap.accepted',
   SHIFT_SPOT_AVAILABLE: 'shift.spot.available',
 
   // Audit

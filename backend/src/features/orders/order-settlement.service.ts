@@ -988,7 +988,24 @@ export class OrderSettlementService {
           fallbackDriverId: payload.driverId,
           fallbackDriverShiftId: payload.driverShiftId,
         });
+        const goldBonusGroupDriverKeys = new Set(
+          plan.goldDriverBonuses
+            .filter((b) => b.amount > 0 && b.deliveryGroupId)
+            .map((b) => `${b.deliveryGroupId}:${b.driverId}`),
+        );
         for (const bonus of bonusAllocations) {
+          // Both Gold badge bonus and order-level time-based bonus use type='BONUS'.
+          // When the same (deliveryGroupId, driverId) already received a Gold
+          // bonus row, store the order-level time-based bonus with
+          // deliveryGroupId: null so @@unique([deliveryGroupId, type, driverId])
+          // never raises P2002 while @@unique([driverId, idempotencyKey])
+          // preserves strict idempotency.
+          const collidesWithGoldBonus = Boolean(
+            bonus.deliveryGroupId &&
+              goldBonusGroupDriverKeys.has(
+                `${bonus.deliveryGroupId}:${bonus.driverId}`,
+              ),
+          );
           await this.creditDriverWallet(
             client,
             bonus.driverId,
@@ -999,7 +1016,9 @@ export class OrderSettlementService {
             'BONUS',
             {
               skipLock: true,
-              deliveryGroupId: bonus.deliveryGroupId,
+              deliveryGroupId: collidesWithGoldBonus
+                ? null
+                : bonus.deliveryGroupId,
               idempotencyKeyOverride: `settle:${orderId}:BONUS:${bonus.driverId}`,
             },
           );

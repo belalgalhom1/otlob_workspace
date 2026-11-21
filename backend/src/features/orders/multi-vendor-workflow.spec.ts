@@ -21,7 +21,7 @@ import { PlaceMultiVendorOrderDto } from './dto/multi-vendor-order.dto';
 import { EventsProcessor } from '../events/events.processor';
 import { OrderEventsHandler } from '../events/order-events.handler';
 import { DispatchEventsHandler } from '../events/dispatch-events.handler';
-import { NotificationListener } from '../../common/listeners/notification.listener';
+import { OrderListener } from '../../common/listeners/order.listener';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
 import { OrderErrors } from '../../common/constants/response.constants';
@@ -1328,12 +1328,21 @@ describe('Multi-Vendor Order End-to-End Workflow (1, 2, and 3+ Vendors)', () => 
 
     it('enqueues EVENT_JOBS.NOTIFY with queue default retries and keeps socket/push failures non-fatal', async () => {
       const add = jest.fn().mockResolvedValue(undefined);
-      const listener = new NotificationListener({ add } as any);
-      await listener.handleFulfillmentDecided({
+      const emitToUser = jest.fn().mockResolvedValue(undefined);
+      const listener = new OrderListener(
+        { emitToUser } as any,
+        { add } as any,
+        {} as any,
+        {} as any,
+      );
+      await listener.handleOrderFulfillmentDecided({
         customerUserId: 'cust-u-1',
         orderId: 'ord-1',
         orderNumber: 'OTL-1',
         fulfillmentId: 'ff-1',
+        vendorId: 'v-1',
+        vendorUserIds: [],
+        driverUserIds: [],
         status: OrderVendorFulfillmentStatus.ACCEPTED,
       } as any);
 

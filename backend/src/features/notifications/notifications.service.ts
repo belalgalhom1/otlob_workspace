@@ -22,13 +22,14 @@ import {
   NotificationErrors,
 } from 'src/common/constants/response.constants';
 import { randomUUID } from 'crypto';
+import { WS_EVENTS } from '../../common/events/ws-events';
 
 export const SOCKET_EVENTS = {
-  NOTIFICATION: 'notification.new',
-  CHAT_MESSAGE: 'chat.message',
-  CHAT_READ: 'chat.read',
-  CONVERSATION_CREATED: 'conversation.created',
-  CONVERSATION_CLOSED: 'conversation.closed',
+  NOTIFICATION: WS_EVENTS.NOTIFICATION,
+  CHAT_MESSAGE: WS_EVENTS.CHAT_MESSAGE,
+  CHAT_READ: WS_EVENTS.CHAT_READ,
+  CONVERSATION_CREATED: WS_EVENTS.CONVERSATION_CREATED,
+  CONVERSATION_CLOSED: WS_EVENTS.CONVERSATION_CLOSED,
 } as const;
 
 @Injectable()

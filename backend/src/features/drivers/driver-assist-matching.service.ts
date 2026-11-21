@@ -485,17 +485,41 @@ export class DriverAssistMatchingService {
     driverIds: string[],
   ): Promise<Map<string, { lng: number; lat: number }>> {
     if (driverIds.length === 0) return new Map();
+
+    const map = new Map<string, { lng: number; lat: number }>();
+
+    // Prefer live Redis GPS coordinates first (real-time WS pings write to
+    // Redis Geo rather than Postgres drivers.lastLocation).
+    if (typeof this.locationRepository?.getLiveDriverLocations === 'function') {
+      const live = await this.locationRepository.getLiveDriverLocations(
+        driverIds,
+      );
+      for (const [id, loc] of live.entries()) {
+        if (loc.isFresh) {
+          map.set(id, { lng: loc.lng, lat: loc.lat });
+        }
+      }
+    }
+
+    const missingIds = driverIds.filter((id) => !map.has(id));
+    if (missingIds.length === 0) return map;
+
     if (
       typeof this.locationRepository?.getPersistedDriverLocations === 'function'
     ) {
-      return this.locationRepository.getPersistedDriverLocations(driverIds);
+      const persisted =
+        await this.locationRepository.getPersistedDriverLocations(missingIds);
+      for (const [id, loc] of persisted.entries()) {
+        map.set(id, loc);
+      }
+      return map;
     }
-    const map = new Map<string, { lng: number; lat: number }>();
+
     const rows = await this.prisma.$queryRaw<
       Array<{ id: string; lng: number; lat: number }>
     >`
       SELECT id, ST_X("lastLocation"::geometry) AS lng, ST_Y("lastLocation"::geometry) AS lat
-      FROM drivers WHERE id IN (${Prisma.join(driverIds)})`;
+      FROM drivers WHERE id IN (${Prisma.join(missingIds)})`;
     for (const r of rows) {
       if (r.lng != null && r.lat != null) {
         map.set(r.id, { lng: Number(r.lng), lat: Number(r.lat) });

@@ -646,8 +646,35 @@ export class OrderRoleProjector {
       normalizedScopedItems,
     );
 
+    const sanitizedDriverOrder: any = omitKeys(order, [
+      'settledGoldPlatformRetainedAmount',
+      'settledBronzeSupervisorDeduction',
+      'settledBronzeSupervisorDeductionRate',
+    ]);
+    if (Array.isArray(sanitizedDriverOrder.deliveryGroups)) {
+      sanitizedDriverOrder.deliveryGroups =
+        sanitizedDriverOrder.deliveryGroups.map((g: any) =>
+          omitKeys(g, [
+            'settledGoldPlatformRetainedAmount',
+            'settledBronzeSupervisorDeduction',
+            'settledPrimaryManagerId',
+          ]),
+        );
+    }
+    const rawProjectedVendor =
+      groupVendor ??
+      (normalizedScopedFulfillments?.length === 1
+        ? (order.vendor ?? null)
+        : null);
+    const sanitizedProjectedVendor = rawProjectedVendor
+      ? omitKeys(rawProjectedVendor, ['commissionRate', 'walletBalance'])
+      : null;
+    const sanitizedProjectedBranch = groupVendorBranch
+      ? omitKeys(groupVendorBranch, ['commissionRate'])
+      : null;
+
     return {
-      ...order,
+      ...sanitizedDriverOrder,
       driverId: projectedDriverId,
       activeDeliveryGroupId,
       pickedUpAt: projectedPickedUpAt,
@@ -661,13 +688,8 @@ export class OrderRoleProjector {
       viewingDriverId: myDriver?.id ?? projectedDriverId,
       status: projectedStatus,
       isStacked: projectedIsStacked,
-      vendor: this.normalizeVendorProjection(
-        groupVendor ??
-          (normalizedScopedFulfillments?.length === 1
-            ? (order.vendor ?? null)
-            : null),
-      ),
-      vendorBranch: groupVendorBranch,
+      vendor: this.normalizeVendorProjection(sanitizedProjectedVendor),
+      vendorBranch: sanitizedProjectedBranch,
       pickupLocation: groupPickupLocation,
       pickupAddress: groupPickupAddress,
       items: normalizedScopedItems,
@@ -1036,8 +1058,18 @@ export class OrderRoleProjector {
       normalizedItems,
     );
 
+    const sanitizedVendorOrder: any = omitKeys(order, [
+      'goldSurchargeAmount',
+      'settledGoldBonusAmount',
+      'settledGoldPlatformRetainedAmount',
+      'settledBronzeDriverDeduction',
+      'settledBronzeSupervisorDeduction',
+      'settledBronzeDriverDeductionRate',
+      'settledBronzeSupervisorDeductionRate',
+    ]);
+
     return {
-      ...order,
+      ...sanitizedVendorOrder,
       statusEvents: scopedStatusEvents,
       vendorId: vendorId ?? primaryFulfillment?.vendorId ?? null,
       vendorBranchId: primaryFulfillment?.vendorBranchId ?? null,
@@ -1076,8 +1108,10 @@ export class OrderRoleProjector {
 
   projectForCustomer(order: any, ctx?: RoleProjectionContext): any {
     const isPrepaid =
-      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
-      order.paymentMethod !== 'MOBILE_WALLET';
+      (order.paymentMethod !== 'CASH_ON_DELIVERY' &&
+        order.paymentMethod !== 'MOBILE_WALLET') ||
+      (order.paymentMethod === 'MOBILE_WALLET' &&
+        order.paymentStatus === 'COMPLETED');
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
     const cashToPayAtDoor = isPrepaid
@@ -1277,8 +1311,10 @@ export class OrderRoleProjector {
   ): Promise<any> {
     if (!order) return order;
     const isPrepaid =
-      order.paymentMethod !== 'CASH_ON_DELIVERY' &&
-      order.paymentMethod !== 'MOBILE_WALLET';
+      (order.paymentMethod !== 'CASH_ON_DELIVERY' &&
+        order.paymentMethod !== 'MOBILE_WALLET') ||
+      (order.paymentMethod === 'MOBILE_WALLET' &&
+        order.paymentStatus === 'COMPLETED');
     const grandTotal = Number(order.grandTotal ?? 0);
     const upfrontAmount = Number(order.upfrontAmount ?? 0);
     const cashToCollect = isPrepaid

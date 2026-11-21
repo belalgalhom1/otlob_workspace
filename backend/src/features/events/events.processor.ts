@@ -167,7 +167,9 @@ export class EventsProcessor extends WorkerHost {
       case EVENT_JOBS.ORDER_CREATED:
         return `notify:order_created:${data.orderId}`;
       case EVENT_JOBS.ORDER_CANCELLED:
-        return `notify:order_cancelled:${data.orderId}`;
+        return typeof data.revision === 'number'
+          ? `notify:order_cancelled:${data.orderId}:${data.revision}`
+          : `notify:order_cancelled:${data.orderId}`;
       case EVENT_JOBS.ORDER_DISPATCH_SENT:
         return `notify:dispatch_sent:${data.dispatchId}:${data.driverId}`;
       case EVENT_JOBS.ORDER_DISPATCH_RESPONDED:

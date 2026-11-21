@@ -444,6 +444,7 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
         [VehicleType.MOTORCYCLE, VehicleType.BICYCLE],
         false,
         { lng: 31.25, lat: 30.05 },
+        true,
       );
 
       // Offers MUST ONLY be sent to Motorcycle and Bicycle drivers
@@ -500,6 +501,7 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
         [VehicleType.MOTORCYCLE, VehicleType.BICYCLE],
         false,
         { lng: 31.25, lat: 30.05 },
+        true,
       );
 
       // Exhaustion in DispatchProcessor publishes NO_DRIVERS_AVAILABLE and cancels group

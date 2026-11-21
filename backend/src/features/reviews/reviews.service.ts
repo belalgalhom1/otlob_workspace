@@ -19,7 +19,7 @@ import {
   CustomerErrors,
   DriverErrors,
 } from '../../common/constants/response.constants';
-import { EVENTS } from '../../common/events/event-names';
+import { EVENTS, ReviewSubmittedEvent } from '../../common/events';
 
 @Injectable()
 export class ReviewsService {
@@ -216,17 +216,17 @@ export class ReviewsService {
     ) as string[];
 
     for (const vId of ratedVendorIds) {
-      this.eventEmitter.emit(EVENTS.REVIEW_SUBMITTED, {
-        vendorId: vId,
-        driverId: null,
-      });
+      this.eventEmitter.emit(
+        EVENTS.REVIEW_SUBMITTED,
+        new ReviewSubmittedEvent(vId, null),
+      );
     }
 
     for (const dId of ratedDriverIds) {
-      this.eventEmitter.emit(EVENTS.REVIEW_SUBMITTED, {
-        vendorId: null,
-        driverId: dId,
-      });
+      this.eventEmitter.emit(
+        EVENTS.REVIEW_SUBMITTED,
+        new ReviewSubmittedEvent(null, dId),
+      );
     }
   }
 

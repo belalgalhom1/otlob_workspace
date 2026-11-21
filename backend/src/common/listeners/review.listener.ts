@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { EVENTS } from '../events/event-names';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { ReviewSubmittedEvent } from '../events';
+import { EVENTS } from '../events/event-names';
 import {
   QUEUES,
   REVIEW_JOBS,
@@ -15,10 +16,7 @@ export class ReviewListener {
   constructor(@InjectQueue(QUEUES.REVIEWS) private readonly queue: Queue) {}
 
   @OnEvent(EVENTS.REVIEW_SUBMITTED, { async: true })
-  async handleReviewSubmitted(payload: {
-    vendorId?: string | null;
-    driverId?: string | null;
-  }) {
+  async handleReviewSubmitted(event: ReviewSubmittedEvent) {
     try {
       // Ratings are recomputed by the worker (QUEUES.REVIEWS) so the API event
       // loop never runs the aggregate queries. The job is idempotent: it SETs
@@ -26,8 +24,8 @@ export class ReviewListener {
       await this.queue.add(
         REVIEW_JOBS.UPDATE_RATINGS,
         {
-          vendorId: payload.vendorId ?? null,
-          driverId: payload.driverId ?? null,
+          vendorId: event.vendorId ?? null,
+          driverId: event.driverId ?? null,
         },
         { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
       );

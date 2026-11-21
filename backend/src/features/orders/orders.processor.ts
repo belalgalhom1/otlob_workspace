@@ -507,7 +507,11 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
     const settings = await this.platformSettings.getSettings();
 
-    // Find orders stuck in PENDING_PAYMENT for more than configured minutes (Customer didn't pay via Mobile Wallet)
+    // Find orders stuck in PENDING_PAYMENT for more than configured minutes
+    // where customer has NOT yet marked payment as sent (paymentStatus = 'PENDING').
+    // Orders marked 'PAID' await driver confirmation/denial (or admin intervention)
+    // so paying customers are not silently auto-cancelled while waiting for driver
+    // verification; zero-total orders now start as 'COMPLETED' and bypass PENDING_PAYMENT.
     const paymentCutoff = new Date(
       Date.now() - settings.mobileWalletTimeoutMins * 60 * 1000,
     );

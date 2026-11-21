@@ -24,7 +24,6 @@ import {
 } from '../../common/events';
 import { EVENTS } from '../../common/events/event-names';
 import { DriverListener } from '../../common/listeners/driver.listener';
-import { NotificationListener } from '../../common/listeners/notification.listener';
 import {
   getCairoWeekBounds,
   getNextScheduledEvaluationUtc,
@@ -1578,12 +1577,19 @@ describe('Weekly Driver Ranking System', () => {
       );
     });
 
-    it('DriverListener & NotificationListener deliver rank change and failure notifications', async () => {
+    it('DriverListener delivers rank change and evaluation failure notifications', async () => {
       const addQueue = jest.fn().mockResolvedValue({});
       const emitToUser = jest.fn().mockResolvedValue(undefined);
       const driverListener = new DriverListener(
         { emitToUser } as any,
         { add: addQueue } as any,
+        {
+          user: {
+            findMany: jest
+              .fn()
+              .mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]),
+          },
+        } as any,
       );
 
       await driverListener.handleRankUpdated(
@@ -1619,17 +1625,7 @@ describe('Weekly Driver Ranking System', () => {
       expect(addQueue).toHaveBeenCalledTimes(1);
 
       // Admin alert on failed evaluation
-      const notifListener = new NotificationListener(
-        { add: addQueue } as any,
-        {
-          user: {
-            findMany: jest
-              .fn()
-              .mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]),
-          },
-        } as any,
-      );
-      await notifListener.handleRankEvaluationFailed(
+      await driverListener.handleRankEvaluationFailed(
         new DriverRankEvaluationFailedEvent('run-1', '2026-W45', 'DB timeout'),
       );
       expect(addQueue).toHaveBeenCalledTimes(3);

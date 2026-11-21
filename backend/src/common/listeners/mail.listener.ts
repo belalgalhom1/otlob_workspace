@@ -10,7 +10,7 @@ export class MailListener {
 
   constructor(private readonly mailService: MailService) {}
 
-  @OnEvent(EVENTS.AUTH_OTP_REQUESTED)
+  @OnEvent(EVENTS.AUTH_OTP_REQUESTED, { async: true })
   async handleOtpRequested(event: OtpRequestedEvent) {
     if (event.method !== 'EMAIL') return;
 
@@ -23,8 +23,14 @@ export class MailListener {
       ? this.buildVerificationEmail(event.code)
       : this.buildPasswordResetEmail(event.code);
 
-    await this.mailService.sendMail(event.contact, subject, html);
-    this.logger.log(`OTP email queued → ${event.contact} [${event.purpose}]`);
+    try {
+      await this.mailService.sendMail(event.contact, subject, html);
+      this.logger.log(`OTP email queued → ${event.contact} [${event.purpose}]`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to enqueue OTP email for ${event.contact}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private buildVerificationEmail(code: string): string {

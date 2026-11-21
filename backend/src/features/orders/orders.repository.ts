@@ -188,13 +188,32 @@ export class OrdersRepository {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Serialize concurrent checkouts for the same customer: the pre-tx
-      // limit check can pass twice for two racing requests. The advisory
-      // xact lock (auto-released at commit) forces them sequential, and the
-      // recount below then sees the first tx's committed row.
+      // Serialize concurrent checkouts for the same customer first so
+      // concurrent idempotent retries with the same clientOrderKey observe the
+      // winning order BEFORE active-order limits are checked.
+      if (data.activeOrderPolicy || data.clientOrderKey) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${data.customerId}::text))`;
+      }
+
+      if (data.clientOrderKey) {
+        const existing = await tx.order.findUnique({
+          where: { clientOrderKey: data.clientOrderKey },
+          select: { id: true, orderNumber: true, customerId: true },
+        });
+        if (existing) {
+          if (existing.customerId !== data.customerId) {
+            throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
+          }
+          return {
+            id: existing.id,
+            orderNumber: existing.orderNumber,
+            created: false,
+          };
+        }
+      }
+
       if (data.activeOrderPolicy) {
         const { maxActive, requirePriorDelivery } = data.activeOrderPolicy;
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${data.customerId}::text))`;
         const liveActiveCount = await tx.order.count({
           where: {
             customerId: data.customerId,
@@ -294,7 +313,7 @@ export class OrdersRepository {
           ${data.zoneId ?? null},
           ${Prisma.sql`'PENDING'::"OrderStatus"`},
           ${data.paymentMethod}::"PaymentMethod",
-          ${data.grandTotal <= 0 ? Prisma.sql`'PAID'::"PaymentStatus"` : Prisma.sql`'PENDING'::"PaymentStatus"`},
+          ${data.grandTotal <= 0 ? Prisma.sql`'COMPLETED'::"PaymentStatus"` : Prisma.sql`'PENDING'::"PaymentStatus"`},
           ${data.pickupAddress ?? null},
           ${
             data.pickupLng != null && data.pickupLat != null
@@ -547,6 +566,9 @@ export class OrdersRepository {
     const written = { revision: null as number | null };
 
     await this.prisma.$transaction(async (tx) => {
+      // Serialize with OrderRejectionRecomputor money mutations on this order.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-money:' || ${orderId}::text))`;
+
       const updatedCount = await tx.order.updateMany({
         where: { id: orderId, status: expectedOldStatus },
         data: {
@@ -575,17 +597,23 @@ export class OrdersRepository {
         throw new BadRequestException(OrderErrors.CONCURRENT_STATE_CHANGE);
       }
 
-      written.revision =
-        (
-          await tx.order.findUnique({
-            where: { id: orderId },
-            select: { revision: true },
-          })
-        )?.revision ?? null;
+      const orderAfterCancel = await tx.order.findUnique({
+        where: { id: orderId },
+        select: {
+          revision: true,
+          customer: { select: { userId: true } },
+        },
+      });
+      written.revision = orderAfterCancel?.revision ?? null;
+      const resolvedCustomerUserId =
+        orderAfterCancel?.customer?.userId ?? customerId;
 
       await recordOrderStatusEventIdempotent(tx, {
         orderId,
-        eventKey: `order_cancelled:${orderId}`,
+        eventKey:
+          written.revision != null
+            ? `order_cancelled:${orderId}:rev_${written.revision}`
+            : `order_cancelled:${orderId}`,
         status: OrderStatus.CANCELLED,
         note: cleanReason,
         createdBy: actorUserId,
@@ -658,6 +686,25 @@ export class OrdersRepository {
         });
       }
 
+      // Re-read live group drivers inside the transaction so a driver assigned
+      // concurrently just before cancellation is also freed, and lock drivers
+      // in deterministic ID order (after orders lock) to avoid deadlocks.
+      const liveGroups =
+        typeof tx.orderDeliveryGroup?.findMany === 'function'
+          ? await tx.orderDeliveryGroup.findMany({
+              where: { orderId },
+              select: { primaryDriverId: true, assistDriverId: true },
+            })
+          : [];
+      const effectiveDriverIds = Array.from(
+        new Set(
+          [
+            ...driverIds,
+            ...liveGroups.flatMap((g) => [g.primaryDriverId, g.assistDriverId]),
+          ].filter((id): id is string => Boolean(id)),
+        ),
+      ).sort();
+
       await tx.orderDeliveryGroup.updateMany({
         where: {
           orderId,
@@ -685,10 +732,11 @@ export class OrdersRepository {
         data: { status: OrderVendorFulfillmentStatus.CANCELLED },
       });
 
-      // Free every driver that was carrying this order — multi-vendor orders
-      // hand their groups to different drivers (primary and assistant), and a
-      // cancelled group must not leave any of them stuck ON_DELIVERY.
-      for (const driverId of driverIds) {
+      // Free every driver that was carrying this order — only transitioning
+      // drivers currently ON_DELIVERY so SUSPENDED / OFFLINE / ON_BREAK drivers
+      // are never accidentally put back ONLINE.
+      for (const driverId of effectiveDriverIds) {
+        await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
         if (
           (await this.driverWorkload.countActiveUnits(
             tx,
@@ -696,10 +744,17 @@ export class OrdersRepository {
             orderId,
           )) === 0
         ) {
-          await tx.driver.update({
-            where: { id: driverId },
-            data: { status: DriverStatus.ONLINE },
-          });
+          if (typeof tx.driver?.updateMany === 'function') {
+            await tx.driver.updateMany({
+              where: { id: driverId, status: DriverStatus.ON_DELIVERY },
+              data: { status: DriverStatus.ONLINE },
+            });
+          } else {
+            await tx.driver.update({
+              where: { id: driverId },
+              data: { status: DriverStatus.ONLINE },
+            });
+          }
         }
       }
 
@@ -735,14 +790,19 @@ export class OrdersRepository {
           version: written.revision,
           eventType: EVENTS.ORDER_CANCELLED,
           jobName: EVENT_JOBS.ORDER_CANCELLED,
-          dedupeKey: `notify:order_cancelled:${orderId}`,
+          dedupeKey: `notify:order_cancelled:${orderId}:${written.revision}`,
           payload: {
             orderId,
             orderNumber,
             customerId,
+            customerUserId: resolvedCustomerUserId,
             reason,
             cancelledByUserId: actorUserId,
-            driverIds,
+            cancelledByName: actorSnapshot.actorName,
+            cancelledByNameAr: actorSnapshot.actorNameAr,
+            cancelledByRole: actorSnapshot.actorRole,
+            cancelledByAvatar: actorSnapshot.actorAvatar,
+            driverIds: effectiveDriverIds,
             revision: written.revision,
           },
         });
@@ -836,7 +896,11 @@ export class OrdersRepository {
       if (written.revision != null) {
         const orderRow = await tx.order.findUnique({
           where: { id: orderId },
-          select: { orderNumber: true, customerId: true },
+          select: {
+            orderNumber: true,
+            customerId: true,
+            customer: { select: { userId: true } },
+          },
         });
         await this.outbox.record(tx, {
           aggregateType: 'ORDER',
@@ -851,6 +915,9 @@ export class OrdersRepository {
             oldStatus: expectedOldStatus ?? null,
             newStatus: status,
             status,
+            customerId: orderRow?.customerId ?? null,
+            customerUserId:
+              orderRow?.customer?.userId ?? orderRow?.customerId ?? null,
             note: note ?? null,
             actorUserId,
             revision: written.revision,
@@ -896,31 +963,37 @@ export class OrdersRepository {
     const written = { revision: null as number | null };
 
     await this.prisma.$transaction(async (tx) => {
-      // Serialize concurrent assignments/acceptances for THE SAME driver, then
-      // enforce the max-active-orders cap inside the transaction. The caller
-      // may pre-check in a service, but only this row lock makes it airtight:
-      // a driver who accepted another order between the pre-check and here is
-      // detected and rejected instead of being double-booked.
-      await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
-
-      const activeCount = await this.driverWorkload.countActiveUnits(
-        tx,
-        driverId,
-        orderId,
-      );
-      if (activeCount >= maxActiveOrders) {
-        throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
-      }
+      // Global lock hierarchy: lock orders BEFORE drivers (matching cancelOrder
+      // and commitAcceptanceTransaction) to prevent AB-BA deadlocks and block
+      // concurrent cancellation resurrection.
+      await tx.$executeRaw`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`;
 
       const currentOrder = await tx.order.findUnique({
         where: { id: orderId },
-        select: { status: true },
+        select: {
+          status: true,
+          orderNumber: true,
+          customerId: true,
+          customer: { select: { userId: true } },
+        },
       });
+      if (
+        !currentOrder ||
+        currentOrder.status === OrderStatus.CANCELLED ||
+        currentOrder.status === OrderStatus.DELIVERED
+      ) {
+        throw new BadRequestException(OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER);
+      }
 
       const activeGroups = await tx.orderDeliveryGroup.findMany({
         where: {
           orderId,
-          status: { not: DeliveryGroupStatus.CANCELLED },
+          status: {
+            notIn: [
+              DeliveryGroupStatus.CANCELLED,
+              DeliveryGroupStatus.DELIVERED,
+            ],
+          },
         },
         select: {
           id: true,
@@ -943,12 +1016,30 @@ export class OrdersRepository {
         throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
       }
 
-      // If there's an existing driver on this group that is different, release them if they have no other active work
-      if (
-        targetGroup.primaryDriverId &&
-        targetGroup.primaryDriverId !== driverId
-      ) {
-        const prevId = targetGroup.primaryDriverId;
+      const prevId =
+        targetGroup.primaryDriverId && targetGroup.primaryDriverId !== driverId
+          ? targetGroup.primaryDriverId
+          : null;
+      // Lock involved driver rows in deterministic ascending ID order.
+      const driverIdsToLock = prevId
+        ? [driverId, prevId].sort()
+        : [driverId];
+      for (const lockDriverId of driverIdsToLock) {
+        await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${lockDriverId} FOR UPDATE`;
+      }
+
+      const activeCount = await this.driverWorkload.countActiveUnits(
+        tx,
+        driverId,
+        orderId,
+      );
+      if (activeCount >= maxActiveOrders) {
+        throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+      }
+
+      // If there's an existing driver on this group that is different, release
+      // them ONLY if currently ON_DELIVERY (never un-suspend or wake OFFLINE).
+      if (prevId) {
         await tx.driverDeliveryIncident.create({
           data: {
             orderId,
@@ -975,10 +1066,17 @@ export class OrdersRepository {
           (await this.driverWorkload.countActiveUnits(tx, prevId, orderId)) ===
             0
         ) {
-          await tx.driver.update({
-            where: { id: prevId },
-            data: { status: DriverStatus.ONLINE },
-          });
+          if (typeof tx.driver?.updateMany === 'function') {
+            await tx.driver.updateMany({
+              where: { id: prevId, status: DriverStatus.ON_DELIVERY },
+              data: { status: DriverStatus.ONLINE },
+            });
+          } else {
+            await tx.driver.update({
+              where: { id: prevId },
+              data: { status: DriverStatus.ONLINE },
+            });
+          }
         }
       }
 
@@ -1049,9 +1147,21 @@ export class OrdersRepository {
         typeof tx.driver?.findUnique === 'function'
           ? await tx.driver.findUnique({
               where: { id: driverId },
-              select: { tier: true },
+              select: {
+                tier: true,
+                userId: true,
+                status: true,
+                deletedAt: true,
+              },
             })
           : null;
+      if (
+        assignedDriver &&
+        (assignedDriver.deletedAt != null ||
+          assignedDriver.status === DriverStatus.SUSPENDED)
+      ) {
+        throw new BadRequestException(OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER);
+      }
 
       await tx.orderDeliveryGroup.update({
         where: { id: targetGroup.id },
@@ -1081,6 +1191,8 @@ export class OrdersRepository {
         })
       ).revision;
 
+      const assignNote =
+        `Driver manually assigned by admin. ${resolvedOrderStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`.trim();
       const assignActor = await resolveOrderActorSnapshot(
         this.prisma,
         actorUserId,
@@ -1095,8 +1207,34 @@ export class OrdersRepository {
         status: resolvedOrderStatus,
         createdBy: actorUserId,
         actor: assignActor,
-        note: `Driver manually assigned by admin. ${resolvedOrderStatus === OrderStatus.PENDING_PAYMENT ? 'Awaiting mobile wallet payment.' : ''}`.trim(),
+        note: assignNote,
       });
+
+      if (written.revision != null) {
+        await this.outbox.record(tx, {
+          aggregateType: 'ORDER',
+          aggregateId: orderId,
+          version: written.revision,
+          eventType: EVENTS.ORDER_STATUS_CHANGED,
+          jobName: EVENT_JOBS.ORDER_STATUS_CHANGED,
+          dedupeKey: `notify:order_status:${orderId}:${written.revision}`,
+          payload: {
+            orderId,
+            orderNumber: currentOrder.orderNumber ?? '',
+            oldStatus: currentOrderStatus,
+            newStatus: resolvedOrderStatus,
+            status: resolvedOrderStatus,
+            customerId: currentOrder.customerId ?? null,
+            customerUserId:
+              currentOrder.customer?.userId ?? currentOrder.customerId ?? null,
+            driverId,
+            driverUserId: assignedDriver?.userId ?? null,
+            actorUserId,
+            note: assignNote,
+            revision: written.revision,
+          },
+        });
+      }
 
       await tx.driver.update({
         where: { id: driverId },
@@ -1120,9 +1258,37 @@ export class OrdersRepository {
   }
 
   async freeDriver(driverId: string) {
+    // Lock the driver row inside a transaction so a concurrent order acceptance
+    // cannot be overwritten, and only flip drivers currently ON_DELIVERY so
+    // SUSPENDED / OFFLINE / ON_BREAK drivers are never accidentally reactivated.
+    if (typeof this.prisma.$transaction === 'function') {
+      return this.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+        if ((await this.driverWorkload.countActiveUnits(tx, driverId)) === 0) {
+          if (typeof tx.driver?.updateMany === 'function') {
+            return tx.driver.updateMany({
+              where: { id: driverId, status: DriverStatus.ON_DELIVERY },
+              data: { status: DriverStatus.ONLINE },
+            });
+          }
+          return tx.driver.update({
+            where: { id: driverId },
+            data: { status: DriverStatus.ONLINE },
+          });
+        }
+        return undefined;
+      });
+    }
+
     if (
       (await this.driverWorkload.countActiveUnits(this.prisma, driverId)) === 0
     ) {
+      if (typeof this.prisma.driver?.updateMany === 'function') {
+        return this.prisma.driver.updateMany({
+          where: { id: driverId, status: DriverStatus.ON_DELIVERY },
+          data: { status: DriverStatus.ONLINE },
+        });
+      }
       return this.prisma.driver.update({
         where: { id: driverId },
         data: { status: DriverStatus.ONLINE },

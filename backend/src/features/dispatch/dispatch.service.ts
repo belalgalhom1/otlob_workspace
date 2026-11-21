@@ -53,9 +53,12 @@ export const MAX_DISPATCH_BATCH_SIZE = 20;
 const DISPATCHABLE_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.LOOKING_FOR_DRIVER,
   OrderStatus.ACCEPTED,
+  OrderStatus.DRIVER_ASSIGNED,
+  OrderStatus.PENDING_PAYMENT,
   OrderStatus.PREPARING,
   OrderStatus.READY_FOR_PICKUP,
   OrderStatus.PARTIALLY_PICKED_UP,
+  OrderStatus.PICKED_UP,
 ];
 
 const DISPATCHABLE_GROUP_STATUSES: DeliveryGroupStatus[] = [
@@ -191,6 +194,7 @@ export class DispatchService implements DispatchPort {
       allowedVehicleTypes,
       requiresActiveShiftForOrderType(settings.driverShiftsEnabled, order.type),
       dropoffLocation,
+      order.type !== OrderType.RIDE,
     );
 
     const eligibleDrivers = nearbyDrivers.filter((candidate) =>
@@ -387,6 +391,7 @@ export class DispatchService implements DispatchPort {
             dispatchData.dropoffCustomerAvatar ??
             null,
           isStacked: Boolean(candidate.isStacked),
+          requestedVehicleType: dispatchData.requestedVehicleType ?? null,
         };
       }),
     );
@@ -807,6 +812,7 @@ export class DispatchService implements DispatchPort {
           dispatchDeliveryFee,
           candidate.pickupLocationLogo ?? null,
           candidate.dropoffCustomerAvatar ?? null,
+          requestedVehicleType ?? null,
         ),
       );
     }

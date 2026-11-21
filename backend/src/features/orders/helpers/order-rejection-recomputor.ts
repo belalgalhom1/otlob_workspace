@@ -66,6 +66,9 @@ export class OrderRejectionRecomputor {
         0,
         Math.round(Number((group as { goldSurchargeAmount?: number }).goldSurchargeAmount ?? 0)),
       );
+      const wasPaymentCollector = Boolean(
+        (group as { isPaymentCollector?: boolean }).isPaymentCollector,
+      );
       const cancelled = await tx.orderDeliveryGroup.updateMany({
         where: {
           id: deliveryGroupId,
@@ -82,6 +85,7 @@ export class OrderRejectionRecomputor {
           status: DeliveryGroupStatus.CANCELLED,
           deliveryFee: 0,
           ...(carriedGold > 0 ? { goldSurchargeAmount: 0 } : {}),
+          ...(wasPaymentCollector ? { isPaymentCollector: false } : {}),
         },
       });
       if (cancelled.count === 0) {
@@ -89,7 +93,10 @@ export class OrderRejectionRecomputor {
       }
 
       let transferredGold = 0;
-      if (carriedGold > 0 && typeof tx.orderDeliveryGroup.findFirst === 'function') {
+      if (
+        (carriedGold > 0 || wasPaymentCollector) &&
+        typeof tx.orderDeliveryGroup.findFirst === 'function'
+      ) {
         const nextActiveGroup = await tx.orderDeliveryGroup.findFirst({
           where: {
             orderId,
@@ -103,11 +110,13 @@ export class OrderRejectionRecomputor {
           await tx.orderDeliveryGroup.update({
             where: { id: nextActiveGroup.id },
             data: {
-              deliveryFee: { increment: carriedGold },
-              goldSurchargeAmount: { increment: carriedGold },
-              ...((group as { isPaymentCollector?: boolean }).isPaymentCollector
-                ? { isPaymentCollector: true }
+              ...(carriedGold > 0
+                ? {
+                    deliveryFee: { increment: carriedGold },
+                    goldSurchargeAmount: { increment: carriedGold },
+                  }
                 : {}),
+              ...(wasPaymentCollector ? { isPaymentCollector: true } : {}),
             },
           });
           transferredGold = carriedGold;
@@ -337,7 +346,13 @@ export class OrderRejectionRecomputor {
           orderNumber: true,
         },
       });
-      if (!order) return;
+      if (
+        !order ||
+        order.status === OrderStatus.CANCELLED ||
+        order.status === OrderStatus.DELIVERED
+      ) {
+        return;
+      }
 
       const customerBonusFee = settings.driverBonusPaidByCustomer
         ? order.driverBonusFee
@@ -392,7 +407,10 @@ export class OrderRejectionRecomputor {
           : 0;
 
       const updated = await tx.order.updateMany({
-        where: { id: orderId },
+        where: {
+          id: orderId,
+          status: { notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED] },
+        },
         data: {
           subtotal: newSubtotal,
           deliveryFee: newDeliveryFee,

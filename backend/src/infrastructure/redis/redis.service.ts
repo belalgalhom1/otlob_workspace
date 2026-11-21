@@ -150,18 +150,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Atomically delete `key` only when it still holds `value` (compare-and-delete).
-   * Returns true when the key was deleted (or did not exist), false when another
-   * owner has replaced the value. Used to release single-flight claims without
-   * deleting a newer round's claim.
+   * Atomically delete `key` only when it currently exists and holds `value`
+   * (strict compare-and-delete). Returns true ONLY when the key existed with
+   * the expected value and was deleted; returns false when the key is already
+   * missing or owned by another holder. Used to guarantee single-winner claim
+   * release across concurrent expiry, rejection, and acceptance handlers.
    */
   async delIfValue(key: string, value: string): Promise<boolean> {
     const script = `
       local v = redis.call('GET', KEYS[1])
-      if not v then
-        return 1
-      end
-      if v == ARGV[1] then
+      if v and v == ARGV[1] then
         return redis.call('DEL', KEYS[1])
       end
       return 0
@@ -174,6 +172,35 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         (error as Error).stack,
       );
       return false;
+    }
+  }
+
+  async mget(keys: string[]): Promise<Array<string | null>> {
+    if (keys.length === 0) return [];
+    try {
+      return await this.client.mget(...keys);
+    } catch (error) {
+      this.logger.error(
+        `Failed to MGET ${keys.length} keys`,
+        (error as Error).stack,
+      );
+      return keys.map(() => null);
+    }
+  }
+
+  async lpushTrim(
+    key: string,
+    value: string,
+    maxLen: number,
+  ): Promise<void> {
+    try {
+      await this.client.lpush(key, value);
+      await this.client.ltrim(key, 0, Math.max(0, maxLen - 1));
+    } catch (error) {
+      this.logger.error(
+        `Failed to LPUSH/LTRIM key "${key}"`,
+        (error as Error).stack,
+      );
     }
   }
 

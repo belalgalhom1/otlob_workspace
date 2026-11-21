@@ -4,7 +4,6 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { MessageType, NotificationType } from '@prisma/client';
 import { SocketService } from '../../infrastructure/socket/socket.service';
-import { SOCKET_EVENTS } from '../../features/notifications/notifications.service';
 import {
   ChatMessageSentEvent,
   ChatMessageReadEvent,
@@ -12,6 +11,7 @@ import {
   ChatConversationClosedEvent,
 } from '../events';
 import { EVENTS } from '../events/event-names';
+import { WS_EVENTS } from '../events/ws-events';
 import {
   QUEUES,
   EVENT_JOBS,
@@ -66,10 +66,10 @@ export class ChatListener {
     await Promise.all(
       event.participantIds.map((userId) =>
         this.socketService
-          .emitToUser(userId, SOCKET_EVENTS.CHAT_MESSAGE, socketPayload)
+          .emitToUser(userId, WS_EVENTS.CHAT_MESSAGE, socketPayload)
           .catch((err: unknown) =>
             this.logger.error(
-              `Failed to emit SOCKET_EVENTS.CHAT_MESSAGE for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+              `Failed to emit ${WS_EVENTS.CHAT_MESSAGE} for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
             ),
           ),
       ),
@@ -112,7 +112,7 @@ export class ChatListener {
     }
   }
 
-  @OnEvent(EVENTS.CHAT_MESSAGE_READ)
+  @OnEvent(EVENTS.CHAT_MESSAGE_READ, { async: true })
   async handleMessageRead(event: ChatMessageReadEvent) {
     const payload = {
       conversationId: event.conversationId,
@@ -128,17 +128,17 @@ export class ChatListener {
     await Promise.all(
       recipientIds.map((userId) =>
         this.socketService
-          .emitToUser(userId, SOCKET_EVENTS.CHAT_READ, payload)
+          .emitToUser(userId, WS_EVENTS.CHAT_READ, payload)
           .catch((err: unknown) =>
             this.logger.error(
-              `Failed to emit SOCKET_EVENTS.CHAT_READ for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+              `Failed to emit ${WS_EVENTS.CHAT_READ} for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
             ),
           ),
       ),
     );
   }
 
-  @OnEvent(EVENTS.CHAT_CONVERSATION_CREATED)
+  @OnEvent(EVENTS.CHAT_CONVERSATION_CREATED, { async: true })
   async handleConversationCreated(event: ChatConversationCreatedEvent) {
     const payload = {
       conversationId: event.conversationId,
@@ -149,17 +149,17 @@ export class ChatListener {
     await Promise.all(
       event.participantIds.map((userId) =>
         this.socketService
-          .emitToUser(userId, SOCKET_EVENTS.CONVERSATION_CREATED, payload)
+          .emitToUser(userId, WS_EVENTS.CONVERSATION_CREATED, payload)
           .catch((err: unknown) =>
             this.logger.error(
-              `Failed to emit SOCKET_EVENTS.CONVERSATION_CREATED for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+              `Failed to emit ${WS_EVENTS.CONVERSATION_CREATED} for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
             ),
           ),
       ),
     );
   }
 
-  @OnEvent(EVENTS.CHAT_CONVERSATION_CLOSED)
+  @OnEvent(EVENTS.CHAT_CONVERSATION_CLOSED, { async: true })
   async handleConversationClosed(event: ChatConversationClosedEvent) {
     const payload = {
       conversationId: event.conversationId,
@@ -169,10 +169,10 @@ export class ChatListener {
     await Promise.all(
       event.participantIds.map((userId) =>
         this.socketService
-          .emitToUser(userId, SOCKET_EVENTS.CONVERSATION_CLOSED, payload)
+          .emitToUser(userId, WS_EVENTS.CONVERSATION_CLOSED, payload)
           .catch((err: unknown) =>
             this.logger.error(
-              `Failed to emit SOCKET_EVENTS.CONVERSATION_CLOSED for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+              `Failed to emit ${WS_EVENTS.CONVERSATION_CLOSED} for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
             ),
           ),
       ),

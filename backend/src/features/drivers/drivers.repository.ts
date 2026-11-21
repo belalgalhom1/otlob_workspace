@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { RedisService } from '../../infrastructure/redis/redis.service';
 import {
   DriverStatus,
   DriverShiftStatus,
@@ -17,7 +18,10 @@ import {
 
 @Injectable()
 export class DriversRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly redis?: RedisService,
+  ) {}
 
   async findById(driverId: string) {
     return this.prisma.driver.findUnique({
@@ -688,6 +692,41 @@ export class DriversRepository {
   }
 
   async findPendingDispatchForDriver(driverId: string) {
+    // Active dispatch broadcasts live in Redis (Postgres order_dispatches only
+    // stores terminal ACCEPTED/REJECTED/EXPIRED/CANCELLED records). Check live
+    // Redis offers first and prune any expired/stale entries.
+    if (this.redis && typeof this.redis.smembers === 'function') {
+      const pendingKey = `otlobegy:driver-pending-dispatches:${driverId}`;
+      const dispatchIds = await this.redis.smembers(pendingKey);
+      for (const dispatchId of dispatchIds) {
+        const raw = await this.redis.get(`otlobegy:dispatch:${dispatchId}`);
+        if (!raw) {
+          await this.redis.srem?.(pendingKey, dispatchId);
+          continue;
+        }
+        try {
+          const parsed = JSON.parse(raw) as {
+            expiresAt?: string;
+            candidates?: Array<{ driverId: string }>;
+          };
+          const expired =
+            !parsed.expiresAt ||
+            Date.now() > new Date(parsed.expiresAt).getTime();
+          const isCandidate =
+            !Array.isArray(parsed.candidates) ||
+            parsed.candidates.some((c) => c.driverId === driverId);
+          if (expired || !isCandidate) {
+            await this.redis.srem?.(pendingKey, dispatchId);
+            continue;
+          }
+          return { id: dispatchId };
+        } catch {
+          await this.redis.srem?.(pendingKey, dispatchId);
+        }
+      }
+      return null;
+    }
+
     return this.prisma.orderDispatch.findFirst({
       where: { driverId, status: 'PENDING' },
       select: { id: true },

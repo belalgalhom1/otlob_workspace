@@ -15,11 +15,12 @@ import {
   OrderCancelledEvent,
   OrderCreatedEvent,
   OrderStatusChangedEvent,
+  WS_EVENTS,
 } from '../../common/events';
 
 const WS = {
-  ORDER_NEW: 'order.new',
-  ORDER_STATUS: 'order.status',
+  ORDER_NEW: WS_EVENTS.ORDER_NEW,
+  ORDER_STATUS: WS_EVENTS.ORDER_STATUS,
 } as const;
 
 /**
@@ -224,6 +225,7 @@ export class OrderEventsHandler {
       event,
       groupDriverRows,
       driverUserById,
+      customerUserId,
     );
   }
 
@@ -365,24 +367,12 @@ export class OrderEventsHandler {
     orderNumber: string;
     grandTotal: number;
   }) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: data.orderId },
-      select: { customerId: true, customer: { select: { userId: true } } },
-    });
-    const customerUserId = order?.customer?.userId;
-    if (!customerUserId) return { skipped: true };
-
-    await this.notificationsService.create({
-      userId: customerUserId,
-      title: 'Order delivered',
-      titleAr: 'تم توصيل الطلب',
-      body: `Order ${data.orderNumber} was delivered. Total: ${data.grandTotal}.`,
-      bodyAr: `تم توصيل الطلب ${data.orderNumber}. الإجمالي: ${data.grandTotal}.`,
-      type: NotificationType.ORDER_UPDATE,
-      data: { orderId: data.orderId, orderNumber: data.orderNumber },
-    });
-
-    return { notified: true };
+    // Delivery push notification is sent once via handleOrderStatusChanged
+    // (DELIVERED); keep handler as a clean no-op for any in-flight jobs.
+    this.logger.debug(
+      `Skipping duplicate settled delivery notification for ${data.orderNumber}`,
+    );
+    return { skipped: true };
   }
 
   private async syncOrderConversationLifecycle(event: OrderStatusChangedEvent) {
@@ -462,6 +452,7 @@ export class OrderEventsHandler {
       assistDriverId: string | null;
     }>,
     driverUserById: Map<string, string | null>,
+    resolvedCustomerUserId?: string | null,
   ) {
     const trackingStatuses: OrderStatus[] = [
       OrderStatus.DRIVER_ASSIGNED,
@@ -471,6 +462,8 @@ export class OrderEventsHandler {
       OrderStatus.PARTIALLY_PICKED_UP,
       OrderStatus.PICKED_UP,
     ];
+    const effectiveCustomerUserId =
+      resolvedCustomerUserId ?? event.customerUserId ?? null;
 
     for (const driverId of driverUserById.keys()) {
       if (trackingStatuses.includes(event.newStatus)) {
@@ -487,10 +480,10 @@ export class OrderEventsHandler {
         await this.refreshDriverTracking(
           driverId,
           hasActiveWorkOnThisOrder ? undefined : event.orderId,
-          hasActiveWorkOnThisOrder
+          hasActiveWorkOnThisOrder && effectiveCustomerUserId
             ? {
                 orderId: event.orderId,
-                customerUserId: event.customerUserId,
+                customerUserId: effectiveCustomerUserId,
               }
             : undefined,
         );
@@ -539,7 +532,7 @@ export class OrderEventsHandler {
         customerUserId: g.order.customer?.userId ?? g.order.customerId,
       });
     }
-    if (ensureActiveOrder?.orderId) {
+    if (ensureActiveOrder?.orderId && ensureActiveOrder.customerUserId) {
       byOrderId.set(ensureActiveOrder.orderId, ensureActiveOrder);
     }
 

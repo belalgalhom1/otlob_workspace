@@ -4,10 +4,13 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { NotificationType } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { EVENTS } from '../events/event-names';
+import { WS_EVENTS } from '../events/ws-events';
 import {
   DriverAssistAssignedEvent,
   DriverAssistCustomerDecidedEvent,
+  DriverAssistDecidedEvent,
   DriverAssistOfferedEvent,
+  DriverAssistRequestedEvent,
   DriverAssistTimedOutEvent,
 } from '../events';
 import {
@@ -17,9 +20,9 @@ import {
 import { SocketService } from '../../infrastructure/socket/socket.service';
 
 /**
- * Handles post-commit Driver Assist side effects (offer broadcasts, customer
- * proposals, driver assignment sockets, customer decisions, and timeouts).
- * Initial request/decision admin alerts remain on NotificationListener.
+ * Single owner of all Driver Assist post-commit side effects: admin request
+ * routing, admin decisions, driver offers, assignments, customer proposals,
+ * customer decisions, and timeouts.
  */
 @Injectable()
 export class DriverAssistListener {
@@ -30,10 +33,60 @@ export class DriverAssistListener {
     private readonly socketService: SocketService,
   ) {}
 
+  @OnEvent(EVENTS.DRIVER_ASSIST_REQUESTED, { async: true })
+  async handleDriverAssistRequested(
+    event: DriverAssistRequestedEvent,
+  ): Promise<void> {
+    try {
+      await this.eventsQueue.add(EVENT_JOBS.DRIVER_ASSIST_REQUESTED, event, {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2_000 },
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to enqueue driver.assist.requested event: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /** Support approved/rejected/withdrew an assistance request — tell the driver. */
+  @OnEvent(EVENTS.DRIVER_ASSIST_DECIDED, { async: true })
+  async handleAssistDecided(event: DriverAssistDecidedEvent): Promise<void> {
+    const copy: Record<string, { en: string; ar: string }> = {
+      approved: {
+        en: 'Your request for an extra driver was approved.',
+        ar: 'تمت الموافقة على طلبك لسائق إضافي.',
+      },
+      rejected: {
+        en: 'Your request for an extra driver was rejected.',
+        ar: 'تم رفض طلبك لسائق إضافي.',
+      },
+      cancelled: {
+        en: 'Your extra-driver request was withdrawn.',
+        ar: 'تم إلغاء طلب السائق الإضافي.',
+      },
+      fulfilled: {
+        en: 'An extra driver has been assigned to your delivery.',
+        ar: 'تم تعيين سائق إضافي لتوصيلك.',
+      },
+    };
+    const text = copy[event.decision];
+    if (!text) return;
+
+    await this.enqueueNotification({
+      userId: event.driverUserId,
+      title: 'Extra driver request update',
+      titleAr: 'تحديث طلب السائق الإضافي',
+      body: text.en,
+      bodyAr: text.ar,
+      data: { orderId: event.orderId, requestId: event.requestId },
+    });
+  }
+
   @OnEvent(EVENTS.DRIVER_ASSIST_OFFERED, { async: true })
   async handleAssistOffered(event: DriverAssistOfferedEvent): Promise<void> {
     for (const userId of event.targetUserIds) {
-      await this.emitSocket(userId, 'assist.offer', {
+      await this.emitSocket(userId, WS_EVENTS.ASSIST_OFFER, {
         id: event.requestId,
         requestId: event.requestId,
         orderId: event.orderId,
@@ -95,7 +148,7 @@ export class DriverAssistListener {
         },
       });
 
-      await this.emitSocket(event.customerUserId, 'order.assist.proposed', {
+      await this.emitSocket(event.customerUserId, WS_EVENTS.ORDER_ASSIST_PROPOSED, {
         orderId: event.orderId,
         ...groupFields,
         assistFee: event.assistFee,
@@ -115,7 +168,7 @@ export class DriverAssistListener {
         },
       });
 
-      await this.emitSocket(event.assistDriverUserId, 'order.assigned', {
+      await this.emitSocket(event.assistDriverUserId, WS_EVENTS.ORDER_ASSIGNED, {
         orderId: event.orderId,
         orderNumber: event.orderNumber,
         ...groupFields,
@@ -179,7 +232,7 @@ export class DriverAssistListener {
 
     for (const userId of recipients) {
       await this.enqueueNotification({ userId, ...copy });
-      await this.emitSocket(userId, 'order.assist.decided', {
+      await this.emitSocket(userId, WS_EVENTS.ORDER_ASSIST_DECIDED, {
         orderId: event.orderId,
         ...groupFields,
         approved: event.approved,
@@ -233,7 +286,7 @@ export class DriverAssistListener {
         bodyAr: msg.bodyAr,
         data,
       });
-      await this.emitSocket(msg.userId, 'order.assist.timed_out', data);
+      await this.emitSocket(msg.userId, WS_EVENTS.ORDER_ASSIST_TIMED_OUT, data);
     }
   }
 

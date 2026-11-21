@@ -2,10 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { EVENTS } from '../events/event-names';
-
-const WS = {
-  PLATFORM_SETTINGS_UPDATED: 'platform.settings.updated',
-} as const;
+import { WS_EVENTS } from '../events/ws-events';
 
 @Injectable()
 export class SettingsListener {
@@ -13,10 +10,10 @@ export class SettingsListener {
 
   constructor(private readonly socketService: SocketService) {}
 
-  @OnEvent(EVENTS.SETTINGS_UPDATED)
+  @OnEvent(EVENTS.SETTINGS_UPDATED, { async: true })
   async handleSettingsUpdated() {
     try {
-      await this.socketService.broadcast(WS.PLATFORM_SETTINGS_UPDATED, {
+      await this.socketService.broadcast(WS_EVENTS.PLATFORM_SETTINGS_UPDATED, {
         updatedAt: new Date().toISOString(),
       });
     } catch (error: unknown) {

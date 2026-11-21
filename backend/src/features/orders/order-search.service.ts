@@ -560,6 +560,8 @@ export class OrderSearchService {
           oldStatus: OrderStatus.CANCELLED,
           newStatus: OrderStatus.LOOKING_FOR_DRIVER,
           status: OrderStatus.LOOKING_FOR_DRIVER,
+          customerId: order.customerId,
+          customerUserId: order.customer.userId,
           note: 'Retried driver search',
           actorUserId: actor.sub,
           revision: updatedOrder.revision,

@@ -162,10 +162,7 @@ export class OrdersPaymentService {
       ),
     );
 
-    return {
-      success: true,
-      message: 'Payment marked as paid. Waiting for driver confirmation.',
-    };
+    return this.ordersRepository.findById(orderId);
   }
 
   async driverConfirmPayment(
@@ -312,6 +309,21 @@ export class OrdersPaymentService {
       let revisionAfter = 0;
 
       await this.prisma.$transaction(async (tx) => {
+        // Guard payment completion against terminal orders FIRST (locking the
+        // order row) so a concurrent cancellation cannot be marked COMPLETED.
+        const paymentUpdated = await tx.order.updateMany({
+          where: {
+            id: orderId,
+            status: {
+              notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED],
+            },
+          },
+          data: { paymentStatus: 'COMPLETED' },
+        });
+        if (paymentUpdated.count === 0) {
+          throw new BadRequestException(OrderErrors.CONCURRENT_MODIFICATION);
+        }
+
         for (const g of groups) {
           if (g.status !== DeliveryGroupStatus.PENDING_PAYMENT) continue;
           const groupFulfillmentIds = new Set(
@@ -356,13 +368,6 @@ export class OrdersPaymentService {
             },
           });
         }
-
-        // Payment is a per-order fact: record it regardless of where the
-        // aggregate status currently sits.
-        await tx.order.updateMany({
-          where: { id: orderId },
-          data: { paymentStatus: 'COMPLETED' },
-        });
 
         // Advance the order out of PENDING_PAYMENT when it is still there
         // (single-delivery, or the first grouped delivery to confirm).
@@ -466,7 +471,7 @@ export class OrdersPaymentService {
         ),
       );
 
-      return { success: true, status: nextStatus };
+      return this.ordersRepository.findById(orderId);
     } else {
       // Driver says they did NOT receive the money. Revert payment status so customer can try again.
       const updated = await this.prisma.order.updateMany({
@@ -502,10 +507,7 @@ export class OrdersPaymentService {
         ),
       );
 
-      return {
-        success: true,
-        message: 'Payment denied. Customer must send again.',
-      };
+      return this.ordersRepository.findById(orderId);
     }
   }
 }

@@ -13,10 +13,11 @@ import {
   DriverAssistRequestedEvent,
   OrderDispatchRespondedEvent,
   OrderDispatchSentEvent,
+  WS_EVENTS,
 } from '../../common/events';
 
 const WS = {
-  DISPATCH_INCOMING: 'dispatch.incoming',
+  DISPATCH_INCOMING: WS_EVENTS.DISPATCH_INCOMING,
 } as const;
 
 /**
@@ -55,6 +56,7 @@ export class DispatchEventsHandler {
         pickupLocationLogo: event.pickupLocationLogo ?? null,
         dropoffCustomerAvatar: event.dropoffCustomerAvatar ?? null,
         isStacked: event.isStacked,
+        requestedVehicleType: event.requestedVehicleType ?? null,
       },
     );
 

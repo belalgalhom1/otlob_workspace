@@ -848,6 +848,7 @@ export class DeliveryGroupTransitionService {
         data: { status: 'CANCELLED' },
       });
 
+      const wasPaymentCollector = Boolean(group.isPaymentCollector);
       const cancelled = await tx.orderDeliveryGroup.updateMany({
         where: {
           id: deliveryGroupId,
@@ -865,6 +866,7 @@ export class DeliveryGroupTransitionService {
           status: DeliveryGroupStatus.CANCELLED,
           deliveryFee: 0,
           goldSurchargeAmount: 0,
+          ...(wasPaymentCollector ? { isPaymentCollector: false } : {}),
         },
       });
       if (cancelled.count === 0) return null;
@@ -874,7 +876,10 @@ export class DeliveryGroupTransitionService {
         Math.round(Number((group as { goldSurchargeAmount?: number }).goldSurchargeAmount ?? 0)),
       );
       let transferredGold = 0;
-      if (carriedGold > 0 && typeof tx.orderDeliveryGroup.findFirst === 'function') {
+      if (
+        (carriedGold > 0 || wasPaymentCollector) &&
+        typeof tx.orderDeliveryGroup.findFirst === 'function'
+      ) {
         const nextActiveGroup = await tx.orderDeliveryGroup.findFirst({
           where: {
             orderId,
@@ -888,9 +893,13 @@ export class DeliveryGroupTransitionService {
           await tx.orderDeliveryGroup.update({
             where: { id: nextActiveGroup.id },
             data: {
-              deliveryFee: { increment: carriedGold },
-              goldSurchargeAmount: { increment: carriedGold },
-              ...(group.isPaymentCollector ? { isPaymentCollector: true } : {}),
+              ...(carriedGold > 0
+                ? {
+                    deliveryFee: { increment: carriedGold },
+                    goldSurchargeAmount: { increment: carriedGold },
+                  }
+                : {}),
+              ...(wasPaymentCollector ? { isPaymentCollector: true } : {}),
             },
           });
           transferredGold = carriedGold;

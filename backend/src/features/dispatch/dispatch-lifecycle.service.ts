@@ -117,9 +117,15 @@ export class DispatchLifecycleService {
       dispatchId,
     );
     await this.dispatchRepository.deleteBroadcast(dispatchId);
-    if (stillOwner) {
-      await this.dispatchRepository.deleteDispatchState(expiryScope);
+
+    if (!stillOwner) {
+      this.logger.warn(
+        `Dispatch ${dispatchId} expired after another round or transition already released ${expiryScope}; skipping expiry penalties and retry`,
+      );
+      return;
     }
+
+    await this.dispatchRepository.deleteDispatchState(expiryScope);
 
     const rejectedBy =
       await this.dispatchRepository.getRejectedDriverIds(dispatchId);
@@ -140,13 +146,6 @@ export class DispatchLifecycleService {
       orderId,
       dispatchId,
     );
-
-    if (!stillOwner) {
-      this.logger.warn(
-        `Dispatch ${dispatchId} expired after another round claimed ${expiryScope}; not re-enqueuing`,
-      );
-      return;
-    }
 
     this.logger.log(
       `Dispatch ${dispatchId} expired — retrying for order ${orderId} (attempt ${attempt + 1})`,
@@ -913,7 +912,25 @@ export class DispatchLifecycleService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
+        // Global lock hierarchy: lock orders BEFORE drivers (matching
+        // OrdersRepository.cancelOrder and assignDriver) to eliminate AB-BA
+        // deadlocks under concurrent accept vs cancel/assign.
+        await tx.$queryRaw`SELECT id FROM orders WHERE id = ${order.id} FOR UPDATE`;
         await tx.$queryRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
+
+        if (typeof tx.order?.findUnique === 'function') {
+          const liveOrder = await tx.order.findUnique({
+            where: { id: order.id },
+            select: { status: true },
+          });
+          if (
+            liveOrder &&
+            (liveOrder.status === OrderStatus.CANCELLED ||
+              liveOrder.status === OrderStatus.DELIVERED)
+          ) {
+            throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
+          }
+        }
 
         const settings = await this.platformSettings.getSettings();
         const maxActive = settings.maxActiveOrdersPerDriver ?? 1;
@@ -925,6 +942,33 @@ export class DispatchLifecycleService {
           throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
         }
         const isStackedOrder = activeCount > 0;
+        const effectiveOrderType = order.type ?? dispatchData.type;
+        if (isStackedOrder) {
+          if (effectiveOrderType === OrderType.RIDE) {
+            throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+          }
+          if (typeof tx.orderDeliveryGroup?.findFirst === 'function') {
+            const activeRideGroup = await tx.orderDeliveryGroup.findFirst({
+              where: {
+                OR: [
+                  { primaryDriverId: driverId },
+                  { assistDriverId: driverId },
+                ],
+                status: {
+                  notIn: [
+                    DeliveryGroupStatus.CANCELLED,
+                    DeliveryGroupStatus.DELIVERED,
+                  ],
+                },
+                order: { type: OrderType.RIDE },
+              },
+              select: { id: true },
+            });
+            if (activeRideGroup) {
+              throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+            }
+          }
+        }
 
         if (candidate.driverShiftId) {
           const shift = await tx.driverShift.findUnique({
@@ -935,11 +979,6 @@ export class DispatchLifecycleService {
             throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
           }
         }
-
-        // Lock order before delivery group to keep lock order identical to
-        // OrdersRepository.cancelOrder and prevent deadlock under simultaneous
-        // accept vs customer cancel.
-        await tx.$queryRaw`SELECT id FROM orders WHERE id = ${order.id} FOR UPDATE`;
 
         await tx.orderDispatch.create({
           data: {
@@ -1117,19 +1156,31 @@ export class DispatchLifecycleService {
         });
       });
     } catch (err) {
-      try {
-        await this.dispatchRepository.releaseActiveClaim(
-          acceptScope,
-          dispatchId,
-        );
-      } catch {
-        // best-effort cleanup
-      }
-      if (
-        err &&
+      const isP2002 =
+        Boolean(err) &&
         typeof err === 'object' &&
-        (err as { code?: string }).code === 'P2002'
+        (err as { code?: string }).code === 'P2002';
+      // Only release the active broadcast claim if the target order/group is
+      // actually terminal (assigned/cancelled). Individual driver failures
+      // (e.g., DRIVER_ALREADY_ON_ORDER or vehicle/approval checks) must leave
+      // the live broadcast claim intact for the remaining candidates.
+      if (
+        isP2002 ||
+        (err instanceof Error &&
+          err.message === OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED)
       ) {
+        try {
+          if (await this.isTargetTerminal(order.id, groupId)) {
+            await this.dispatchRepository.releaseActiveClaim(
+              acceptScope,
+              dispatchId,
+            );
+          }
+        } catch {
+          // best-effort cleanup
+        }
+      }
+      if (isP2002) {
         throw new Error(OrderErrors.ALREADY_ASSIGNED_OR_CANCELLED);
       }
       throw err;
@@ -1227,15 +1278,25 @@ export class DispatchLifecycleService {
     dispatchData: DispatchBroadcastPayload,
     groupScope: string | null,
   ): Promise<void> {
-    const rejectedList =
-      await this.dispatchRepository.getRejectedDriverIds(dispatchId);
-
-    await this.dispatchRepository.deleteBroadcast(dispatchId);
     const rejectScope = groupScope ?? orderId;
+    // Acquire exclusive transition ownership via strict CAS delete BEFORE
+    // mutating broadcast/expiry state, preventing concurrent rejections or
+    // expiry from both advancing the attempt counter.
     const stillOwner = await this.dispatchRepository.releaseActiveClaim(
       rejectScope,
       dispatchId,
     );
+    if (!stillOwner) {
+      this.logger.warn(
+        `Dispatch ${dispatchId} rejected after another round or handler already released ${rejectScope}; not re-enqueuing`,
+      );
+      return;
+    }
+
+    const rejectedList =
+      await this.dispatchRepository.getRejectedDriverIds(dispatchId);
+
+    await this.dispatchRepository.deleteBroadcast(dispatchId);
     await this.dispatchRepository.deleteRejectedSet(dispatchId);
     await this.dispatchRepository.removeDispatchForCandidates(
       dispatchData.candidates || [],
@@ -1248,12 +1309,6 @@ export class DispatchLifecycleService {
 
     if (expiryJob) {
       await expiryJob.remove();
-      if (!stillOwner) {
-        this.logger.warn(
-          `Dispatch ${dispatchId} rejected after another round claimed ${rejectScope}; not re-enqueuing`,
-        );
-        return;
-      }
 
       const settings = await this.platformSettings.getSettings();
       await this.dispatchRepository.saveDispatchState(
@@ -1283,13 +1338,6 @@ export class DispatchLifecycleService {
         excludeDriverIds: expiryJob.data.excludeDriverIds,
         deliveryGroupId: groupScope,
       });
-      return;
-    }
-
-    if (!stillOwner) {
-      this.logger.warn(
-        `Dispatch ${dispatchId} rejected after another round claimed ${rejectScope}; not re-enqueuing`,
-      );
       return;
     }
 

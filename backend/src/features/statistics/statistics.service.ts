@@ -56,7 +56,7 @@ export class StatisticsService {
         ? [
             enqueueStatsJob(this.statsQueue, {
               name: STATS_JOBS.UPDATE_VENDOR,
-              sourceKey: `cancel:${orderId}:${STATS_JOBS.UPDATE_VENDOR}`,
+              sourceKey: `cancel:${orderId}:${STATS_JOBS.UPDATE_VENDOR}:${vendorId}`,
               data: {
                 vendorId,
                 increment: { totalOrders: 1, cancelledOrders: 1 },
@@ -69,7 +69,7 @@ export class StatisticsService {
         ? [
             enqueueStatsJob(this.statsQueue, {
               name: STATS_JOBS.UPDATE_DRIVER,
-              sourceKey: `cancel:${orderId}:${STATS_JOBS.UPDATE_DRIVER}`,
+              sourceKey: `cancel:${orderId}:${STATS_JOBS.UPDATE_DRIVER}:${driverId}`,
               data: {
                 driverId,
                 increment: { totalOrders: 1, cancelledOrders: 1 },
@@ -160,7 +160,7 @@ export class StatisticsService {
   // self-cleans, while a real shift far exceeds this duration anyway.
   private static readonly ONLINE_SINCE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
-  @OnEvent(EVENTS.DRIVER_STATUS_CHANGED)
+  @OnEvent(EVENTS.DRIVER_STATUS_CHANGED, { async: true })
   async handleDriverStatusChanged(event: DriverStatusChangedEvent) {
     const wasOnline = StatisticsService.ONLINE_STATUSES.has(
       event.oldStatus as DriverStatus,

@@ -134,6 +134,10 @@ interface TxLike {
     create?: (args: {
       data: Prisma.OrderStatusEventUncheckedCreateInput;
     }) => Promise<unknown>;
+    createMany?: (args: {
+      data: Prisma.OrderStatusEventUncheckedCreateInput[];
+      skipDuplicates?: boolean;
+    }) => Promise<{ count: number }>;
   };
 }
 
@@ -391,7 +395,7 @@ export async function recordOrderStatusEventIdempotent(
 ): Promise<{ created: boolean; record?: unknown }> {
   const client = tx as TxLike | null | undefined;
   const repo = client?.orderStatusEvent;
-  if (!repo?.create) return { created: false };
+  if (!repo?.create && !repo?.createMany) return { created: false };
 
   const actor = input.actor;
   const createdByValue = input.createdBy ?? actor?.actorUserId ?? 'system';
@@ -418,8 +422,19 @@ export async function recordOrderStatusEventIdempotent(
       : {}),
   };
 
+  // Prefer createMany({ skipDuplicates: true }) (PostgreSQL INSERT ... ON
+  // CONFLICT DO NOTHING) whenever available so duplicate eventKeys never raise
+  // 23505/P2002 and poison an enclosing Postgres $transaction with 25P02.
+  if (typeof repo.createMany === 'function') {
+    const res = await repo.createMany({
+      data: [data],
+      skipDuplicates: true,
+    });
+    return { created: (res?.count ?? 0) > 0 };
+  }
+
   try {
-    const record = await repo.create({ data });
+    const record = await repo.create!({ data });
     return { created: true, record };
   } catch (err: unknown) {
     if (

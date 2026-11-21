@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EVENTS } from '../events/event-names';
+import { WS_EVENTS } from '../events/ws-events';
+import { DriverLocationUpdatedEvent } from '../events';
 import { DriverTrackingService } from '../../features/location/driver-tracking.service';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 
@@ -33,6 +35,45 @@ export class SocketListener {
     }
   }
 
+  /**
+   * Broadcast live driver coordinates from the WS process (as well as monolith
+   * mode via ListenersModule) so customers and admin live-tracking rooms receive
+   * updates without requiring heavy queue listeners in WsModule.
+   */
+  @OnEvent(EVENTS.DRIVER_LOCATION_UPDATED)
+  handleLocationUpdated(event: DriverLocationUpdatedEvent) {
+    const payload = {
+      driverId: event.driverId,
+      longitude: event.longitude,
+      latitude: event.latitude,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (event.activeOrderId && event.customerUserId) {
+      this.socketService
+        .emitToUser(event.customerUserId, WS_EVENTS.DRIVER_LOCATION, {
+          ...payload,
+          orderId: event.activeOrderId,
+        })
+        .catch((err: unknown) =>
+          this.logger.error(
+            `Failed to emit driver location: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+    }
+
+    this.socketService
+      .emitToRoom(`driver_${event.driverId}`, WS_EVENTS.DRIVER_LOCATION, {
+        ...payload,
+        orderId: event.activeOrderId,
+      })
+      .catch((err: unknown) =>
+        this.logger.error(
+          `Failed to emit driver room location: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  }
+
   @OnEvent(EVENTS.WS_DRIVER_DISCONNECTED, { async: true })
   async handleDriverDisconnected(payload: { userId: string }) {
     try {
@@ -59,7 +100,7 @@ export class SocketListener {
       if (!location) return;
 
       await this.socketService
-        .emitToUser(payload.userId, 'driver.location', {
+        .emitToUser(payload.userId, WS_EVENTS.DRIVER_LOCATION, {
           orderId: payload.orderId,
           longitude: location.lng,
           latitude: location.lat,

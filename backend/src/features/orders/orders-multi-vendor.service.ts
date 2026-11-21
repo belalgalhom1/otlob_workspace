@@ -272,6 +272,11 @@ export class OrdersMultiVendorService {
     );
 
     const created = await this.prisma.$transaction(async (tx) => {
+      // Serialize concurrent checkouts for the same customer FIRST so
+      // concurrent duplicate retries with the same clientOrderKey hit the
+      // idempotency fast-path instead of tripping active-order limits.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${plan.customerId}::text))`;
+
       // Idempotency: the same clientOrderKey can never create a second order.
       if (clientOrderKey) {
         const existing = await tx.order.findUnique({
@@ -290,10 +295,6 @@ export class OrdersMultiVendorService {
         }
       }
 
-      // Serialize concurrent checkouts for the same customer, then re-check the
-      // active-order policy against committed rows. Mirrors
-      // OrdersRepository.createOrder so the multi-vendor path cannot bypass it.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${plan.customerId}::text))`;
       const liveActiveCount = await tx.order.count({
         where: {
           customerId: plan.customerId,
@@ -347,7 +348,7 @@ export class OrdersMultiVendorService {
           ${orderId}, ${orderNumber}, ${clientOrderKey}, 'STANDARD'::"OrderType",
           ${plan.customerId}, ${plan.zoneId},
           'PENDING'::"OrderStatus", ${dto.paymentMethod}::"PaymentMethod",
-          ${plan.grandTotal <= 0 ? 'PAID' : 'PENDING'}::"PaymentStatus",
+          ${plan.grandTotal <= 0 ? 'COMPLETED' : 'PENDING'}::"PaymentStatus",
           ${dto.deliveryAddress},
           ST_SetSRID(ST_MakePoint(${plan.deliveryLng}, ${plan.deliveryLat}), 4326),
           ${plan.subtotal}, ${plan.deliveryFee}, ${Math.round(plan.goldSurchargeAmount ?? 0)}, ${plan.driverBonusFee},
