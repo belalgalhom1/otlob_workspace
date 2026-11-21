@@ -1926,5 +1926,6 @@
   "driver_error_invalid_eval_time": "Evaluation time must be in 24-hour HH:mm format (e.g. 00:05).",
   "driver_error_cannot_cancel_assigned_shift": "Cannot cancel an assigned shift directly; use shift swap instead.",
   "order_error_fulfillment_stop_not_found": "Fulfillment stop not found.",
-  "wallet_error_penalty_must_be_positive": "Penalty amount must be greater than zero."
+  "wallet_error_penalty_must_be_positive": "Penalty amount must be greater than zero.",
+  "driver_error_invalid_ranking_thresholds": "Gold tier threshold must be greater than Silver tier threshold."
 }

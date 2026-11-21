@@ -81,6 +81,8 @@ class DriverRankingScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               _TierThresholdsLegendCard(
                 currentTier: summary.currentTier,
+                goldThreshold: summary.goldThreshold,
+                silverThreshold: summary.silverThreshold,
                 isAr: isAr,
               ),
               const SizedBox(height: 20),
@@ -88,6 +90,8 @@ class DriverRankingScreen extends ConsumerWidget {
                 _CurrentWeekProgressSection(
                   week: summary.currentWeek,
                   progress: summary.currentWeekProgress!,
+                  goldThreshold: summary.goldThreshold,
+                  silverThreshold: summary.silverThreshold,
                   isAr: isAr,
                 ),
                 const SizedBox(height: 24),
@@ -125,7 +129,14 @@ class DriverTierVisuals {
 
   String label(bool isAr) => isAr ? labelAr : labelEn;
 
-  static DriverTierVisuals of(DriverTier tier, {bool isDark = false}) {
+  static DriverTierVisuals of(
+    DriverTier tier, {
+    bool isDark = false,
+    num goldThreshold = 95,
+    num silverThreshold = 85,
+  }) {
+    final goldInt = goldThreshold.toInt();
+    final silverInt = silverThreshold.toInt();
     if (tier == DriverTier.GOLD) {
       return DriverTierVisuals(
         primary: const Color(0xFFD4920E),
@@ -134,7 +145,7 @@ class DriverTierVisuals {
         icon: LucideIcons.trophy,
         labelEn: 'Gold Badge',
         labelAr: 'الشارة الذهبية',
-        rangeLabel: '≥ 95%',
+        rangeLabel: '≥ $goldInt%',
       );
     }
     if (tier == DriverTier.SILVER) {
@@ -145,7 +156,7 @@ class DriverTierVisuals {
         icon: LucideIcons.award,
         labelEn: 'Silver Badge',
         labelAr: 'الشارة الفضية',
-        rangeLabel: '85% – 94.99%',
+        rangeLabel: '$silverInt% – ${(goldInt - 0.01).toStringAsFixed(2)}%',
       );
     }
     return DriverTierVisuals(
@@ -155,7 +166,7 @@ class DriverTierVisuals {
       icon: LucideIcons.shield,
       labelEn: 'Bronze Badge',
       labelAr: 'الشارة البرونزية',
-      rangeLabel: '< 85%',
+      rangeLabel: '< $silverInt%',
     );
   }
 }
@@ -169,7 +180,12 @@ class _HeroBadgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final visuals = DriverTierVisuals.of(summary.currentTier, isDark: isDark);
+    final visuals = DriverTierVisuals.of(
+      summary.currentTier,
+      isDark: isDark,
+      goldThreshold: summary.goldThreshold,
+      silverThreshold: summary.silverThreshold,
+    );
     final nextEvalLocal = summary.nextEvaluationAt.toLocal();
     final nextEvalFormatted = DateFormat(
       'EEEE, d MMM • h:mm a',
@@ -288,10 +304,14 @@ class _HeroBadgeCard extends StatelessWidget {
 
 class _TierThresholdsLegendCard extends StatelessWidget {
   final DriverTier currentTier;
+  final num goldThreshold;
+  final num silverThreshold;
   final bool isAr;
 
   const _TierThresholdsLegendCard({
     required this.currentTier,
+    this.goldThreshold = 95,
+    this.silverThreshold = 85,
     required this.isAr,
   });
 
@@ -342,7 +362,12 @@ class _TierThresholdsLegendCard extends StatelessWidget {
                   child: Builder(
                     builder: (context) {
                       final tier = tiers[i];
-                      final v = DriverTierVisuals.of(tier, isDark: isDark);
+                      final v = DriverTierVisuals.of(
+                        tier,
+                        isDark: isDark,
+                        goldThreshold: goldThreshold,
+                        silverThreshold: silverThreshold,
+                      );
                       final isCurrent = tier == currentTier;
                       return Container(
                         padding: const EdgeInsets.symmetric(
@@ -413,11 +438,15 @@ class _TierThresholdsLegendCard extends StatelessWidget {
 class _CurrentWeekProgressSection extends StatelessWidget {
   final RankingWeekWindowDto week;
   final DriverRankingPreviewItemDto progress;
+  final num goldThreshold;
+  final num silverThreshold;
   final bool isAr;
 
   const _CurrentWeekProgressSection({
     required this.week,
     required this.progress,
+    this.goldThreshold = 95,
+    this.silverThreshold = 85,
     required this.isAr,
   });
 
@@ -455,6 +484,8 @@ class _CurrentWeekProgressSection extends StatelessWidget {
     final projectedVisuals = DriverTierVisuals.of(
       progress.newTier,
       isDark: isDark,
+      goldThreshold: goldThreshold,
+      silverThreshold: silverThreshold,
     );
     final outcomeCol = _outcomeColor(progress.outcome);
     final snap = progress.metricsSnapshot;
@@ -604,6 +635,8 @@ class _CurrentWeekProgressSection extends StatelessWidget {
                     ? 'الطلبات المقبولة ÷ (المقبولة + المرفوضة + المنتهية)'
                     : 'Accepted ÷ (Accepted + Rejected + Expired)',
                 rate: progress.acceptanceRate?.toDouble(),
+                goldThreshold: goldThreshold,
+                silverThreshold: silverThreshold,
                 chips: [
                   _MetricChipData(
                     label: isAr ? 'مقبولة' : 'Accepted',
@@ -639,6 +672,8 @@ class _CurrentWeekProgressSection extends StatelessWidget {
                     ? 'المكتملة ÷ (المكتملة + إخفاقات بسبب السائق)'
                     : 'Completed ÷ (Completed + Driver-Fault Failures)',
                 rate: progress.completionRate?.toDouble(),
+                goldThreshold: goldThreshold,
+                silverThreshold: silverThreshold,
                 chips: [
                   _MetricChipData(
                     label: isAr ? 'مكتملة' : 'Completed',
@@ -671,6 +706,8 @@ class _CurrentWeekProgressSection extends StatelessWidget {
                     ? 'الالتزام بالموعد (سماحية 10 دقائق) ÷ الورديات المحتسبة'
                     : 'On-Time (10m grace) ÷ Eligible Shifts',
                 rate: progress.shiftPunctualityRate?.toDouble(),
+                goldThreshold: goldThreshold,
+                silverThreshold: silverThreshold,
                 chips: [
                   _MetricChipData(
                     label: isAr ? 'في الموعد' : 'On-Time',
@@ -772,6 +809,8 @@ class _KpiMetricCard extends StatelessWidget {
   final String subtitle;
   final double? rate;
   final List<_MetricChipData> chips;
+  final num goldThreshold;
+  final num silverThreshold;
   final bool isAr;
 
   const _KpiMetricCard({
@@ -780,13 +819,15 @@ class _KpiMetricCard extends StatelessWidget {
     required this.subtitle,
     required this.rate,
     required this.chips,
+    this.goldThreshold = 95,
+    this.silverThreshold = 85,
     required this.isAr,
   });
 
   Color _rateColor(double? r) {
     if (r == null) return Colors.grey;
-    if (r >= 95) return const Color(0xFFD4920E);
-    if (r >= 85) return AppColors.success;
+    if (r >= goldThreshold) return const Color(0xFFD4920E);
+    if (r >= silverThreshold) return AppColors.success;
     return AppColors.error;
   }
 

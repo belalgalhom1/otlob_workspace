@@ -9,6 +9,8 @@ import 'package:api/api.dart';
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **week** | [**RankingWeekWindowDto**](RankingWeekWindowDto.md) |  | 
+**goldThreshold** | **num** |  | 
+**silverThreshold** | **num** |  | 
 **alreadyExecuted** | **bool** |  | 
 **totalDrivers** | **num** |  | 
 **promotedCount** | **num** |  | 

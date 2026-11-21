@@ -11,6 +11,8 @@ Name | Type | Description | Notes
 **driverId** | **String** |  | 
 **currentTier** | [**DriverTier**](DriverTier.md) |  | 
 **timezone** | **String** |  | 
+**goldThreshold** | **num** |  | 
+**silverThreshold** | **num** |  | 
 **nextEvaluationAt** | [**DateTime**](DateTime.md) |  | 
 **currentWeek** | [**RankingWeekWindowDto**](RankingWeekWindowDto.md) |  | 
 **currentWeekProgress** | [**DriverRankingPreviewItemDto**](DriverRankingPreviewItemDto.md) |  | [optional] 

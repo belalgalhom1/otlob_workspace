@@ -13,6 +13,8 @@ Name | Type | Description | Notes
 **frequency** | **String** |  | 
 **evaluationDay** | **String** |  | 
 **timezone** | **String** |  | 
+**goldThreshold** | **num** |  | 
+**silverThreshold** | **num** |  | 
 **nextEvaluationAt** | [**DateTime**](DateTime.md) |  | 
 **currentWeek** | [**RankingWeekWindowDto**](RankingWeekWindowDto.md) |  | 
 **lastCompletedWeek** | [**RankingWeekWindowDto**](RankingWeekWindowDto.md) |  | 

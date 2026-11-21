@@ -288,10 +288,13 @@ class _DriverRankingAdminScreenState
       builder: (_) => _ScheduleSettingsDialog(
         initialEnabled: schedule.enabled,
         initialEvalTime: schedule.evalTime,
+        initialGoldThreshold: schedule.goldThreshold.toInt(),
+        initialSilverThreshold: schedule.silverThreshold.toInt(),
       ),
     );
     if (updated == true && mounted) {
       await _loadSchedule();
+      await _loadPreview(page: _previewPage);
     }
   }
 
@@ -477,8 +480,8 @@ class _DriverRankingAdminScreenState
                             const SizedBox(height: 4),
                             Text(
                               isAr
-                                  ? 'كل يوم إثنين الساعة ${schedule.evalTime} (${schedule.timezone}) • القادم: ${DateFormat('EEE d MMM • h:mm a', 'ar').format(schedule.nextEvaluationAt.toLocal())}'
-                                  : 'Every Monday at ${schedule.evalTime} (${schedule.timezone}) • Next: ${DateFormat('EEE d MMM • h:mm a', 'en').format(schedule.nextEvaluationAt.toLocal())}',
+                                  ? 'كل يوم إثنين الساعة ${schedule.evalTime} (${schedule.timezone}) • القادم: ${DateFormat('EEE d MMM • h:mm a', 'ar').format(schedule.nextEvaluationAt.toLocal())} • الذهبية: ≥ ${schedule.goldThreshold.toInt()}% • الفضية: ≥ ${schedule.silverThreshold.toInt()}%'
+                                  : 'Every Monday at ${schedule.evalTime} (${schedule.timezone}) • Next: ${DateFormat('EEE d MMM • h:mm a', 'en').format(schedule.nextEvaluationAt.toLocal())} • Gold: ≥ ${schedule.goldThreshold.toInt()}% • Silver: ≥ ${schedule.silverThreshold.toInt()}%',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Theme.of(
@@ -601,6 +604,20 @@ class _DriverRankingAdminScreenState
                   value: '${preview.inactiveCount.toInt()}',
                   color: AppColors.warning,
                   icon: LucideIcons.moon,
+                ),
+                const SizedBox(width: 8),
+                _SummaryStatPill(
+                  label: isAr ? 'الحد الذهبي' : 'Gold Tier',
+                  value: '≥ ${preview.goldThreshold.toInt()}%',
+                  color: const Color(0xFFD4920E),
+                  icon: LucideIcons.trophy,
+                ),
+                const SizedBox(width: 8),
+                _SummaryStatPill(
+                  label: isAr ? 'الحد الفضي' : 'Silver Tier',
+                  value: '≥ ${preview.silverThreshold.toInt()}%',
+                  color: const Color(0xFF64748B),
+                  icon: LucideIcons.award,
                 ),
               ],
             ),
@@ -1650,10 +1667,14 @@ class _KpiSummaryChip extends StatelessWidget {
 class _ScheduleSettingsDialog extends ConsumerStatefulWidget {
   final bool initialEnabled;
   final String initialEvalTime;
+  final int? initialGoldThreshold;
+  final int? initialSilverThreshold;
 
   const _ScheduleSettingsDialog({
     required this.initialEnabled,
     required this.initialEvalTime,
+    this.initialGoldThreshold,
+    this.initialSilverThreshold,
   });
 
   @override
@@ -1665,6 +1686,8 @@ class _ScheduleSettingsDialogState
     extends ConsumerState<_ScheduleSettingsDialog> {
   late bool _enabled;
   late TextEditingController _timeController;
+  late TextEditingController _goldController;
+  late TextEditingController _silverController;
   bool _saving = false;
   String? _error;
 
@@ -1673,11 +1696,19 @@ class _ScheduleSettingsDialogState
     super.initState();
     _enabled = widget.initialEnabled;
     _timeController = TextEditingController(text: widget.initialEvalTime);
+    _goldController = TextEditingController(
+      text: '${widget.initialGoldThreshold ?? 95}',
+    );
+    _silverController = TextEditingController(
+      text: '${widget.initialSilverThreshold ?? 85}',
+    );
   }
 
   @override
   void dispose() {
     _timeController.dispose();
+    _goldController.dispose();
+    _silverController.dispose();
     super.dispose();
   }
 
@@ -1693,6 +1724,33 @@ class _ScheduleSettingsDialogState
       return;
     }
 
+    final gold = int.tryParse(_goldController.text.trim());
+    final silver = int.tryParse(_silverController.text.trim());
+    if (gold == null || gold < 1 || gold > 100) {
+      setState(() {
+        _error = isAr
+            ? 'الحد الأدنى للشارة الذهبية يجب أن يكون بين 1 و 100.'
+            : 'Gold tier threshold must be between 1 and 100.';
+      });
+      return;
+    }
+    if (silver == null || silver < 0 || silver > 99) {
+      setState(() {
+        _error = isAr
+            ? 'الحد الأدنى للشارة الفضية يجب أن يكون بين 0 و 99.'
+            : 'Silver tier threshold must be between 0 and 99.';
+      });
+      return;
+    }
+    if (gold <= silver) {
+      setState(() {
+        _error = isAr
+            ? 'يجب أن يكون الحد الأدنى للشارة الذهبية أكبر من الحد الأدنى للشارة الفضية.'
+            : 'Gold tier threshold must be greater than Silver tier threshold.';
+      });
+      return;
+    }
+
     setState(() {
       _saving = true;
       _error = null;
@@ -1704,7 +1762,9 @@ class _ScheduleSettingsDialogState
             updatePlatformSettingsDto: UpdatePlatformSettingsDto(
               (b) => b
                 ..driverRankingAutoEvalEnabled = _enabled
-                ..driverRankingEvalTime = timeStr,
+                ..driverRankingEvalTime = timeStr
+                ..driverRankingGoldThreshold = gold
+                ..driverRankingSilverThreshold = silver,
             ),
           );
       if (mounted) {
@@ -1777,6 +1837,56 @@ class _ScheduleSettingsDialogState
               hintText: '00:05',
               icon: LucideIcons.clock,
             ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppFieldLabel(
+                      label: isAr ? 'الحد الذهبي (%)' : 'Gold Tier (%)',
+                      isRequired: true,
+                    ),
+                    TextField(
+                      controller: _goldController,
+                      enabled: !_saving,
+                      keyboardType: TextInputType.number,
+                      textDirection: TextDirection.ltr,
+                      decoration: AppDialogStyles.inputDecoration(
+                        context,
+                        hintText: '95',
+                        icon: LucideIcons.trophy,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppFieldLabel(
+                      label: isAr ? 'الحد الفضي (%)' : 'Silver Tier (%)',
+                      isRequired: true,
+                    ),
+                    TextField(
+                      controller: _silverController,
+                      enabled: !_saving,
+                      keyboardType: TextInputType.number,
+                      textDirection: TextDirection.ltr,
+                      decoration: AppDialogStyles.inputDecoration(
+                        context,
+                        hintText: '85',
+                        icon: LucideIcons.award,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

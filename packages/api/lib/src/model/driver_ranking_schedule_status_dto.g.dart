@@ -18,6 +18,10 @@ class _$DriverRankingScheduleStatusDto extends DriverRankingScheduleStatusDto {
   @override
   final String timezone;
   @override
+  final num goldThreshold;
+  @override
+  final num silverThreshold;
+  @override
   final DateTime nextEvaluationAt;
   @override
   final RankingWeekWindowDto currentWeek;
@@ -38,6 +42,8 @@ class _$DriverRankingScheduleStatusDto extends DriverRankingScheduleStatusDto {
     required this.frequency,
     required this.evaluationDay,
     required this.timezone,
+    required this.goldThreshold,
+    required this.silverThreshold,
     required this.nextEvaluationAt,
     required this.currentWeek,
     required this.lastCompletedWeek,
@@ -62,6 +68,8 @@ class _$DriverRankingScheduleStatusDto extends DriverRankingScheduleStatusDto {
         frequency == other.frequency &&
         evaluationDay == other.evaluationDay &&
         timezone == other.timezone &&
+        goldThreshold == other.goldThreshold &&
+        silverThreshold == other.silverThreshold &&
         nextEvaluationAt == other.nextEvaluationAt &&
         currentWeek == other.currentWeek &&
         lastCompletedWeek == other.lastCompletedWeek &&
@@ -77,6 +85,8 @@ class _$DriverRankingScheduleStatusDto extends DriverRankingScheduleStatusDto {
     _$hash = $jc(_$hash, frequency.hashCode);
     _$hash = $jc(_$hash, evaluationDay.hashCode);
     _$hash = $jc(_$hash, timezone.hashCode);
+    _$hash = $jc(_$hash, goldThreshold.hashCode);
+    _$hash = $jc(_$hash, silverThreshold.hashCode);
     _$hash = $jc(_$hash, nextEvaluationAt.hashCode);
     _$hash = $jc(_$hash, currentWeek.hashCode);
     _$hash = $jc(_$hash, lastCompletedWeek.hashCode);
@@ -94,6 +104,8 @@ class _$DriverRankingScheduleStatusDto extends DriverRankingScheduleStatusDto {
           ..add('frequency', frequency)
           ..add('evaluationDay', evaluationDay)
           ..add('timezone', timezone)
+          ..add('goldThreshold', goldThreshold)
+          ..add('silverThreshold', silverThreshold)
           ..add('nextEvaluationAt', nextEvaluationAt)
           ..add('currentWeek', currentWeek)
           ..add('lastCompletedWeek', lastCompletedWeek)
@@ -131,6 +143,16 @@ class DriverRankingScheduleStatusDtoBuilder
   String? _timezone;
   String? get timezone => _$this._timezone;
   set timezone(String? timezone) => _$this._timezone = timezone;
+
+  num? _goldThreshold;
+  num? get goldThreshold => _$this._goldThreshold;
+  set goldThreshold(num? goldThreshold) =>
+      _$this._goldThreshold = goldThreshold;
+
+  num? _silverThreshold;
+  num? get silverThreshold => _$this._silverThreshold;
+  set silverThreshold(num? silverThreshold) =>
+      _$this._silverThreshold = silverThreshold;
 
   DateTime? _nextEvaluationAt;
   DateTime? get nextEvaluationAt => _$this._nextEvaluationAt;
@@ -174,6 +196,8 @@ class DriverRankingScheduleStatusDtoBuilder
       _frequency = $v.frequency;
       _evaluationDay = $v.evaluationDay;
       _timezone = $v.timezone;
+      _goldThreshold = $v.goldThreshold;
+      _silverThreshold = $v.silverThreshold;
       _nextEvaluationAt = $v.nextEvaluationAt;
       _currentWeek = $v.currentWeek.toBuilder();
       _lastCompletedWeek = $v.lastCompletedWeek.toBuilder();
@@ -227,6 +251,16 @@ class DriverRankingScheduleStatusDtoBuilder
               timezone,
               r'DriverRankingScheduleStatusDto',
               'timezone',
+            ),
+            goldThreshold: BuiltValueNullFieldError.checkNotNull(
+              goldThreshold,
+              r'DriverRankingScheduleStatusDto',
+              'goldThreshold',
+            ),
+            silverThreshold: BuiltValueNullFieldError.checkNotNull(
+              silverThreshold,
+              r'DriverRankingScheduleStatusDto',
+              'silverThreshold',
             ),
             nextEvaluationAt: BuiltValueNullFieldError.checkNotNull(
               nextEvaluationAt,

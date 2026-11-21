@@ -1926,5 +1926,6 @@
   "driver_error_invalid_eval_time": "يجب أن يكون وقت التقييم بصيغة 24 ساعة HH:mm (مثال: 00:05).",
   "driver_error_cannot_cancel_assigned_shift": "لا يمكن إلغاء وردية معيّنة مباشرة؛ استخدم تبديل الورديات بدلاً من ذلك.",
   "order_error_fulfillment_stop_not_found": "نقطة التوصيل غير موجودة.",
-  "wallet_error_penalty_must_be_positive": "مبلغ الغرامة يجب أن يكون أكبر من الصفر."
+  "wallet_error_penalty_must_be_positive": "مبلغ الغرامة يجب أن يكون أكبر من الصفر.",
+  "driver_error_invalid_ranking_thresholds": "يجب أن يكون الحد الأدنى للشارة الذهبية أكبر من الحد الأدنى للشارة الفضية."
 }

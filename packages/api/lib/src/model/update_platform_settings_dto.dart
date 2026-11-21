@@ -124,6 +124,8 @@ part 'update_platform_settings_dto.g.dart';
 /// * [goldTierBonusPerKm] - Per-km bonus for Gold tier drivers (Used at checkout)
 /// * [driverRankingAutoEvalEnabled] - Enable/disable the weekly Monday automatic driver ranking evaluation
 /// * [driverRankingEvalTime] - Monday evaluation wall-clock time (HH:mm in configured project timezone)
+/// * [driverRankingGoldThreshold] - Minimum performance percentage (1-100) for GOLD driver tier. Must be strictly greater than silver threshold. Default 95.
+/// * [driverRankingSilverThreshold] - Minimum performance percentage (0-99) for SILVER driver tier. Must be strictly less than gold threshold. Default 85.
 /// * [driverSettlementOrderThreshold] - Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
 /// * [maxBreakMinutesPerShift] - Max total break minutes allowed per shift
 /// * [maxBreaksPerShift] - Max number of breaks allowed per shift
@@ -523,6 +525,14 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   /// Monday evaluation wall-clock time (HH:mm in configured project timezone)
   @BuiltValueField(wireName: r'driverRankingEvalTime')
   String? get driverRankingEvalTime;
+
+  /// Minimum performance percentage (1-100) for GOLD driver tier. Must be strictly greater than silver threshold. Default 95.
+  @BuiltValueField(wireName: r'driverRankingGoldThreshold')
+  num? get driverRankingGoldThreshold;
+
+  /// Minimum performance percentage (0-99) for SILVER driver tier. Must be strictly less than gold threshold. Default 85.
+  @BuiltValueField(wireName: r'driverRankingSilverThreshold')
+  num? get driverRankingSilverThreshold;
 
   /// Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables.
   @BuiltValueField(wireName: r'driverSettlementOrderThreshold')
@@ -1356,6 +1366,20 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield serializers.serialize(
         object.driverRankingEvalTime,
         specifiedType: const FullType(String),
+      );
+    }
+    if (object.driverRankingGoldThreshold != null) {
+      yield r'driverRankingGoldThreshold';
+      yield serializers.serialize(
+        object.driverRankingGoldThreshold,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.driverRankingSilverThreshold != null) {
+      yield r'driverRankingSilverThreshold';
+      yield serializers.serialize(
+        object.driverRankingSilverThreshold,
+        specifiedType: const FullType(num),
       );
     }
     if (object.driverSettlementOrderThreshold != null) {
@@ -2206,6 +2230,20 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(String),
           ) as String;
           result.driverRankingEvalTime = valueDes;
+          break;
+        case r'driverRankingGoldThreshold':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.driverRankingGoldThreshold = valueDes;
+          break;
+        case r'driverRankingSilverThreshold':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.driverRankingSilverThreshold = valueDes;
           break;
         case r'driverSettlementOrderThreshold':
           final valueDes = serializers.deserialize(

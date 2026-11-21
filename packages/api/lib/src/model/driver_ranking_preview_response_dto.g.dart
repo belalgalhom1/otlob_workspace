@@ -11,6 +11,10 @@ class _$DriverRankingPreviewResponseDto
   @override
   final RankingWeekWindowDto week;
   @override
+  final num goldThreshold;
+  @override
+  final num silverThreshold;
+  @override
   final bool alreadyExecuted;
   @override
   final num totalDrivers;
@@ -33,6 +37,8 @@ class _$DriverRankingPreviewResponseDto
 
   _$DriverRankingPreviewResponseDto._({
     required this.week,
+    required this.goldThreshold,
+    required this.silverThreshold,
     required this.alreadyExecuted,
     required this.totalDrivers,
     required this.promotedCount,
@@ -56,6 +62,8 @@ class _$DriverRankingPreviewResponseDto
     if (identical(other, this)) return true;
     return other is DriverRankingPreviewResponseDto &&
         week == other.week &&
+        goldThreshold == other.goldThreshold &&
+        silverThreshold == other.silverThreshold &&
         alreadyExecuted == other.alreadyExecuted &&
         totalDrivers == other.totalDrivers &&
         promotedCount == other.promotedCount &&
@@ -70,6 +78,8 @@ class _$DriverRankingPreviewResponseDto
   int get hashCode {
     var _$hash = 0;
     _$hash = $jc(_$hash, week.hashCode);
+    _$hash = $jc(_$hash, goldThreshold.hashCode);
+    _$hash = $jc(_$hash, silverThreshold.hashCode);
     _$hash = $jc(_$hash, alreadyExecuted.hashCode);
     _$hash = $jc(_$hash, totalDrivers.hashCode);
     _$hash = $jc(_$hash, promotedCount.hashCode);
@@ -86,6 +96,8 @@ class _$DriverRankingPreviewResponseDto
   String toString() {
     return (newBuiltValueToStringHelper(r'DriverRankingPreviewResponseDto')
           ..add('week', week)
+          ..add('goldThreshold', goldThreshold)
+          ..add('silverThreshold', silverThreshold)
           ..add('alreadyExecuted', alreadyExecuted)
           ..add('totalDrivers', totalDrivers)
           ..add('promotedCount', promotedCount)
@@ -110,6 +122,16 @@ class DriverRankingPreviewResponseDtoBuilder
   RankingWeekWindowDtoBuilder get week =>
       _$this._week ??= RankingWeekWindowDtoBuilder();
   set week(RankingWeekWindowDtoBuilder? week) => _$this._week = week;
+
+  num? _goldThreshold;
+  num? get goldThreshold => _$this._goldThreshold;
+  set goldThreshold(num? goldThreshold) =>
+      _$this._goldThreshold = goldThreshold;
+
+  num? _silverThreshold;
+  num? get silverThreshold => _$this._silverThreshold;
+  set silverThreshold(num? silverThreshold) =>
+      _$this._silverThreshold = silverThreshold;
 
   bool? _alreadyExecuted;
   bool? get alreadyExecuted => _$this._alreadyExecuted;
@@ -158,6 +180,8 @@ class DriverRankingPreviewResponseDtoBuilder
     final $v = _$v;
     if ($v != null) {
       _week = $v.week.toBuilder();
+      _goldThreshold = $v.goldThreshold;
+      _silverThreshold = $v.silverThreshold;
       _alreadyExecuted = $v.alreadyExecuted;
       _totalDrivers = $v.totalDrivers;
       _promotedCount = $v.promotedCount;
@@ -191,6 +215,16 @@ class DriverRankingPreviewResponseDtoBuilder
           _$v ??
           _$DriverRankingPreviewResponseDto._(
             week: week.build(),
+            goldThreshold: BuiltValueNullFieldError.checkNotNull(
+              goldThreshold,
+              r'DriverRankingPreviewResponseDto',
+              'goldThreshold',
+            ),
+            silverThreshold: BuiltValueNullFieldError.checkNotNull(
+              silverThreshold,
+              r'DriverRankingPreviewResponseDto',
+              'silverThreshold',
+            ),
             alreadyExecuted: BuiltValueNullFieldError.checkNotNull(
               alreadyExecuted,
               r'DriverRankingPreviewResponseDto',

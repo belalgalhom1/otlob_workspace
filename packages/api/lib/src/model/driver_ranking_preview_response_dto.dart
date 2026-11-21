@@ -16,6 +16,8 @@ part 'driver_ranking_preview_response_dto.g.dart';
 ///
 /// Properties:
 /// * [week] 
+/// * [goldThreshold] 
+/// * [silverThreshold] 
 /// * [alreadyExecuted] 
 /// * [totalDrivers] 
 /// * [promotedCount] 
@@ -28,6 +30,12 @@ part 'driver_ranking_preview_response_dto.g.dart';
 abstract class DriverRankingPreviewResponseDto implements Built<DriverRankingPreviewResponseDto, DriverRankingPreviewResponseDtoBuilder> {
   @BuiltValueField(wireName: r'week')
   RankingWeekWindowDto get week;
+
+  @BuiltValueField(wireName: r'goldThreshold')
+  num get goldThreshold;
+
+  @BuiltValueField(wireName: r'silverThreshold')
+  num get silverThreshold;
 
   @BuiltValueField(wireName: r'alreadyExecuted')
   bool get alreadyExecuted;
@@ -80,6 +88,16 @@ class _$DriverRankingPreviewResponseDtoSerializer implements PrimitiveSerializer
     yield serializers.serialize(
       object.week,
       specifiedType: const FullType(RankingWeekWindowDto),
+    );
+    yield r'goldThreshold';
+    yield serializers.serialize(
+      object.goldThreshold,
+      specifiedType: const FullType(num),
+    );
+    yield r'silverThreshold';
+    yield serializers.serialize(
+      object.silverThreshold,
+      specifiedType: const FullType(num),
     );
     yield r'alreadyExecuted';
     yield serializers.serialize(
@@ -150,6 +168,20 @@ class _$DriverRankingPreviewResponseDtoSerializer implements PrimitiveSerializer
             specifiedType: const FullType(RankingWeekWindowDto),
           ) as RankingWeekWindowDto;
           result.week.replace(valueDes);
+          break;
+        case r'goldThreshold':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.goldThreshold = valueDes;
+          break;
+        case r'silverThreshold':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.silverThreshold = valueDes;
           break;
         case r'alreadyExecuted':
           final valueDes = serializers.deserialize(

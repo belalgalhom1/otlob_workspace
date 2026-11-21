@@ -121,6 +121,8 @@ Name | Type | Description | Notes
 **goldTierBonusPerKm** | **num** | Per-km bonus for Gold tier drivers (Used at checkout) | [optional] 
 **driverRankingAutoEvalEnabled** | **bool** | Enable/disable the weekly Monday automatic driver ranking evaluation | [optional] 
 **driverRankingEvalTime** | **String** | Monday evaluation wall-clock time (HH:mm in configured project timezone) | [optional] 
+**driverRankingGoldThreshold** | **num** | Minimum performance percentage (1-100) for GOLD driver tier. Must be strictly greater than silver threshold. Default 95. | [optional] 
+**driverRankingSilverThreshold** | **num** | Minimum performance percentage (0-99) for SILVER driver tier. Must be strictly less than gold threshold. Default 85. | [optional] 
 **driverSettlementOrderThreshold** | **num** | Number of delivered orders after which a driver with a negative wallet balance must settle (transfer what they owe to the platform wallet) before receiving new orders. 0 disables. | [optional] 
 **maxBreakMinutesPerShift** | **num** | Max total break minutes allowed per shift | [optional] 
 **maxBreaksPerShift** | **num** | Max number of breaks allowed per shift | [optional] 

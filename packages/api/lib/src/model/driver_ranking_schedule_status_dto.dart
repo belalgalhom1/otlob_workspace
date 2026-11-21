@@ -18,6 +18,8 @@ part 'driver_ranking_schedule_status_dto.g.dart';
 /// * [frequency] 
 /// * [evaluationDay] 
 /// * [timezone] 
+/// * [goldThreshold] 
+/// * [silverThreshold] 
 /// * [nextEvaluationAt] 
 /// * [currentWeek] 
 /// * [lastCompletedWeek] 
@@ -39,6 +41,12 @@ abstract class DriverRankingScheduleStatusDto implements Built<DriverRankingSche
 
   @BuiltValueField(wireName: r'timezone')
   String get timezone;
+
+  @BuiltValueField(wireName: r'goldThreshold')
+  num get goldThreshold;
+
+  @BuiltValueField(wireName: r'silverThreshold')
+  num get silverThreshold;
 
   @BuiltValueField(wireName: r'nextEvaluationAt')
   DateTime get nextEvaluationAt;
@@ -102,6 +110,16 @@ class _$DriverRankingScheduleStatusDtoSerializer implements PrimitiveSerializer<
     yield serializers.serialize(
       object.timezone,
       specifiedType: const FullType(String),
+    );
+    yield r'goldThreshold';
+    yield serializers.serialize(
+      object.goldThreshold,
+      specifiedType: const FullType(num),
+    );
+    yield r'silverThreshold';
+    yield serializers.serialize(
+      object.silverThreshold,
+      specifiedType: const FullType(num),
     );
     yield r'nextEvaluationAt';
     yield serializers.serialize(
@@ -189,6 +207,20 @@ class _$DriverRankingScheduleStatusDtoSerializer implements PrimitiveSerializer<
             specifiedType: const FullType(String),
           ) as String;
           result.timezone = valueDes;
+          break;
+        case r'goldThreshold':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.goldThreshold = valueDes;
+          break;
+        case r'silverThreshold':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.silverThreshold = valueDes;
           break;
         case r'nextEvaluationAt':
           final valueDes = serializers.deserialize(

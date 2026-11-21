@@ -1007,6 +1007,30 @@ const List<SettingsSection> platformSettingsSections = [
         helpEn:
             'Monday evaluation time in Cairo timezone in 24-hour HH:mm format (e.g. 00:05).',
       ),
+      SettingsField(
+        key: 'driverRankingGoldThreshold',
+        kind: SettingsFieldKind.number,
+        groupAr: 'التصنيف الأسبوعي للمندوبين',
+        groupEn: 'Weekly Driver Ranking',
+        labelAr: 'الحد الأدنى للشارة الذهبية (%)',
+        labelEn: 'Gold Tier Minimum Score (%)',
+        helpAr:
+            'النسبة المئوية الدنيا لاستحقاق الشارة الذهبية (افتراضياً 95%). يجب أن تكون أعلى من الفضية.',
+        helpEn:
+            'Minimum percentage score required for Gold tier (default 95%). Must be greater than Silver.',
+      ),
+      SettingsField(
+        key: 'driverRankingSilverThreshold',
+        kind: SettingsFieldKind.number,
+        groupAr: 'التصنيف الأسبوعي للمندوبين',
+        groupEn: 'Weekly Driver Ranking',
+        labelAr: 'الحد الأدنى للشارة الفضية (%)',
+        labelEn: 'Silver Tier Minimum Score (%)',
+        helpAr:
+            'النسبة المئوية الدنيا لاستحقاق الشارة الفضية (افتراضياً 85%). المندوبون تحت هذا الحد يحصلون على البرونزية.',
+        helpEn:
+            'Minimum percentage score required for Silver tier (default 85%). Drivers below this receive Bronze.',
+      ),
     ],
   ),
 
