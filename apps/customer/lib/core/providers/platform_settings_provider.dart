@@ -63,6 +63,11 @@ class PlatformSettingsData {
   final double amountSpentPerCoin;
   final int minCoinsToUse;
   final int maxMultiVendorVendors;
+  final double driverSearchRadiusKm;
+  final double driverSearchRadiusStepKm;
+  final double driverSearchRadiusMaxKm;
+  final int driverSearchMaxAttempts;
+  final int driverAcceptTimeoutSecs;
 
   PlatformSettingsData({
     this.homeCoverUrl,
@@ -123,6 +128,11 @@ class PlatformSettingsData {
     this.amountSpentPerCoin = 10,
     this.minCoinsToUse = 1,
     this.maxMultiVendorVendors = 5,
+    this.driverSearchRadiusKm = 3,
+    this.driverSearchRadiusStepKm = 3,
+    this.driverSearchRadiusMaxKm = 15,
+    this.driverSearchMaxAttempts = 5,
+    this.driverAcceptTimeoutSecs = 30,
   });
 
   factory PlatformSettingsData.fromJson(Map<String, dynamic> json) {
@@ -193,6 +203,19 @@ class PlatformSettingsData {
       amountSpentPerCoin: double.tryParse(json['amountSpentPerCoin']?.toString() ?? '10') ?? 10,
       minCoinsToUse: int.tryParse(json['minCoinsToUse']?.toString() ?? '1') ?? 1,
       maxMultiVendorVendors: parsedMaxMultiVendor < 1 ? 5 : parsedMaxMultiVendor,
+      driverSearchRadiusKm:
+          double.tryParse(json['driverSearchRadiusKm']?.toString() ?? '3') ?? 3,
+      driverSearchRadiusStepKm:
+          double.tryParse(json['driverSearchRadiusStepKm']?.toString() ?? '3') ??
+              3,
+      driverSearchRadiusMaxKm:
+          double.tryParse(json['driverSearchRadiusMaxKm']?.toString() ?? '15') ??
+              15,
+      driverSearchMaxAttempts:
+          int.tryParse(json['driverSearchMaxAttempts']?.toString() ?? '5') ?? 5,
+      driverAcceptTimeoutSecs:
+          int.tryParse(json['driverAcceptTimeoutSecs']?.toString() ?? '30') ??
+              30,
     );
   }
 }

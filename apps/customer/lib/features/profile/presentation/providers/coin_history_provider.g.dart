@@ -41,7 +41,7 @@ final class CoinHistoryProvider
   }
 }
 
-String _$coinHistoryHash() => r'f4d3148f5724b2ae5d72e0b6604a319333454e1b';
+String _$coinHistoryHash() => r'bcfd1a5fab1ef679ffd930ecf1852c06a745f52a';
 
 abstract class _$CoinHistory extends $Notifier<CoinHistoryState> {
   CoinHistoryState build();

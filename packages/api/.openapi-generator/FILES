@@ -55,6 +55,7 @@ doc/CreateVendorDto.md
 doc/CreateVendorVerticalDto.md
 doc/CreateWalletTopUpDto.md
 doc/CreateZoneDto.md
+doc/CustomOrderPreviewType.md
 doc/Customer.md
 doc/CustomerDecideAssistDto.md
 doc/CustomerUserSummaryDto.md
@@ -97,6 +98,7 @@ doc/DriverRankingRunDetailsResponseDto.md
 doc/DriverRankingRunStatus.md
 doc/DriverRankingScheduleStatusDto.md
 doc/DriverRankingTriggerSource.md
+doc/DriverSearchPhase.md
 doc/DriverShift.md
 doc/DriverShiftResponseDto.md
 doc/DriverShiftStatus.md
@@ -120,6 +122,7 @@ doc/FavoriteProduct.md
 doc/ForgotPasswordDto.md
 doc/FulfillmentRatingInputDto.md
 doc/GenerateShiftPoolsDto.md
+doc/GeoPointDto.md
 doc/HealthSystemApi.md
 doc/InboxSummaryCountsApi.md
 doc/JoinWaitlistDto.md
@@ -133,6 +136,8 @@ doc/MarkReadDto.md
 doc/MenuCategory.md
 doc/MobileWallet.md
 doc/MobileWalletResponseDto.md
+doc/NearbyDriverPreviewDto.md
+doc/NearbyDriversResponseDto.md
 doc/NotificationsApi.md
 doc/Offer.md
 doc/OffersApi.md
@@ -147,6 +152,7 @@ doc/OrderItem.md
 doc/OrderItemOption.md
 doc/OrderResponseDto.md
 doc/OrderReview.md
+doc/OrderSearchStatusDto.md
 doc/OrderStatus.md
 doc/OrderStatusEvent.md
 doc/OrderType.md
@@ -154,7 +160,10 @@ doc/OrderVendorFulfillment.md
 doc/OrderVendorFulfillmentStatus.md
 doc/OrdersApi.md
 doc/OrdersControllerEstimateCustomOrder200Response.md
+doc/OrdersControllerGetCustomNearbyDrivers200Response.md
+doc/OrdersControllerGetSearchStatus200Response.md
 doc/OrdersControllerPlaceOrder200Response.md
+doc/OrdersControllerRetryCustomSearch200Response.md
 doc/OverrideDriverRankDto.md
 doc/PaginatedDeliveryIncidentsResponseDto.md
 doc/PaginatedDriverRankHistoryResponseDto.md
@@ -196,6 +205,7 @@ doc/RequestAssistDriverDto.md
 doc/ResetPasswordDto.md
 doc/RespondAssistOfferDto.md
 doc/RespondToDispatchDto.md
+doc/RetrySearchResponseDto.md
 doc/ReviewCustomerDto.md
 doc/ReviewCustomerUserDto.md
 doc/ReviewDto.md
@@ -205,6 +215,7 @@ doc/ReviewsApi.md
 doc/ReviewsControllerGetVendorReviews200Response.md
 doc/Role.md
 doc/SearchCustomersInPolygonDto.md
+doc/SearchTerminalReason.md
 doc/SendMessageDto.md
 doc/SendOtpDto.md
 doc/Session.md
@@ -365,6 +376,7 @@ lib/src/model/create_vendor_dto.dart
 lib/src/model/create_vendor_vertical_dto.dart
 lib/src/model/create_wallet_top_up_dto.dart
 lib/src/model/create_zone_dto.dart
+lib/src/model/custom_order_preview_type.dart
 lib/src/model/customer.dart
 lib/src/model/customer_decide_assist_dto.dart
 lib/src/model/customer_user_summary_dto.dart
@@ -404,6 +416,7 @@ lib/src/model/driver_ranking_run_details_response_dto.dart
 lib/src/model/driver_ranking_run_status.dart
 lib/src/model/driver_ranking_schedule_status_dto.dart
 lib/src/model/driver_ranking_trigger_source.dart
+lib/src/model/driver_search_phase.dart
 lib/src/model/driver_shift.dart
 lib/src/model/driver_shift_response_dto.dart
 lib/src/model/driver_shift_status.dart
@@ -425,6 +438,7 @@ lib/src/model/favorite_product.dart
 lib/src/model/forgot_password_dto.dart
 lib/src/model/fulfillment_rating_input_dto.dart
 lib/src/model/generate_shift_pools_dto.dart
+lib/src/model/geo_point_dto.dart
 lib/src/model/join_waitlist_dto.dart
 lib/src/model/language.dart
 lib/src/model/login_dto.dart
@@ -434,6 +448,8 @@ lib/src/model/mark_read_dto.dart
 lib/src/model/menu_category.dart
 lib/src/model/mobile_wallet.dart
 lib/src/model/mobile_wallet_response_dto.dart
+lib/src/model/nearby_driver_preview_dto.dart
+lib/src/model/nearby_drivers_response_dto.dart
 lib/src/model/offer.dart
 lib/src/model/order.dart
 lib/src/model/order_actor_summary_dto.dart
@@ -446,13 +462,17 @@ lib/src/model/order_item.dart
 lib/src/model/order_item_option.dart
 lib/src/model/order_response_dto.dart
 lib/src/model/order_review.dart
+lib/src/model/order_search_status_dto.dart
 lib/src/model/order_status.dart
 lib/src/model/order_status_event.dart
 lib/src/model/order_type.dart
 lib/src/model/order_vendor_fulfillment.dart
 lib/src/model/order_vendor_fulfillment_status.dart
 lib/src/model/orders_controller_estimate_custom_order200_response.dart
+lib/src/model/orders_controller_get_custom_nearby_drivers200_response.dart
+lib/src/model/orders_controller_get_search_status200_response.dart
 lib/src/model/orders_controller_place_order200_response.dart
+lib/src/model/orders_controller_retry_custom_search200_response.dart
 lib/src/model/override_driver_rank_dto.dart
 lib/src/model/paginated_delivery_incidents_response_dto.dart
 lib/src/model/paginated_driver_rank_history_response_dto.dart
@@ -492,6 +512,7 @@ lib/src/model/request_assist_driver_dto.dart
 lib/src/model/reset_password_dto.dart
 lib/src/model/respond_assist_offer_dto.dart
 lib/src/model/respond_to_dispatch_dto.dart
+lib/src/model/retry_search_response_dto.dart
 lib/src/model/review_customer_dto.dart
 lib/src/model/review_customer_user_dto.dart
 lib/src/model/review_dto.dart
@@ -500,6 +521,7 @@ lib/src/model/review_wallet_top_up_dto.dart
 lib/src/model/reviews_controller_get_vendor_reviews200_response.dart
 lib/src/model/role.dart
 lib/src/model/search_customers_in_polygon_dto.dart
+lib/src/model/search_terminal_reason.dart
 lib/src/model/send_message_dto.dart
 lib/src/model/send_otp_dto.dart
 lib/src/model/session.dart

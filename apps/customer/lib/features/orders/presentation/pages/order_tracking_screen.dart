@@ -19,6 +19,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import '../../../../core/services/location_service.dart';
 import '../providers/orders_provider.dart';
+import '../utils/order_geo_utils.dart';
 import 'package:data/providers.dart';
 import '../widgets/order_tracking_sheet.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
@@ -335,19 +336,28 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         _orderDetails = order;
         _orderStatus = order['status'] ?? 'LOOKING_FOR_DRIVER';
 
-        // If we failed to get user location, use the delivery location as map center
-        if (_initialMapCenter == null &&
-            order['deliveryLat'] != null &&
-            order['deliveryLng'] != null) {
-          final lat = double.tryParse(order['deliveryLat'].toString());
-          final lng = double.tryParse(order['deliveryLng'].toString());
-          if (lat != null && lng != null && lat.isFinite && lng.isFinite) {
-            _deliveryLocation = LatLng(lat, lng);
-            if (_initialMapCenter == null) {
-              _initialMapCenter = LatLng(lat, lng);
-              if (_driverLocation == null) {
-                _mapController.move(_initialMapCenter!, 14.0);
-              }
+        // Resolve destination from canonical GeoJSON [lng, lat] payload (with legacy fallback)
+        final deliveryPoint = extractGeoPoint(order['deliveryLocation']) ??
+            ((order['deliveryLat'] != null && order['deliveryLng'] != null)
+                ? extractGeoPoint({
+                    'lat': order['deliveryLat'],
+                    'lng': order['deliveryLng'],
+                  })
+                : null);
+        if (deliveryPoint != null) {
+          _deliveryLocation = deliveryPoint;
+          if (_initialMapCenter == null) {
+            _initialMapCenter = deliveryPoint;
+            if (_driverLocation == null) {
+              _mapController.move(_initialMapCenter!, 14.0);
+            }
+          }
+        } else if (_initialMapCenter == null) {
+          final pickupPoint = extractGeoPoint(order['pickupLocation']);
+          if (pickupPoint != null) {
+            _initialMapCenter = pickupPoint;
+            if (_driverLocation == null) {
+              _mapController.move(_initialMapCenter!, 14.0);
             }
           }
         }
@@ -1083,10 +1093,18 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       }
 
       if (sLat != 0.0 && sLng != 0.0) {
-        final storeName = (isArabic
-                ? (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'متجر')
-                : (v['storeName'] ?? v['storeNameAr'] ?? v['name'] ?? 'Store'))
-            .toString();
+        final rawOrderType = _orderDetails!['type']?.toString();
+        final isCustomOrder =
+            rawOrderType == 'CUSTOM_DELIVERY' || rawOrderType == 'RIDE';
+        final customPickupLabel = (_orderDetails!['pickupAddress'] ?? '').toString().trim();
+        final storeName = isCustomOrder
+            ? (customPickupLabel.isNotEmpty
+                ? customPickupLabel
+                : (isArabic ? 'نقطة الاستلام' : 'Pickup'))
+            : (isArabic
+                    ? (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'متجر')
+                    : (v['storeName'] ?? v['storeNameAr'] ?? v['name'] ?? 'Store'))
+                .toString();
         final isPickedUp = _orderStatus == 'PICKED_UP' || _orderStatus == 'DELIVERED';
         stops.add({
           'index': 1,

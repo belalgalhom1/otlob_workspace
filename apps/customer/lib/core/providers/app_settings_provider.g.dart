@@ -88,7 +88,7 @@ final class AppSettingsProvider
   }
 }
 
-String _$appSettingsHash() => r'63e4f71243d7f74bf663d94e63d33ccfc7eb1a59';
+String _$appSettingsHash() => r'c204d639ad9933167a138109576b27293084908e';
 
 abstract class _$AppSettings extends $Notifier<AppSettingsState> {
   AppSettingsState build();

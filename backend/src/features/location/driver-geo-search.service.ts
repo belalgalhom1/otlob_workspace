@@ -15,9 +15,56 @@ export interface NearbyDriverMatch {
   id: string;
   userId: string;
   tier?: string;
+  vehicleType?: string | null;
   distanceKm: number;
   activeShiftId: string | null;
   isOnDelivery?: boolean;
+}
+
+export interface VehicleAvailabilitySettings {
+  allowBicycle: boolean;
+  allowMotorcycle: boolean;
+  allowCar: boolean;
+  allowVan: boolean;
+  allowTruck: boolean;
+  allowMotorTricycle: boolean;
+  maxKmForBicycle?: number | null;
+}
+
+/**
+ * Resolves eligible vehicle types for a trip/order based on platform settings
+ * and maximum bicycle distance constraints.
+ */
+export function resolveAllowedVehicleTypes(
+  requestedVehicleType: string | null | undefined,
+  orderDistanceKm: number,
+  settings: VehicleAvailabilitySettings,
+): string[] {
+  if (requestedVehicleType) {
+    const v = requestedVehicleType;
+    const isAllowed =
+      (v === 'BICYCLE' && settings.allowBicycle) ||
+      (v === 'MOTORCYCLE' && settings.allowMotorcycle) ||
+      (v === 'CAR' && settings.allowCar) ||
+      (v === 'VAN' && settings.allowVan) ||
+      (v === 'TRUCK' && settings.allowTruck) ||
+      (v === 'MOTOR_TRICYCLE' && settings.allowMotorTricycle);
+    return isAllowed ? [v] : [];
+  }
+
+  const allowed: string[] = [];
+  if (settings.allowMotorcycle) allowed.push('MOTORCYCLE');
+  if (
+    settings.allowBicycle &&
+    orderDistanceKm <= (settings.maxKmForBicycle ?? 5.0)
+  ) {
+    allowed.push('BICYCLE');
+  }
+  if (settings.allowCar) allowed.push('CAR');
+  if (settings.allowVan) allowed.push('VAN');
+  if (settings.allowTruck) allowed.push('TRUCK');
+  if (settings.allowMotorTricycle) allowed.push('MOTOR_TRICYCLE');
+  return allowed;
 }
 
 /**
@@ -120,6 +167,7 @@ export class DriverGeoSearchService {
       id: r.id,
       userId: r.userId,
       tier: r.tier ?? DriverTier.SILVER,
+      vehicleType: r.vehicleType ?? null,
       distanceKm: distanceMap.get(r.id) ?? 0,
       activeShiftId: r.activeShiftId ?? null,
       isOnDelivery: Boolean(r.isOnDelivery),

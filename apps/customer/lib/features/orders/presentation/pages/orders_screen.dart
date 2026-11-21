@@ -775,9 +775,21 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final cancelledByActor =
         isCancelled ? OrderActivityHelper.resolveCancelledBy(order) : null;
 
+    final isCustomSearchScreen = isCustom &&
+        (status == 'PENDING' ||
+            status == 'ACCEPTED' ||
+            status == 'LOOKING_FOR_DRIVER' ||
+            (status == 'CANCELLED' &&
+                order['driver'] == null &&
+                order['driverId'] == null));
+
     return GestureDetector(
       onTap: () {
-        context.push('/order-tracking/${order['id']}');
+        if (isCustomSearchScreen) {
+          context.push('/order-search/${order['id']}', extra: order);
+        } else {
+          context.push('/order-tracking/${order['id']}');
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 20),
@@ -1267,33 +1279,43 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             ],
           ),
 
-          if (!isCustom) ...[
+          if (status == 'PENDING' ||
+              status == 'CHANGES_REQUESTED' ||
+              status == 'ACCEPTED' ||
+              status == 'LOOKING_FOR_DRIVER') ...[
             const SizedBox(height: 16),
-            if (status == 'PENDING') ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _showCancelBottomSheet(context, ref, order['id'], s, isDark),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red, width: 1.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text(
-                        s.isArabic ? 'إلغاء الطلب' : 'Cancel Order',
-                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () =>
+                        _showCancelBottomSheet(context, ref, order['id'], s, isDark),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      isCustom
+                          ? (s.isArabic ? 'إلغاء البحث' : 'Cancel Search')
+                          : (s.isArabic ? 'إلغاء الطلب' : 'Cancel Order'),
+                      style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13),
                     ),
                   ),
-                ],
-              ),
-            ] else if (status == 'PENDING_PAYMENT') ...[
-              if (((order['driver'] ?? _resolveGroupDriver(order))?['mobileWallets'] as List?)
-                      ?.isNotEmpty ??
-                  false)
-                ..._buildUpfrontSection(order, s),
-            ],
+                ),
+              ],
+            ),
+          ] else if (status == 'PENDING_PAYMENT') ...[
+            const SizedBox(height: 16),
+            if (((order['driver'] ?? _resolveGroupDriver(order))?['mobileWallets']
+                        as List?)
+                    ?.isNotEmpty ??
+                false)
+              ..._buildUpfrontSection(order, s),
           ],
           if (status == 'DELIVERED' && _hasPendingReviews(order)) ...[
             const SizedBox(height: 12),
@@ -1326,10 +1348,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () =>
-                    context.push('/order-tracking/${order['id']}'),
-                icon: const Icon(Icons.location_searching_rounded, size: 20),
-                label: Text(s.isArabic ? 'تتبع الطلب' : 'Track Order'),
+                onPressed: () {
+                  if (isCustomSearchScreen) {
+                    context.push('/order-search/${order['id']}', extra: order);
+                  } else {
+                    context.push('/order-tracking/${order['id']}');
+                  }
+                },
+                icon: Icon(
+                  isCustomSearchScreen
+                      ? Icons.radar_rounded
+                      : Icons.location_searching_rounded,
+                  size: 20,
+                ),
+                label: Text(
+                  isCustomSearchScreen
+                      ? (s.isArabic ? 'حالة البحث عن سائق' : 'Driver Search Status')
+                      : (s.isArabic ? 'تتبع الطلب' : 'Track Order'),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.black,

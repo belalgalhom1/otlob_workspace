@@ -101,6 +101,9 @@ class SocketService with WidgetsBindingObserver {
     await initSocket(freshToken);
   }
 
+  /// Whether the underlying Socket.IO connection is currently active.
+  bool get isConnected => _socket?.connected == true;
+
   /// Public entry point for consumers that need a guaranteed live socket
   /// (e.g. after coming back from background where payment events may have
   /// been missed).

@@ -203,6 +203,11 @@ export class PlatformSettingsService {
       driverBonusEndDate: s.driverBonusEndDate,
       driverBonusPaidByCustomer: s.driverBonusPaidByCustomer,
       driverShiftsEnabled: s.driverShiftsEnabled,
+      driverSearchRadiusKm: s.driverSearchRadiusKm,
+      driverSearchRadiusStepKm: s.driverSearchRadiusStepKm,
+      driverSearchRadiusMaxKm: s.driverSearchRadiusMaxKm,
+      driverSearchMaxAttempts: s.driverSearchMaxAttempts,
+      driverAcceptTimeoutSecs: s.driverAcceptTimeoutSecs,
     };
   }
 

@@ -6,6 +6,7 @@ import { OrdersCheckoutService } from './orders-checkout.service';
 import { OrdersStateService } from './orders-state.service';
 import { OrdersPaymentService } from './orders-payment.service';
 import { OrdersRepository } from './orders.repository';
+import { OrderSearchService } from './order-search.service';
 import { OrderQueriesRepository } from './repositories/order-queries.repository';
 import { OrderGeoRepository } from './repositories/order-geo.repository';
 import { OrderRoleProjector } from './projections/order-role.projector';
@@ -37,6 +38,7 @@ import { ORDER_ASSIST_CANCELLATION_PORT } from '../../common/orders/order-assist
     OrdersStateService,
     OrdersPaymentService,
     OrdersRepository,
+    OrderSearchService,
     OrderQueriesRepository,
     OrderGeoRepository,
     OrderRoleProjector,
@@ -68,6 +70,7 @@ import { ORDER_ASSIST_CANCELLATION_PORT } from '../../common/orders/order-assist
     OrdersStateService,
     OrdersPaymentService,
     OrdersRepository,
+    OrderSearchService,
     OrderQueriesRepository,
     OrderGeoRepository,
     OrderRoleProjector,

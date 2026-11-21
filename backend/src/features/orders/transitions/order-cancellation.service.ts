@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -23,6 +24,11 @@ import {
   OrderErrors,
 } from '../../../common/constants/response.constants';
 import { resolveOrderActorSnapshot } from '../helpers/order-actor.helper';
+import { DispatchSearchTracker } from '../../dispatch/dispatch-search-tracker.service';
+import {
+  DriverSearchPhase,
+  SearchTerminalReason,
+} from '../../dispatch/dispatch-search.types';
 
 /**
  * Owns order cancellation authorization, guardrails, driver collection,
@@ -37,6 +43,7 @@ export class OrderCancellationService {
     private readonly prisma: PrismaService,
     private readonly authHelper: OrderAuthorizationHelper,
     private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly searchTracker?: DispatchSearchTracker,
   ) {}
 
   async cancelOrder(
@@ -53,6 +60,25 @@ export class OrderCancellationService {
       throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
     }
     const order = await this.ordersRepository.findById(orderId);
+
+    // Enforce customer ownership before terminal-state checks so unauthorized
+    // callers receive 403 rather than leaking status/cancellation metadata.
+    if (
+      actor?.role === Role.CUSTOMER &&
+      order.customer?.userId !== actor.sub
+    ) {
+      throw new ForbiddenException(OrderErrors.NOT_AUTHORIZED_VIEW);
+    }
+
+    // Idempotent retry protection when the customer retries an already-cancelled
+    // request that they themselves just cancelled.
+    if (
+      actor?.role === Role.CUSTOMER &&
+      order.status === OrderStatus.CANCELLED &&
+      order.cancelledByUserId === actor.sub
+    ) {
+      return order;
+    }
 
     if (NON_CANCELLABLE.includes(order.status)) {
       throw new BadRequestException(OrderErrors.CANNOT_CANCEL_ORDER);
@@ -204,6 +230,37 @@ export class OrderCancellationService {
         ?.primaryDriver?.userId ??
       collectorGroup?.primaryDriver?.userId ??
       null;
+
+    const terminalReason =
+      actor?.role === Role.CUSTOMER
+        ? SearchTerminalReason.CANCELLED_BY_CUSTOMER
+        : actor != null
+          ? SearchTerminalReason.CANCELLED_BY_ADMIN
+          : reason.toLowerCase().includes('no available drivers')
+            ? SearchTerminalReason.NO_DRIVERS_AVAILABLE
+            : reason.toLowerCase().includes('maximum attempts')
+              ? SearchTerminalReason.SEARCH_TIMEOUT
+              : SearchTerminalReason.CANCELLED_BY_SYSTEM;
+    const phase =
+      terminalReason === SearchTerminalReason.NO_DRIVERS_AVAILABLE
+        ? DriverSearchPhase.NO_DRIVERS_AVAILABLE
+        : terminalReason === SearchTerminalReason.SEARCH_TIMEOUT
+          ? DriverSearchPhase.SEARCH_TIMEOUT
+          : DriverSearchPhase.CANCELLED;
+
+    await this.searchTracker?.publishPhase({
+      orderId,
+      orderNumber: order.orderNumber,
+      orderStatus: OrderStatus.CANCELLED,
+      revision: updatedOrder.revision,
+      customerUserId:
+        ((updatedOrder as any).customer?.user?.id ??
+          order.customer.user.id) as string,
+      phase,
+      contactedCount: 0,
+      waveExpiresAt: null,
+      terminalReason,
+    });
 
     this.eventEmitter.emit(
       EVENTS.ORDER_CANCELLED,

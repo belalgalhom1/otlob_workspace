@@ -8,12 +8,20 @@ part of 'network_providers.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+/// Unified Customer Dio client delegating directly to [core.dioProvider] so all
+/// HTTP traffic shares one [AuthInterceptor] and one refresh-token mutex.
 
 @ProviderFor(dio)
 final dioProvider = DioProvider._();
 
-final class DioProvider extends $FunctionalProvider<Dio, Dio, Dio>
-    with $Provider<Dio> {
+/// Unified Customer Dio client delegating directly to [core.dioProvider] so all
+/// HTTP traffic shares one [AuthInterceptor] and one refresh-token mutex.
+
+final class DioProvider
+    extends $FunctionalProvider<core.Dio, core.Dio, core.Dio>
+    with $Provider<core.Dio> {
+  /// Unified Customer Dio client delegating directly to [core.dioProvider] so all
+  /// HTTP traffic shares one [AuthInterceptor] and one refresh-token mutex.
   DioProvider._()
     : super(
         from: null,
@@ -30,24 +38,24 @@ final class DioProvider extends $FunctionalProvider<Dio, Dio, Dio>
 
   @$internal
   @override
-  $ProviderElement<Dio> $createElement($ProviderPointer pointer) =>
+  $ProviderElement<core.Dio> $createElement($ProviderPointer pointer) =>
       $ProviderElement(pointer);
 
   @override
-  Dio create(Ref ref) {
+  core.Dio create(Ref ref) {
     return dio(ref);
   }
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(Dio value) {
+  Override overrideWithValue(core.Dio value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<Dio>(value),
+      providerOverride: $SyncValueProvider<core.Dio>(value),
     );
   }
 }
 
-String _$dioHash() => r'0f8927a036aaa3918e3199ffa9153f82e1bb1a52';
+String _$dioHash() => r'447cb7d1f44de1ac07a9239d0a392f25e7ccaa43';
 
 @ProviderFor(internetConnection)
 final internetConnectionProvider = InternetConnectionProvider._();

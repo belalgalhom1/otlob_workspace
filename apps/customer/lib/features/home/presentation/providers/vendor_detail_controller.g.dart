@@ -53,7 +53,7 @@ final class VendorDetailControllerProvider
 }
 
 String _$vendorDetailControllerHash() =>
-    r'73181fb23a4dfeb778852ee663dde1d4d6e2b826';
+    r'7ffb38e34ec98cc39af4976409877f8de8356ef2';
 
 final class VendorDetailControllerFamily extends $Family
     with

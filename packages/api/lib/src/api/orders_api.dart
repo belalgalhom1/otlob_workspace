@@ -13,10 +13,14 @@ import 'package:api/src/model/admin_assign_driver_dto.dart';
 import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/cancel_order_dto.dart';
 import 'package:api/src/model/confirm_payment_dto.dart';
+import 'package:api/src/model/custom_order_preview_type.dart';
 import 'package:api/src/model/customer_decide_assist_dto.dart';
 import 'package:api/src/model/drivers_controller_my_assist_requests200_response.dart';
 import 'package:api/src/model/orders_controller_estimate_custom_order200_response.dart';
+import 'package:api/src/model/orders_controller_get_custom_nearby_drivers200_response.dart';
+import 'package:api/src/model/orders_controller_get_search_status200_response.dart';
 import 'package:api/src/model/orders_controller_place_order200_response.dart';
+import 'package:api/src/model/orders_controller_retry_custom_search200_response.dart';
 import 'package:api/src/model/place_custom_order_dto.dart';
 import 'package:api/src/model/place_direct_order_dto.dart';
 import 'package:api/src/model/place_multi_vendor_order_dto.dart';
@@ -24,6 +28,7 @@ import 'package:api/src/model/place_order_dto.dart';
 import 'package:api/src/model/reject_vendor_fulfillment_dto.dart';
 import 'package:api/src/model/respond_to_dispatch_dto.dart';
 import 'package:api/src/model/update_order_status_dto.dart';
+import 'package:api/src/model/vehicle_type.dart';
 
 class OrdersApi {
 
@@ -1676,6 +1681,101 @@ class OrdersApi {
     );
   }
 
+  /// Get anonymized nearby available drivers around a custom pickup location
+  /// 
+  ///
+  /// Parameters:
+  /// * [lat] 
+  /// * [lng] 
+  /// * [vehicleType] 
+  /// * [type] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerGetCustomNearbyDrivers200Response] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<OrdersControllerGetCustomNearbyDrivers200Response>> ordersControllerGetCustomNearbyDrivers({ 
+    required num lat,
+    required num lng,
+    VehicleType? vehicleType,
+    CustomOrderPreviewType? type,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/orders/custom/nearby-drivers';
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'bearer',
+          },
+        ],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      r'lat': encodeQueryParameter(_serializers, lat, const FullType(num)),
+      r'lng': encodeQueryParameter(_serializers, lng, const FullType(num)),
+      if (vehicleType != null) r'vehicleType': encodeQueryParameter(_serializers, vehicleType, const FullType(VehicleType)),
+      if (type != null) r'type': encodeQueryParameter(_serializers, type, const FullType(CustomOrderPreviewType)),
+    };
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    OrdersControllerGetCustomNearbyDrivers200Response? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(OrdersControllerGetCustomNearbyDrivers200Response),
+      ) as OrdersControllerGetCustomNearbyDrivers200Response;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<OrdersControllerGetCustomNearbyDrivers200Response>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// Get my pending dispatch requests
   /// 
   ///
@@ -2027,6 +2127,87 @@ class OrdersApi {
     }
 
     return Response<OrdersControllerPlaceOrder200Response>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Get real-time driver search progress, anonymized nearby drivers, and assigned driver distance
+  /// 
+  ///
+  /// Parameters:
+  /// * [orderId] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerGetSearchStatus200Response] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<OrdersControllerGetSearchStatus200Response>> ordersControllerGetSearchStatus({ 
+    required String orderId,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/orders/{orderId}/search-status'.replaceAll('{' r'orderId' '}', encodeQueryParameter(_serializers, orderId, const FullType(String)).toString());
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'bearer',
+          },
+        ],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
+    );
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    OrdersControllerGetSearchStatus200Response? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(OrdersControllerGetSearchStatus200Response),
+      ) as OrdersControllerGetSearchStatus200Response;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<OrdersControllerGetSearchStatus200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,
@@ -2889,6 +3070,87 @@ class OrdersApi {
     }
 
     return Response<ApiControllerRoot200Response>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Retry driver search idempotently on an expired/cancelled custom delivery or ride order
+  /// 
+  ///
+  /// Parameters:
+  /// * [orderId] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerRetryCustomSearch200Response] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<OrdersControllerRetryCustomSearch200Response>> ordersControllerRetryCustomSearch({ 
+    required String orderId,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/orders/{orderId}/retry-search'.replaceAll('{' r'orderId' '}', encodeQueryParameter(_serializers, orderId, const FullType(String)).toString());
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'bearer',
+          },
+        ],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
+    );
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    OrdersControllerRetryCustomSearch200Response? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(OrdersControllerRetryCustomSearch200Response),
+      ) as OrdersControllerRetryCustomSearch200Response;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<OrdersControllerRetryCustomSearch200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

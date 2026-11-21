@@ -55,6 +55,8 @@ export 'src/widgets/map/navigation_route_polyline.dart';
 export 'src/widgets/map/navigation_map_launcher.dart';
 export 'src/widgets/map/speed_limit_service.dart';
 export 'src/widgets/map/navigation_markers.dart';
+export 'src/widgets/map/search_radar_overlay.dart';
+export 'src/widgets/map/route_endpoints_card.dart';
 
 export 'src/widgets/legal_document_view.dart';
 export 'src/widgets/auth/otlob_splash_to_login_logo.dart';

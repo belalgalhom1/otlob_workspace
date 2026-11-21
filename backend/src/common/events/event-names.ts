@@ -22,6 +22,7 @@ export const EVENTS = {
   ORDER_DISPATCH_SENT: 'order.dispatch.sent',
   ORDER_DISPATCH_RESPONDED: 'order.dispatch.responded',
   ORDER_DISPATCH_CANCELLED: 'order.dispatch.cancelled',
+  ORDER_SEARCH_PROGRESS: 'order.search_progress',
 
   // Driver
   DRIVER_LOCATION_UPDATED: 'driver.location.updated',

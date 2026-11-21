@@ -32,6 +32,12 @@ import {
 } from './dto/order.dto';
 import { RejectVendorFulfillmentDto } from './dto/vendor-decision.dto';
 import { PlaceMultiVendorOrderDto } from './dto/multi-vendor-order.dto';
+import {
+  NearbyDriversResponseDto,
+  OrderSearchStatusDto,
+  QueryNearbyDriversDto,
+  RetrySearchResponseDto,
+} from './dto/order-search.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
@@ -47,6 +53,7 @@ import { OrdersStateService } from './orders-state.service';
 import { OrdersPaymentService } from './orders-payment.service';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
+import { OrderSearchService } from './order-search.service';
 import { OrderResponseDto } from 'src/common/dto/response-models.dto';
 
 @ApiTags('Orders')
@@ -62,6 +69,7 @@ export class OrdersController {
     private readonly paymentService: OrdersPaymentService,
     private readonly vendorDecisionService: OrderVendorDecisionService,
     private readonly multiVendorService: OrdersMultiVendorService,
+    private readonly searchService: OrderSearchService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -122,6 +130,17 @@ export class OrdersController {
     @Body() dto: PlaceCustomOrderDto,
   ) {
     return this.checkoutService.estimateCustomOrder(actor, dto);
+  }
+
+  @ApiStandardResponse(NearbyDriversResponseDto)
+  @Get('custom/nearby-drivers')
+  @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
+  @ApiOperation({
+    summary:
+      'Get anonymized nearby available drivers around a custom pickup location',
+  })
+  getCustomNearbyDrivers(@Query() query: QueryNearbyDriversDto) {
+    return this.searchService.getNearbyDriversPreview(query);
   }
 
   @ApiStandardResponse(OrderFeeEstimateDto)
@@ -509,6 +528,39 @@ export class OrdersController {
   // ═══════════════════════════════════════════════════════════════════════════
   // SHARED (`:orderId` parameterized routes)
   // ═══════════════════════════════════════════════════════════════════════════
+
+  @ApiStandardResponse(OrderSearchStatusDto)
+  @Get(':orderId/search-status')
+  @Roles(Role.CUSTOMER, Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({
+    summary:
+      'Get real-time driver search progress, anonymized nearby drivers, and assigned driver distance',
+  })
+  getSearchStatus(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.searchService.getOrderSearchStatus(actor, orderId);
+  }
+
+  @ApiStandardResponse(RetrySearchResponseDto)
+  @Throttle({
+    short: { limit: 5, ttl: 60000 },
+    medium: { limit: 15, ttl: 300000 },
+  })
+  @Post(':orderId/retry-search')
+  @Roles(Role.CUSTOMER, Role.SUPER_ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Retry driver search idempotently on an expired/cancelled custom delivery or ride order',
+  })
+  retryCustomSearch(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.searchService.retryCustomOrderSearch(actor, orderId);
+  }
 
   @ApiStandardResponse(OrderResponseDto)
   @Get(':orderId')

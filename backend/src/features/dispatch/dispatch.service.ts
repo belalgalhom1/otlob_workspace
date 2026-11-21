@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -19,7 +19,10 @@ import { OrderDispatchSentEvent } from '../../common/events';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { LocationRepository } from '../location/location.repository';
-import { DriverGeoSearchService } from '../location/driver-geo-search.service';
+import {
+  DriverGeoSearchService,
+  resolveAllowedVehicleTypes,
+} from '../location/driver-geo-search.service';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
 import { DispatchPort } from '../../common/orders/order-dispatch.ports';
 import {
@@ -28,6 +31,8 @@ import {
   DispatchRepository,
 } from './dispatch.repository';
 import { DispatchLifecycleService } from './dispatch-lifecycle.service';
+import { DispatchSearchTracker } from './dispatch-search-tracker.service';
+import { DriverSearchPhase } from './dispatch-search.types';
 
 export interface DispatchAttemptPayload {
   orderId: string;
@@ -77,6 +82,7 @@ export class DispatchService implements DispatchPort {
     private readonly driverGeoSearch: DriverGeoSearchService,
     private readonly earnings: OrderEarningsCalculator,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
+    @Optional() private readonly searchTracker?: DispatchSearchTracker,
   ) {}
 
   // ─── Core dispatch broadcast ──────────────────────────────────────────────
@@ -129,7 +135,7 @@ export class DispatchService implements DispatchPort {
             dispatchContext.deliveryLat,
           );
 
-    const allowedVehicleTypes = this.resolveAllowedVehicleTypes(
+    const allowedVehicleTypes = resolveAllowedVehicleTypes(
       dispatchContext.requestedVehicleType,
       orderDistanceKm,
       settings,
@@ -140,6 +146,23 @@ export class DispatchService implements DispatchPort {
       );
       return 'invalid';
     }
+
+    await this.searchTracker?.publishPhase({
+      orderId,
+      orderNumber,
+      orderType: order.type,
+      orderStatus: order.status,
+      customerUserId: (order as { customer?: { userId?: string } }).customer
+        ?.userId,
+      phase: DriverSearchPhase.FINDING_DRIVERS,
+      attempt,
+      maxAttempts: Number(settings.driverSearchMaxAttempts ?? 5),
+      radiusKm,
+      maxRadiusKm: Number(settings.driverSearchRadiusMaxKm ?? radiusKm),
+      contactedCount: 0,
+      waveExpiresAt: null,
+      searchTimeoutSecs: timeoutSecs,
+    });
 
     const dropoffLocation =
       dispatchContext.deliveryLng != null && dispatchContext.deliveryLat != null
@@ -203,6 +226,23 @@ export class DispatchService implements DispatchPort {
         `Broadcast sent to ${candidates.length} drivers for order ${orderNumber} ` +
           `(radius: ${radiusKm}km, attempt ${attempt})`,
       );
+      await this.searchTracker?.publishPhase({
+        orderId,
+        orderNumber,
+        orderType: order.type,
+        orderStatus: order.status,
+        customerUserId: (order as { customer?: { userId?: string } }).customer
+          ?.userId,
+        phase: DriverSearchPhase.CONTACTING_DRIVERS,
+        attempt,
+        maxAttempts: Number(settings.driverSearchMaxAttempts ?? 5),
+        radiusKm,
+        maxRadiusKm: Number(settings.driverSearchRadiusMaxKm ?? radiusKm),
+        contactedCount: candidates.length,
+        contactedDriverIds: candidates.map((c) => c.driverId),
+        waveExpiresAt: expiresAt.toISOString(),
+        searchTimeoutSecs: timeoutSecs,
+      });
     }
     return outcome;
   }
@@ -383,7 +423,7 @@ export class DispatchService implements DispatchPort {
           pickupAddress: true,
           deliveryFee: true,
           customer: {
-            select: { user: { select: { name: true, avatar: true } } },
+            select: { userId: true, user: { select: { name: true, avatar: true } } },
           },
         },
       }),
@@ -470,46 +510,6 @@ export class DispatchService implements DispatchPort {
       dispatchContext,
       dispatchDeliveryFee: Number(group.deliveryFee ?? order.deliveryFee ?? 0),
     };
-  }
-
-  private resolveAllowedVehicleTypes(
-    requestedVehicleType: string | null,
-    orderDistanceKm: number,
-    settings: {
-      allowBicycle: boolean;
-      allowMotorcycle: boolean;
-      allowCar: boolean;
-      allowVan: boolean;
-      allowTruck: boolean;
-      allowMotorTricycle: boolean;
-      maxKmForBicycle?: number | null;
-    },
-  ): string[] {
-    if (requestedVehicleType) {
-      const v = requestedVehicleType;
-      const isAllowed =
-        (v === 'BICYCLE' && settings.allowBicycle) ||
-        (v === 'MOTORCYCLE' && settings.allowMotorcycle) ||
-        (v === 'CAR' && settings.allowCar) ||
-        (v === 'VAN' && settings.allowVan) ||
-        (v === 'TRUCK' && settings.allowTruck) ||
-        (v === 'MOTOR_TRICYCLE' && settings.allowMotorTricycle);
-      return isAllowed ? [v] : [];
-    }
-
-    const allowed: string[] = [];
-    if (settings.allowMotorcycle) allowed.push('MOTORCYCLE');
-    if (
-      settings.allowBicycle &&
-      orderDistanceKm <= (settings.maxKmForBicycle ?? 5.0)
-    ) {
-      allowed.push('BICYCLE');
-    }
-    if (settings.allowCar) allowed.push('CAR');
-    if (settings.allowVan) allowed.push('VAN');
-    if (settings.allowTruck) allowed.push('TRUCK');
-    if (settings.allowMotorTricycle) allowed.push('MOTOR_TRICYCLE');
-    return allowed;
   }
 
   private async buildCandidateOffers(params: {

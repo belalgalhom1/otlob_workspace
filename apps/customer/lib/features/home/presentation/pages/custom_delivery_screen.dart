@@ -1,22 +1,22 @@
+import 'package:core/core.dart' show ApiErrorMapper;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lottie/lottie.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:ui_kit/ui_kit.dart' show AppNetworkAvatar;
 import '../../../../core/providers/platform_settings_provider.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
+import '../../../orders/presentation/providers/custom_delivery_search_controller.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 import '../../../profile/presentation/providers/coin_history_provider.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/widgets/location_picker_map.dart';
 
-enum RideState { form, findingDriver, driverAssigned }
-
 class CustomDeliveryScreen extends ConsumerStatefulWidget {
-  const CustomDeliveryScreen({super.key});
+  const CustomDeliveryScreen({super.key, this.initialDraft});
+
+  final CustomDeliveryDraft? initialDraft;
 
   @override
   ConsumerState<CustomDeliveryScreen> createState() => _CustomDeliveryScreenState();
@@ -27,10 +27,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   final _pickupController = TextEditingController();
   final _dropoffController = TextEditingController();
   final _detailsController = TextEditingController();
-  
+  final _specialRequestController = TextEditingController();
+
   String _selectedVehicle = 'motorcycle';
   String _serviceType = 'delivery'; // 'delivery' or 'ride'
-  RideState _rideState = RideState.form;
+  String _paymentMethod = 'CASH_ON_DELIVERY';
   bool _isExpanded = false;
   bool _useCoins = false;
   bool _isEstimating = false;
@@ -41,9 +42,31 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
 
   String _clientOrderKeyForCheckout() =>
       _clientOrderKey ??= generateClientOrderKey();
-  
+
+  void _invalidateOrderIntent() {
+    _clientOrderKey = null;
+  }
+
   LatLng? _pickupLocation;
   LatLng? _dropoffLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = widget.initialDraft;
+    if (draft != null) {
+      _serviceType = draft.serviceType;
+      _selectedVehicle = draft.vehicleType;
+      _pickupController.text = draft.pickupAddress;
+      _dropoffController.text = draft.dropoffAddress;
+      _detailsController.text = draft.itemDetails ?? '';
+      _specialRequestController.text = draft.specialRequest ?? '';
+      _pickupLocation = draft.pickupLocation;
+      _dropoffLocation = draft.dropoffLocation;
+      _paymentMethod = draft.paymentMethod;
+      _useCoins = draft.useCoins;
+    }
+  }
 
   Future<void> _fetchEstimate() async {
     if (_isEstimating) return;
@@ -68,7 +91,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       }
     }
 
-    final estimateKey = '$_serviceType|$_selectedVehicle|${_pickupLocation!.longitude},${_pickupLocation!.latitude}|${_dropoffLocation!.longitude},${_dropoffLocation!.latitude}|${coinsToUse ?? 0}';
+    final estimateKey = '$_serviceType|$_selectedVehicle|$_paymentMethod|${_pickupLocation!.longitude},${_pickupLocation!.latitude}|${_dropoffLocation!.longitude},${_dropoffLocation!.latitude}|${coinsToUse ?? 0}';
     if (estimateKey == _lastEstimateKey) return;
     _lastEstimateKey = estimateKey;
 
@@ -81,11 +104,15 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       deliveryLocation: [_dropoffLocation!.longitude, _dropoffLocation!.latitude],
       vehicleType: _selectedVehicle,
       details: detailsText.isEmpty ? null : detailsText,
+      paymentMethod: _paymentMethod,
       coinsToUse: coinsToUse,
     );
     if (mounted) {
       setState(() {
         _estimate = result;
+        if (result == null) {
+          _lastEstimateKey = null;
+        }
         _isEstimating = false;
       });
     }
@@ -188,6 +215,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     _pickupController.dispose();
     _dropoffController.dispose();
     _detailsController.dispose();
+    _specialRequestController.dispose();
     super.dispose();
   }
 
@@ -210,77 +238,73 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         final pickup = _pickupController.text.trim();
         final dropoff = _dropoffController.text.trim();
         final details = _detailsController.text.trim();
+        final specialRequest = _specialRequestController.text.trim();
 
-        if (_serviceType == 'ride') {
-          setState(() => _rideState = RideState.findingDriver);
-        }
+        final coinState = ref.read(coinHistoryProvider);
+        final settings = ref.read(platformSettingsProvider).value;
 
-      final coinState = ref.read(coinHistoryProvider);
-      final settings = ref.read(platformSettingsProvider).value;
-
-      final distanceKm = _calculateDistance();
-      if (_selectedVehicle == 'bicycle' && settings != null) {
-        final maxBicycle = settings.maxKmForBicycle;
-        if (distanceKm > maxBicycle) {
-          final s = AppStrings.of(context);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(s.isArabic
-                ? 'المسافة (${distanceKm.toStringAsFixed(1)} كم) تتجاوز الحد الأقصى للدراجة (${maxBicycle.toStringAsFixed(1)} كم)'
-                : 'Distance (${distanceKm.toStringAsFixed(1)} km) exceeds bicycle maximum (${maxBicycle.toStringAsFixed(1)} km)'),
-          ));
-          if (_serviceType == 'ride') {
-            setState(() => _rideState = RideState.form);
+        final distanceKm = _calculateDistance();
+        if (_selectedVehicle == 'bicycle' && settings != null) {
+          final maxBicycle = settings.maxKmForBicycle;
+          if (distanceKm > maxBicycle) {
+            final s = AppStrings.of(context);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(s.isArabic
+                  ? 'المسافة (${distanceKm.toStringAsFixed(1)} كم) تتجاوز الحد الأقصى للدراجة (${maxBicycle.toStringAsFixed(1)} كم)'
+                  : 'Distance (${distanceKm.toStringAsFixed(1)} km) exceeds bicycle maximum (${maxBicycle.toStringAsFixed(1)} km)'),
+            ));
+            return;
           }
-          return;
         }
-      }
-      
-      int? coinsToUse;
-      if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
-        // Same rule as the estimate: offer the full balance and let the
-        // backend cap it at the grand total (keeps placement == estimate).
-        coinsToUse = coinState.currentBalance;
-      }
 
-      final resultId = await ref.read(ordersProvider.notifier).placeCustomOrder(
-        type: _serviceType,
-        pickup: pickup,
-        pickupLocation: [_pickupLocation!.longitude, _pickupLocation!.latitude],
-        dropoff: dropoff,
-        deliveryLocation: [_dropoffLocation!.longitude, _dropoffLocation!.latitude],
-        details: details,
-        vehicleType: _selectedVehicle,
-        coinsToUse: coinsToUse,
-        idempotencyKey: _clientOrderKeyForCheckout(),
-      );
+        int? coinsToUse;
+        if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
+          // Same rule as the estimate: offer the full balance and let the
+          // backend cap it at the grand total (keeps placement == estimate).
+          coinsToUse = coinState.currentBalance;
+        }
 
-      if (!mounted) return;
+        final outcome = await ref.read(ordersProvider.notifier).placeCustomOrderDetailed(
+          type: _serviceType,
+          pickup: pickup,
+          pickupLocation: [_pickupLocation!.longitude, _pickupLocation!.latitude],
+          dropoff: dropoff,
+          deliveryLocation: [_dropoffLocation!.longitude, _dropoffLocation!.latitude],
+          details: details.isEmpty ? null : details,
+          specialRequest: specialRequest.isEmpty ? null : specialRequest,
+          paymentMethod: _paymentMethod,
+          vehicleType: _selectedVehicle,
+          coinsToUse: coinsToUse,
+          idempotencyKey: _clientOrderKeyForCheckout(),
+        );
 
-        if (resultId != null) {
+        if (!mounted) return;
+
+        if (outcome.isSuccess && outcome.orderId != 'SUCCESS') {
           _clientOrderKey = null;
-          if (_serviceType == 'ride' && resultId != 'SUCCESS') {
-            context.push('/order-tracking/$resultId');
-          } else {
-            context.go('/home');
-            context.push('/orders');
-          }
+          context.go('/home');
+          context.push(
+            '/order-search/${outcome.orderId}',
+            extra: outcome.order,
+          );
+        } else if (outcome.isSuccess) {
+          _clientOrderKey = null;
+          context.go('/home');
+          context.push('/orders');
         } else {
-          final s = AppStrings.of(context);
-          setState(() => _rideState = RideState.form);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.isArabic ? 'فشل إتمام الطلب' : 'Failed to place order')));
+          final errorMsg = outcome.errorKey != null
+              ? ApiErrorMapper.translate(outcome.errorKey!, context: context)
+              : (AppStrings.of(context).isArabic
+                  ? 'فشل إتمام الطلب'
+                  : 'Failed to place order');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMsg)),
+          );
         }
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
       }
     }
-  }
-
-  bool _handleBack() {
-    if (_rideState != RideState.form) {
-      setState(() => _rideState = RideState.form);
-      return false;
-    }
-    return true;
   }
 
   @override
@@ -316,52 +340,36 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         ? (est['grandTotal'] as num).toDouble()
         : (totalFee - coinDiscount);
 
-    return PopScope(
-      canPop: _rideState == RideState.form,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _handleBack();
-      },
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FB),
+      appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FB),
-        appBar: AppBar(
-          backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FB),
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded, color: isDark ? Colors.white : Colors.black87, size: 20),
-            onPressed: () {
-              if (_handleBack()) context.pop();
-            },
-          ),
-          title: Text(
-            s.customDeliveryTitle, 
-            style: TextStyle(
-              color: isDark ? Colors.white : Colors.black87, 
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
-              letterSpacing: -0.5
-            )
-          ),
-          centerTitle: true,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: isDark ? Colors.white : Colors.black87, size: 20),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
         ),
-        body: SafeArea(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 400),
-            child: _buildBodyContent(s, isAr, totalFee, coinState, settings, coinDiscount, finalTotal, isDark),
+        title: Text(
+          s.customDeliveryTitle,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+            letterSpacing: -0.5,
           ),
         ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: _buildForm(s, isAr, totalFee, coinState, settings, coinDiscount, finalTotal, isDark),
       ),
     );
-  }
-
-  Widget _buildBodyContent(AppStrings s, bool isAr, double totalFee, coinState, settings, double coinDiscount, double finalTotal, bool isDark) {
-    switch (_rideState) {
-      case RideState.form:
-        return _buildForm(s, isAr, totalFee, coinState, settings, coinDiscount, finalTotal, isDark);
-      case RideState.findingDriver:
-        return _buildFindingDriver(s, isAr, isDark);
-      case RideState.driverAssigned:
-        return _buildDriverAssigned(s, isAr, isDark);
-    }
   }
 
   Widget _buildForm(AppStrings s, bool isAr, double totalFee, coinState, settings, double coinDiscount, double finalTotal, bool isDark) {
@@ -461,6 +469,19 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                       validator: (v) => v == null || v.isEmpty ? s.required : null,
                     ),
                   ],
+                  const SizedBox(height: 24),
+                  _buildLabel(isAr ? 'ملاحظات إضافية (اختياري)' : 'Additional Notes (Optional)', isDark),
+                  _buildTextField(
+                    controller: _specialRequestController,
+                    hint: isAr ? 'مثال: قابل للكسر، اتصل عند الوصول' : 'e.g. Fragile item, call on arrival',
+                    icon: Icons.note_alt_outlined,
+                    maxLines: 2,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 24),
+                  _buildLabel(isAr ? 'طريقة الدفع' : 'Payment Method', isDark),
+                  const SizedBox(height: 6),
+                  _buildPaymentMethodSelector(isAr, isDark),
                 ],
               ),
             ),
@@ -624,8 +645,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           setState(() {
             _serviceType = value;
             if (value == 'ride') {
-               _selectedVehicle = 'car';
+              _selectedVehicle = 'car';
             }
+            _invalidateOrderIntent();
           });
         },
         child: AnimatedContainer(
@@ -702,7 +724,10 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     final isSelected = _selectedVehicle == type;
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedVehicle = type),
+      onTap: () => setState(() {
+        _selectedVehicle = type;
+        _invalidateOrderIntent();
+      }),
       child: SizedBox(
         width: 86,
         child: Column(
@@ -755,166 +780,82 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     );
   }
 
-  Widget _buildFindingDriver(AppStrings s, bool isAr, bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              height: 200,
-              child: Lottie.network(
-                'https://assets10.lottiefiles.com/packages/lf20_6sxyjyjj.json',
-                errorBuilder: (c, e, s) => const CircularProgressIndicator(color: AppColors.primary),
+  Widget _buildPaymentMethodSelector(bool isAr, bool isDark) {
+    Widget chip({
+      required String value,
+      required String label,
+      required IconData icon,
+    }) {
+      final selected = _paymentMethod == value;
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => setState(() {
+            _paymentMethod = value;
+            _invalidateOrderIntent();
+          }),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.primary.withValues(alpha: 0.16)
+                    : (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F2F5)),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: selected ? AppColors.primary : Colors.transparent,
+                  width: 1.6,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 18,
+                    color: selected
+                        ? AppColors.primary
+                        : (isDark ? Colors.white70 : Colors.black54),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                        fontSize: 13,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 40),
-            Text(
-              s.findingCaptain, 
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87)
-            ),
-            const SizedBox(height: 12),
-            Text(
-              s.pleaseWaitConnectDriver, 
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade500, height: 1.5)
-            ),
-          ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _buildDriverAssigned(AppStrings s, bool isAr, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
+    return IntrinsicHeight(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 20),
-          const Icon(Icons.check_circle_rounded, color: Colors.green, size: 80),
-          const SizedBox(height: 24),
-          Text(
-            s.requestConfirmed, 
-            textAlign: TextAlign.center, 
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87)
+          chip(
+            value: 'CASH_ON_DELIVERY',
+            label: isAr ? 'الدفع عند الاستلام' : 'Cash',
+            icon: Icons.money_rounded,
           ),
-          const SizedBox(height: 40),
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 20, offset: const Offset(0, 10))],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                      child: const AppNetworkAvatar(
-                        size: 64,
-                        fallbackIcon: Icons.delivery_dining_rounded,
-                        fallbackIconSize: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(isAr ? 'كابتن أحمد محمد' : 'Capt. Ahmed Mohamed', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: isDark ? Colors.white : Colors.black87)),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.star_rounded, color: Colors.amber, size: 14),
-                                SizedBox(width: 4),
-                                Text('4.9', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _circularAction(Icons.phone, Colors.green),
-                  ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Divider(height: 1),
-                ),
-                Row(
-                  children: [
-                    Icon(
-                      _selectedVehicle == 'motorcycle' ? Icons.moped_rounded : Icons.directions_car_filled_rounded,
-                      color: Colors.grey,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_selectedVehicle == 'motorcycle' ? (isAr ? 'باجاج بولسار' : 'Bajaj Pulsar') : (isAr ? 'تويوتا كورولا' : 'Toyota Corolla'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        Text(_selectedVehicle == 'motorcycle' ? (isAr ? 'أسود' : 'Black') : (isAr ? 'أبيض' : 'White'), style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                      ],
-                    ),
-                    const Spacer(),
-                    _vehicleDetail(Icons.pin_rounded, 'ABC - 123', s.plateNo),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          ElevatedButton(
-            onPressed: () => context.go('/home'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 18), 
-              backgroundColor: AppColors.primary, 
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              elevation: 8,
-              shadowColor: AppColors.primary.withValues(alpha: 0.4),
-            ),
-            child: Text(s.trackRequest, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 18)),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: () => context.go('/home'),
-            child: Text(s.backToHome, style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold)),
+          const SizedBox(width: 10),
+          chip(
+            value: 'MOBILE_WALLET',
+            label: isAr ? 'محفظة إلكترونية' : 'Mobile Wallet',
+            icon: Icons.account_balance_wallet_outlined,
           ),
         ],
       ),
-    );
-  }
-
-  Widget _circularAction(IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-      child: Icon(icon, color: color, size: 24),
-    );
-  }
-
-  Widget _vehicleDetail(IconData icon, String title, String sub) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.grey, size: 20),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            Text(sub, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-          ],
-        ),
-      ],
     );
   }
 
@@ -989,6 +930,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         if (result != null) {
           final s = AppStrings.of(context);
           setState(() {
+            _invalidateOrderIntent();
             if (isPickup) {
               _pickupLocation = result;
               controller.text = s.isArabic ? 'تم تحديد الموقع' : 'Location selected';

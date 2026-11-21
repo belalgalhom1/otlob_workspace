@@ -75,6 +75,7 @@ Serializers _$serializers =
           ..add(CreateVendorVerticalDto.serializer)
           ..add(CreateWalletTopUpDto.serializer)
           ..add(CreateZoneDto.serializer)
+          ..add(CustomOrderPreviewType.serializer)
           ..add(Customer.serializer)
           ..add(CustomerDecideAssistDto.serializer)
           ..add(CustomerUserSummaryDto.serializer)
@@ -116,6 +117,7 @@ Serializers _$serializers =
           ..add(DriverRankingRunStatus.serializer)
           ..add(DriverRankingScheduleStatusDto.serializer)
           ..add(DriverRankingTriggerSource.serializer)
+          ..add(DriverSearchPhase.serializer)
           ..add(DriverShift.serializer)
           ..add(DriverShiftResponseDto.serializer)
           ..add(DriverShiftStatus.serializer)
@@ -137,6 +139,7 @@ Serializers _$serializers =
           ..add(ForgotPasswordDto.serializer)
           ..add(FulfillmentRatingInputDto.serializer)
           ..add(GenerateShiftPoolsDto.serializer)
+          ..add(GeoPointDto.serializer)
           ..add(JoinWaitlistDto.serializer)
           ..add(Language.serializer)
           ..add(LoginDto.serializer)
@@ -147,6 +150,8 @@ Serializers _$serializers =
           ..add(MenuCategoryBranchAvailabilityModeEnum.serializer)
           ..add(MobileWallet.serializer)
           ..add(MobileWalletResponseDto.serializer)
+          ..add(NearbyDriverPreviewDto.serializer)
+          ..add(NearbyDriversResponseDto.serializer)
           ..add(Offer.serializer)
           ..add(Order.serializer)
           ..add(OrderActorSummaryDto.serializer)
@@ -159,13 +164,17 @@ Serializers _$serializers =
           ..add(OrderItemOption.serializer)
           ..add(OrderResponseDto.serializer)
           ..add(OrderReview.serializer)
+          ..add(OrderSearchStatusDto.serializer)
           ..add(OrderStatus.serializer)
           ..add(OrderStatusEvent.serializer)
           ..add(OrderType.serializer)
           ..add(OrderVendorFulfillment.serializer)
           ..add(OrderVendorFulfillmentStatus.serializer)
           ..add(OrdersControllerEstimateCustomOrder200Response.serializer)
+          ..add(OrdersControllerGetCustomNearbyDrivers200Response.serializer)
+          ..add(OrdersControllerGetSearchStatus200Response.serializer)
           ..add(OrdersControllerPlaceOrder200Response.serializer)
+          ..add(OrdersControllerRetryCustomSearch200Response.serializer)
           ..add(OverrideDriverRankDto.serializer)
           ..add(PaginatedDeliveryIncidentsResponseDto.serializer)
           ..add(PaginatedDriverRankHistoryResponseDto.serializer)
@@ -220,6 +229,7 @@ Serializers _$serializers =
           ..add(RespondAssistOfferDto.serializer)
           ..add(RespondToDispatchDto.serializer)
           ..add(RespondToDispatchDtoResponseEnum.serializer)
+          ..add(RetrySearchResponseDto.serializer)
           ..add(ReviewCustomerDto.serializer)
           ..add(ReviewCustomerUserDto.serializer)
           ..add(ReviewDto.serializer)
@@ -229,6 +239,7 @@ Serializers _$serializers =
           ..add(ReviewsControllerGetVendorReviews200Response.serializer)
           ..add(Role.serializer)
           ..add(SearchCustomersInPolygonDto.serializer)
+          ..add(SearchTerminalReason.serializer)
           ..add(SendMessageDto.serializer)
           ..add(SendMessageDtoTypeEnum.serializer)
           ..add(SendOtpDto.serializer)
@@ -507,6 +518,18 @@ Serializers _$serializers =
           )
           ..addBuilderFactory(
             const FullType(BuiltList, const [
+              const FullType(NearbyDriverPreviewDto),
+            ]),
+            () => ListBuilder<NearbyDriverPreviewDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(NearbyDriverPreviewDto),
+            ]),
+            () => ListBuilder<NearbyDriverPreviewDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
               const FullType(OrderDeliveryGroupItem),
             ]),
             () => ListBuilder<OrderDeliveryGroupItem>(),
@@ -660,6 +683,27 @@ Serializers _$serializers =
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(num)]),
             () => ListBuilder<num>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltMap, const [

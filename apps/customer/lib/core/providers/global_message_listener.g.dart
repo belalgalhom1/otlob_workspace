@@ -42,7 +42,7 @@ final class GlobalMessageListenerProvider
 }
 
 String _$globalMessageListenerHash() =>
-    r'1d4b44b43b1bd1a292f9da7f3419c09da2e7e048';
+    r'09297eb2e4c8690d4764f58416d07ba5aa6a53c7';
 
 abstract class _$GlobalMessageListener extends $Notifier<void> {
   void build();

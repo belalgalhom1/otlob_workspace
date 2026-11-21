@@ -1,8 +1,13 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue, UnrecoverableError } from 'bullmq';
-import { Inject, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
 import { DispatchRepository } from './dispatch.repository';
+import { DispatchSearchTracker } from './dispatch-search-tracker.service';
+import {
+  DriverSearchPhase,
+  SearchTerminalReason,
+} from './dispatch-search.types';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { DriverGeoSearchService } from '../location/driver-geo-search.service';
@@ -33,6 +38,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly driverGeoSearch: DriverGeoSearchService,
     @InjectQueue(QUEUES.DISPATCH) private readonly queue: Queue,
+    @Optional() private readonly searchTracker?: DispatchSearchTracker,
   ) {
     super();
   }
@@ -130,6 +136,32 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     const maxAttempts = settings.driverSearchMaxAttempts ?? 5;
 
     if (attempt > maxAttempts) {
+      const searchSnapshot =
+        await this.dispatchRepository.getSearchSnapshot?.(orderId);
+      const anyDriversContacted =
+        !searchSnapshot || searchSnapshot.totalContactedDriverIds.length > 0;
+      const terminalPhase = anyDriversContacted
+        ? DriverSearchPhase.SEARCH_TIMEOUT
+        : DriverSearchPhase.NO_DRIVERS_AVAILABLE;
+      const terminalReason = anyDriversContacted
+        ? SearchTerminalReason.SEARCH_TIMEOUT
+        : SearchTerminalReason.NO_DRIVERS_AVAILABLE;
+      const cancelReason = anyDriversContacted
+        ? 'Auto-cancelled: No drivers accepted the order after maximum attempts'
+        : 'Auto-cancelled: No available drivers found nearby after maximum attempts';
+
+      await this.searchTracker?.publishPhase({
+        orderId,
+        orderNumber,
+        orderStatus: OrderStatus.CANCELLED,
+        phase: terminalPhase,
+        attempt: maxAttempts,
+        maxAttempts,
+        contactedCount: 0,
+        waveExpiresAt: null,
+        terminalReason,
+      });
+
       if (deliveryGroupId) {
         this.logger.error(
           `Delivery group ${deliveryGroupId} on order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
@@ -138,7 +170,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
           await this.orderWorkflowPort.handleUndispatchableDeliveryGroup(
             orderId,
             deliveryGroupId,
-            'Auto-cancelled: No drivers accepted this delivery after maximum attempts',
+            cancelReason,
           );
         return {
           noDriversFound: true,
@@ -152,10 +184,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         `Order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
       );
 
-      await this.workflowDispatcher.enqueueCancelOrder(
-        orderId,
-        'Auto-cancelled: No drivers accepted the order after maximum attempts',
-      );
+      await this.workflowDispatcher.enqueueCancelOrder(orderId, cancelReason);
 
       return { noDriversFound: true, attempts: attempt, autoCancelled: true };
     }
@@ -214,6 +243,27 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         `No drivers available for ${orderNumber} (attempt ${attempt})`,
       );
 
+      const delaySecs = Number(settings.driverAcceptTimeoutSecs ?? 30);
+      const nextAttemptAt = new Date(Date.now() + delaySecs * 1000);
+      const nextRadiusKm = Math.min(
+        Number(settings.driverSearchRadiusKm ?? 3) +
+          Number(settings.driverSearchRadiusStepKm ?? 3) * attempt,
+        Number(settings.driverSearchRadiusMaxKm ?? 15),
+      );
+      await this.searchTracker?.publishPhase({
+        orderId,
+        orderNumber,
+        orderStatus: order.status,
+        phase: DriverSearchPhase.NO_DRIVERS_IN_WAVE,
+        attempt: attempt + 1,
+        maxAttempts,
+        radiusKm: nextRadiusKm,
+        maxRadiusKm: Number(settings.driverSearchRadiusMaxKm ?? nextRadiusKm),
+        contactedCount: 0,
+        waveExpiresAt: nextAttemptAt.toISOString(),
+        searchTimeoutSecs: delaySecs,
+      });
+
       // Enqueue next attempt manually to ensure 'attempt' increments, triggering dynamic radius expansion
       await this.queue.add(
         ORDER_JOBS.DISPATCH,
@@ -224,7 +274,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
           excludeDriverIds,
           ...(deliveryGroupId ? { deliveryGroupId } : {}),
         },
-        { delay: (settings.driverAcceptTimeoutSecs ?? 30) * 1000 },
+        { delay: delaySecs * 1000 },
       );
 
       return { noDriversFound: true, retryingNextAttempt: true };
@@ -298,6 +348,17 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
         handoffTtl,
       );
       enqueued++;
+    }
+
+    if (enqueued > 0) {
+      await this.searchTracker?.publishPhase({
+        orderId: data.orderId,
+        orderNumber: data.orderNumber,
+        orderStatus: OrderStatus.LOOKING_FOR_DRIVER,
+        phase: DriverSearchPhase.FINDING_DRIVERS,
+        attempt: 1,
+        contactedCount: 0,
+      });
     }
 
     return { enqueued, groups: groups.length };

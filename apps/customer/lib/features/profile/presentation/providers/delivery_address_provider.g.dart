@@ -42,7 +42,7 @@ final class ManualSelectedAddressIdProvider
 }
 
 String _$manualSelectedAddressIdHash() =>
-    r'a77175e06204dbdb9ea405c38477f551e1f26f5d';
+    r'18e54b7f3fae3d68284fb2368ac95b49dc4280d5';
 
 abstract class _$ManualSelectedAddressId extends $Notifier<String?> {
   String? build();

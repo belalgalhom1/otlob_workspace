@@ -123,11 +123,19 @@ export class OrderWorkflowDispatcher {
   }
 
   async enqueueCancelOrder(orderId: string, reason: string): Promise<void> {
+    const jobId = `cancel_dispatch_${orderId}`;
+    // Remove any completed/stale job with this ID so a retried custom search
+    // session that times out again is never silently deduplicated.
+    const existing = await this.ordersQueue.getJob?.(jobId);
+    if (existing) {
+      await existing.remove().catch(() => {});
+    }
     await this.ordersQueue.add(
       ORDER_JOBS.CANCEL_ORDER,
       { orderId, reason },
       {
-        jobId: `cancel_dispatch_${orderId}`,
+        jobId,
+        removeOnComplete: true,
         attempts: 3,
         backoff: { type: 'exponential', delay: 2_000 },
       },

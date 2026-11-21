@@ -375,6 +375,7 @@ export const OrderErrors = {
   DRIVERS_CANNOT_CANCEL: 'order.error.drivers_cannot_cancel',
   INSUFFICIENT_STOCK: 'order.error.insufficient_stock',
   INVALID_AMOUNT: 'order.error.invalid_amount',
+  CANNOT_RETRY_ORDER: 'order.error.cannot_retry_order',
   // Multi-vendor checkout / vendor portions
   FULFILLMENT_NOT_FOUND: 'order.error.fulfillment_not_found',
   FULFILLMENT_ALREADY_DECIDED: 'order.error.fulfillment_already_decided',

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
 import { DispatchLifecycleService } from './dispatch-lifecycle.service';
 import { DispatchRepository } from './dispatch.repository';
+import { DispatchSearchTracker } from './dispatch-search-tracker.service';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import { OrderSharedModule } from '../../common/orders/order-shared.module';
 import { DISPATCH_PORT } from '../../common/orders/order-dispatch.ports';
@@ -10,6 +11,7 @@ import { DISPATCH_PORT } from '../../common/orders/order-dispatch.ports';
   imports: [PlatformSettingsModule, OrderSharedModule],
   providers: [
     DispatchRepository,
+    DispatchSearchTracker,
     DispatchLifecycleService,
     DispatchService,
     {
@@ -21,6 +23,7 @@ import { DISPATCH_PORT } from '../../common/orders/order-dispatch.ports';
     DispatchService,
     DispatchLifecycleService,
     DispatchRepository,
+    DispatchSearchTracker,
     DISPATCH_PORT,
   ],
 })

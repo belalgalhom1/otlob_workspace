@@ -23,6 +23,8 @@ import '../../features/cart/presentation/pages/cart_screen.dart';
 import '../../features/cart/presentation/pages/checkout_screen.dart';
 import '../../features/orders/presentation/pages/orders_screen.dart';
 import '../../features/orders/presentation/pages/order_tracking_screen.dart';
+import '../../features/orders/presentation/pages/custom_delivery_search_screen.dart';
+import '../../features/orders/presentation/providers/custom_delivery_search_controller.dart';
 import '../../features/profile/presentation/pages/profile_screen.dart';
 import '../../features/notifications/presentation/pages/notifications_screen.dart';
 import '../../features/profile/presentation/pages/addresses_screen.dart';
@@ -319,6 +321,27 @@ GoRouter appRouter(Ref ref) {
         builder: (context, state) => const OrdersScreen(),
       ),
       GoRoute(
+        path: RoutePaths.orderSearch,
+        name: RouteNames.orderSearch,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          final extra = state.extra;
+          Map<String, dynamic>? initialOrder;
+          if (extra is Map) {
+            initialOrder = extra['order'] is Map
+                ? Map<String, dynamic>.from(extra['order'] as Map)
+                : (extra.containsKey('id')
+                    ? Map<String, dynamic>.from(extra)
+                    : null);
+          }
+          return CustomDeliverySearchScreen(
+            key: ValueKey('order_search_$id'),
+            orderId: id,
+            initialOrder: initialOrder,
+          );
+        },
+      ),
+      GoRoute(
         path: '/order-tracking/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
@@ -328,7 +351,11 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/custom-delivery',
         name: 'custom-delivery',
-        builder: (context, state) => const CustomDeliveryScreen(),
+        builder: (context, state) {
+          final draft =
+              state.extra is CustomDeliveryDraft ? state.extra as CustomDeliveryDraft : null;
+          return CustomDeliveryScreen(initialDraft: draft);
+        },
       ),
       GoRoute(
         path: '/chat/:type/:id',

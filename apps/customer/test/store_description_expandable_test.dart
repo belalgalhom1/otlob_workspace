@@ -225,7 +225,7 @@ void main() {
   );
 
   testWidgets(
-    'VendorCard expands/collapses description via Read more without triggering card navigation',
+    'VendorCard hides description and Read more/less (shown only on restaurant page)',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       await EasyLocalization.ensureInitialized();
@@ -287,12 +287,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Read more'), findsOneWidget);
-      await tester.tap(find.text('Read more'));
-      await tester.pumpAndSettle();
+      expect(find.text('Burger King'), findsOneWidget);
+      expect(find.byType(AppExpandableText), findsNothing);
+      expect(find.textContaining('straight from the grill'), findsNothing);
+      expect(find.text('Read more'), findsNothing);
+      expect(find.text('Read less'), findsNothing);
 
-      expect(find.text('Read less'), findsOneWidget);
-      expect(navigatedToVendor, isFalse);
+      await tester.tap(find.byType(VendorCard));
+      await tester.pumpAndSettle();
+      expect(navigatedToVendor, isTrue);
       expect(tester.takeException(), isNull);
     },
   );

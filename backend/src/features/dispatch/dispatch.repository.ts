@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { DispatchStatus, OrderType, Prisma } from '@prisma/client';
+import {
+  DispatchStatus,
+  OrderType,
+  Prisma,
+} from '@prisma/client';
+import { OrderSearchSnapshotRecord } from './dispatch-search.types';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
 
@@ -76,6 +81,10 @@ export class DispatchRepository {
 
   private handoffDedupeKey(orderId: string, scope: string): string {
     return `otlobegy:dispatch-handoff:${orderId}:${scope}`;
+  }
+
+  private searchStatusKey(orderId: string): string {
+    return `otlobegy:order-search-status:${orderId}`;
   }
 
   // ─── Broadcast payloads & single-flight claims ───────────────────────────
@@ -218,6 +227,47 @@ export class DispatchRepository {
     ttlSecs: number,
   ): Promise<void> {
     await this.redis.set(this.handoffDedupeKey(orderId, scope), '1', ttlSecs);
+  }
+
+  async clearHandoffDedupe(orderId: string, scope: string): Promise<void> {
+    await this.redis.del(this.handoffDedupeKey(orderId, scope));
+  }
+
+  // ─── Customer live search status snapshots ───────────────────────────────
+
+  async saveSearchSnapshot(
+    orderId: string,
+    snapshot: OrderSearchSnapshotRecord,
+    ttlSecs = 1800,
+  ): Promise<void> {
+    await this.redis.set(
+      this.searchStatusKey(orderId),
+      JSON.stringify(snapshot),
+      ttlSecs,
+    );
+  }
+
+  async getSearchSnapshot(
+    orderId: string,
+  ): Promise<OrderSearchSnapshotRecord | null> {
+    const raw = await this.redis.get(this.searchStatusKey(orderId));
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as OrderSearchSnapshotRecord;
+    } catch {
+      return null;
+    }
+  }
+
+  async clearForRetry(orderId: string, scopes: string[]): Promise<void> {
+    await Promise.all([
+      this.redis.del(this.searchStatusKey(orderId)),
+      ...scopes.flatMap((scope) => [
+        this.redis.del(this.activeClaimKey(scope)),
+        this.redis.del(this.dispatchStateKey(scope)),
+        this.redis.del(this.handoffDedupeKey(orderId, scope)),
+      ]),
+    ]);
   }
 
   // ─── Driver pending dispatch sets ────────────────────────────────────────

@@ -48,4 +48,4 @@ final class PlatformSettingsProvider
   }
 }
 
-String _$platformSettingsHash() => r'31ff850c6cca747644e3e3ac47f477a2cbbfaf8c';
+String _$platformSettingsHash() => r'bd015488f1630c24f36ac58fbb8cdc57481259d8';

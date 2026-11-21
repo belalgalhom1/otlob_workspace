@@ -39,6 +39,8 @@ import {
   OrderErrors,
   CustomerErrors,
 } from '../../common/constants/response.constants';
+import { DispatchSearchTracker } from '../dispatch/dispatch-search-tracker.service';
+import { DriverSearchPhase } from '../dispatch/dispatch-search.types';
 
 @Injectable()
 export class OrdersCheckoutService {
@@ -52,6 +54,7 @@ export class OrdersCheckoutService {
     private readonly prisma: PrismaService,
     @Optional() private readonly multiVendorService?: OrdersMultiVendorService,
     @Optional() private readonly activePolicyHelper?: OrderActivePolicyHelper,
+    @Optional() private readonly searchTracker?: DispatchSearchTracker,
   ) {}
 
   private get activePolicy(): OrderActivePolicyHelper {
@@ -735,6 +738,20 @@ export class OrdersCheckoutService {
         'system',
         'Auto-dispatched custom order',
       );
+
+      await this.searchTracker?.publishPhase({
+        orderId: created.id,
+        orderNumber: created.orderNumber,
+        orderType: dto.type,
+        orderStatus: OrderStatus.LOOKING_FOR_DRIVER,
+        revision: advanced.revision,
+        customerUserId: actor.sub,
+        phase: DriverSearchPhase.QUEUED,
+        attempt: 1,
+        contactedCount: 0,
+        waveExpiresAt: null,
+        resetHistory: true,
+      });
 
       this.eventEmitter.emit(
         EVENTS.ORDER_STATUS_CHANGED,

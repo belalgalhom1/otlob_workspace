@@ -251,10 +251,12 @@ Class | Method | HTTP request | Description
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateCustomOrder**](doc/OrdersApi.md#orderscontrollerestimatecustomorder) | **POST** /orders/custom-fee-estimate | Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateMultiVendor**](doc/OrdersApi.md#orderscontrollerestimatemultivendor) | **POST** /orders/multi-vendor/fee-estimate | Estimate a multi-vendor checkout, including the per-delivery fee breakdown and whether it splits
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateOrder**](doc/OrdersApi.md#orderscontrollerestimateorder) | **POST** /orders/fee-estimate | Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetCustomNearbyDrivers**](doc/OrdersApi.md#orderscontrollergetcustomnearbydrivers) | **GET** /orders/custom/nearby-drivers | Get anonymized nearby available drivers around a custom pickup location
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyDispatches**](doc/OrdersApi.md#orderscontrollergetmydispatches) | **GET** /orders/driver/dispatches | Get my pending dispatch requests
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyOrdersAsCustomer**](doc/OrdersApi.md#orderscontrollergetmyordersascustomer) | **GET** /orders/my | Get my order history (customer)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyOrdersAsDriver**](doc/OrdersApi.md#orderscontrollergetmyordersasdriver) | **GET** /orders/driver/my | Get my orders as driver
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetOne**](doc/OrdersApi.md#orderscontrollergetone) | **GET** /orders/{orderId} | Get a single order (customer/driver/vendor/admin)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetSearchStatus**](doc/OrdersApi.md#orderscontrollergetsearchstatus) | **GET** /orders/{orderId}/search-status | Get real-time driver search progress, anonymized nearby drivers, and assigned driver distance
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetVendorOrders**](doc/OrdersApi.md#orderscontrollergetvendororders) | **GET** /orders/vendor/{vendorId} | Get orders for a vendor (vendor member or admin)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerListOrderDecisions**](doc/OrdersApi.md#orderscontrollerlistorderdecisions) | **GET** /orders/vendor-decisions/order/{orderId} | [Admin] Vendor portions and their states for an order
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerListVendorDecisions**](doc/OrdersApi.md#orderscontrollerlistvendordecisions) | **GET** /orders/vendor-decisions/vendor/{vendorId} | [Vendor] All my portions for one vendor
@@ -264,6 +266,7 @@ Class | Method | HTTP request | Description
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerPlaceOrder**](doc/OrdersApi.md#orderscontrollerplaceorder) | **POST** /orders | Place a new order from active cart
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerRejectFulfillment**](doc/OrdersApi.md#orderscontrollerrejectfulfillment) | **PATCH** /orders/vendor-decisions/{fulfillmentId}/reject | [Vendor] Reject only my portion with an auditable reason; the customer is notified and the totals are adjusted
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerRespondToDispatch**](doc/OrdersApi.md#orderscontrollerrespondtodispatch) | **POST** /orders/driver/dispatches/{dispatchId}/respond | Accept or reject a dispatch request
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerRetryCustomSearch**](doc/OrdersApi.md#orderscontrollerretrycustomsearch) | **POST** /orders/{orderId}/retry-search | Retry driver search idempotently on an expired/cancelled custom delivery or ride order
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerVendorUpdateStatus**](doc/OrdersApi.md#orderscontrollervendorupdatestatus) | **PATCH** /orders/vendor/{orderId}/status | Vendor updates order status
 [*PlatformSettingsVersioningApi*](doc/PlatformSettingsVersioningApi.md) | [**platformSettingsControllerCheckVersion**](doc/PlatformSettingsVersioningApi.md#platformsettingscontrollercheckversion) | **POST** /platform-settings/app-version-check | Check if app version is supported
 [*PlatformSettingsVersioningApi*](doc/PlatformSettingsVersioningApi.md) | [**platformSettingsControllerGetAll**](doc/PlatformSettingsVersioningApi.md#platformsettingscontrollergetall) | **GET** /platform-settings | Get all platform settings (Admin)
@@ -457,6 +460,7 @@ Class | Method | HTTP request | Description
  - [CreateVendorVerticalDto](doc/CreateVendorVerticalDto.md)
  - [CreateWalletTopUpDto](doc/CreateWalletTopUpDto.md)
  - [CreateZoneDto](doc/CreateZoneDto.md)
+ - [CustomOrderPreviewType](doc/CustomOrderPreviewType.md)
  - [Customer](doc/Customer.md)
  - [CustomerDecideAssistDto](doc/CustomerDecideAssistDto.md)
  - [CustomerUserSummaryDto](doc/CustomerUserSummaryDto.md)
@@ -495,6 +499,7 @@ Class | Method | HTTP request | Description
  - [DriverRankingRunStatus](doc/DriverRankingRunStatus.md)
  - [DriverRankingScheduleStatusDto](doc/DriverRankingScheduleStatusDto.md)
  - [DriverRankingTriggerSource](doc/DriverRankingTriggerSource.md)
+ - [DriverSearchPhase](doc/DriverSearchPhase.md)
  - [DriverShift](doc/DriverShift.md)
  - [DriverShiftResponseDto](doc/DriverShiftResponseDto.md)
  - [DriverShiftStatus](doc/DriverShiftStatus.md)
@@ -516,6 +521,7 @@ Class | Method | HTTP request | Description
  - [ForgotPasswordDto](doc/ForgotPasswordDto.md)
  - [FulfillmentRatingInputDto](doc/FulfillmentRatingInputDto.md)
  - [GenerateShiftPoolsDto](doc/GenerateShiftPoolsDto.md)
+ - [GeoPointDto](doc/GeoPointDto.md)
  - [JoinWaitlistDto](doc/JoinWaitlistDto.md)
  - [Language](doc/Language.md)
  - [LoginDto](doc/LoginDto.md)
@@ -525,6 +531,8 @@ Class | Method | HTTP request | Description
  - [MenuCategory](doc/MenuCategory.md)
  - [MobileWallet](doc/MobileWallet.md)
  - [MobileWalletResponseDto](doc/MobileWalletResponseDto.md)
+ - [NearbyDriverPreviewDto](doc/NearbyDriverPreviewDto.md)
+ - [NearbyDriversResponseDto](doc/NearbyDriversResponseDto.md)
  - [Offer](doc/Offer.md)
  - [Order](doc/Order.md)
  - [OrderActorSummaryDto](doc/OrderActorSummaryDto.md)
@@ -537,13 +545,17 @@ Class | Method | HTTP request | Description
  - [OrderItemOption](doc/OrderItemOption.md)
  - [OrderResponseDto](doc/OrderResponseDto.md)
  - [OrderReview](doc/OrderReview.md)
+ - [OrderSearchStatusDto](doc/OrderSearchStatusDto.md)
  - [OrderStatus](doc/OrderStatus.md)
  - [OrderStatusEvent](doc/OrderStatusEvent.md)
  - [OrderType](doc/OrderType.md)
  - [OrderVendorFulfillment](doc/OrderVendorFulfillment.md)
  - [OrderVendorFulfillmentStatus](doc/OrderVendorFulfillmentStatus.md)
  - [OrdersControllerEstimateCustomOrder200Response](doc/OrdersControllerEstimateCustomOrder200Response.md)
+ - [OrdersControllerGetCustomNearbyDrivers200Response](doc/OrdersControllerGetCustomNearbyDrivers200Response.md)
+ - [OrdersControllerGetSearchStatus200Response](doc/OrdersControllerGetSearchStatus200Response.md)
  - [OrdersControllerPlaceOrder200Response](doc/OrdersControllerPlaceOrder200Response.md)
+ - [OrdersControllerRetryCustomSearch200Response](doc/OrdersControllerRetryCustomSearch200Response.md)
  - [OverrideDriverRankDto](doc/OverrideDriverRankDto.md)
  - [PaginatedDeliveryIncidentsResponseDto](doc/PaginatedDeliveryIncidentsResponseDto.md)
  - [PaginatedDriverRankHistoryResponseDto](doc/PaginatedDriverRankHistoryResponseDto.md)
@@ -583,6 +595,7 @@ Class | Method | HTTP request | Description
  - [ResetPasswordDto](doc/ResetPasswordDto.md)
  - [RespondAssistOfferDto](doc/RespondAssistOfferDto.md)
  - [RespondToDispatchDto](doc/RespondToDispatchDto.md)
+ - [RetrySearchResponseDto](doc/RetrySearchResponseDto.md)
  - [ReviewCustomerDto](doc/ReviewCustomerDto.md)
  - [ReviewCustomerUserDto](doc/ReviewCustomerUserDto.md)
  - [ReviewDto](doc/ReviewDto.md)
@@ -591,6 +604,7 @@ Class | Method | HTTP request | Description
  - [ReviewsControllerGetVendorReviews200Response](doc/ReviewsControllerGetVendorReviews200Response.md)
  - [Role](doc/Role.md)
  - [SearchCustomersInPolygonDto](doc/SearchCustomersInPolygonDto.md)
+ - [SearchTerminalReason](doc/SearchTerminalReason.md)
  - [SendMessageDto](doc/SendMessageDto.md)
  - [SendOtpDto](doc/SendOtpDto.md)
  - [Session](doc/Session.md)

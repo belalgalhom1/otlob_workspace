@@ -12,6 +12,7 @@ enum SocketEvent {
   /// Orders
   orderNew('order.new'),
   orderStatus('order.status'),
+  orderSearchProgress('order.search_progress'),
   orderFulfillmentUpdated('order.fulfillment_updated'),
   orderCancelled('order.cancelled'),
   orderAssigned('order.assigned'),
@@ -33,6 +34,7 @@ enum SocketEvent {
 
   /// Driver (Client to Server)
   driverLocationUpdate('driver.location.update'),
+  driverLocationRequest('driver.location.request'),
   driverTrack('driver.track'),
   driverUntrack('driver.untrack');
 

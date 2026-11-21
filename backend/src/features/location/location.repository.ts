@@ -21,6 +21,7 @@ export interface NearbyDriverCandidateRow {
   id: string;
   userId: string;
   tier: string | null;
+  vehicleType: string | null;
   activeShiftId: string | null;
   isOnDelivery: boolean;
 }
@@ -376,6 +377,7 @@ export class LocationRepository {
         d.id,
         d."userId",
         d.tier,
+        d."vehicleType"::text AS "vehicleType",
         ds.id AS "activeShiftId",
         (d.status::text = 'ON_DELIVERY') AS "isOnDelivery"
       FROM drivers d

@@ -41,7 +41,7 @@ final class InboxCountsProvider
   }
 }
 
-String _$inboxCountsHash() => r'7e63bfc27a46c4f346c5dfd86c54ff19f61d9be8';
+String _$inboxCountsHash() => r'581bbeb2645c9b409ce4d859275b32277a0551fe';
 
 abstract class _$InboxCounts extends $Notifier<InboxCountsState> {
   InboxCountsState build();

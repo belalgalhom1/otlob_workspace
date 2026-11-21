@@ -64,6 +64,7 @@ import 'package:api/src/model/create_vendor_dto.dart';
 import 'package:api/src/model/create_vendor_vertical_dto.dart';
 import 'package:api/src/model/create_wallet_top_up_dto.dart';
 import 'package:api/src/model/create_zone_dto.dart';
+import 'package:api/src/model/custom_order_preview_type.dart';
 import 'package:api/src/model/customer.dart';
 import 'package:api/src/model/customer_decide_assist_dto.dart';
 import 'package:api/src/model/customer_user_summary_dto.dart';
@@ -102,6 +103,7 @@ import 'package:api/src/model/driver_ranking_run_details_response_dto.dart';
 import 'package:api/src/model/driver_ranking_run_status.dart';
 import 'package:api/src/model/driver_ranking_schedule_status_dto.dart';
 import 'package:api/src/model/driver_ranking_trigger_source.dart';
+import 'package:api/src/model/driver_search_phase.dart';
 import 'package:api/src/model/driver_shift.dart';
 import 'package:api/src/model/driver_shift_response_dto.dart';
 import 'package:api/src/model/driver_shift_status.dart';
@@ -123,6 +125,7 @@ import 'package:api/src/model/favorite_product.dart';
 import 'package:api/src/model/forgot_password_dto.dart';
 import 'package:api/src/model/fulfillment_rating_input_dto.dart';
 import 'package:api/src/model/generate_shift_pools_dto.dart';
+import 'package:api/src/model/geo_point_dto.dart';
 import 'package:api/src/model/join_waitlist_dto.dart';
 import 'package:api/src/model/language.dart';
 import 'package:api/src/model/login_dto.dart';
@@ -132,6 +135,8 @@ import 'package:api/src/model/mark_read_dto.dart';
 import 'package:api/src/model/menu_category.dart';
 import 'package:api/src/model/mobile_wallet.dart';
 import 'package:api/src/model/mobile_wallet_response_dto.dart';
+import 'package:api/src/model/nearby_driver_preview_dto.dart';
+import 'package:api/src/model/nearby_drivers_response_dto.dart';
 import 'package:api/src/model/offer.dart';
 import 'package:api/src/model/order.dart';
 import 'package:api/src/model/order_actor_summary_dto.dart';
@@ -144,13 +149,17 @@ import 'package:api/src/model/order_item.dart';
 import 'package:api/src/model/order_item_option.dart';
 import 'package:api/src/model/order_response_dto.dart';
 import 'package:api/src/model/order_review.dart';
+import 'package:api/src/model/order_search_status_dto.dart';
 import 'package:api/src/model/order_status.dart';
 import 'package:api/src/model/order_status_event.dart';
 import 'package:api/src/model/order_type.dart';
 import 'package:api/src/model/order_vendor_fulfillment.dart';
 import 'package:api/src/model/order_vendor_fulfillment_status.dart';
 import 'package:api/src/model/orders_controller_estimate_custom_order200_response.dart';
+import 'package:api/src/model/orders_controller_get_custom_nearby_drivers200_response.dart';
+import 'package:api/src/model/orders_controller_get_search_status200_response.dart';
 import 'package:api/src/model/orders_controller_place_order200_response.dart';
+import 'package:api/src/model/orders_controller_retry_custom_search200_response.dart';
 import 'package:api/src/model/override_driver_rank_dto.dart';
 import 'package:api/src/model/paginated_delivery_incidents_response_dto.dart';
 import 'package:api/src/model/paginated_driver_rank_history_response_dto.dart';
@@ -190,6 +199,7 @@ import 'package:api/src/model/request_assist_driver_dto.dart';
 import 'package:api/src/model/reset_password_dto.dart';
 import 'package:api/src/model/respond_assist_offer_dto.dart';
 import 'package:api/src/model/respond_to_dispatch_dto.dart';
+import 'package:api/src/model/retry_search_response_dto.dart';
 import 'package:api/src/model/review_customer_dto.dart';
 import 'package:api/src/model/review_customer_user_dto.dart';
 import 'package:api/src/model/review_dto.dart';
@@ -198,6 +208,7 @@ import 'package:api/src/model/review_wallet_top_up_dto.dart';
 import 'package:api/src/model/reviews_controller_get_vendor_reviews200_response.dart';
 import 'package:api/src/model/role.dart';
 import 'package:api/src/model/search_customers_in_polygon_dto.dart';
+import 'package:api/src/model/search_terminal_reason.dart';
 import 'package:api/src/model/send_message_dto.dart';
 import 'package:api/src/model/send_otp_dto.dart';
 import 'package:api/src/model/session.dart';
@@ -310,6 +321,7 @@ part 'serializers.g.dart';
   CreateVendorVerticalDto,
   CreateWalletTopUpDto,
   CreateZoneDto,
+  CustomOrderPreviewType,
   Customer,
   CustomerDecideAssistDto,
   CustomerUserSummaryDto,
@@ -348,6 +360,7 @@ part 'serializers.g.dart';
   DriverRankingRunStatus,
   DriverRankingScheduleStatusDto,
   DriverRankingTriggerSource,
+  DriverSearchPhase,
   DriverShift,
   DriverShiftResponseDto,
   DriverShiftStatus,
@@ -369,6 +382,7 @@ part 'serializers.g.dart';
   ForgotPasswordDto,
   FulfillmentRatingInputDto,
   GenerateShiftPoolsDto,
+  GeoPointDto,
   JoinWaitlistDto,
   Language,
   LoginDto,
@@ -378,6 +392,8 @@ part 'serializers.g.dart';
   MenuCategory,
   MobileWallet,
   MobileWalletResponseDto,
+  NearbyDriverPreviewDto,
+  NearbyDriversResponseDto,
   Offer,
   Order,
   OrderActorSummaryDto,
@@ -390,13 +406,17 @@ part 'serializers.g.dart';
   OrderItemOption,
   OrderResponseDto,
   OrderReview,
+  OrderSearchStatusDto,
   OrderStatus,
   OrderStatusEvent,
   OrderType,
   OrderVendorFulfillment,
   OrderVendorFulfillmentStatus,
   OrdersControllerEstimateCustomOrder200Response,
+  OrdersControllerGetCustomNearbyDrivers200Response,
+  OrdersControllerGetSearchStatus200Response,
   OrdersControllerPlaceOrder200Response,
+  OrdersControllerRetryCustomSearch200Response,
   OverrideDriverRankDto,
   PaginatedDeliveryIncidentsResponseDto,
   PaginatedDriverRankHistoryResponseDto,
@@ -436,6 +456,7 @@ part 'serializers.g.dart';
   ResetPasswordDto,
   RespondAssistOfferDto,
   RespondToDispatchDto,
+  RetrySearchResponseDto,
   ReviewCustomerDto,
   ReviewCustomerUserDto,
   ReviewDto,
@@ -444,6 +465,7 @@ part 'serializers.g.dart';
   ReviewsControllerGetVendorReviews200Response,
   Role,
   SearchCustomersInPolygonDto,
+  SearchTerminalReason,
   SendMessageDto,
   SendOtpDto,
   Session,

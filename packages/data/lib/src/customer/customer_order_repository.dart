@@ -3,6 +3,22 @@ import '../shared/response_parser.dart';
 
 import 'package:dio/dio.dart';
 
+class CustomerRetrySearchResult {
+  const CustomerRetrySearchResult({
+    required this.order,
+    required this.retried,
+    required this.alreadySearching,
+    required this.alreadyAssigned,
+    required this.searchStatus,
+  });
+
+  final Map<String, dynamic> order;
+  final bool retried;
+  final bool alreadySearching;
+  final bool alreadyAssigned;
+  final OrderSearchStatusDto searchStatus;
+}
+
 class CustomerOrderRepository {
   final OrdersApi _api;
   final ReviewsApi _reviewsApi;
@@ -118,5 +134,61 @@ class CustomerOrderRepository {
             customerDecideAssistDto: dto,
           );
     return ResponseParser.parse(response);
+  }
+
+  Future<NearbyDriversResponseDto> getCustomNearbyDrivers({
+    required double lat,
+    required double lng,
+    VehicleType? vehicleType,
+    CustomOrderPreviewType? type,
+  }) async {
+    final response = await _api.ordersControllerGetCustomNearbyDrivers(
+      lat: lat,
+      lng: lng,
+      vehicleType: vehicleType,
+      type: type,
+    );
+    return ResponseParser.parseTyped(
+      response,
+      NearbyDriversResponseDto.serializer,
+    );
+  }
+
+  Future<OrderSearchStatusDto> getOrderSearchStatus(String orderId) async {
+    final response = await _api.ordersControllerGetSearchStatus(
+      orderId: orderId,
+    );
+    return ResponseParser.parseTyped(
+      response,
+      OrderSearchStatusDto.serializer,
+    );
+  }
+
+  Future<CustomerRetrySearchResult> retryCustomSearch(String orderId) async {
+    final response = await _api.ordersControllerRetryCustomSearch(
+      orderId: orderId,
+    );
+    final parsed = ResponseParser.parse(response);
+    if (parsed is! Map) {
+      throw StateError('Unexpected retryCustomSearch payload: $parsed');
+    }
+    final map = Map<String, dynamic>.from(parsed);
+    final rawStatus = map['searchStatus'];
+    final searchStatus = standardSerializers.deserializeWith(
+      OrderSearchStatusDto.serializer,
+      rawStatus,
+    );
+    if (searchStatus == null) {
+      throw StateError('Failed to parse searchStatus from retryCustomSearch');
+    }
+    return CustomerRetrySearchResult(
+      order: map['order'] is Map
+          ? Map<String, dynamic>.from(map['order'] as Map)
+          : const <String, dynamic>{},
+      retried: map['retried'] == true,
+      alreadySearching: map['alreadySearching'] == true,
+      alreadyAssigned: map['alreadyAssigned'] == true,
+      searchStatus: searchStatus,
+    );
   }
 }

@@ -33,7 +33,7 @@ final class SupportTicketProvider
   SupportTicket create() => SupportTicket();
 }
 
-String _$supportTicketHash() => r'cdfd624779014947f49b95463e510e7bafcb67a0';
+String _$supportTicketHash() => r'd3a0b04876c2df8c35504aa8054e94ace7b0c67e';
 
 abstract class _$SupportTicket extends $AsyncNotifier<void> {
   FutureOr<void> build();

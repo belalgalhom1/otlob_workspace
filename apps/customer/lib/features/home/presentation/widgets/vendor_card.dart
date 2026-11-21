@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:ui_kit/ui_kit.dart' show AppExpandableText;
 import '../../../../core/utils/image_utils.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -122,9 +121,6 @@ class VendorCard extends ConsumerWidget {
                 final name = isAr && vendor['nameAr'] != null && vendor['nameAr'].toString().isNotEmpty
                     ? vendor['nameAr'].toString()
                     : (vendor['name'] ?? vendor['storeName'] ?? '').toString();
-                final description = isAr && vendor['vendorAr'] != null && vendor['vendorAr'].toString().isNotEmpty
-                    ? vendor['vendorAr'].toString()
-                    : (vendor['vendor'] ?? vendor['description'] ?? '').toString();
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,24 +162,6 @@ class VendorCard extends ConsumerWidget {
                         );
                       }),
                     ]),
-                    if (description.trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      AppExpandableText(
-                        text: description.trim(),
-                        trimLines: 2,
-                        readMoreLabel: strings.readMoreAction,
-                        readLessLabel: strings.readLessAction,
-                        toggleColor: isDark
-                            ? AppColors.primary
-                            : const Color(0xFFB77912),
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Colors.grey.shade700,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
                     if (vendor['distanceKm'] != null || timeLabel != null) ...[
                       const SizedBox(height: 8),
                       Row(

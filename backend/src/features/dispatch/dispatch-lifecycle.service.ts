@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -37,6 +37,8 @@ import {
   DispatchCandidateOffer,
   DispatchRepository,
 } from './dispatch.repository';
+import { DispatchSearchTracker } from './dispatch-search-tracker.service';
+import { DriverSearchPhase } from './dispatch-search.types';
 
 const DRIVER_ASSIGNABLE_STATUSES: DriverStatus[] = [
   DriverStatus.ONLINE,
@@ -71,6 +73,7 @@ export class DispatchLifecycleService {
     private readonly outbox: OutboxService,
     private readonly workflowDispatcher: OrderWorkflowDispatcher,
     private readonly driverWorkload: DriverWorkloadHelper,
+    @Optional() private readonly searchTracker?: DispatchSearchTracker,
   ) {}
 
   // ─── Handle expiry ────────────────────────────────────────────────────────
@@ -148,6 +151,25 @@ export class DispatchLifecycleService {
       (settings.driverAcceptTimeoutSecs ?? 30) * 60,
     );
 
+    const nextRadiusKm = Math.min(
+      Number(settings.driverSearchRadiusKm ?? 3) +
+        Number(settings.driverSearchRadiusStepKm ?? 3) * attempt,
+      Number(settings.driverSearchRadiusMaxKm ?? 15),
+    );
+    await this.searchTracker?.publishPhase({
+      orderId,
+      orderNumber,
+      orderStatus: OrderStatus.LOOKING_FOR_DRIVER,
+      phase: DriverSearchPhase.NO_DRIVERS_IN_WAVE,
+      attempt: attempt + 1,
+      maxAttempts: Number(settings.driverSearchMaxAttempts ?? 5),
+      radiusKm: nextRadiusKm,
+      maxRadiusKm: Number(settings.driverSearchRadiusMaxKm ?? nextRadiusKm),
+      contactedCount: 0,
+      waveExpiresAt: null,
+      searchTimeoutSecs: Number(settings.driverAcceptTimeoutSecs ?? 30),
+    });
+
     await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, {
       orderId,
       orderNumber,
@@ -210,6 +232,16 @@ export class DispatchLifecycleService {
       acceptScope,
       dispatchData.candidates || [],
     );
+
+    await this.searchTracker?.publishPhase({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      orderStatus: nextOrderStatus,
+      revision: assignedRevision,
+      customerUserId: order.customer?.userId,
+      phase: DriverSearchPhase.DRIVER_FOUND,
+      waveExpiresAt: null,
+    });
 
     this.logger.log(
       `Driver ${driverId} accepted dispatch ${dispatchId} for order ${order.orderNumber}`,
@@ -300,6 +332,13 @@ export class DispatchLifecycleService {
     this.logger.log(
       `Driver ${driverId} rejected dispatch ${dispatchId} for order ${orderId}`,
     );
+
+    await this.searchTracker?.publishPhase({
+      orderId,
+      orderStatus: OrderStatus.LOOKING_FOR_DRIVER,
+      phase: DriverSearchPhase.WAITING_DRIVER_RESPONSE,
+      newlyRejectedDriverIds: [driverId],
+    });
 
     const totalRejected =
       await this.dispatchRepository.getRejectedCount(dispatchId);
@@ -868,6 +907,11 @@ export class DispatchLifecycleService {
           }
         }
 
+        // Lock order before delivery group to keep lock order identical to
+        // OrdersRepository.cancelOrder and prevent deadlock under simultaneous
+        // accept vs customer cancel.
+        await tx.$queryRaw`SELECT id FROM orders WHERE id = ${order.id} FOR UPDATE`;
+
         await tx.orderDispatch.create({
           data: {
             id: dispatchId,
@@ -1138,6 +1182,17 @@ export class DispatchLifecycleService {
         },
         (settings.driverAcceptTimeoutSecs ?? 30) * 60,
       );
+
+      await this.searchTracker?.publishPhase({
+        orderId,
+        orderNumber: expiryJob.data.orderNumber,
+        orderStatus: OrderStatus.LOOKING_FOR_DRIVER,
+        phase: DriverSearchPhase.NO_DRIVERS_IN_WAVE,
+        attempt: expiryJob.data.attempt + 1,
+        maxAttempts: Number(settings.driverSearchMaxAttempts ?? 5),
+        contactedCount: 0,
+        waveExpiresAt: null,
+      });
 
       await this.dispatchQueue.add(ORDER_JOBS.DISPATCH, {
         orderId,

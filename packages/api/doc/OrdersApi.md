@@ -25,10 +25,12 @@ Method | HTTP request | Description
 [**ordersControllerEstimateCustomOrder**](OrdersApi.md#orderscontrollerestimatecustomorder) | **POST** /orders/custom-fee-estimate | Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
 [**ordersControllerEstimateMultiVendor**](OrdersApi.md#orderscontrollerestimatemultivendor) | **POST** /orders/multi-vendor/fee-estimate | Estimate a multi-vendor checkout, including the per-delivery fee breakdown and whether it splits
 [**ordersControllerEstimateOrder**](OrdersApi.md#orderscontrollerestimateorder) | **POST** /orders/fee-estimate | Estimate delivery fee and order total before placing (fee is fixed to vendor→customer distance)
+[**ordersControllerGetCustomNearbyDrivers**](OrdersApi.md#orderscontrollergetcustomnearbydrivers) | **GET** /orders/custom/nearby-drivers | Get anonymized nearby available drivers around a custom pickup location
 [**ordersControllerGetMyDispatches**](OrdersApi.md#orderscontrollergetmydispatches) | **GET** /orders/driver/dispatches | Get my pending dispatch requests
 [**ordersControllerGetMyOrdersAsCustomer**](OrdersApi.md#orderscontrollergetmyordersascustomer) | **GET** /orders/my | Get my order history (customer)
 [**ordersControllerGetMyOrdersAsDriver**](OrdersApi.md#orderscontrollergetmyordersasdriver) | **GET** /orders/driver/my | Get my orders as driver
 [**ordersControllerGetOne**](OrdersApi.md#orderscontrollergetone) | **GET** /orders/{orderId} | Get a single order (customer/driver/vendor/admin)
+[**ordersControllerGetSearchStatus**](OrdersApi.md#orderscontrollergetsearchstatus) | **GET** /orders/{orderId}/search-status | Get real-time driver search progress, anonymized nearby drivers, and assigned driver distance
 [**ordersControllerGetVendorOrders**](OrdersApi.md#orderscontrollergetvendororders) | **GET** /orders/vendor/{vendorId} | Get orders for a vendor (vendor member or admin)
 [**ordersControllerListOrderDecisions**](OrdersApi.md#orderscontrollerlistorderdecisions) | **GET** /orders/vendor-decisions/order/{orderId} | [Admin] Vendor portions and their states for an order
 [**ordersControllerListVendorDecisions**](OrdersApi.md#orderscontrollerlistvendordecisions) | **GET** /orders/vendor-decisions/vendor/{vendorId} | [Vendor] All my portions for one vendor
@@ -38,6 +40,7 @@ Method | HTTP request | Description
 [**ordersControllerPlaceOrder**](OrdersApi.md#orderscontrollerplaceorder) | **POST** /orders | Place a new order from active cart
 [**ordersControllerRejectFulfillment**](OrdersApi.md#orderscontrollerrejectfulfillment) | **PATCH** /orders/vendor-decisions/{fulfillmentId}/reject | [Vendor] Reject only my portion with an auditable reason; the customer is notified and the totals are adjusted
 [**ordersControllerRespondToDispatch**](OrdersApi.md#orderscontrollerrespondtodispatch) | **POST** /orders/driver/dispatches/{dispatchId}/respond | Accept or reject a dispatch request
+[**ordersControllerRetryCustomSearch**](OrdersApi.md#orderscontrollerretrycustomsearch) | **POST** /orders/{orderId}/retry-search | Retry driver search idempotently on an expired/cancelled custom delivery or ride order
 [**ordersControllerVendorUpdateStatus**](OrdersApi.md#orderscontrollervendorupdatestatus) | **PATCH** /orders/vendor/{orderId}/status | Vendor updates order status
 
 
@@ -737,6 +740,53 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **ordersControllerGetCustomNearbyDrivers**
+> OrdersControllerGetCustomNearbyDrivers200Response ordersControllerGetCustomNearbyDrivers(lat, lng, vehicleType, type)
+
+Get anonymized nearby available drivers around a custom pickup location
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getOrdersApi();
+final num lat = 30.0444; // num | 
+final num lng = 31.2357; // num | 
+final VehicleType vehicleType = ; // VehicleType | 
+final CustomOrderPreviewType type = ; // CustomOrderPreviewType | 
+
+try {
+    final response = api.ordersControllerGetCustomNearbyDrivers(lat, lng, vehicleType, type);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling OrdersApi->ordersControllerGetCustomNearbyDrivers: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **lat** | **num**|  | 
+ **lng** | **num**|  | 
+ **vehicleType** | [**VehicleType**](.md)|  | [optional] 
+ **type** | [**CustomOrderPreviewType**](.md)|  | [optional] 
+
+### Return type
+
+[**OrdersControllerGetCustomNearbyDrivers200Response**](OrdersControllerGetCustomNearbyDrivers200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **ordersControllerGetMyDispatches**
 > ApiControllerRoot200Response ordersControllerGetMyDispatches()
 
@@ -905,6 +955,47 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **ordersControllerGetSearchStatus**
+> OrdersControllerGetSearchStatus200Response ordersControllerGetSearchStatus(orderId)
+
+Get real-time driver search progress, anonymized nearby drivers, and assigned driver distance
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getOrdersApi();
+final String orderId = orderId_example; // String | 
+
+try {
+    final response = api.ordersControllerGetSearchStatus(orderId);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling OrdersApi->ordersControllerGetSearchStatus: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **orderId** | **String**|  | 
+
+### Return type
+
+[**OrdersControllerGetSearchStatus200Response**](OrdersControllerGetSearchStatus200Response.md)
 
 ### Authorization
 
@@ -1300,6 +1391,47 @@ Name | Type | Description  | Notes
 ### HTTP request headers
 
  - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **ordersControllerRetryCustomSearch**
+> OrdersControllerRetryCustomSearch200Response ordersControllerRetryCustomSearch(orderId)
+
+Retry driver search idempotently on an expired/cancelled custom delivery or ride order
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getOrdersApi();
+final String orderId = orderId_example; // String | 
+
+try {
+    final response = api.ordersControllerRetryCustomSearch(orderId);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling OrdersApi->ordersControllerRetryCustomSearch: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **orderId** | **String**|  | 
+
+### Return type
+
+[**OrdersControllerRetryCustomSearch200Response**](OrdersControllerRetryCustomSearch200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

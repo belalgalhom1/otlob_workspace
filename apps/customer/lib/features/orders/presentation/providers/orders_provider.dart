@@ -1,4 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:data/data.dart' show CustomerRetrySearchResult;
 import 'package:data/providers.dart';
 import 'package:api/api.dart' hide CartItem;
 import 'package:built_collection/built_collection.dart';
@@ -9,6 +10,39 @@ import 'package:flutter/foundation.dart';
 import 'dart:math';
 
 part 'orders_provider.g.dart';
+
+class PlaceCustomOrderOutcome {
+  const PlaceCustomOrderOutcome({
+    this.orderId,
+    this.order,
+    this.errorKey,
+  });
+
+  final String? orderId;
+  final Map<String, dynamic>? order;
+  final String? errorKey;
+
+  bool get isSuccess => orderId != null && orderId!.isNotEmpty;
+}
+
+String? _extractDioErrorKey(Object error) {
+  if (error is DioException) {
+    final data = error.response?.data;
+    if (data is Map) {
+      final msg = data['message'] ?? data['error'];
+      if (msg is List && msg.isNotEmpty) return msg.first.toString();
+      if (msg != null && msg.toString().trim().isNotEmpty) {
+        return msg.toString().trim();
+      }
+    }
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return 'common.error.network';
+    }
+  }
+  return error.toString();
+}
 
 final _keyRandom = Random.secure();
 
@@ -335,6 +369,50 @@ class Orders extends _$Orders {
     }
   }
 
+  PlaceCustomOrderDto _buildCustomOrderDto({
+    required String type,
+    required String pickup,
+    required List<double> pickupLocation,
+    required String dropoff,
+    required List<double> deliveryLocation,
+    String? vehicleType,
+    String? details,
+    String? specialRequest,
+    String paymentMethod = 'CASH_ON_DELIVERY',
+    int? coinsToUse,
+  }) {
+    final vType = switch (vehicleType) {
+      'motorcycle' => PlaceCustomOrderDtoVehicleTypeEnum.MOTORCYCLE,
+      'car' => PlaceCustomOrderDtoVehicleTypeEnum.CAR,
+      'van' => PlaceCustomOrderDtoVehicleTypeEnum.VAN,
+      'truck' => PlaceCustomOrderDtoVehicleTypeEnum.TRUCK,
+      'motor_tricycle' => PlaceCustomOrderDtoVehicleTypeEnum.MOTOR_TRICYCLE,
+      _ => PlaceCustomOrderDtoVehicleTypeEnum.BICYCLE,
+    };
+
+    final pMethod = paymentMethod.startsWith('MOBILE_WALLET')
+        ? PlaceCustomOrderDtoPaymentMethodEnum.MOBILE_WALLET
+        : PlaceCustomOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY;
+
+    return PlaceCustomOrderDto((b) => b
+      ..type = type == 'ride'
+          ? PlaceCustomOrderDtoTypeEnum.RIDE
+          : PlaceCustomOrderDtoTypeEnum.CUSTOM_DELIVERY
+      ..paymentMethod = pMethod
+      ..pickupAddress = pickup
+      ..deliveryAddress = dropoff
+      ..vehicleType = vType
+      ..pickupLocation = ListBuilder<num>(pickupLocation.length >= 2
+          ? [pickupLocation[0], pickupLocation[1]]
+          : [0.0, 0.0])
+      ..deliveryLocation = ListBuilder<num>(deliveryLocation.length >= 2
+          ? [deliveryLocation[0], deliveryLocation[1]]
+          : [0.0, 0.0])
+      ..itemDetails = details
+      ..specialRequest = specialRequest
+      ..coinsToUse = coinsToUse);
+  }
+
   Future<Map<String, dynamic>?> estimateCustomOrder({
     required String type,
     required String pickup,
@@ -343,49 +421,24 @@ class Orders extends _$Orders {
     required List<double> deliveryLocation,
     String? vehicleType,
     String? details,
+    String? specialRequest,
+    String paymentMethod = 'CASH_ON_DELIVERY',
     int? coinsToUse,
   }) async {
     final repo = ref.read(customerOrderRepositoryProvider);
     try {
-      PlaceCustomOrderDtoVehicleTypeEnum vType;
-      switch (vehicleType) {
-        case 'motorcycle':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.MOTORCYCLE;
-          break;
-        case 'car':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.CAR;
-          break;
-        case 'van':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.VAN;
-          break;
-        case 'truck':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.TRUCK;
-          break;
-        case 'motor_tricycle':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.MOTOR_TRICYCLE;
-          break;
-        default:
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.BICYCLE;
-      }
-
-      final dto = PlaceCustomOrderDto((b) => b
-        ..type = type == 'ride'
-            ? PlaceCustomOrderDtoTypeEnum.RIDE
-            : PlaceCustomOrderDtoTypeEnum.CUSTOM_DELIVERY
-        ..paymentMethod = PlaceCustomOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY
-        ..pickupAddress = pickup
-        ..deliveryAddress = dropoff
-        ..vehicleType = vType
-        ..pickupLocation = ListBuilder<num>(
-            pickupLocation.length >= 2
-                ? [pickupLocation[0], pickupLocation[1]]
-                : [0.0, 0.0])
-        ..deliveryLocation = ListBuilder<num>(
-            deliveryLocation.length >= 2
-                ? [deliveryLocation[0], deliveryLocation[1]]
-                : [0.0, 0.0])
-        ..itemDetails = details
-        ..coinsToUse = coinsToUse);
+      final dto = _buildCustomOrderDto(
+        type: type,
+        pickup: pickup,
+        pickupLocation: pickupLocation,
+        dropoff: dropoff,
+        deliveryLocation: deliveryLocation,
+        vehicleType: vehicleType,
+        details: details,
+        specialRequest: specialRequest,
+        paymentMethod: paymentMethod,
+        coinsToUse: coinsToUse,
+      );
 
       final result = await repo.estimateCustomOrder(dto);
       if (result is Map) {
@@ -464,6 +517,62 @@ class Orders extends _$Orders {
     }
   }
 
+  Future<PlaceCustomOrderOutcome> placeCustomOrderDetailed({
+    required String type,
+    required String pickup,
+    required List<double> pickupLocation,
+    required String dropoff,
+    required List<double> deliveryLocation,
+    String? vehicleType,
+    String? details,
+    String? specialRequest,
+    String paymentMethod = 'CASH_ON_DELIVERY',
+    int? coinsToUse,
+    String? idempotencyKey,
+  }) async {
+    final repo = ref.read(customerOrderRepositoryProvider);
+    try {
+      final dto = _buildCustomOrderDto(
+        type: type,
+        pickup: pickup,
+        pickupLocation: pickupLocation,
+        dropoff: dropoff,
+        deliveryLocation: deliveryLocation,
+        vehicleType: vehicleType,
+        details: details,
+        specialRequest: specialRequest,
+        paymentMethod: paymentMethod,
+        coinsToUse: coinsToUse,
+      );
+
+      final result =
+          await repo.placeCustomOrder(dto, idempotencyKey: idempotencyKey);
+
+      Map<String, dynamic>? orderMap;
+      if (result is Map) {
+        final rawData = result['data'];
+        if (rawData is Map) {
+          orderMap = Map<String, dynamic>.from(rawData);
+        } else {
+          orderMap = Map<String, dynamic>.from(result);
+        }
+      }
+      final orderId = orderMap?['id']?.toString();
+      if (orderMap != null && orderId != null && orderId.isNotEmpty) {
+        upsertOrder(orderMap);
+      } else {
+        ref.invalidateSelf();
+      }
+      return PlaceCustomOrderOutcome(
+        orderId: (orderId != null && orderId.isNotEmpty) ? orderId : 'SUCCESS',
+        order: orderMap,
+      );
+    } catch (e) {
+      debugPrint('Custom order error: $e');
+      return PlaceCustomOrderOutcome(errorKey: _extractDioErrorKey(e));
+    }
+  }
+
   Future<String?> placeCustomOrder({
     required String type,
     required String pickup,
@@ -472,77 +581,81 @@ class Orders extends _$Orders {
     required List<double> deliveryLocation,
     String? vehicleType,
     String? details,
+    String? specialRequest,
+    String paymentMethod = 'CASH_ON_DELIVERY',
     int? coinsToUse,
     String? idempotencyKey,
   }) async {
-    final repo = ref.read(customerOrderRepositoryProvider);
+    final outcome = await placeCustomOrderDetailed(
+      type: type,
+      pickup: pickup,
+      pickupLocation: pickupLocation,
+      dropoff: dropoff,
+      deliveryLocation: deliveryLocation,
+      vehicleType: vehicleType,
+      details: details,
+      specialRequest: specialRequest,
+      paymentMethod: paymentMethod,
+      coinsToUse: coinsToUse,
+      idempotencyKey: idempotencyKey,
+    );
+    return outcome.orderId;
+  }
+
+  Future<({bool success, String? errorKey})> cancelOrderDetailed(
+    String orderId,
+    String reason,
+  ) async {
+    final repository = ref.read(customerOrderRepositoryProvider);
     try {
-      PlaceCustomOrderDtoVehicleTypeEnum vType;
-      switch (vehicleType) {
-        case 'motorcycle':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.MOTORCYCLE;
-          break;
-        case 'car':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.CAR;
-          break;
-        case 'van':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.VAN;
-          break;
-        case 'truck':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.TRUCK;
-          break;
-        case 'motor_tricycle':
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.MOTOR_TRICYCLE;
-          break;
-        default:
-          vType = PlaceCustomOrderDtoVehicleTypeEnum.BICYCLE;
+      final result = await repository.cancelOrder(orderId, reason: reason);
+      if (result is Map) {
+        upsertOrder(Map<String, dynamic>.from(result));
+      } else {
+        ref.invalidateSelf();
       }
-
-      final dto = PlaceCustomOrderDto((b) => b
-        ..type = type == 'ride'
-            ? PlaceCustomOrderDtoTypeEnum.RIDE
-            : PlaceCustomOrderDtoTypeEnum.CUSTOM_DELIVERY
-        ..paymentMethod = PlaceCustomOrderDtoPaymentMethodEnum.CASH_ON_DELIVERY
-        ..pickupAddress = pickup
-        ..deliveryAddress = dropoff
-        ..vehicleType = vType
-        ..pickupLocation = ListBuilder<num>(
-            pickupLocation.length >= 2
-                ? [pickupLocation[0], pickupLocation[1]]
-                : [0.0, 0.0])
-        ..deliveryLocation = ListBuilder<num>(
-            deliveryLocation.length >= 2
-                ? [deliveryLocation[0], deliveryLocation[1]]
-                : [0.0, 0.0])
-        ..itemDetails = details
-        ..coinsToUse = coinsToUse);
-
-      final result = await repo.placeCustomOrder(dto,
-          idempotencyKey: idempotencyKey);
-      ref.invalidateSelf();
-      
-      if (result is Map && result['data'] != null && result['data']['id'] != null) {
-        return result['data']['id'].toString();
-      } else if (result is Map && result['id'] != null) {
-        return result['id'].toString();
-      }
-      return 'SUCCESS';
+      return (success: true, errorKey: null);
     } catch (e) {
-      debugPrint('Custom order error: $e');
-      return null;
+      debugPrint('Cancel order error: $e');
+      return (success: false, errorKey: _extractDioErrorKey(e));
     }
   }
 
   Future<bool> cancelOrder(String orderId, String reason) async {
+    final res = await cancelOrderDetailed(orderId, reason);
+    return res.success;
+  }
+
+  Future<CustomerRetrySearchResult> retryCustomSearch(String orderId) async {
     final repository = ref.read(customerOrderRepositoryProvider);
-    try {
-      await repository.cancelOrder(orderId, reason: reason);
-      ref.invalidateSelf();
-      return true;
-    } catch (e) {
-      debugPrint('Cancel order error: $e');
-      return false;
+    final result = await repository.retryCustomSearch(orderId);
+    if (result.order.isNotEmpty) {
+      upsertOrder(result.order);
     }
+    return result;
+  }
+
+  void upsertOrder(Map<String, dynamic> order) {
+    final id = order['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    final status = order['status']?.toString() ?? '';
+    final isTerminal = status == 'DELIVERED' || status == 'CANCELLED';
+
+    final nextActive =
+        state.activeOrders.where((o) => o['id']?.toString() != id).toList();
+    final nextPast =
+        state.pastOrders.where((o) => o['id']?.toString() != id).toList();
+
+    if (isTerminal) {
+      nextPast.insert(0, order);
+    } else {
+      nextActive.insert(0, order);
+    }
+
+    state = state.copyWith(
+      activeOrders: nextActive,
+      pastOrders: nextPast,
+    );
   }
 
   Future<bool> markPaymentPaid(
