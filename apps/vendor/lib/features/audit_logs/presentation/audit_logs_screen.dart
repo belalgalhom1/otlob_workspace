@@ -412,6 +412,15 @@ class _AuditLogCardState extends State<_AuditLogCard> {
         return cleaned[0].toUpperCase() + cleaned.substring(1).toLowerCase();
       }).join(' ');
     }
+    // SCREAMING_SNAKE_CASE or kebab-case identifier, e.g. PLATFORM_SETTING, DELIVERY_ZONE.
+    if (value.contains('_') || value.contains('-')) {
+      final words = value
+          .split(RegExp(r'[-_]+'))
+          .where((w) => w.isNotEmpty)
+          .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+          .join(' ');
+      if (words.isNotEmpty) return words;
+    }
     // CamelCase controller name, e.g. DriverShifts, DriverBreak, VendorMember.
     final spaced = value
         .replaceAllMapped(
@@ -656,6 +665,10 @@ class _AuditLogCardState extends State<_AuditLogCard> {
       'tickets': 'التذاكر',
       'ticket': 'التذكرة',
       'platform settings': 'إعدادات المنصة',
+      'platform setting': 'إعدادات المنصة',
+      'delivery zones': 'مناطق التوصيل',
+      'delivery zone': 'منطقة التوصيل',
+      'custom delivery': 'توصيل مخصص',
       'conversations': 'المحادثات',
       'conversation': 'المحادثة',
       'messages': 'الرسائل',
@@ -1168,49 +1181,72 @@ class _AuditLogCardState extends State<_AuditLogCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: actionColor.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    actionLabel,
-                                    style: TextStyle(
-                                      color: actionColor,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                Expanded(
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: actionColor.withValues(
+                                            alpha: 0.12,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          actionLabel,
+                                          style: TextStyle(
+                                            color: actionColor,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      if (entityLabel.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.07),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            entityLabel,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color:
+                                                  theme.colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                if (entityLabel.isNotEmpty)
-                                  Flexible(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        entityLabel,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: theme.colorScheme.onSurface,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                const Spacer(),
-                                if (changeWidgets.isNotEmpty)
+                                if (changeWidgets.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
                                   Icon(
-                                    _isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                                    _isExpanded
+                                        ? LucideIcons.chevronUp
+                                        : LucideIcons.chevronDown,
                                     size: 16,
-                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.3),
                                   ),
+                                ],
                               ],
                             ),
                             const SizedBox(height: 8),

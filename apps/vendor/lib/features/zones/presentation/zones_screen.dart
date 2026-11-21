@@ -470,7 +470,7 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
                         Icon(LucideIcons.mapPin, size: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                         const SizedBox(width: 4),
                         Text(
-                          '${l10n.points}: ${(z['coordinates'] as List?)?.length ?? 0}',
+                          '${l10n.points}: ${(z['coordinates'] is List && (z['coordinates'] as List).isNotEmpty) ? (z['coordinates'] as List).length : (z['boundary'] is Map && z['boundary']['coordinates'] is List && (z['boundary']['coordinates'] as List).isNotEmpty ? ((z['boundary']['coordinates'] as List).first is List ? ((z['boundary']['coordinates'] as List).first as List).length : (z['boundary']['coordinates'] as List).length) : 0)}',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                             fontSize: 12,
@@ -490,12 +490,20 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(LucideIcons.shoppingBag, size: 13, color: Colors.amber.shade800),
+                          Icon(
+                            LucideIcons.shoppingBag,
+                            size: 13,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.primary
+                                : const Color(0xFF92400E),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '${l10n.minOrderOverride}: $minOrder ${l10n.egp}',
                             style: TextStyle(
-                              color: Colors.amber.shade900,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? AppColors.primary
+                                  : const Color(0xFF92400E),
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -513,12 +521,20 @@ class _ZonesScreenState extends ConsumerState<ZonesScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(LucideIcons.truck, size: 13, color: AppColors.primary),
+                          Icon(
+                            LucideIcons.truck,
+                            size: 13,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.primary
+                                : const Color(0xFF92400E),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '${l10n.baseFeeOverride}: $baseFee ${l10n.egp}',
-                            style: const TextStyle(
-                              color: AppColors.primary,
+                            style: TextStyle(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? AppColors.primary
+                                  : const Color(0xFF92400E),
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),

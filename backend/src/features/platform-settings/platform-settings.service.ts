@@ -202,6 +202,7 @@ export class PlatformSettingsService {
       driverBonusStartDate: s.driverBonusStartDate,
       driverBonusEndDate: s.driverBonusEndDate,
       driverBonusPaidByCustomer: s.driverBonusPaidByCustomer,
+      goldTierBonusPerOrder: Number(s.goldTierBonusPerOrder ?? 0),
       driverShiftsEnabled: s.driverShiftsEnabled,
       driverSearchRadiusKm: s.driverSearchRadiusKm,
       driverSearchRadiusStepKm: s.driverSearchRadiusStepKm,
@@ -311,9 +312,29 @@ export class PlatformSettingsService {
     isStandardOrder: boolean = true,
     prefetchedSettings?: PlatformSetting,
     vehicleType?: string | null,
+    includeGoldSurcharge: boolean = true,
   ): Promise<number> {
     const s = prefetchedSettings ?? (await this.getSettings());
     return this.fees.calculateDeliveryFee(s, {
+      distanceKm,
+      zoneBaseDeliveryFeeOverride,
+      perKmOverride,
+      isStandardOrder,
+      vehicleType,
+      includeGoldSurcharge,
+    });
+  }
+
+  async calculateCustomerDeliveryBreakdown(
+    distanceKm: number,
+    zoneBaseDeliveryFeeOverride?: number | null,
+    perKmOverride?: number | null,
+    isStandardOrder: boolean = true,
+    prefetchedSettings?: PlatformSetting,
+    vehicleType?: string | null,
+  ) {
+    const s = prefetchedSettings ?? (await this.getSettings());
+    return this.fees.calculateCustomerDeliveryBreakdown(s, {
       distanceKm,
       zoneBaseDeliveryFeeOverride,
       perKmOverride,
@@ -326,12 +347,14 @@ export class PlatformSettingsService {
     stopsDistancesKm: number[],
     zoneBaseDeliveryFeeOverride?: number | null,
     prefetchedSettings?: PlatformSetting,
+    includeGoldSurcharge: boolean = false,
   ): Promise<number> {
     const s = prefetchedSettings ?? (await this.getSettings());
     return this.fees.calculateGroupDeliveryFee(
       s,
       stopsDistancesKm,
       zoneBaseDeliveryFeeOverride,
+      { includeGoldSurcharge },
     );
   }
 

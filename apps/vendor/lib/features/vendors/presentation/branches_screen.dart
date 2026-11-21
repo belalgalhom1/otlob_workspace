@@ -108,7 +108,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: Icon(
-                        LucideIcons.arrowLeft,
+                        Localizations.localeOf(context).languageCode == 'ar'
+                            ? LucideIcons.arrowRight
+                            : LucideIcons.arrowLeft,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                       style: IconButton.styleFrom(

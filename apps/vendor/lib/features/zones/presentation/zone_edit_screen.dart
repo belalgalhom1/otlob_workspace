@@ -287,7 +287,9 @@ class _ZoneEditScreenState extends ConsumerState<ZoneEditScreen> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Search location...',
+                    hintText: Localizations.localeOf(context).languageCode == 'ar'
+                        ? 'ابحث عن موقع...'
+                        : 'Search location...',
                     prefixIcon: const Icon(LucideIcons.search),
                     suffixIcon: Row(
                       mainAxisSize: MainAxisSize.min,

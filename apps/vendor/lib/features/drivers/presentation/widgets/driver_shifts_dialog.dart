@@ -784,23 +784,18 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
             ...shifts.map((shift) {
               final status = shift.status;
               Color statusColor = Colors.grey;
-              String statusText = status;
-              if (status == 'ACTIVE') {
+              if (status == 'ACTIVE' || status == 'CHECKED_IN') {
                 statusColor = Colors.green;
-                statusText = isAr ? 'نشطة' : 'Active';
               } else if (status == 'COMPLETED') {
                 statusColor = Colors.blue;
-                statusText = isAr ? 'مكتملة' : 'Completed';
               } else if (status == 'SCHEDULED') {
                 statusColor = Colors.orange;
-                statusText = isAr ? 'مجدولة' : 'Scheduled';
-              } else if (status == 'MISSED') {
+              } else if (status == 'MISSED' || status == 'ABSENT') {
                 statusColor = Colors.red;
-                statusText = isAr ? 'فائتة' : 'Missed';
               } else if (status == 'CANCELLED') {
                 statusColor = Colors.grey;
-                statusText = isAr ? 'ملغاة' : 'Cancelled';
               }
+              final statusText = _shiftStatusLabel(status, isAr);
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -1077,6 +1072,26 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
     );
   }
 
+  String _shiftStatusLabel(String status, bool isAr) {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        return isAr ? 'نشطة' : 'Active';
+      case 'CHECKED_IN':
+        return isAr ? 'حاضر' : 'Checked In';
+      case 'COMPLETED':
+        return isAr ? 'مكتملة' : 'Completed';
+      case 'SCHEDULED':
+        return isAr ? 'مجدولة' : 'Scheduled';
+      case 'MISSED':
+      case 'ABSENT':
+        return isAr ? 'غائب' : 'Absent';
+      case 'CANCELLED':
+        return isAr ? 'ملغاة' : 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
   Widget _buildShiftCard(BuildContext context, DriverShift shift) {
     final statusColor = _getStatusColor(shift.status);
     final languageCode = Localizations.localeOf(context).languageCode;
@@ -1109,7 +1124,7 @@ class _DriverShiftsDialogState extends ConsumerState<DriverShiftsDialog> {
                   border: Border.all(color: statusColor.withValues(alpha: 0.2)),
                 ),
                 child: Text(
-                  shift.status,
+                  _shiftStatusLabel(shift.status, isAr),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,

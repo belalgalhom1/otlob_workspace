@@ -224,8 +224,9 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
     final userId = (m['userId'] ?? '').toString();
     final walletBalance = (m['walletBalance'] as num?)?.toDouble() ?? 0.0;
     final manageAll = m['manageAllDrivers'] == true;
-    final assignedCount = (m['assignedCount'] as num?)?.toInt() ?? 0;
     final assignedDrivers = m['assignedDrivers'] is List ? (m['assignedDrivers'] as List) : [];
+    final assignedCount = ((m['assignedCount'] ?? m['assignedDriversCount']) as num?)?.toInt() ??
+        assignedDrivers.length;
     final zoneName = m['zone'] is Map
         ? (_isAr ? (m['zone']['nameAr'] ?? m['zone']['name']) : m['zone']['name'])
         : null;
@@ -429,7 +430,7 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${walletBalance.toStringAsFixed(1)} ${_isAr ? 'ج.م' : 'EGP'}',
+                          '${walletBalance.toStringAsFixed(2)} ${_isAr ? 'ج.م' : 'EGP'}',
                           style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,

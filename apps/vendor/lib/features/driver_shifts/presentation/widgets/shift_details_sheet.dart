@@ -260,7 +260,8 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                       ),
                     ),
                     Text(
-                      DateFormat('EEEE, MMMM d, yyyy').format(pool.shiftDate),
+                      DateFormat('EEEE, MMMM d, yyyy', Localizations.localeOf(context).languageCode)
+                          .format(pool.shiftDate),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -323,6 +324,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
             LucideIcons.timer,
             '${DateFormat('hh:mm a').format(pool.startTime)} – ${DateFormat('hh:mm a').format(pool.endTime)}',
             AppColors.info,
+            forceLtr: true,
           ),
           _buildInfoChip(
             LucideIcons.users,
@@ -344,7 +346,17 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String label, Color color) {
+  Widget _buildInfoChip(IconData icon, String label, Color color, {bool forceLtr = false}) {
+    final textWidget = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 12,
+        color: color,
+        fontWeight: FontWeight.w600,
+      ),
+    );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
@@ -358,16 +370,9 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 6),
           Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: forceLtr
+                ? Directionality(textDirection: TextDirection.ltr, child: textWidget)
+                : textWidget,
           ),
         ],
       ),
@@ -537,7 +542,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
-        driver.status,
+        _translateDriverStatus(l10n, driver.status),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -806,6 +811,43 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
     );
   }
 
+  String _translateDriverStatus(AppLocalizations l10n, String status) {
+    switch (status.toUpperCase()) {
+      case 'ONLINE':
+        return l10n.statusOnline;
+      case 'ON_DELIVERY':
+        return l10n.statusOnDelivery;
+      case 'ON_BREAK':
+        return l10n.statusOnBreak;
+      case 'OFFLINE':
+        return l10n.statusOffline;
+      case 'SUSPENDED':
+        return l10n.statusSuspended;
+      default:
+        return status;
+    }
+  }
+
+  String _translateShiftStatus(bool isAr, String status) {
+    switch (status.toUpperCase()) {
+      case 'SCHEDULED':
+        return isAr ? 'مجدولة' : 'Scheduled';
+      case 'CHECKED_IN':
+        return isAr ? 'حاضر' : 'Checked In';
+      case 'ACTIVE':
+        return isAr ? 'نشطة' : 'Active';
+      case 'COMPLETED':
+        return isAr ? 'مكتملة' : 'Completed';
+      case 'MISSED':
+      case 'ABSENT':
+        return isAr ? 'غائب' : 'Absent';
+      case 'CANCELLED':
+        return isAr ? 'ملغاة' : 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
   Widget _buildAssignedDriverTile(AppLocalizations l10n, DriverShift shift) {
     final driverName =
         shift.driver?.user.name ??
@@ -883,7 +925,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              shift.status,
+              _translateShiftStatus(Localizations.localeOf(context).languageCode == 'ar', shift.status),
               maxLines: 1,
               style: TextStyle(
                 fontSize: 10,

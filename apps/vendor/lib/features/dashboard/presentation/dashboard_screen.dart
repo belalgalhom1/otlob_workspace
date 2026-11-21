@@ -7,7 +7,7 @@ import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/widgets/stat_card.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:vendor/features/access_control/presentation/access_control_screen.dart';
 import 'package:vendor/features/vendors/presentation/vendors_screen.dart';
 import 'package:vendor/features/orders/presentation/orders_screen.dart';
@@ -585,9 +585,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
+            child: Scrollbar(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
                   if (_userRole == 'VENDOR_MEMBER') ...[
                     _buildMenuItem(
                       0,
@@ -835,7 +836,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       badgeCount: inboxCounts.notificationsUnread,
                     ),
                   ],
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1270,8 +1272,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       final state = ref.watch(vendorProvider);
                       String count = '...';
                       if (state.hasValue) count = state.value!.total.toString();
+                      final isVendorOnly = !_hasPermission('MANAGE_VENDORS') &&
+                          _userRole == 'VENDOR_MEMBER';
+                      final vendorCardTitle = isVendorOnly
+                          ? ((state.hasValue && state.value!.total <= 1)
+                              ? l10n.myVendor
+                              : l10n.vendors)
+                          : l10n.totalVendors;
                       return StatCard(
-                        title: l10n.totalVendors,
+                        title: vendorCardTitle,
                         value: count,
                         icon: LucideIcons.store,
                         color: AppColors.primary,
@@ -1689,19 +1698,73 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           statusLabel = status;
                       }
 
-                      final rawVendorLogo = order['vendor'] is Map
-                          ? (order['vendor']['logo'] ??
-                              order['vendor']['logoUrl'])
+                      final orderType = OrderTypeHelper.resolve(order);
+                      final fulfillments =
+                          (order['vendorFulfillments'] as List<dynamic>?) ??
+                              const [];
+                      final Map? primaryVendor = order['vendor'] is Map
+                          ? order['vendor'] as Map
+                          : (fulfillments.isNotEmpty &&
+                                  fulfillments.first is Map &&
+                                  fulfillments.first['vendor'] is Map
+                              ? fulfillments.first['vendor'] as Map
+                              : null);
+                      final rawVendorLogo = primaryVendor != null
+                          ? (primaryVendor['logo'] ?? primaryVendor['logoUrl'])
                           : null;
-                      final vendorLogo = rawVendorLogo?.toString();
-                      final vendorName = (order['vendor'] is Map
-                              ? (isArabic
-                                  ? (order['vendor']['storeNameAr'] ??
-                                      order['vendor']['storeName'])
-                                  : (order['vendor']['storeName'] ??
-                                      order['vendor']['storeNameAr']))
-                              : null) ??
-                          l10n.unknownVendor;
+                      final vendorLogo = orderType.isNonStandard
+                          ? null
+                          : rawVendorLogo?.toString();
+
+                      String? resolvedVendorName;
+                      if (fulfillments.length > 1) {
+                        final storeNames = <String>[];
+                        for (final f in fulfillments) {
+                          if (f is Map && f['vendor'] is Map) {
+                            final v = f['vendor'] as Map;
+                            final s = (isArabic
+                                    ? (v['storeNameAr'] ?? v['storeName'])
+                                    : (v['storeName'] ?? v['storeNameAr']))
+                                ?.toString()
+                                .trim();
+                            if (s != null &&
+                                s.isNotEmpty &&
+                                !storeNames.contains(s)) {
+                              storeNames.add(s);
+                            }
+                          }
+                        }
+                        if (storeNames.isNotEmpty) {
+                          resolvedVendorName = storeNames.join(' + ');
+                        }
+                      }
+                      resolvedVendorName ??= primaryVendor == null
+                          ? null
+                          : (isArabic
+                                  ? (primaryVendor['storeNameAr'] ??
+                                      primaryVendor['storeName'])
+                                  : (primaryVendor['storeName'] ??
+                                      primaryVendor['storeNameAr']))
+                              ?.toString()
+                              .trim();
+
+                      final String vendorName;
+                      final IconData rowSubtitleIcon;
+                      if (orderType.isNonStandard) {
+                        vendorName = OrderTypeHelper.requestTypeLabel(
+                          orderType,
+                          isArabic: isArabic,
+                        );
+                        rowSubtitleIcon = orderType.isRide
+                            ? LucideIcons.car
+                            : LucideIcons.package;
+                      } else {
+                        vendorName = (resolvedVendorName != null &&
+                                resolvedVendorName.isNotEmpty)
+                            ? resolvedVendorName
+                            : l10n.unknownVendor;
+                        rowSubtitleIcon = LucideIcons.store;
+                      }
 
                       final rawOrderNum = order['orderNumber']?.toString();
                       final rawId = order['id']?.toString() ?? '';
@@ -1765,7 +1828,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   imageUrl: ImageUtils.formatImageUrl(vendorLogo),
                                   size: 36,
                                   borderRadius: 10,
-                                  fallbackIcon: LucideIcons.receipt,
+                                  fallbackIcon: orderType.isNonStandard
+                                      ? rowSubtitleIcon
+                                      : LucideIcons.receipt,
                                   fallbackIconSize: 18,
                                   backgroundColor:
                                       statusColor.withValues(alpha: 0.12),
@@ -1779,13 +1844,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       Row(
                                         children: [
                                           Flexible(
-                                            child: Text(
-                                              '#$orderCode',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
+                                            child: Directionality(
+                                              textDirection: TextDirection.ltr,
+                                              child: Text(
+                                                '\u2066#$orderCode\u2069',
+                                                textDirection: TextDirection.ltr,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
                                           const SizedBox(width: 8),
@@ -1814,45 +1883,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                       ),
                                       const SizedBox(height: 4),
                                       Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
                                         children: [
-                                          Icon(LucideIcons.store, size: 12, color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                          Icon(
+                                            rowSubtitleIcon,
+                                            size: 12,
+                                            color: isDark
+                                                ? Colors.white70
+                                                : theme.colorScheme.onSurface
+                                                    .withValues(alpha: 0.7),
                                           ),
-                                          const SizedBox(width: 4),
-                                          Flexible(
+                                          const SizedBox(width: 5),
+                                          Expanded(
                                             child: Text(
-                                              vendorName,
+                                              timeAgo.isNotEmpty
+                                                  ? '$vendorName • $timeAgo'
+                                                  : vendorName,
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w500,
-                                                color: isDark ? const Color(0xFFF8FAFC) : theme.colorScheme.onSurface,
+                                                color: isDark
+                                                    ? const Color(0xFFF8FAFC)
+                                                    : theme
+                                                        .colorScheme.onSurface,
                                               ),
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          if (timeAgo.isNotEmpty) ...[
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 5,
-                                                  ),
-                                              child: Text(
-                                                '•',
-                                                style: TextStyle(
-                                                  fontSize: 9,
-                                                   color: isDark ? Colors.white70 : theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                                                ),
-                                              ),
-                                            ),
-                                            Text(
-                                              timeAgo,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                 fontWeight: FontWeight.w500,
-                                                 color: isDark ? const Color(0xFFF1F5F9) : theme.colorScheme.onSurface,
-                                              ),
-                                            ),
-                                          ],
                                         ],
                                       ),
                                     ],
@@ -2265,7 +2324,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: isDesktop ? 6 : 16,
-        vertical: 3,
+        vertical: isDesktop ? 2 : 3,
       ),
       child: InkWell(
         onTap: () {
@@ -2278,7 +2337,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           width: double.infinity,
           padding: EdgeInsets.symmetric(
             horizontal: isDesktop ? 6 : 16,
-            vertical: isDesktop ? 10 : 12,
+            vertical: isDesktop ? 5 : 12,
           ),
           decoration: BoxDecoration(
             color: isSelected
@@ -2308,10 +2367,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Icon(
                         icon,
                         color: isSelected ? AppColors.primary : unselectedColor,
-                        size: 22,
+                        size: 20,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       title,
                       textAlign: TextAlign.center,

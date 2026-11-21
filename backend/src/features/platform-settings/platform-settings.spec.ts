@@ -20,7 +20,9 @@ function makeSettings(
     maxDeliveryFee: 100,
     minDeliveryFee: 0,
     driverShiftsEnabled: false,
-    goldTierBonusPerKm: 1.5,
+    goldTierBonusPerOrder: 0,
+    bronzeTierDeductionAmount: 0,
+    bronzeSupervisorDeductionAmount: 0,
     pricePerKmBicycle: 3,
     minDeliveryFeeBicycle: 12,
     maxDeliveryFeeBicycle: 40,
@@ -69,25 +71,38 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
       expect(calculator.calculateDeliveryFee(s, { distanceKm: 1.2 })).toBe(18); // below minOrderKm=2 -> minDistanceFixedPrice=18
     });
 
-    it('adds gold tier bonus only when driverShiftsEnabled and standard order', () => {
+    it('adds flat goldTierBonusPerOrder to total delivery cost (not per km) regardless of shifts or service type', () => {
       const s = makeSettings({
-        driverShiftsEnabled: true,
-        goldTierBonusPerKm: 2,
+        driverShiftsEnabled: false,
+        goldTierBonusPerOrder: 5,
       });
 
+      // Short trip below minOrderKm=2 -> minDistanceFixedPrice (18) + flat goldTierBonusPerOrder (5) = 23
+      expect(
+        calculator.calculateDeliveryFee(s, {
+          distanceKm: 1,
+          isStandardOrder: true,
+        }),
+      ).toBe(23);
+
+      // 4km standard trip -> base (15 + 4*5 = 35) + flat goldTierBonusPerOrder (5) = 40
       expect(
         calculator.calculateDeliveryFee(s, {
           distanceKm: 4,
           isStandardOrder: true,
         }),
-      ).toBe(43); // 15 + 4*(5+2)
+      ).toBe(40);
 
+      // 4km Ride/Custom trip (shifts on) -> identical flat addition: 35 + 5 = 40
       expect(
-        calculator.calculateDeliveryFee(s, {
-          distanceKm: 4,
-          isStandardOrder: false,
-        }),
-      ).toBe(35); // 15 + 4*5
+        calculator.calculateDeliveryFee(
+          makeSettings({ driverShiftsEnabled: true, goldTierBonusPerOrder: 5 }),
+          {
+            distanceKm: 4,
+            isStandardOrder: false,
+          },
+        ),
+      ).toBe(40);
     });
 
     it('applies vehicle min/max clamp and global minDeliveryFee floor last', () => {

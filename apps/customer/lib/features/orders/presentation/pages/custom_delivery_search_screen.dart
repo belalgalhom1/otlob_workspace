@@ -493,13 +493,15 @@ class _CustomDeliverySearchScreenState
           userAgentPackageName: 'com.otlob.customer',
         ),
         if (polylinePoints.length >= 2)
-          PolylineLayer(
-            polylines: NavigationRoutePolylines.build(
-              points: polylinePoints,
-              foregroundColor: AppColors.primary,
-              casingColor: isDark
-                  ? const Color(0xFF0F172A).withValues(alpha: 0.85)
-                  : const Color(0xFF1E293B).withValues(alpha: 0.72),
+          RepaintBoundary(
+            child: PolylineLayer(
+              polylines: NavigationRoutePolylines.build(
+                points: polylinePoints,
+                foregroundColor: AppColors.primary,
+                casingColor: isDark
+                    ? const Color(0xFF0F172A).withValues(alpha: 0.85)
+                    : const Color(0xFF1E293B).withValues(alpha: 0.72),
+              ),
             ),
           ),
         // Repaint-isolated radar pulse centered on pickup while actively searching.
@@ -521,58 +523,62 @@ class _CustomDeliverySearchScreenState
           ),
         // Real anonymized nearby eligible drivers around pickup.
         if (nearby.isNotEmpty)
-          MarkerLayer(
-            markers: nearby
-                .map((d) {
-                  return Marker(
-                    point: LatLng(
-                      d.latitude.toDouble(),
-                      d.longitude.toDouble(),
-                    ),
-                    width: 44,
-                    height: 44,
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: 0.88,
-                        child: InDriveVehicleMarker(
-                          size: 40,
-                          color: AppColors.primary,
-                          vehicleType: d.vehicleType.name,
-                          showHeadlightGlow: false,
-                          showRadarPulse: false,
+          RepaintBoundary(
+            child: MarkerLayer(
+              markers: nearby
+                  .map((d) {
+                    return Marker(
+                      point: LatLng(
+                        d.latitude.toDouble(),
+                        d.longitude.toDouble(),
+                      ),
+                      width: 44,
+                      height: 44,
+                      child: IgnorePointer(
+                        child: Opacity(
+                          opacity: 0.88,
+                          child: InDriveVehicleMarker(
+                            size: 40,
+                            color: AppColors.primary,
+                            vehicleType: d.vehicleType.name,
+                            showHeadlightGlow: false,
+                            showRadarPulse: false,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                })
-                .toList(growable: false),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
           ),
         // Origin and destination markers.
-        MarkerLayer(
-          markers: [
-            if (pickup != null)
-              Marker(
-                point: pickup,
-                width: 40,
-                height: 40,
-                child: const _MapPinBadge(
-                  icon: Icons.my_location_rounded,
-                  color: AppColors.primary,
-                  foreground: Colors.black,
+        RepaintBoundary(
+          child: MarkerLayer(
+            markers: [
+              if (pickup != null)
+                Marker(
+                  point: pickup,
+                  width: 40,
+                  height: 40,
+                  child: const _MapPinBadge(
+                    icon: Icons.my_location_rounded,
+                    color: AppColors.primary,
+                    foreground: Colors.black,
+                  ),
                 ),
-              ),
-            if (dropoff != null)
-              Marker(
-                point: dropoff,
-                width: 40,
-                height: 40,
-                child: const _MapPinBadge(
-                  icon: Icons.flag_rounded,
-                  color: Color(0xFFEF4444),
-                  foreground: Colors.white,
+              if (dropoff != null)
+                Marker(
+                  point: dropoff,
+                  width: 40,
+                  height: 40,
+                  child: const _MapPinBadge(
+                    icon: Icons.flag_rounded,
+                    color: Color(0xFFEF4444),
+                    foreground: Colors.white,
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
         // Smooth live driver marker isolated from whole-screen rebuilds.
         if (state.isDriverMatched)
@@ -676,8 +682,8 @@ class _AnimatedAssignedDriverLayerState
       markers: [
         Marker(
           point: pos,
-          width: 60,
-          height: 60,
+          width: 80,
+          height: 80,
           child: RepaintBoundary(
             child: InDriveVehicleMarker(
               size: 54,

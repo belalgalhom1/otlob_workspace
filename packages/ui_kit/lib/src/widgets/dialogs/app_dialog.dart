@@ -551,18 +551,25 @@ class AppDialogSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: margin,
-      padding: padding ?? const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: backgroundColor ?? AppDialogStyles.sectionCardColor(context),
-        borderRadius: borderRadius ?? BorderRadius.circular(12),
-        border: Border.all(
+    final resolvedRadius = borderRadius ?? BorderRadius.circular(12);
+    final card = Material(
+      color: backgroundColor ?? AppDialogStyles.sectionCardColor(context),
+      shape: RoundedRectangleBorder(
+        borderRadius: resolvedRadius,
+        side: BorderSide(
           color: borderColor ?? AppDialogStyles.borderColor(context),
         ),
       ),
-      child: child,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: padding ?? const EdgeInsets.all(14),
+        child: child,
+      ),
     );
+    if (margin != null) {
+      return Padding(padding: margin!, child: card);
+    }
+    return card;
   }
 }
 

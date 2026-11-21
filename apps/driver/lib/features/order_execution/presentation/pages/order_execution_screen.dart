@@ -85,6 +85,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   XFile? _pickupPhoto;
   XFile? _deliveryPhoto;
   List<LatLng> _roadRoutePoints = const [];
+  List<RoadRoutePoint> _roadRouteGeoPoints = const [];
+  List<LatLng> _cachedTrimmedTail = const [];
+  LatLng? _cachedTrimDriverPos;
   String _lastRouteSignature = '';
   RoadRoutePoint? _lastRoutedPosition;
   DateTime? _lastRouteFetchAt;
@@ -159,11 +162,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             const Duration(seconds: 5);
     final isOffRoute =
         currentPt != null &&
-        _roadRoutePoints.length >= 2 &&
+        _roadRouteGeoPoints.length >= 2 &&
         trimRouteToDriverPosition(
-          _roadRoutePoints
-              .map((p) => RoadRoutePoint(p.latitude, p.longitude))
-              .toList(),
+          _roadRouteGeoPoints,
           currentPt,
         ).isOffRoute;
 
@@ -192,9 +193,12 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
           if (!mounted || token.isCancelled) return;
           if (resolved.hasRenderablePath) {
             setState(() {
+              _roadRouteGeoPoints = resolved.points;
               _roadRoutePoints = resolved.points
                   .map((p) => LatLng(p.latitude, p.longitude))
                   .toList(growable: false);
+              _cachedTrimmedTail = const [];
+              _cachedTrimDriverPos = null;
             });
           }
         })
@@ -358,6 +362,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             _pickupPhoto = null;
             _deliveryPhoto = null;
             _roadRoutePoints = const [];
+            _roadRouteGeoPoints = const [];
+            _cachedTrimmedTail = const [];
+            _cachedTrimDriverPos = null;
             _lastRouteSignature = '';
             _lastRoutedPosition = null;
             _lastRouteFetchAt = null;
@@ -1067,18 +1074,36 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final List<LatLng> renderedRoutePoints;
     if (_roadRoutePoints.length >= 2) {
       if (_currentPosition != null) {
-        final trimmed = trimRouteToDriverPosition(
-          _roadRoutePoints
-              .map((p) => RoadRoutePoint(p.latitude, p.longitude))
-              .toList(growable: false),
-          RoadRoutePoint(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-          ),
+        final driverLatLng = LatLng(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
         );
-        renderedRoutePoints = trimmed.points
-            .map((p) => LatLng(p.latitude, p.longitude))
-            .toList(growable: false);
+        final shouldReTrim = _cachedTrimDriverPos == null ||
+            const Distance().as(
+                  LengthUnit.Meter,
+                  _cachedTrimDriverPos!,
+                  driverLatLng,
+                ) >=
+                8.0;
+        if (shouldReTrim) {
+          final trimmed = trimRouteToDriverPosition(
+            _roadRouteGeoPoints,
+            RoadRoutePoint(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+            ),
+          );
+          _cachedTrimmedTail = trimmed.points.length > 1
+              ? trimmed.points
+                  .sublist(1)
+                  .map((p) => LatLng(p.latitude, p.longitude))
+                  .toList(growable: false)
+              : const [];
+          _cachedTrimDriverPos = driverLatLng;
+        }
+        renderedRoutePoints = _cachedTrimmedTail.isEmpty
+            ? _roadRoutePoints
+            : [driverLatLng, ..._cachedTrimmedTail];
       } else {
         renderedRoutePoints = _roadRoutePoints;
       }
@@ -1104,13 +1129,17 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               userAgentPackageName: 'com.otlobegy.driver',
             ),
             if (renderedRoutePoints.length >= 2)
-              PolylineLayer(
-                polylines: NavigationRoutePolylines.build(
-                  points: renderedRoutePoints,
-                  foregroundColor: AppColors.primary,
+              RepaintBoundary(
+                child: PolylineLayer(
+                  polylines: NavigationRoutePolylines.build(
+                    points: renderedRoutePoints,
+                    foregroundColor: AppColors.primary,
+                  ),
                 ),
               ),
-            MarkerLayer(markers: markers),
+            RepaintBoundary(
+              child: MarkerLayer(markers: markers),
+            ),
           ],
         ),
         
@@ -1381,26 +1410,34 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                               Icon(
                                 noCashAtStore ? LucideIcons.badgeCheck : LucideIcons.banknote,
                                 size: 16,
-                                color: noCashAtStore ? AppColors.success : AppColors.warning,
+                                color: noCashAtStore
+                                    ? AppColors.success
+                                    : (Theme.of(context).brightness == Brightness.dark
+                                        ? AppColors.warning
+                                        : const Color(0xFF92400E)),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   noCashAtStore
                                       ? (isAr
-                                          ? 'لا تدفع كاش في هذا المتجر (0 $currency)'
+                                          ? 'لا تدفع كاش في هذا المتجر (0 ${(isAr && currency == 'EGP') ? 'ج.م' : currency})'
                                           : 'Do not pay cash at this store (0 $currency)')
                                       : isContracted
                                           ? (isAr
-                                              ? 'متجر شريك: ادفع صافي الفاتورة كاش: ${cashToPay.toStringAsFixed(2)} $currency'
+                                              ? 'متجر شريك: ادفع صافي الفاتورة كاش: ${cashToPay.toStringAsFixed(2)} ${(isAr && currency == 'EGP') ? 'ج.م' : currency}'
                                               : 'Partner Store: Pay net cash at pickup: ${cashToPay.toStringAsFixed(2)} $currency')
                                           : (isAr
-                                              ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPay.toStringAsFixed(2)} $currency'
+                                              ? 'متجر غير متعاقد: ادفع للمتجر كاش: ${cashToPay.toStringAsFixed(2)} ${(isAr && currency == 'EGP') ? 'ج.م' : currency}'
                                               : 'Uncontracted: Pay store in cash: ${cashToPay.toStringAsFixed(2)} $currency'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: noCashAtStore ? AppColors.success : AppColors.warning,
+                                    color: noCashAtStore
+                                        ? AppColors.success
+                                        : (Theme.of(context).brightness == Brightness.dark
+                                            ? AppColors.warning
+                                            : const Color(0xFF92400E)),
                                   ),
                                 ),
                               ),
@@ -1482,8 +1519,14 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                               child: Text(isAr ? 'اتصال' : 'Call', maxLines: 1),
                             ),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              side: const BorderSide(color: AppColors.primary),
+                              foregroundColor: Theme.of(context).brightness == Brightness.dark
+                                  ? AppColors.primary
+                                  : const Color(0xFF92400E),
+                              side: BorderSide(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? AppColors.primary
+                                    : const Color(0xFF92400E),
+                              ),
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                             ),
                           ),
@@ -2212,7 +2255,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               ? 'تحصيل الكاش وإنهاء الرحلة (${collectAmount.toStringAsFixed(2)} ج.م)'
               : 'Collect Cash & Complete Ride (${collectAmount.toStringAsFixed(2)} EGP)';
         } else {
-          label = '${l10n.collectCashAndDeliver} (${collectAmount.toStringAsFixed(2)} EGP)';
+          final currLabel = isAr ? 'ج.م' : 'EGP';
+          label =
+              '${l10n.collectCashAndDeliver} (${collectAmount.toStringAsFixed(2)} $currLabel)';
         }
       } else {
         label = orderType.isRide

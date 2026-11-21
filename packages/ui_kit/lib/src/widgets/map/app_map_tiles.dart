@@ -3,7 +3,8 @@ import 'package:flutter_map/flutter_map.dart';
 
 /// Style variants for the redesigned Otlob navigation map.
 enum AppMapStyle {
-  /// Automatic style switching based on [ThemeData.brightness].
+  /// Default style that always resolves to the crisp white/light navigation map
+  /// across all apps regardless of app light/dark theme.
   auto,
 
   /// Clean, premium light navigation map with soft off-white background,
@@ -19,11 +20,21 @@ enum AppMapStyle {
   standard,
 }
 
+class _SharedNetworkTileProvider extends NetworkTileProvider {
+  _SharedNetworkTileProvider() : super(silenceExceptions: true);
+
+  // Shared across map rebuilds and screen transitions so HTTP/TLS keep-alive
+  // sockets remain warm; TileLayer.dispose() must not close the shared pool.
+  @override
+  Future<void> dispose() async {}
+}
+
 /// A high-performance, beautiful navigation map tile layer for FlutterMap.
 ///
-/// Automatically provides high-DPI (@2x retina) custom-styled vector-raster
-/// navigation tiles with subdomains and theme-aware styling.
-class AppMapTileLayer extends StatelessWidget {
+/// Automatically provides high-DPI (@2x on dense displays, 1x on 1x displays)
+/// vector-raster navigation tiles with subdomains, throttled pan updates,
+/// shared keep-alive connections, and repaint-isolated light canvas rendering.
+class AppMapTileLayer extends StatefulWidget {
   final AppMapStyle style;
   final String userAgentPackageName;
   final TileProvider? tileProvider;
@@ -75,13 +86,65 @@ class AppMapTileLayer extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final effectiveStyle = style == AppMapStyle.auto
-        ? (isDark ? AppMapStyle.navigationDark : AppMapStyle.navigationLight)
-        : style;
+  State<AppMapTileLayer> createState() => _AppMapTileLayerState();
+}
 
-    final resolvedKey = apiKey ?? defaultCartoApiKey;
+class _AppMapTileLayerState extends State<AppMapTileLayer> {
+  static final Map<String, _SharedNetworkTileProvider> _sharedProviders = {};
+
+  static _SharedNetworkTileProvider _getSharedProvider(String packageName) {
+    return _sharedProviders.putIfAbsent(
+      packageName,
+      _SharedNetworkTileProvider.new,
+    );
+  }
+
+  // Owned per mounted tile layer instance to throttle continuous pan/fling
+  // tile-range & prune work (~12Hz) with zero leaked timers while letting
+  // gesture-end and programmatic camera events settle immediately.
+  late final TileUpdateTransformer _tileUpdateTransformer =
+      _createSmoothTileUpdateTransformer();
+
+  static TileUpdateTransformer _createSmoothTileUpdateTransformer() {
+    DateTime? lastContinuousEmit;
+    return TileUpdateTransformer.fromHandlers(
+      handleData: (event, sink) {
+        if (event.wasTriggeredByTap()) return;
+
+        final mapEvent = event.mapEvent;
+        final source = mapEvent.source;
+        final isContinuousGesture =
+            mapEvent is MapEventWithMove &&
+            (source == MapEventSource.onDrag ||
+                source == MapEventSource.onMultiFinger ||
+                source == MapEventSource.flingAnimationController ||
+                source == MapEventSource.doubleTapZoomAnimationController ||
+                source == MapEventSource.scrollWheel);
+
+        if (!isContinuousGesture) {
+          lastContinuousEmit = DateTime.now();
+          sink.add(event);
+          return;
+        }
+
+        final now = DateTime.now();
+        if (lastContinuousEmit == null ||
+            now.difference(lastContinuousEmit!) >=
+                const Duration(milliseconds: 80)) {
+          lastContinuousEmit = now;
+          sink.add(event);
+        }
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveStyle = widget.style == AppMapStyle.auto
+        ? AppMapStyle.navigationLight
+        : widget.style;
+
+    final resolvedKey = widget.apiKey ?? AppMapTileLayer.defaultCartoApiKey;
     final hasKey = resolvedKey != null && resolvedKey.trim().isNotEmpty;
     final keyQuery = hasKey ? '?key=${resolvedKey.trim()}' : '';
 
@@ -121,15 +184,15 @@ class AppMapTileLayer extends StatelessWidget {
     }
 
     final isOsmTile = urlTemplate.contains('openstreetmap.org');
-    final needsDarkFilter = isDark &&
-        (effectiveStyle == AppMapStyle.navigationDark ||
-            effectiveStyle == AppMapStyle.standard);
+    final needsDarkFilter = effectiveStyle == AppMapStyle.navigationDark;
 
     final TileBuilder? effectiveTileBuilder;
-    if (tileBuilder != null) {
-      effectiveTileBuilder = tileBuilder;
+    if (widget.tileBuilder != null) {
+      effectiveTileBuilder = widget.tileBuilder;
     } else if (needsDarkFilter) {
-      final matrix = isOsmTile ? osmDarkInversionMatrix : darkWhiteTextMatrix;
+      final matrix = isOsmTile
+          ? AppMapTileLayer.osmDarkInversionMatrix
+          : AppMapTileLayer.darkWhiteTextMatrix;
       effectiveTileBuilder = (context, tileWidget, tile) {
         return ColorFiltered(
           colorFilter: ColorFilter.matrix(matrix),
@@ -140,16 +203,31 @@ class AppMapTileLayer extends StatelessWidget {
       effectiveTileBuilder = null;
     }
 
-    return TileLayer(
+    // Only request server @2x tiles on high-DPI displays and only when `{r}`
+    // exists in the URL template (so OSM never triggers 4x simulated zoom requests).
+    final isHighDensity = MediaQuery.devicePixelRatioOf(context) > 1.0;
+    final useServerRetina = urlTemplate.contains('{r}') && isHighDensity;
+
+    final tileLayer = TileLayer(
       urlTemplate: urlTemplate,
       subdomains: subdomains,
-      additionalOptions: subdomains.isNotEmpty ? const {'r': '@2x'} : const {},
-      userAgentPackageName: userAgentPackageName,
-      maxZoom: maxZoom,
-      minZoom: minZoom,
-      tileProvider: tileProvider,
+      retinaMode: useServerRetina,
+      userAgentPackageName: widget.userAgentPackageName,
+      maxZoom: widget.maxZoom,
+      minZoom: widget.minZoom,
+      tileProvider: widget.tileProvider ?? _getSharedProvider(widget.userAgentPackageName),
       tileBuilder: effectiveTileBuilder,
+      tileUpdateTransformer: _tileUpdateTransformer,
+      evictErrorTileStrategy: EvictErrorTileStrategy.notVisibleRespectMargin,
       panBuffer: 1,
+      keepBuffer: 2,
+    );
+
+    if (effectiveStyle == AppMapStyle.navigationDark) {
+      return RepaintBoundary(child: tileLayer);
+    }
+    return RepaintBoundary(
+      child: ColoredBox(color: Colors.white, child: tileLayer),
     );
   }
 }

@@ -139,7 +139,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     label: Text(l10n.addOffer),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.onPrimary,
                       padding: EdgeInsets.symmetric(
                         horizontal: isMobile ? 16 : 24,
                         vertical: isMobile ? 14 : 18,
@@ -157,7 +157,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     label: Text(l10n.addPromotion),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.onPrimary,
                       padding: EdgeInsets.symmetric(
                         horizontal: isMobile ? 16 : 24,
                         vertical: isMobile ? 14 : 18,
@@ -446,23 +446,38 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      _buildBadge(type.toUpperCase(), AppColors.primary),
+                      _buildBadge(
+                        isArabic
+                            ? (const {
+                                  'BANNER': 'إعلان',
+                                  'OFFER': 'عرض',
+                                  'PRODUCT': 'منتج',
+                                  'CUSTOM': 'مخصص',
+                                  'CATEGORY': 'فئة',
+                                  'VENDOR': 'متجر',
+                                }[type.toUpperCase()] ??
+                                type.toUpperCase())
+                            : type.toUpperCase(),
+                        AppColors.primary,
+                      ),
                       if (isOffer && variantName != null && variantName.toString().isNotEmpty)
                         _buildBadge(variantName.toString().toUpperCase(), Colors.purple),
                       _buildBadge(
-                        isActive ? 'ACTIVE' : 'INACTIVE',
+                        isActive
+                            ? (isArabic ? 'نشط' : 'ACTIVE')
+                            : (isArabic ? 'غير نشط' : 'INACTIVE'),
                         isActive ? AppColors.success : AppColors.error,
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    title ?? 'Untitled',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
+                    title ?? (isArabic ? 'بدون عنوان' : 'Untitled'),
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
-                      shadows: [Shadow(color: Theme.of(context).colorScheme.onSurface, blurRadius: 10)],
+                      shadows: [Shadow(color: Colors.black87, blurRadius: 10)],
                     ),
                   ),
                   if (promo['description'] != null && promo['description'].toString().isNotEmpty)
@@ -471,7 +486,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                       child: Text(
                         promo['description'].toString(),
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
+                          color: Colors.white.withValues(alpha: 0.85),
                           fontSize: 13,
                           height: 1.3,
                         ),
@@ -488,7 +503,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                         children: [
                           if (promo['offerPrice'] != null)
                             Text(
-                              '${promo['offerPrice']} EGP',
+                              '${promo['offerPrice']} ${isArabic ? 'ج.م' : 'EGP'}',
                               style: const TextStyle(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w900,
@@ -498,9 +513,9 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                           if (promo['originalPrice'] != null) ...[
                             const SizedBox(width: 8),
                             Text(
-                              '${promo['originalPrice']} EGP',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurface,
+                              '${promo['originalPrice']} ${isArabic ? 'ج.م' : 'EGP'}',
+                              style: const TextStyle(
+                                color: Colors.white70,
                                 decoration: TextDecoration.lineThrough,
                                 fontSize: 12,
                               ),
@@ -541,6 +556,10 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
   }
 
   Widget _buildBadge(String text, Color color) {
+    final foregroundColor =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.light
+            ? Colors.black
+            : Colors.white;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -553,7 +572,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       child: Text(
         text,
         style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface,
+          color: foregroundColor,
           fontSize: 10,
           fontWeight: FontWeight.w800,
           letterSpacing: Localizations.localeOf(context).languageCode == 'ar' ? null : 0.5,

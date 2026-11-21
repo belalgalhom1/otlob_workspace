@@ -45,9 +45,10 @@ class _NavigationLocationMarkerState extends State<NavigationLocationMarker>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _pulseAnimation,
+        builder: (context, child) {
         return Stack(
           alignment: Alignment.center,
           children: [
@@ -98,6 +99,7 @@ class _NavigationLocationMarkerState extends State<NavigationLocationMarker>
           ],
         );
       },
+      ),
     );
   }
 }
@@ -186,57 +188,61 @@ class _InDriveVehicleMarkerState extends State<InDriveVehicleMarker>
     final hasPill = (widget.label != null && widget.label!.isNotEmpty) ||
         (widget.plateNumber != null && widget.plateNumber!.isNotEmpty);
 
-    return SizedBox(
-      width: widget.size * 1.35,
-      height: widget.size * 1.35,
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          // 1. Live Telemetry Radar Pulse Wave (inDrive style)
-          if (widget.showRadarPulse)
-            AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (context, _) {
-                final progress = _pulseAnimation.value;
-                final waveSize = widget.size * (0.8 + (progress * 0.5));
-                final opacity = (1.0 - progress).clamp(0.0, 1.0) * 0.35;
-                return Container(
-                  width: waveSize,
-                  height: waveSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: widget.color.withValues(alpha: opacity),
-                    border: Border.all(
-                      color: widget.color.withValues(alpha: opacity * 0.8),
-                      width: 1.0,
-                    ),
-                  ),
-                );
-              },
-            ),
+    return RepaintBoundary(
+      child: SizedBox(
+        width: widget.size * 1.35,
+        height: widget.size * 1.35,
+        child: Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            // 1. Live Telemetry Radar Pulse Wave (inDrive style)
+            if (widget.showRadarPulse)
+              RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, _) {
+                    final progress = _pulseAnimation.value;
+                    final waveSize = widget.size * (0.8 + (progress * 0.5));
+                    final opacity = (1.0 - progress).clamp(0.0, 1.0) * 0.35;
+                    return Container(
+                      width: waveSize,
+                      height: waveSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: widget.color.withValues(alpha: opacity),
+                        border: Border.all(
+                          color: widget.color.withValues(alpha: opacity * 0.8),
+                          width: 1.0,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
 
-          // 2. The Smoothly-Oriented Vehicle Graphic
-          Transform.rotate(
-            angle: widget.heading * math.pi / 180.0,
-            child: CustomPaint(
-              size: Size(widget.size, widget.size),
-              painter: InDriveVehiclePainter(
-                vehicleType: effectiveVehicle,
-                primaryColor: widget.color,
-                showHeadlightGlow: widget.showHeadlightGlow,
-                isMoving: widget.isMoving,
+            // 2. The Smoothly-Oriented Vehicle Graphic
+            Transform.rotate(
+              angle: widget.heading * math.pi / 180.0,
+              child: CustomPaint(
+                size: Size(widget.size, widget.size),
+                painter: InDriveVehiclePainter(
+                  vehicleType: effectiveVehicle,
+                  primaryColor: widget.color,
+                  showHeadlightGlow: widget.showHeadlightGlow,
+                  isMoving: widget.isMoving,
+                ),
               ),
             ),
-          ),
 
-          // 3. Floating Info Badge / License Plate Pill (always upright, doesn't spin)
-          if (hasPill)
-            Positioned(
-              top: -6,
-              child: _buildUprightBadge(),
-            ),
-        ],
+            // 3. Floating Info Badge / License Plate Pill (always upright, doesn't spin)
+            if (hasPill)
+              Positioned(
+                top: -6,
+                child: _buildUprightBadge(),
+              ),
+          ],
+        ),
       ),
     );
   }

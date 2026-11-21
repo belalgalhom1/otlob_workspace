@@ -82,7 +82,7 @@ class AppTheme {
       dividerTheme: const DividerThemeData(thickness: 1, space: 1),
 
       tabBarTheme: const TabBarThemeData(
-        labelColor: AppColors.primary,
+        labelColor: Color(0xFF92400E),
         unselectedLabelColor: AppColors.textPrimaryLight,
         labelStyle: TextStyle(
           fontFamily: AppTypography.fontFamily,
@@ -127,7 +127,7 @@ class AppTheme {
 
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.surfaceLight,
-        selectedItemColor: AppColors.primary,
+        selectedItemColor: Color(0xFF92400E),
         unselectedItemColor: AppColors.textPrimaryLight,
         type: BottomNavigationBarType.fixed,
         elevation: 8,

@@ -274,7 +274,7 @@ class _DriverCard extends StatelessWidget {
               ),
               const SizedBox(width: 5),
               Text(
-                '${driver.totalOrders} ${l10n.ordersCount}',
+                '${driver.totalOrders} ${Localizations.localeOf(context).languageCode == 'ar' ? 'طلب' : l10n.ordersCount}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,

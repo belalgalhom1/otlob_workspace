@@ -33,6 +33,7 @@ import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
 import { OrderActivePolicyHelper } from './helpers/order-active-policy.helper';
+import { requiresActiveShiftForOrderType } from '../../common/orders/money.helper';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { EVENTS } from '../../common/events/event-names';
 import { EVENT_JOBS } from '../../infrastructure/queue/queues.constants';
@@ -323,9 +324,10 @@ export class OrderSearchService {
           radiusKm,
           requestedVehicleType: order.requestedVehicleType ?? null,
           orderDistanceKm: Number(order.distanceKm ?? 0),
-          requireActiveShift:
-            Boolean(settings.driverShiftsEnabled) &&
-            order.type === OrderType.STANDARD,
+          requireActiveShift: requiresActiveShiftForOrderType(
+            settings.driverShiftsEnabled,
+            order.type,
+          ),
           settings,
         });
       }

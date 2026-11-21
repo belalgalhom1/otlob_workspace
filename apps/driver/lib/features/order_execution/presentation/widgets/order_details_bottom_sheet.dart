@@ -109,16 +109,21 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: AppColors.primary.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Text(
-                        order['orderNumber']?.toString() ?? '#${(order['id'] ?? '').toString().substring(0, 8)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Text(
+                          order['orderNumber']?.toString() ?? '#${(order['id'] ?? '').toString().substring(0, 8)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.primary
+                                : const Color(0xFF92400E),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -954,7 +959,11 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                           children: [
                             Icon(
                               cashToPayStore <= 0 ? LucideIcons.store : LucideIcons.badgeDollarSign,
-                              color: cashToPayStore <= 0 ? Colors.grey : AppColors.warning,
+                              color: cashToPayStore <= 0
+                                  ? Colors.grey
+                                  : (Theme.of(context).brightness == Brightness.dark
+                                      ? AppColors.warning
+                                      : const Color(0xFF92400E)),
                               size: 20,
                             ),
                             const SizedBox(width: 10),
@@ -973,7 +982,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                       fontWeight: FontWeight.w600,
                                       color: cashToPayStore <= 0
                                           ? Theme.of(context).colorScheme.onSurface
-                                          : AppColors.warning,
+                                          : (Theme.of(context).brightness == Brightness.dark
+                                              ? AppColors.warning
+                                              : const Color(0xFF92400E)),
                                     ),
                                   ),
                                   if (cashToPayStore > 0 && isPrepaid) ...[
@@ -1565,6 +1576,14 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
   }
 
   Widget _buildInfoRow(BuildContext context, IconData icon, String text, {VoidCallback? onTap, Widget? leading}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark ? AppColors.primary : const Color(0xFF92400E);
+    final hasAr = RegExp(r'[\u0600-\u06FF]').hasMatch(text);
+    final hasLatOrPhone =
+        text.trim().startsWith('+') || RegExp(r'[A-Za-z]').hasMatch(text);
+    final detectedDir = hasAr
+        ? TextDirection.rtl
+        : (hasLatOrPhone ? TextDirection.ltr : null);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -1573,23 +1592,24 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            leading ?? Icon(icon, size: 20, color: AppColors.primary),
+            leading ?? Icon(icon, size: 20, color: accentColor),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 text,
+                textDirection: detectedDir,
                 style: TextStyle(
-                  color: onTap != null ? AppColors.primary : Theme.of(context).colorScheme.onSurface,
+                  color: onTap != null ? accentColor : Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: onTap != null ? FontWeight.w600 : null,
                   decoration: onTap != null ? TextDecoration.underline : null,
-                  decorationColor: AppColors.primary,
+                  decorationColor: accentColor,
                 ),
               ),
             ),
             if (onTap != null) ...[
               const SizedBox(width: 8),
-              const Icon(LucideIcons.phoneCall, size: 20, color: AppColors.primary),
+              Icon(LucideIcons.phoneCall, size: 20, color: accentColor),
             ],
           ],
         ),

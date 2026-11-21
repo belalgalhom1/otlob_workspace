@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -711,7 +710,7 @@ class _SummaryCard extends StatelessWidget {
               Expanded(
                 child: _Metric(
                   label: isArabic ? 'الأرباح' : 'Earnings',
-                  value: '${earnings.toStringAsFixed(2)} EGP',
+                  value: '${earnings.toStringAsFixed(2)} ${isArabic ? "ج.م" : "EGP"}',
                   highlight: true,
                 ),
               ),
@@ -746,7 +745,7 @@ class _SummaryCard extends StatelessWidget {
               Expanded(
                 child: _Metric(
                   label: isArabic ? 'ساعات العمل' : 'Online Hours',
-                  value: '${onlineHours.toStringAsFixed(1)} h',
+                  value: '${onlineHours.toStringAsFixed(1)} ${isArabic ? "ساعة" : "h"}',
                 ),
               ),
               Expanded(
@@ -872,23 +871,15 @@ class _DriverStatCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  CircleAvatar(
-                    radius: 21,
-                    backgroundColor:
-                        AppColors.primary.withValues(alpha: 0.12),
-                    backgroundImage:
-                        avatarUrl.isNotEmpty
-                            ? CachedNetworkImageProvider(avatarUrl)
-                            : null,
-                    child: avatarUrl.isEmpty
-                        ? Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
+                  AppNetworkAvatar(
+                    imageUrl: avatarUrl,
+                    size: 42,
+                    fallbackIcon: LucideIcons.user,
+                    fallbackIconSize: 20,
+                    fallbackText: name,
+                    preferInitialFallback: true,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                    foregroundColor: isDark ? AppColors.primary : const Color(0xFF92400E),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -947,7 +938,7 @@ class _DriverStatCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        isArabic ? 'جنيه' : 'EGP',
+                        isArabic ? 'ج.م' : 'EGP',
                         style: TextStyle(
                           fontSize: 10,
                           color: textColor.withValues(alpha: 0.4),
@@ -978,7 +969,7 @@ class _DriverStatCard extends StatelessWidget {
                   ),
                   _Chip(
                     icon: LucideIcons.clock3,
-                    text: '${hours.toStringAsFixed(1)} h',
+                    text: '${hours.toStringAsFixed(1)} ${isArabic ? "ساعة" : "h"}',
                   ),
                   _Chip(
                     icon: LucideIcons.truck,

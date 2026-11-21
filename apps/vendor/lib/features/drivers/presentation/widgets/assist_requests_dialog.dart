@@ -346,8 +346,12 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
             : 'Pending Driver Assist Requests',
         subtitle: _requests.isNotEmpty
             ? (isAr
-                ? '${_requests.length} طلبات بانتظار الإجراء'
-                : '${_requests.length} requests awaiting action')
+                ? (_requests.length == 1
+                    ? 'طلب واحد بانتظار الإجراء'
+                    : '${_requests.length} طلبات بانتظار الإجراء')
+                : (_requests.length == 1
+                    ? '1 request awaiting action'
+                    : '${_requests.length} requests awaiting action'))
             : null,
         actions: [
           IconButton(
@@ -394,7 +398,11 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                         item['order'] is Map ? item['order'] as Map : {};
                     final primaryDriver = item['primaryDriver'] is Map
                         ? item['primaryDriver'] as Map
-                        : (item['driver'] is Map ? item['driver'] as Map : {});
+                        : (item['driver'] is Map
+                            ? item['driver'] as Map
+                            : (item['requestedByDriver'] is Map
+                                ? item['requestedByDriver'] as Map
+                                : {}));
                     final primaryUser = primaryDriver['user'] is Map
                         ? primaryDriver['user'] as Map
                         : {};
@@ -545,7 +553,7 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                                         horizontal: 12,
                                         vertical: 8,
                                       ),
-                                      textStyle: const TextStyle(
+                                      textStyle: theme.textTheme.labelMedium?.copyWith(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -562,7 +570,7 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                                       horizontal: 12,
                                       vertical: 8,
                                     ),
-                                    textStyle: const TextStyle(
+                                    textStyle: theme.textTheme.labelMedium?.copyWith(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -579,7 +587,9 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                                       horizontal: 12,
                                       vertical: 8,
                                     ),
-                                    textStyle: const TextStyle(fontSize: 12),
+                                    textStyle: theme.textTheme.labelMedium?.copyWith(
+                                      fontSize: 12,
+                                    ),
                                   ),
                                   onPressed: () => _autoAssign(id),
                                   icon: const Icon(LucideIcons.wand2, size: 14),
@@ -593,7 +603,9 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                                       horizontal: 12,
                                       vertical: 8,
                                     ),
-                                    textStyle: const TextStyle(fontSize: 12),
+                                    textStyle: theme.textTheme.labelMedium?.copyWith(
+                                      fontSize: 12,
+                                    ),
                                   ),
                                   onPressed: () => _pickAndAssignDriver(id),
                                   icon: const Icon(
@@ -615,7 +627,9 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
                                       horizontal: 12,
                                       vertical: 8,
                                     ),
-                                    textStyle: const TextStyle(fontSize: 12),
+                                    textStyle: theme.textTheme.labelMedium?.copyWith(
+                                      fontSize: 12,
+                                    ),
                                   ),
                                   onPressed: () => _rejectRequest(id),
                                   icon: const Icon(LucideIcons.x, size: 14),

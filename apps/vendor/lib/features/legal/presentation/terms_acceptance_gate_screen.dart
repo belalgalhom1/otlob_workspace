@@ -209,11 +209,23 @@ class _TermsAcceptanceGateScreenState
     }
 
     final title = _showArabic
-        ? (_document!['titleAr'] ?? _document!['titleEn'] ?? '')
-        : (_document!['titleEn'] ?? _document!['titleAr'] ?? '');
+        ? (_document!['titleAr'] ??
+            _document!['title'] ??
+            _document!['titleEn'] ??
+            '')
+        : (_document!['titleEn'] ??
+            _document!['title'] ??
+            _document!['titleAr'] ??
+            '');
     final content = _showArabic
-        ? (_document!['contentAr'] ?? _document!['contentEn'] ?? '')
-        : (_document!['contentEn'] ?? _document!['contentAr'] ?? '');
+        ? (_document!['contentAr'] ??
+            _document!['content'] ??
+            _document!['contentEn'] ??
+            '')
+        : (_document!['contentEn'] ??
+            _document!['content'] ??
+            _document!['contentAr'] ??
+            '');
     final version = _document!['version']?.toString() ?? '1.0';
 
     return Scaffold(

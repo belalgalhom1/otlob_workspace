@@ -1,3 +1,5 @@
+import 'dart:ui' as ui show TextDirection;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -18,7 +20,9 @@ class WalletScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final walletState = ref.watch(driverWalletProvider);
-    final currency = ref.watch(configurationProvider.notifier).currency;
+    final rawCurrency = ref.watch(configurationProvider.notifier).currency;
+    final currency =
+        (l10n.localeName == 'ar' && rawCurrency == 'EGP') ? 'ج.م' : rawCurrency;
 
     final body = walletState.when(
       loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
@@ -65,6 +69,8 @@ class WalletScreen extends ConsumerWidget {
                         const SizedBox(height: 16),
                         ...pendingTopUps.map((tx) {
                           final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
+                          final isDark = Theme.of(context).brightness == Brightness.dark;
+                          final warnAccent = isDark ? AppColors.warning : const Color(0xFF92400E);
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
@@ -75,7 +81,7 @@ class WalletScreen extends ConsumerWidget {
                             ),
                             child: Row(
                               children: [
-                                const Icon(LucideIcons.clock, color: AppColors.warning),
+                                Icon(LucideIcons.clock, color: warnAccent),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
@@ -85,10 +91,13 @@ class WalletScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Flexible(
-                                  child: Text(
-                                    '+${amount.toStringAsFixed(2)} $currency',
-                                    textAlign: TextAlign.end,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.warning),
+                                  child: Directionality(
+                                    textDirection: ui.TextDirection.ltr,
+                                    child: Text(
+                                      '+${amount.toStringAsFixed(2)} $currency',
+                                      textAlign: TextAlign.end,
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: warnAccent),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -251,14 +260,17 @@ class WalletScreen extends ConsumerWidget {
           const SizedBox(height: 10),
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(
-              displayAmount,
-              maxLines: 1,
-              style: TextStyle(
-                color: isNegative ? Colors.white : const Color(0xFF0F172A),
-                fontSize: 38,
-                fontWeight: FontWeight.w800,
-                letterSpacing: isAr ? null : 0.5,
+            child: Directionality(
+              textDirection: ui.TextDirection.ltr,
+              child: Text(
+                displayAmount,
+                maxLines: 1,
+                style: TextStyle(
+                  color: isNegative ? Colors.white : const Color(0xFF0F172A),
+                  fontSize: 38,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: isAr ? null : 0.5,
+                ),
               ),
             ),
           ),
@@ -375,7 +387,10 @@ class WalletScreen extends ConsumerWidget {
     final isAr = l10n.localeName == 'ar';
     switch (rawType.toUpperCase().trim()) {
       case 'DELIVERY_FEE':
-        return isAr ? 'رسوم التوصيل' : 'Delivery fee';
+      case 'ORDER_EARNING':
+      case 'DELIVERY_EARNING':
+      case 'RIDE_EARNING':
+        return isAr ? 'أرباح التوصيل' : 'Order earning';
       case 'CASH_COLLECTED':
         return isAr ? 'نقدية محصلة' : 'Cash collected';
       case 'CASH_HANDED_TO_VENDOR':
@@ -386,8 +401,14 @@ class WalletScreen extends ConsumerWidget {
         return isAr ? 'غرامة' : 'Penalty';
       case 'BONUS':
         return isAr ? 'مكافأة' : 'Bonus';
+      case 'GOLD_BONUS':
+        return isAr ? 'مكافأة الشارة الذهبية' : 'Gold badge bonus';
+      case 'BRONZE_DEDUCTION':
+      case 'BRONZE_SUPERVISOR_DEDUCTION':
+        return isAr ? 'خصم الشارة البرونزية' : 'Bronze badge deduction';
       case 'ADJUSTMENT':
-        return isAr ? 'تسوية' : 'Adjustment';
+      case 'WALLET_ADJUSTMENT':
+        return isAr ? 'تسوية المحفظة' : 'Wallet adjustment';
       case 'TOP_UP':
       case 'TOPUP':
       case 'TOPUP_REQUEST':
@@ -672,17 +693,20 @@ class WalletScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        '${isCredit ? '+' : '-'}${amount.abs().toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                          color: isCredit
-                              ? AppColors.success
-                              : (type == 'CASH_COLLECTED'
-                                  ? const Color(0xFFF59E0B)
-                                  : AppColors.error),
+                      Directionality(
+                        textDirection: ui.TextDirection.ltr,
+                        child: Text(
+                          '${isCredit ? '+' : '-'}${amount.abs().toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                            color: isCredit
+                                ? AppColors.success
+                                : (type == 'CASH_COLLECTED'
+                                    ? const Color(0xFFF59E0B)
+                                    : AppColors.error),
+                          ),
                         ),
                       ),
                     ],

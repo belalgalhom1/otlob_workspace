@@ -70,9 +70,12 @@ class AppFilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
+    final selectedFg = isDark ? AppColors.primary : const Color(0xFF92400E);
     final foreground =
-        selected ? AppColors.primary : scheme.onSurface.withValues(alpha: 0.75);
+        selected ? selectedFg : scheme.onSurface.withValues(alpha: 0.78);
 
     return Material(
       color: Colors.transparent,

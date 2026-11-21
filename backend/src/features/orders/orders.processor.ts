@@ -117,6 +117,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
         upfrontAmount: true,
         distanceKm: true,
         deliveryFee: true,
+        goldSurchargeAmount: true,
         driverBonusFee: true,
         serviceFee: true,
         subtotal: true,
@@ -137,6 +138,10 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
             id: true,
             primaryDriverId: true,
             primaryDriverShiftId: true,
+            primaryDriverTierSnapshot: true,
+            deliveredAt: true,
+            deliveryFee: true,
+            goldSurchargeAmount: true,
             isStacked: true,
             isPaymentCollector: true,
             primaryDriver: { select: { tier: true } },
@@ -194,6 +199,24 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     const settings = await this.platformSettings.getSettings();
     const deliveryCommissionRate = settings.deliveryCommissionRate ?? 20;
 
+    let collectorTier =
+      collectorGroup.primaryDriverTierSnapshot ??
+      collectorGroup.primaryDriver?.tier ??
+      null;
+    if (!collectorTier && collectorGroup.deliveredAt && typeof this.prisma.driverRankHistory?.findFirst === 'function') {
+      const nextRankChange = await this.prisma.driverRankHistory.findFirst({
+        where: {
+          driverId: collectorGroup.primaryDriverId,
+          createdAt: { gt: collectorGroup.deliveredAt },
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { previousTier: true },
+      });
+      if (nextRankChange?.previousTier) {
+        collectorTier = nextRankChange.previousTier;
+      }
+    }
+
     await this.orderSettlementService.settleOrder({
       orderId,
       orderNumber,
@@ -206,8 +229,9 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       grandTotal: Number(order.grandTotal),
       upfrontAmount: Number(order.upfrontAmount),
       distanceKm: Number(order.distanceKm ?? 0),
-      driverTier: collectorGroup.primaryDriver?.tier ?? 'SILVER',
+      driverTier: collectorTier ?? 'SILVER',
       deliveryFee: Number(order.deliveryFee),
+      goldSurchargeAmount: Number((order as { goldSurchargeAmount?: number }).goldSurchargeAmount ?? 0),
       driverBonusFee: Number(order.driverBonusFee),
       subtotal: Number(order.subtotal),
       serviceFee: Number(order.serviceFee ?? 0),

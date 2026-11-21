@@ -1,4 +1,4 @@
-import { DeliveryGroupStatus } from '@prisma/client';
+import { DeliveryGroupStatus, DriverTier } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Driver } from './driver';
 import { OrderDeliveryGroupItem } from './order_delivery_group_item';
@@ -54,6 +54,27 @@ export class OrderDeliveryGroup {
 
   @ApiProperty({ type: Number })
   deliveryFee: number;
+
+  @ApiProperty({ type: Number })
+  goldSurchargeAmount: number = 0;
+
+  @ApiPropertyOptional({ enum: DriverTier, enumName: 'DriverTier' })
+  primaryDriverTierSnapshot?: DriverTier;
+
+  @ApiProperty({ type: Number })
+  settledGoldBonusAmount: number = 0;
+
+  @ApiProperty({ type: Number })
+  settledGoldPlatformRetainedAmount: number = 0;
+
+  @ApiProperty({ type: Number })
+  settledBronzeDriverDeduction: number = 0;
+
+  @ApiProperty({ type: Number })
+  settledBronzeSupervisorDeduction: number = 0;
+
+  @ApiPropertyOptional({ type: String })
+  settledPrimaryManagerId?: string;
 
   @ApiPropertyOptional({ type: Number })
   estimatedPrepTime?: number;

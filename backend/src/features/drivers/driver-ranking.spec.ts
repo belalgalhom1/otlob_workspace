@@ -2025,40 +2025,46 @@ describe('Weekly Driver Ranking System', () => {
       expect(suspendedWithPriorWork.outcome).toBe(DriverRankingOutcome.DEMOTED);
     });
 
-    it('OrderEarningsCalculator applies tier per-km bonus adjustment identically to OrderSettlementService', () => {
+    it('OrderEarningsCalculator applies fixed per-order Gold bonus & Bronze deduction with Silver as neutral default baseline', () => {
       const calculator = new OrderEarningsCalculator();
       const settings = {
         driverShiftsEnabled: true,
-        goldTierBonusPerKm: 2,
-        silverTierBonusPerKm: 1,
-        bronzeTierBonusPerKm: 0,
+        goldTierBonusPerOrder: 5,
+        bronzeTierDeductionAmount: 4,
         deliveryCommissionRate: 20,
         driverManagerCommissionRate: 10,
       };
 
+      // Total customer deliveryFee = 50 (45 base + 5 Gold surcharge) across 5km:
+      // GOLD: round(45 * 0.7) = 32 base + 5 Gold bonus = 37
       expect(
         calculator.calculateDriverEarningsForFee(50, settings, {
           driverTier: 'GOLD',
           distanceKm: 5,
           isStandardOrder: true,
+          goldSurcharge: 5,
         }),
-      ).toBe(35);
+      ).toBe(37);
 
+      // SILVER (default baseline): round(45 * 0.7) = 32 (0 Gold bonus, 0 Bronze deduction; platform retains 5)
       expect(
         calculator.calculateDriverEarningsForFee(50, settings, {
           driverTier: 'SILVER',
           distanceKm: 5,
           isStandardOrder: true,
+          goldSurcharge: 5,
         }),
       ).toBe(32);
 
+      // BRONZE: round(45 * 0.7) = 32 base - 4 fixed Bronze deduction = 28 (independent of km)
       expect(
         calculator.calculateDriverEarningsForFee(50, settings, {
           driverTier: 'BRONZE',
           distanceKm: 5,
           isStandardOrder: true,
+          goldSurcharge: 5,
         }),
-      ).toBe(27);
+      ).toBe(28);
     });
 
     it('DispatchLifecycleService.handleExpiry skips EXPIRED penalty and retries when group already has primaryDriverId (acceptance-vs-expiry race)', async () => {

@@ -120,9 +120,10 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = ref.watch(configurationProvider.notifier).currency;
+    final rawCurrency = ref.watch(configurationProvider.notifier).currency;
     final l10n = AppLocalizations.of(context)!;
     final isAr = l10n.localeName == 'ar';
+    final currency = (isAr && rawCurrency == 'EGP') ? 'ج.م' : rawCurrency;
     final rawEarnings = widget.dispatchData['estimatedEarnings'];
     final double earningsNum = rawEarnings is num
         ? rawEarnings.toDouble()
@@ -138,7 +139,7 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
         : null;
 
     final distVal = widget.dispatchData['distanceKm'] ?? widget.dispatchData['estimatedDistanceKm'] ?? 0.0;
-    final distance = '${distVal.toStringAsFixed(1)} km';
+    final distance = '${distVal.toStringAsFixed(1)} ${isAr ? 'كم' : 'km'}';
 
     final orderType = OrderTypeHelper.resolve(widget.dispatchData);
     final pickupFallback = orderType.isRide

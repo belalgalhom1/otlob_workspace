@@ -148,10 +148,19 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   String _formatStatusLabel(BuildContext context, String? status) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     switch (status?.toUpperCase()) {
+      case 'LOOKING_FOR_DRIVER':
+        return isAr ? 'جاري البحث عن كابتن' : 'Finding Driver';
+      case 'ACCEPTED':
+      case 'DRIVER_ASSIGNED':
+        return isAr ? 'تم تعيين الكابتن' : 'Driver Assigned';
+      case 'PENDING_PAYMENT':
+        return isAr ? 'في انتظار الدفع' : 'Pending Payment';
       case 'PREPARING':
         return isAr ? 'قيد التحضير' : 'Preparing';
       case 'READY_FOR_PICKUP':
         return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
+      case 'PARTIALLY_PICKED_UP':
+        return isAr ? 'تم استلام جزء' : 'Partially Picked Up';
       case 'PICKED_UP':
       case 'OUT_FOR_DELIVERY':
         return isAr ? 'قيد التوصيل' : 'Out for Delivery';

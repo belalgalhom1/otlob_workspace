@@ -59,6 +59,43 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     }
   }
 
+  String _translatePaymentMethod(String method, bool isArabic) {
+    switch (method.toUpperCase()) {
+      case 'CASH_ON_DELIVERY':
+      case 'CASH':
+        return isArabic ? 'الدفع عند الاستلام' : 'Cash on Delivery';
+      case 'CARD':
+      case 'ONLINE':
+      case 'CREDIT_CARD':
+        return isArabic ? 'بطاقة إلكترونية' : 'Card';
+      case 'WALLET':
+        return isArabic ? 'المحفظة' : 'Wallet';
+      case 'MOBILE_WALLET':
+        return isArabic ? 'محفظة إلكترونية' : 'Mobile Wallet';
+      case 'INSTAPAY':
+        return isArabic ? 'إنستا باي' : 'InstaPay';
+      default:
+        return method;
+    }
+  }
+
+  String _translatePaymentStatus(String status, bool isArabic) {
+    switch (status.toUpperCase()) {
+      case 'PAID':
+        return isArabic ? 'مدفوع' : 'Paid';
+      case 'PENDING':
+        return isArabic ? 'قيد الانتظار' : 'Pending';
+      case 'UNPAID':
+        return isArabic ? 'غير مدفوع' : 'Unpaid';
+      case 'FAILED':
+        return isArabic ? 'فشل الدفع' : 'Failed';
+      case 'REFUNDED':
+        return isArabic ? 'مسترد' : 'Refunded';
+      default:
+        return status;
+    }
+  }
+
   Color _getStatusColor(String status) {
     switch (status.toUpperCase()) {
       case 'DELIVERED':
@@ -106,9 +143,11 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
     final vendorStoreName = isArabic
         ? (vendor['storeNameAr'] ?? vendor['storeName'] ?? vendor['name'])
         : (vendor['storeName'] ?? vendor['storeNameAr'] ?? vendor['name']);
-    final branchName = isArabic
-        ? (vendorBranch['nameAr'] ?? vendorBranch['name'])
-        : (vendorBranch['name'] ?? vendorBranch['nameAr']);
+    final branchName = (isArabic
+            ? (vendorBranch['nameAr'] ?? vendorBranch['name'])
+            : (vendorBranch['name'] ?? vendorBranch['nameAr']))
+        ?.toString() ??
+        '';
     final vendorName = (vendorStoreName != null && vendorStoreName.toString().trim().isNotEmpty)
         ? (branchName != null && branchName.toString().trim().isNotEmpty
             ? '$vendorStoreName - $branchName'
@@ -158,12 +197,17 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
       pickupLat = (pickupLoc[1] as num?)?.toDouble();
     }
 
+    final localizedOrderType = OrderTypeHelper.requestTypeLabel(
+      OrderTypeHelper.resolve(Map<String, dynamic>.from(order)),
+      isArabic: isArabic,
+    );
+
     return AppDialog(
       maxWidth: 640,
       maxHeight: 760,
       header: AppDialogHeader(
         icon: LucideIcons.packageCheck,
-        title: '#$orderNumber',
+        title: '\u2066#$orderNumber\u2069',
         subtitleWidget: Wrap(
           spacing: 8,
           runSpacing: 4,
@@ -174,7 +218,7 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
               accentColor: statusColor,
             ),
             Text(
-              '${isArabic ? "نوع الطلب: " : "Type: "}$orderType',
+              '${isArabic ? "نوع الطلب: " : "Type: "}$localizedOrderType',
               style: theme.textTheme.bodySmall?.copyWith(
                 fontSize: 12,
                 color: theme.colorScheme.onSurfaceVariant,
@@ -904,14 +948,14 @@ class ActiveOrderDetailsDialog extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${isArabic ? "طريقة الدفع: " : "Payment: "}$paymentMethod',
+                '${isArabic ? "طريقة الدفع: " : "Payment: "}${_translatePaymentMethod(paymentMethod, isArabic)}',
                 style: TextStyle(
                   fontSize: 11,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               AppBadgePill(
-                text: paymentStatus,
+                text: _translatePaymentStatus(paymentStatus, isArabic),
                 accentColor: paymentStatus.toUpperCase() == 'PAID'
                     ? AppColors.success
                     : AppColors.warning,

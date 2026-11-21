@@ -417,8 +417,8 @@ describe('OrdersService financial projections & vendor isolation', () => {
       // getSettings was NOT called again per order!
       expect(getSettingsMock).toHaveBeenCalledTimes(1);
       // g1 (GOLD, multi-vendor non-stacked): 40 * (1 - (15+10)/100 = 0.75) = 30
-      // g2 (BRONZE, stacked): (20 - 2) * 0.5 = 9
-      expect(enriched.financials.driverEarnings).toBe(39);
+      // g2 (BRONZE, stacked): 20 * 0.5 = 10 (no hardcoded -2)
+      expect(enriched.financials.driverEarnings).toBe(40);
     });
   });
 

@@ -43,33 +43,35 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
 
   List<_SortOption> get _sortOptions {
     final l10n = AppLocalizations.of(context)!;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final ordersLabel = isAr ? 'الطلبات' : 'Orders';
     final tab = _tabController.index;
     switch (tab) {
       case 0: // Drivers
         return [
-          _SortOption('orders', l10n.ordersCount, LucideIcons.shoppingBag),
+          _SortOption('orders', ordersLabel, LucideIcons.shoppingBag),
           _SortOption('trips', l10n.analyticsTrips, LucideIcons.truck),
           _SortOption('wallet', l10n.analyticsBal, LucideIcons.wallet),
         ];
       case 1: // Customers
         return [
-          _SortOption('orders', l10n.ordersCount, LucideIcons.shoppingBag),
+          _SortOption('orders', ordersLabel, LucideIcons.shoppingBag),
           _SortOption('spent', l10n.analyticsTotalSpent, LucideIcons.banknote),
           _SortOption('coins', l10n.analyticsCoins, LucideIcons.coins),
         ];
       case 2: // Vendors
         return [
-          _SortOption('orders', l10n.ordersCount, LucideIcons.shoppingBag),
+          _SortOption('orders', ordersLabel, LucideIcons.shoppingBag),
           _SortOption('revenue', l10n.analyticsRevenue, LucideIcons.trendingUp),
           _SortOption('wallet', l10n.analyticsBal, LucideIcons.wallet),
         ];
       case 3: // Products
         return [
-          _SortOption('orders', l10n.ordersCount, LucideIcons.shoppingBag),
+          _SortOption('orders', ordersLabel, LucideIcons.shoppingBag),
         ];
       default:
         return [
-          _SortOption('orders', l10n.ordersCount, LucideIcons.shoppingBag),
+          _SortOption('orders', ordersLabel, LucideIcons.shoppingBag),
         ];
     }
   }
@@ -127,7 +129,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
-                labelColor: Colors.white,
+                labelColor: AppColors.onPrimary,
                 unselectedLabelColor: textColor.withValues(alpha: 0.7),
                 labelStyle: const TextStyle(
                   fontWeight: FontWeight.bold,
@@ -345,7 +347,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                                     opt.icon,
                                     size: 13,
                                     color: isSelected
-                                        ? Colors.white
+                                        ? AppColors.onPrimary
                                         : textColor.withValues(alpha: 0.7),
                                   ),
                                   const SizedBox(width: 6),
@@ -357,7 +359,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
                                           ? FontWeight.bold
                                           : FontWeight.w600,
                                       color: isSelected
-                                          ? Colors.white
+                                          ? AppColors.onPrimary
                                           : textColor,
                                     ),
                                   ),

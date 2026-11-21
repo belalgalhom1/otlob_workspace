@@ -85,7 +85,11 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final currency = ref.watch(configurationProvider.notifier).currency;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final warmAccent = isDark ? AppColors.primary : const Color(0xFF92400E);
+    final warningAccent = isDark ? AppColors.warning : const Color(0xFF92400E);
+    final rawCurrency = ref.watch(configurationProvider.notifier).currency;
+    final currency = (isAr && rawCurrency == 'EGP') ? 'ج.م' : rawCurrency;
 
     final profileValue = ref.watch(driverProfileProvider).value;
     final profileData = (profileValue is Map && profileValue['data'] is Map)
@@ -240,9 +244,9 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
+                        Icon(
                           LucideIcons.clock,
-                          color: AppColors.warning,
+                          color: warningAccent,
                           size: 24,
                         ),
                         const SizedBox(width: 12),
@@ -252,12 +256,12 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
                             children: [
                               Text(
                                 isAr
-                                    ? 'طلب شحن قيد المراجعة: +${amount.toStringAsFixed(2)} $currency'
+                                    ? 'طلب شحن قيد المراجعة: ${amount.toStringAsFixed(2)} $currency'
                                     : 'Pending Top-Up: +${amount.toStringAsFixed(2)} $currency',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
-                                  color: AppColors.warning,
+                                  color: warningAccent,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -285,6 +289,10 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: warmAccent,
+                  side: BorderSide(color: warmAccent.withValues(alpha: 0.45)),
+                ),
                 onPressed: () => context.push('/wallet'),
                 icon: const Icon(LucideIcons.wallet, size: 18),
                 label: Text(
@@ -293,6 +301,10 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: warmAccent,
+                  side: BorderSide(color: warmAccent.withValues(alpha: 0.45)),
+                ),
                 onPressed: _isChecking ? null : _checkAccountStatus,
                 icon: const Icon(LucideIcons.checkCircle2, size: 18),
                 label: Text(

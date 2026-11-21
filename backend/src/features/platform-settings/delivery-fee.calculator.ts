@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PlatformSetting } from '@prisma/client';
+import {
+  centsToDecimalEgp,
+  centsToWholeEgp,
+  toMoneyCents,
+} from '../../common/orders/money.helper';
 
 interface VehicleFeeFieldKeys {
   perKmKey: keyof PlatformSetting;
@@ -46,6 +51,19 @@ export interface DeliveryFeeCalculationInput {
   perKmOverride?: number | null;
   isStandardOrder?: boolean;
   vehicleType?: string | null;
+  /**
+   * Whether to include the fixed per-order `goldTierBonusPerOrder` surcharge.
+   * Defaults to `true` for standalone order fee calculation; multi-stop group
+   * builders pass `false` so the per-order surcharge is applied strictly once
+   * per order rather than once per stop or once per delivery group.
+   */
+  includeGoldSurcharge?: boolean;
+}
+
+export interface CustomerDeliveryFeeBreakdown {
+  baseFee: number;
+  goldSurcharge: number;
+  totalFee: number;
 }
 
 /**
@@ -63,6 +81,13 @@ export class DeliveryFeeCalculator {
     return Number(settings[fields.perKmKey]);
   }
 
+  resolveGoldSurchargePerOrder(
+    settings?: Pick<PlatformSetting, 'goldTierBonusPerOrder'> | null,
+  ): number {
+    const cents = Math.max(0, toMoneyCents(settings?.goldTierBonusPerOrder ?? 0));
+    return centsToDecimalEgp(cents);
+  }
+
   calculateDeliveryFee(
     settings: PlatformSetting,
     input: DeliveryFeeCalculationInput,
@@ -71,8 +96,8 @@ export class DeliveryFeeCalculator {
       distanceKm,
       zoneBaseDeliveryFeeOverride,
       perKmOverride,
-      isStandardOrder = true,
       vehicleType,
+      includeGoldSurcharge = true,
     } = input;
 
     const minOrderKm = Number(settings.minOrderKm);
@@ -84,14 +109,10 @@ export class DeliveryFeeCalculator {
         ? Number(zoneBaseDeliveryFeeOverride)
         : Number(settings.baseDeliveryFee);
 
-    let perKm =
+    const perKm =
       perKmOverride != null
         ? Number(perKmOverride)
         : Number(settings.pricePerKm);
-
-    if (settings.driverShiftsEnabled && isStandardOrder) {
-      perKm += Number(settings.goldTierBonusPerKm ?? 0);
-    }
 
     let fee =
       minOrderKm > 0 && distanceKm < minOrderKm
@@ -126,7 +147,44 @@ export class DeliveryFeeCalculator {
       fee = globalMinFee;
     }
 
-    return Math.round(fee * 100) / 100;
+    const baseCents = toMoneyCents(fee);
+    if (!includeGoldSurcharge) {
+      return centsToDecimalEgp(baseCents);
+    }
+
+    const goldSurchargeCents = Math.max(
+      0,
+      toMoneyCents((settings as { goldTierBonusPerOrder?: number | null })?.goldTierBonusPerOrder ?? 0),
+    );
+    return centsToDecimalEgp(baseCents + goldSurchargeCents);
+  }
+
+  /**
+   * Computes integer-EGP delivery fee breakdown for checkout/order creation so
+   * `baseFee + goldSurcharge === totalFee` strictly holds in DB integer columns.
+   */
+  calculateCustomerDeliveryBreakdown(
+    settings: PlatformSetting,
+    input: Omit<DeliveryFeeCalculationInput, 'includeGoldSurcharge'>,
+  ): CustomerDeliveryFeeBreakdown {
+    const rawBase = this.calculateDeliveryFee(settings, {
+      ...input,
+      includeGoldSurcharge: false,
+    });
+    const baseFee = Math.max(0, centsToWholeEgp(toMoneyCents(rawBase)));
+    const rawGoldSurchargeCents = Math.max(
+      0,
+      toMoneyCents((settings as { goldTierBonusPerOrder?: number | null })?.goldTierBonusPerOrder ?? 0),
+    );
+    const totalFee = Math.max(
+      baseFee,
+      centsToWholeEgp(toMoneyCents(baseFee) + rawGoldSurchargeCents),
+    );
+    return {
+      baseFee,
+      goldSurcharge: Math.max(0, totalFee - baseFee),
+      totalFee,
+    };
   }
 
   /**
@@ -134,24 +192,36 @@ export class DeliveryFeeCalculator {
    * - Single-stop trip (single store or split route): standard distance fee.
    * - Multi-stop trip (2+ stores sharing 1 driver): sum of individual distance
    *   fees discounted by multiVendorDeliveryDiscountPercent, floored at minDeliveryFee.
+   * - Optional `includeGoldSurcharge` defaults to `false` so multi-group orders add
+   *   `goldTierBonusPerOrder` once at the order level rather than once per stop/group.
    */
   calculateGroupDeliveryFee(
     settings: PlatformSetting,
     stopsDistancesKm: number[],
     zoneBaseDeliveryFeeOverride?: number | null,
+    options?: { includeGoldSurcharge?: boolean },
   ): number {
     if (stopsDistancesKm.length === 0) {
       return 0;
     }
     const minFee = Number(settings.minDeliveryFee ?? 15);
+    const goldSurchargeCents = options?.includeGoldSurcharge
+      ? Math.max(
+          0,
+          toMoneyCents((settings as { goldTierBonusPerOrder?: number | null })?.goldTierBonusPerOrder ?? 0),
+        )
+      : 0;
+
     if (stopsDistancesKm.length === 1) {
       const dist = stopsDistancesKm[0] ?? 0;
       const base = this.calculateDeliveryFee(settings, {
         distanceKm: dist,
         zoneBaseDeliveryFeeOverride,
         isStandardOrder: true,
+        includeGoldSurcharge: false,
       });
-      return Math.max(minFee, Math.round(base));
+      const flooredBase = Math.max(minFee, centsToWholeEgp(toMoneyCents(base)));
+      return centsToWholeEgp(toMoneyCents(flooredBase) + goldSurchargeCents);
     }
 
     const discountPercent = Number(
@@ -160,17 +230,23 @@ export class DeliveryFeeCalculator {
     const discountMultiplier =
       Math.max(0, Math.min(100, discountPercent)) / 100;
 
-    let rawSum = 0;
+    let rawSumCents = 0;
     for (const dist of stopsDistancesKm) {
       const fee = this.calculateDeliveryFee(settings, {
         distanceKm: dist,
         zoneBaseDeliveryFeeOverride,
         isStandardOrder: true,
+        includeGoldSurcharge: false,
       });
-      rawSum += fee;
+      rawSumCents += toMoneyCents(fee);
     }
 
-    const discounted = Math.round(rawSum * (1 - discountMultiplier));
-    return Math.max(minFee, discounted);
+    const discountedBase = Math.max(
+      minFee,
+      centsToWholeEgp(
+        Math.round(rawSumCents * (1 - discountMultiplier)),
+      ),
+    );
+    return centsToWholeEgp(toMoneyCents(discountedBase) + goldSurchargeCents);
   }
 }

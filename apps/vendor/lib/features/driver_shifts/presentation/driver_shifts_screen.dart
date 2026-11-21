@@ -657,7 +657,13 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
     final spanLabel = sorted.length == 1
         ? DateFormat('EEE, MMM d').format(sorted.first.shiftDate)
         : '${DateFormat('dd MMM').format(sorted.first.shiftDate)} – ${DateFormat('dd MMM').format(sorted.last.shiftDate)}';
-    final daysLabel = isArabic ? '${sorted.length} يوم' : '${sorted.length} days';
+    final daysLabel = isArabic
+        ? (sorted.length == 1
+            ? 'يوم واحد'
+            : (sorted.length >= 3 && sorted.length <= 10
+                ? '${sorted.length} أيام'
+                : '${sorted.length} يوم'))
+        : (sorted.length == 1 ? '1 day' : '${sorted.length} days');
 
     return Container(
       decoration: BoxDecoration(

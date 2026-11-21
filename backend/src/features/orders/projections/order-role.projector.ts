@@ -165,11 +165,21 @@ export class OrderRoleProjector {
       activeDeliveryGroups[0] ??
       null;
 
+    const effectiveDriverSettings =
+      order.settledAt && order.settledBronzeDriverDeductionRate != null
+        ? {
+            ...settings,
+            bronzeTierDeductionAmount: order.settledBronzeDriverDeductionRate,
+          }
+        : settings;
+
     let deliveryFee = Number(order.deliveryFee ?? 0);
     let projectedIsStacked = activeDeliveryGroups.some((g: any) =>
       Boolean(g.isStacked),
     );
     let customDriverEarnings: number | null = null;
+    let projectedGoldBonusAmount = 0;
+    let projectedBronzeDeductionAmount = 0;
     const singleBaselineFulfillment =
       computedBaselineFulfillments.length === 1
         ? computedBaselineFulfillments[0]
@@ -286,28 +296,61 @@ export class OrderRoleProjector {
             activeGroupsCount: activeDeliveryGroups.length,
             activeFulfillmentsCount: activeFulfillments.length,
           });
+          const hasExplicitGroupGold = activeDeliveryGroups.some(
+            (ag: any) => Number(ag.goldSurchargeAmount ?? 0) > 0,
+          );
+          const fallbackCollectorId = collectorGroup?.id ?? activeDeliveryGroups[0]?.id;
+
           customDriverEarnings = scopedGroups.reduce((sum: number, g: any) => {
             const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
+            const gGoldSurcharge = hasExplicitGroupGold
+              ? Number(g.goldSurchargeAmount ?? 0)
+              : g.id === fallbackCollectorId
+                ? Number(order.goldSurchargeAmount ?? 0)
+                : 0;
             if (
               g.assistDriverId === myDriver.id &&
               g.primaryDriverId !== myDriver.id
             ) {
               const assistAmt = Number(g.assistFee ?? 0);
-              return sum + (assistAmt > 0 ? assistAmt : gFee);
+              return sum + (assistAmt > 0 ? assistAmt : Math.max(0, gFee - gGoldSurcharge));
             }
             const isGroupStacked = Boolean(g.isStacked);
+            const gTier = g.primaryDriverTierSnapshot ?? myDriver?.tier;
+            const gCtx = {
+              isStacked: isGroupStacked,
+              isMultiVendor,
+              driverTier: gTier,
+              distanceKm:
+                g.distanceKm != null
+                  ? Number(g.distanceKm)
+                  : Number(order.distanceKm ?? 0),
+              isStandardOrder: order.type === 'STANDARD',
+              goldSurcharge: gGoldSurcharge,
+            };
+            if (typeof this.earnings.calculateDriverEarningsBreakdown === 'function') {
+              const bd = this.earnings.calculateDriverEarningsBreakdown(
+                gFee,
+                effectiveDriverSettings,
+                gCtx,
+              );
+              projectedGoldBonusAmount +=
+                order.settledAt && g.settledGoldBonusAmount != null
+                  ? Number(g.settledGoldBonusAmount)
+                  : bd.goldBonus;
+              projectedBronzeDeductionAmount +=
+                order.settledAt && g.settledBronzeDriverDeduction != null
+                  ? Number(g.settledBronzeDriverDeduction)
+                  : bd.bronzeDeduction;
+              return sum + bd.netEarnings;
+            }
             return (
               sum +
-              this.earnings.calculateDriverEarningsForFee(gFee, settings, {
-                isStacked: isGroupStacked,
-                isMultiVendor,
-                driverTier: myDriver?.tier,
-                distanceKm:
-                  g.distanceKm != null
-                    ? Number(g.distanceKm)
-                    : Number(order.distanceKm ?? 0),
-                isStandardOrder: order.type === 'STANDARD',
-              })
+              this.earnings.calculateDriverEarningsForFee(
+                gFee,
+                effectiveDriverSettings,
+                gCtx,
+              )
             );
           }, 0);
 
@@ -553,15 +596,43 @@ export class OrderRoleProjector {
       activeGroupsCount: activeDeliveryGroups.length,
       activeFulfillmentsCount: activeFulfillments.length,
     });
-    const driverEarnings =
-      customDriverEarnings ??
-      this.earnings.calculateDriverEarningsForFee(deliveryFee, settings, {
-        isStacked: projectedIsStacked,
-        isMultiVendor,
-        driverTier: myDriver?.tier,
-        distanceKm: Number(order.distanceKm ?? 0),
-        isStandardOrder: order.type === 'STANDARD',
-      });
+    const orderGoldSurcharge = Number(order.goldSurchargeAmount ?? 0);
+    const fallbackDriverCtx = {
+      isStacked: projectedIsStacked,
+      isMultiVendor,
+      driverTier:
+        collectorGroup?.primaryDriverTierSnapshot ?? myDriver?.tier,
+      distanceKm: Number(order.distanceKm ?? 0),
+      isStandardOrder: order.type === 'STANDARD',
+      goldSurcharge: orderGoldSurcharge,
+    };
+    let driverEarnings: number;
+    if (customDriverEarnings != null) {
+      driverEarnings = customDriverEarnings;
+    } else if (
+      typeof this.earnings.calculateDriverEarningsBreakdown === 'function'
+    ) {
+      const bd = this.earnings.calculateDriverEarningsBreakdown(
+        deliveryFee,
+        effectiveDriverSettings,
+        fallbackDriverCtx,
+      );
+      projectedGoldBonusAmount =
+        order.settledAt && order.settledGoldBonusAmount != null
+          ? Number(order.settledGoldBonusAmount)
+          : bd.goldBonus;
+      projectedBronzeDeductionAmount =
+        order.settledAt && order.settledBronzeDriverDeduction != null
+          ? Number(order.settledBronzeDriverDeduction)
+          : bd.bronzeDeduction;
+      driverEarnings = bd.netEarnings;
+    } else {
+      driverEarnings = this.earnings.calculateDriverEarningsForFee(
+        deliveryFee,
+        effectiveDriverSettings,
+        fallbackDriverCtx,
+      );
+    }
 
     const normalizedScopedItems = Array.isArray(scopedItems)
       ? scopedItems.map((i: any) => this.normalizeItemImage(i))
@@ -613,6 +684,8 @@ export class OrderRoleProjector {
         cashToPayStore: isAssistDriver ? 0 : cashToPayStore,
         isStorePrepaid,
         driverEarnings,
+        goldBonusAmount: projectedGoldBonusAmount,
+        bronzeDeductionAmount: projectedBronzeDeductionAmount,
         deliveryFee,
         storePayments:
           scopedFulfillments && scopedFulfillments.length > 0
@@ -1010,7 +1083,28 @@ export class OrderRoleProjector {
       ? Number(order.driverBonusFee ?? 0)
       : 0;
 
-    const sanitized: any = { ...order };
+    const sanitized: any = omitKeys(order, [
+      'goldSurchargeAmount',
+      'settledGoldBonusAmount',
+      'settledGoldPlatformRetainedAmount',
+      'settledBronzeDriverDeduction',
+      'settledBronzeSupervisorDeduction',
+      'settledBronzeDriverDeductionRate',
+      'settledBronzeSupervisorDeductionRate',
+    ]);
+    if (Array.isArray(sanitized.deliveryGroups)) {
+      sanitized.deliveryGroups = sanitized.deliveryGroups.map((g: any) =>
+        omitKeys(g, [
+          'goldSurchargeAmount',
+          'primaryDriverTierSnapshot',
+          'settledGoldBonusAmount',
+          'settledGoldPlatformRetainedAmount',
+          'settledBronzeDriverDeduction',
+          'settledBronzeSupervisorDeduction',
+          'settledPrimaryManagerId',
+        ]),
+      );
+    }
     if (Array.isArray(sanitized.items)) {
       sanitized.items = sanitized.items
         .filter((i: any) => i.rejectedAt == null)
@@ -1197,37 +1291,105 @@ export class OrderRoleProjector {
     ).length;
     const settings =
       prefetchedSettings ?? (await this.platformSettings.getSettings());
+    const effectiveSettings =
+      order.settledAt && order.settledBronzeDriverDeductionRate != null
+        ? {
+            ...settings,
+            bronzeTierDeductionAmount: order.settledBronzeDriverDeductionRate,
+          }
+        : settings;
     const deliveryFee = Number(order.deliveryFee ?? 0);
     const isMultiVendor = computeIsMultiVendorOrder({
       orderIsMultiVendor: order.isMultiVendor,
       activeGroupsCount: activeDeliveryGroups.length,
       activeFulfillmentsCount,
     });
+    const hasExplicitGroupGold = activeDeliveryGroups.some(
+      (ag: any) => Number(ag.goldSurchargeAmount ?? 0) > 0,
+    );
+    const adminCollectorId = collectorGroup?.id ?? activeDeliveryGroups[0]?.id;
+    let projectedGoldBonusAmount = 0;
+    let projectedGoldPlatformRetained = 0;
+    let projectedBronzeDriverDeduction = 0;
+
     const driverEarnings =
       activeDeliveryGroups.length > 0
         ? activeDeliveryGroups.reduce((sum: number, g: any) => {
             const gFee = g.deliveryFee != null ? Number(g.deliveryFee) : 0;
+            const gGoldSurcharge = hasExplicitGroupGold
+              ? Number(g.goldSurchargeAmount ?? 0)
+              : g.id === adminCollectorId
+                ? Number(order.goldSurchargeAmount ?? 0)
+                : 0;
+            const gTier =
+              g.primaryDriverTierSnapshot ??
+              g.primaryDriver?.tier ??
+              order.driver?.tier;
+            const gCtx = {
+              isStacked: Boolean(g.isStacked),
+              isMultiVendor,
+              driverTier: gTier,
+              distanceKm:
+                g.distanceKm != null
+                  ? Number(g.distanceKm)
+                  : Number(order.distanceKm ?? 0),
+              isStandardOrder: order.type === 'STANDARD',
+              goldSurcharge: gGoldSurcharge,
+            };
+            if (
+              typeof this.earnings.calculateDriverEarningsBreakdown ===
+              'function'
+            ) {
+              const bd = this.earnings.calculateDriverEarningsBreakdown(
+                gFee,
+                effectiveSettings,
+                gCtx,
+              );
+              projectedGoldBonusAmount += bd.goldBonus;
+              projectedGoldPlatformRetained += bd.platformRetainedGoldSurcharge;
+              projectedBronzeDriverDeduction += bd.bronzeDeduction;
+              return sum + bd.netEarnings;
+            }
             return (
               sum +
-              this.earnings.calculateDriverEarningsForFee(gFee, settings, {
-                isStacked: Boolean(g.isStacked),
-                isMultiVendor,
-                driverTier: g.primaryDriver?.tier ?? order.driver?.tier,
-                distanceKm:
-                  g.distanceKm != null
-                    ? Number(g.distanceKm)
-                    : Number(order.distanceKm ?? 0),
-                isStandardOrder: order.type === 'STANDARD',
-              })
+              this.earnings.calculateDriverEarningsForFee(
+                gFee,
+                effectiveSettings,
+                gCtx,
+              )
             );
           }, 0)
-        : this.earnings.calculateDriverEarningsForFee(deliveryFee, settings, {
-            isStacked: Boolean(order.isStacked),
-            isMultiVendor: false,
-            driverTier: order.driver?.tier,
-            distanceKm: Number(order.distanceKm ?? 0),
-            isStandardOrder: order.type === 'STANDARD',
-          });
+        : (() => {
+            const ctx = {
+              isStacked: Boolean(order.isStacked),
+              isMultiVendor: false,
+              driverTier:
+                collectorGroup?.primaryDriverTierSnapshot ??
+                order.driver?.tier,
+              distanceKm: Number(order.distanceKm ?? 0),
+              isStandardOrder: order.type === 'STANDARD',
+              goldSurcharge: Number(order.goldSurchargeAmount ?? 0),
+            };
+            if (
+              typeof this.earnings.calculateDriverEarningsBreakdown ===
+              'function'
+            ) {
+              const bd = this.earnings.calculateDriverEarningsBreakdown(
+                deliveryFee,
+                effectiveSettings,
+                ctx,
+              );
+              projectedGoldBonusAmount = bd.goldBonus;
+              projectedGoldPlatformRetained = bd.platformRetainedGoldSurcharge;
+              projectedBronzeDriverDeduction = bd.bronzeDeduction;
+              return bd.netEarnings;
+            }
+            return this.earnings.calculateDriverEarningsForFee(
+              deliveryFee,
+              effectiveSettings,
+              ctx,
+            );
+          })();
 
     const isMultiVendorOrder = Boolean(
       order.isMultiVendor ||
@@ -1315,6 +1477,25 @@ export class OrderRoleProjector {
         isStorePrepaid: resolvedIsStorePrepaid,
         driverEarnings,
         deliveryFee,
+        goldSurchargeAmount: Number(order.goldSurchargeAmount ?? 0),
+        goldBonusAmount: order.settledAt
+          ? Number(order.settledGoldBonusAmount ?? projectedGoldBonusAmount)
+          : projectedGoldBonusAmount,
+        goldPlatformRetainedAmount: order.settledAt
+          ? Number(
+              order.settledGoldPlatformRetainedAmount ??
+                projectedGoldPlatformRetained,
+            )
+          : projectedGoldPlatformRetained,
+        bronzeDriverDeduction: order.settledAt
+          ? Number(
+              order.settledBronzeDriverDeduction ??
+                projectedBronzeDriverDeduction,
+            )
+          : projectedBronzeDriverDeduction,
+        bronzeSupervisorDeduction: order.settledAt
+          ? Number(order.settledBronzeSupervisorDeduction ?? 0)
+          : 0,
         storePayments,
       },
     };

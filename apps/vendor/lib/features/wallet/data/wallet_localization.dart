@@ -117,9 +117,16 @@ class WalletLocalization {
       case 'TOPUP':
         return isArabic ? 'شحن محفظة' : 'Top Up';
       case 'COMMISSION_EARNED':
+      case 'DRIVER_MANAGER_COMMISSION':
         return isArabic ? 'عمولة إدارة طلب' : 'Order Commission';
       case 'DELIVERY_SHARE':
         return isArabic ? 'نسبة مسؤول التوصيل' : 'Delivery Manager Share';
+      case 'GOLD_BONUS':
+        return isArabic ? 'مكافأة الفئة الذهبية' : 'Gold Tier Bonus';
+      case 'BRONZE_DEDUCTION':
+        return isArabic ? 'خصم الفئة البرونزية' : 'Bronze Tier Deduction';
+      case 'BRONZE_SUPERVISOR_DEDUCTION':
+        return isArabic ? 'خصم المشرف للفئة البرونزية' : 'Bronze Supervisor Deduction';
       case 'PENALTY':
       case 'PENALTY_DEDUCTION':
         return isArabic ? 'خصم جزاءات' : 'Penalty Deduction';

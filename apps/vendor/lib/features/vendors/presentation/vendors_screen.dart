@@ -612,7 +612,15 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
                           ),
                           const SizedBox(width: 3),
                           Text(
-                            '$branchCount ${isArabic ? 'فروع' : 'branches'}',
+                            isArabic
+                                ? (branchCount == 1
+                                    ? 'فرع واحد'
+                                    : (branchCount == 2
+                                        ? 'فرعان'
+                                        : '$branchCount ${branchCount <= 10 ? "فروع" : "فرع"}'))
+                                : (branchCount == 1
+                                    ? '1 branch'
+                                    : '$branchCount branches'),
                             style: TextStyle(
                               fontSize: 11.5,
                               color: theme.colorScheme.onSurface.withValues(alpha: 0.65),

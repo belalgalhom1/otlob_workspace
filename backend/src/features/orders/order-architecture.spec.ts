@@ -89,10 +89,11 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       ).toBeCloseTo(0.8, 5);
     });
 
-    it('applies Bronze tier -2 EGP fee adjustment and floors at 0', () => {
+    it('removes legacy hardcoded -2 EGP deduction and applies configurable bronzeTierDeductionAmount floored at 0', () => {
       const settings = {
         deliveryCommissionRate: 20,
         driverManagerCommissionRate: 10,
+        bronzeTierDeductionAmount: 5,
       };
       expect(
         calculator.calculateDriverEarningsForFee(50, settings, {
@@ -103,12 +104,21 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         calculator.calculateDriverEarningsForFee(50, settings, {
           driverTier: 'BRONZE',
         }),
-      ).toBe(34); // (50 - 2) * 0.7 = 33.6 -> 34
+      ).toBe(30); // 50 * 0.7 - 5 = 30
       expect(
-        calculator.calculateDriverEarningsForFee(1, settings, {
+        calculator.calculateDriverEarningsForFee(4, settings, {
           driverTier: 'BRONZE',
         }),
-      ).toBe(0);
+      ).toBe(0); // max(0, 3 - 5) = 0
+      expect(
+        calculator.calculateDriverEarningsForFee(50, {
+          deliveryCommissionRate: 20,
+          driverManagerCommissionRate: 10,
+          bronzeTierDeductionAmount: 0,
+        }, {
+          driverTier: 'BRONZE',
+        }),
+      ).toBe(35);
     });
   });
 

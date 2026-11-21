@@ -1,3 +1,5 @@
+import 'dart:ui' as ui show TextDirection;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -427,15 +429,15 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
     return order.map((key) => map[key]!).toList();
   }
 
-  String _format(DateTime date, String pattern) {
+  String _format(DateTime date, String pattern, [String? locale]) {
     try {
-      return DateFormat(pattern).format(date);
+      return DateFormat(pattern, locale).format(date);
     } catch (_) {
-      return '';
+      return DateFormat(pattern).format(date);
     }
   }
 
-  String _spanLabel(List<Map<String, dynamic>> pools) {
+  String _spanLabel(List<Map<String, dynamic>> pools, String locale) {
     DateTime? firstDt;
     DateTime? lastDt;
     for (final pool in pools) {
@@ -448,9 +450,9 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
     }
     if (firstDt == null) return '';
     if (lastDt == null || firstDt.isAtSameMomentAs(lastDt)) {
-      return _format(firstDt, 'EEEE, MMM d');
+      return _format(firstDt, 'EEEE, MMM d', locale);
     }
-    return '${_format(firstDt, 'dd MMM')} – ${_format(lastDt, 'dd MMM')}';
+    return '${_format(firstDt, 'dd MMM', locale)} – ${_format(lastDt, 'dd MMM', locale)}';
   }
 
   Widget _buildPoolGroup(
@@ -473,7 +475,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
             .trim();
     final heading = title.isNotEmpty ? title : zoneName;
     final isWeekly = first['type'] == 'WEEKLY';
-    final spanLabel = _spanLabel(sorted);
+    final spanLabel = _spanLabel(sorted, l10n.localeName);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -616,7 +618,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
               : null,
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.onPrimary,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -641,7 +643,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
   ) {
     final rawStart = pool['startTime'] ?? '';
     final startDate = DateTime.tryParse(rawStart.toString())?.toLocal();
-    final dayLabel = startDate == null ? '' : _format(startDate, 'EEEE, MMM d');
+    final dayLabel = startDate == null ? '' : _format(startDate, 'EEEE, MMM d', l10n.localeName);
     final startTime = startDate == null
         ? ''
         : DateFormat.jm().format(startDate);
@@ -671,13 +673,16 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
                     ),
                   ),
                 const SizedBox(height: 2),
-                Text(
-                  '$startTime - $endTime',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.7),
+                Directionality(
+                  textDirection: ui.TextDirection.ltr,
+                  child: Text(
+                    '$startTime - $endTime',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
                   ),
                 ),
               ],
@@ -698,7 +703,7 @@ class _AvailableShiftsTabState extends ConsumerState<AvailableShiftsTab> {
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.onPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,

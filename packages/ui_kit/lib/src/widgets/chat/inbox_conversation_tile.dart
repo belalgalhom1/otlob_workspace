@@ -34,6 +34,10 @@ class InboxConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isWarmIcon = iconColor.r > 0.7 && iconColor.g > 0.45 && iconColor.b < 0.35;
+    final labelAccent =
+        !isDark && isWarmIcon ? const Color(0xFF92400E) : iconColor;
     final hasTypeLabel = typeLabel != null && typeLabel!.trim().isNotEmpty;
     final hasParticipant =
         participantName != null && participantName!.trim().isNotEmpty;
@@ -128,25 +132,28 @@ class InboxConversationTile extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: iconColor,
+                                color: labelAccent,
                               ),
                             ),
                           ),
                         ),
                         if (timeStr.isNotEmpty) ...[
                           const SizedBox(width: 8),
-                          Text(
-                            timeStr,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: unreadCount > 0
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: unreadCount > 0
-                                  ? iconColor
-                                  : colorScheme.onSurface.withValues(alpha: 0.5),
+                          Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Text(
+                              timeStr,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: unreadCount > 0
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: unreadCount > 0
+                                    ? labelAccent
+                                    : colorScheme.onSurface.withValues(alpha: 0.5),
+                              ),
                             ),
                           ),
                         ],
@@ -174,18 +181,21 @@ class InboxConversationTile extends StatelessWidget {
                       ),
                       if (!hasTypeLabel && timeStr.isNotEmpty) ...[
                         const SizedBox(width: 8),
-                        Text(
-                          timeStr,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: unreadCount > 0
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: unreadCount > 0
-                                ? iconColor
-                                : colorScheme.onSurface.withValues(alpha: 0.5),
+                        Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            timeStr,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: unreadCount > 0
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: unreadCount > 0
+                                  ? labelAccent
+                                  : colorScheme.onSurface.withValues(alpha: 0.5),
+                            ),
                           ),
                         ),
                       ],

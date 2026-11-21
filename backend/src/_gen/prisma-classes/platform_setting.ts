@@ -350,13 +350,13 @@ export class PlatformSetting {
   otpExpirySeconds: number = 900;
 
   @ApiProperty({ type: Number })
-  bronzeTierBonusPerKm: number;
+  goldTierBonusPerOrder: number = 0;
 
   @ApiProperty({ type: Number })
-  silverTierBonusPerKm: number;
+  bronzeTierDeductionAmount: number = 0;
 
   @ApiProperty({ type: Number })
-  goldTierBonusPerKm: number;
+  bronzeSupervisorDeductionAmount: number = 0;
 
   @ApiProperty({ type: Number })
   highValueOrderThreshold: number;

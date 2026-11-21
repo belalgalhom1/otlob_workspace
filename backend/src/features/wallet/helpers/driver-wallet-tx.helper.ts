@@ -53,6 +53,7 @@ export function isManualAdjustmentTransaction(tx: {
   referenceId?: string | null;
   description?: string | null;
 }): boolean {
+  if (tx.idempotencyKey?.startsWith('settle:')) return false;
   if (tx.isManualAdjustment) return true;
   if (tx.idempotencyKey?.startsWith('admin:driver:')) return true;
   if (tx.note?.trim()) return true;

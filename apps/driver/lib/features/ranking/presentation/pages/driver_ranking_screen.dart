@@ -1,3 +1,5 @@
+import 'dart:ui' as ui show TextDirection;
+
 import 'package:api/api.dart';
 import 'package:data/data.dart';
 import 'package:driver/core/utils/error_utils.dart';
@@ -139,8 +141,8 @@ class DriverTierVisuals {
     final silverInt = silverThreshold.toInt();
     if (tier == DriverTier.GOLD) {
       return DriverTierVisuals(
-        primary: const Color(0xFFD4920E),
-        background: const Color(0xFFD4920E).withValues(alpha: isDark ? 0.18 : 0.12),
+        primary: isDark ? const Color(0xFFFBBB2B) : const Color(0xFF92400E),
+        background: const Color(0xFFD4920E).withValues(alpha: isDark ? 0.18 : 0.14),
         border: const Color(0xFFD4920E).withValues(alpha: 0.45),
         icon: LucideIcons.trophy,
         labelEn: 'Gold Badge',
@@ -160,7 +162,7 @@ class DriverTierVisuals {
       );
     }
     return DriverTierVisuals(
-      primary: const Color(0xFFB45309),
+      primary: isDark ? const Color(0xFFF59E0B) : const Color(0xFF9A3412),
       background: const Color(0xFFB45309).withValues(alpha: isDark ? 0.20 : 0.12),
       border: const Color(0xFFB45309).withValues(alpha: 0.45),
       icon: LucideIcons.shield,
@@ -256,7 +258,11 @@ class _HeroBadgeCard extends StatelessWidget {
                   border: Border.all(color: visuals.border),
                 ),
                 child: Text(
-                  summary.currentTier.name,
+                  summary.currentTier == DriverTier.GOLD
+                      ? (isAr ? 'الذهبية' : 'Gold')
+                      : (summary.currentTier == DriverTier.SILVER
+                          ? (isAr ? 'الفضية' : 'Silver')
+                          : (isAr ? 'البرونزية' : 'Bronze')),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -334,10 +340,10 @@ class _TierThresholdsLegendCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 LucideIcons.sparkles,
                 size: 16,
-                color: AppColors.primary,
+                color: isDark ? AppColors.primary : const Color(0xFF92400E),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -354,80 +360,91 @@ class _TierThresholdsLegendCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              for (int i = 0; i < tiers.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      final tier = tiers[i];
-                      final v = DriverTierVisuals.of(
-                        tier,
-                        isDark: isDark,
-                        goldThreshold: goldThreshold,
-                        silverThreshold: silverThreshold,
-                      );
-                      final isCurrent = tier == currentTier;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isCurrent
-                              ? v.background
-                              : Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest
-                                    .withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isCurrent
-                                ? v.primary
-                                : Theme.of(
-                                    context,
-                                  ).dividerColor.withValues(alpha: 0.3),
-                            width: isCurrent ? 1.5 : 1,
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (int i = 0; i < tiers.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: Builder(
+                      builder: (context) {
+                        final tier = tiers[i];
+                        final v = DriverTierVisuals.of(
+                          tier,
+                          isDark: isDark,
+                          goldThreshold: goldThreshold,
+                          silverThreshold: silverThreshold,
+                        );
+                        final isCurrent = tier == currentTier;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 10,
                           ),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(v.icon, size: 18, color: v.primary),
-                            const SizedBox(height: 6),
-                            Text(
-                              v.label(isAr),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: v.primary,
-                              ),
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? v.background
+                                : Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isCurrent
+                                  ? v.primary
+                                  : Theme.of(
+                                      context,
+                                    ).dividerColor.withValues(alpha: 0.3),
+                              width: isCurrent ? 1.5 : 1,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              v.rangeLabel,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.75),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(v.icon, size: 18, color: v.primary),
+                              const SizedBox(height: 6),
+                              Text(
+                                v.label(isAr),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.2,
+                                  color: v.primary,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                              const SizedBox(height: 4),
+                              Directionality(
+                                textDirection: ui.TextDirection.ltr,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    v.rangeLabel,
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface.withValues(alpha: 0.75),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ),
@@ -468,14 +485,14 @@ class _CurrentWeekProgressSection extends StatelessWidget {
     return isAr ? 'ثبات في التصنيف' : 'Maintaining Tier';
   }
 
-  Color _outcomeColor(DriverRankingOutcome outcome) {
+  Color _outcomeColor(DriverRankingOutcome outcome, {required bool isDark}) {
     if (outcome == DriverRankingOutcome.PROMOTED) return AppColors.success;
     if (outcome == DriverRankingOutcome.DEMOTED) return AppColors.error;
     if (outcome == DriverRankingOutcome.CAPPED_SILVER ||
         outcome == DriverRankingOutcome.INACTIVE_SILVER) {
-      return AppColors.warning;
+      return isDark ? AppColors.warning : const Color(0xFF9A3412);
     }
-    return AppColors.primary;
+    return isDark ? AppColors.primary : const Color(0xFF92400E);
   }
 
   @override
@@ -487,7 +504,7 @@ class _CurrentWeekProgressSection extends StatelessWidget {
       goldThreshold: goldThreshold,
       silverThreshold: silverThreshold,
     );
-    final outcomeCol = _outcomeColor(progress.outcome);
+    final outcomeCol = _outcomeColor(progress.outcome, isDark: isDark);
     final snap = progress.metricsSnapshot;
     final scoreText = progress.performancePercentage != null
         ? '${progress.performancePercentage!.toStringAsFixed(1)}%'
@@ -505,14 +522,28 @@ class _CurrentWeekProgressSection extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(
-                isAr
-                    ? 'أداء الأسبوع الحالي (${week.periodKey})'
-                    : 'Current Week Progress (${week.periodKey})',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Wrap(
+                spacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    isAr ? 'أداء الأسبوع الحالي' : 'Current Week Progress',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Directionality(
+                    textDirection: ui.TextDirection.ltr,
+                    child: Text(
+                      '(${week.periodKey})',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             Text(
@@ -749,18 +780,22 @@ class _CurrentWeekProgressSection extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             LucideIcons.info,
                             size: 15,
-                            color: AppColors.primary,
+                            color: isDark
+                                ? AppColors.primary
+                                : const Color(0xFF92400E),
                           ),
                           const SizedBox(width: 6),
                           Text(
                             isAr ? 'ملاحظات احتساب التقييم' : 'Evaluation Details',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
+                              color: isDark
+                                  ? AppColors.primary
+                                  : const Color(0xFF92400E),
                             ),
                           ),
                         ],
@@ -824,16 +859,19 @@ class _KpiMetricCard extends StatelessWidget {
     required this.isAr,
   });
 
-  Color _rateColor(double? r) {
+  Color _rateColor(double? r, {required bool isDark}) {
     if (r == null) return Colors.grey;
-    if (r >= goldThreshold) return const Color(0xFFD4920E);
+    if (r >= goldThreshold) {
+      return isDark ? const Color(0xFFFBBB2B) : const Color(0xFF92400E);
+    }
     if (r >= silverThreshold) return AppColors.success;
     return AppColors.error;
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _rateColor(rate);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = _rateColor(rate, isDark: isDark);
     final rateLabel = rate != null
         ? '${rate!.toStringAsFixed(1)}%'
         : (isAr ? 'غير محتسب' : 'N/A');
@@ -913,27 +951,34 @@ class _KpiMetricCard extends StatelessWidget {
             runSpacing: 6,
             children: [
               for (final chip in chips)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: chip.color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: chip.color.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    '${chip.label}: ${chip.value}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: chip.color,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
+                Builder(
+                  builder: (context) {
+                    final chipTextColor = (!isDark && chip.color == AppColors.warning)
+                        ? const Color(0xFF9A3412)
+                        : chip.color;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: chip.color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: chip.color.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        '${chip.label}: ${chip.value}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: chipTextColor,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    );
+                  },
                 ),
             ],
           ),
@@ -1047,14 +1092,29 @@ class _RecentHistorySection extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              periodKey != null
-                                  ? '${_reasonLabel(item.changeReason)} ($periodKey)'
-                                  : _reasonLabel(item.changeReason),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            child: Wrap(
+                              spacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  _reasonLabel(item.changeReason),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (periodKey != null)
+                                  Directionality(
+                                    textDirection: ui.TextDirection.ltr,
+                                    child: Text(
+                                      '($periodKey)',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           if (item.performancePercentage != null)
@@ -1069,11 +1129,15 @@ class _RecentHistorySection extends StatelessWidget {
                               ),
                               child: Text(
                                 '${item.performancePercentage!.toStringAsFixed(1)}%',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
-                                  fontFeatures: [FontFeature.tabularFigures()],
+                                  color: isDark
+                                      ? AppColors.primary
+                                      : const Color(0xFF92400E),
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                             ),

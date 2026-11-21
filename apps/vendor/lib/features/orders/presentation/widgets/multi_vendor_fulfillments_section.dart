@@ -562,7 +562,7 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
               children: [
                 _buildFinancialRow(
                   label: isArabic ? 'إجمالي أصناف المتجر' : 'Store Subtotal',
-                  value: '${fSubtotal.toStringAsFixed(2)} EGP',
+                  value: '${fSubtotal.toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
                   labelStyle: TextStyle(
                     fontSize: 11.5,
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
@@ -579,7 +579,7 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
                     label: isArabic
                         ? 'الصافي (${(100 - commRate).toInt()}٪)'
                         : 'Net (${(100 - commRate).toInt()}%)',
-                    value: '${netPayout.toStringAsFixed(2)} EGP',
+                    value: '${netPayout.toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
                     labelStyle: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -832,7 +832,7 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 1),
                       child: Text(
-                        '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} EGP)' : ''}',
+                        '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} ${isArabic ? 'ج.م' : 'EGP'})' : ''}',
                         style: TextStyle(
                           fontSize: 10.5,
                           color: theme.colorScheme.onSurface.withValues(
@@ -846,7 +846,7 @@ class MultiVendorFulfillmentsSection extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            '${pTotalPrice.toStringAsFixed(2)} EGP',
+            '${pTotalPrice.toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
             style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,

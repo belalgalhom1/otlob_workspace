@@ -478,7 +478,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
             _isLoadingCategories
                 ? l10n.loadingCategories
                 : l10n.selectMenuCategory,
-            style: TextStyle(
+            style: theme.textTheme.bodyMedium?.copyWith(
               fontSize: 13.5,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -490,7 +490,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
             size: 16,
             color: theme.colorScheme.onSurfaceVariant,
           ),
-          style: TextStyle(
+          style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface,
             fontSize: 14,
           ),

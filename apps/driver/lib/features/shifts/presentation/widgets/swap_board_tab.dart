@@ -1,3 +1,5 @@
+import 'dart:ui' as ui show TextDirection;
+
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,11 +89,12 @@ class SwapBoardTab extends ConsumerWidget {
     } catch (_) {}
 
     final zoneName = shift['zone']?['name'] ?? shift['shiftPool']?['zone']?['name'] ?? l10n.assignedZone;
-    final driverName = shift['driver']?['name'] ?? swap['offeredByDriver']?['name'] ?? l10n.unknownDriver;
+    final driverName = shift['driver']?['name'] ?? swap['offeredByDriver']?['name'] ?? swap['driver']?['name'] ?? l10n.unknownDriver;
     final driverAvatar = (shift['driver']?['avatar'] ??
             shift['driver']?['user']?['avatar'] ??
             swap['offeredByDriver']?['avatar'] ??
-            swap['offeredByDriver']?['user']?['avatar'])
+            swap['offeredByDriver']?['user']?['avatar'] ??
+            swap['driver']?['avatar'])
         ?.toString();
 
     return Container(
@@ -128,10 +131,12 @@ class SwapBoardTab extends ConsumerWidget {
                 ),
                 child: Text(
                   l10n.shiftSwap,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.primary
+                        : const Color(0xFF92400E),
                   ),
                 ),
               ),
@@ -177,9 +182,12 @@ class SwapBoardTab extends ConsumerWidget {
             children: [
               Icon(LucideIcons.clock, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
               const SizedBox(width: 8),
-              Text(
-                '$startTime - $endTime',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+              Directionality(
+                textDirection: ui.TextDirection.ltr,
+                child: Text(
+                  '$startTime - $endTime',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                ),
               ),
             ],
           ),

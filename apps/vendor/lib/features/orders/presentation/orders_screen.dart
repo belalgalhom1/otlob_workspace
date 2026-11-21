@@ -4,7 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -115,6 +115,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
   Widget _buildDateChip(BuildContext context, int? days, String label) {
     final selected = _dateDays == days && _customRange == null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedAccent = isDark ? AppColors.primary : const Color(0xFFB45309);
     return ChoiceChip(
       label: Text(label),
       selected: selected,
@@ -122,12 +124,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         _dateDays = days;
         _customRange = null;
       }),
-      selectedColor: AppColors.primary.withValues(alpha: 0.2),
+      selectedColor: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.22),
+      checkmarkColor: selectedAccent,
       labelStyle: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.bold,
         color: selected
-            ? AppColors.primary
+            ? selectedAccent
             : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -579,69 +582,68 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildDateChip(context, null, isArabic ? 'الكل' : 'All'),
+                      _buildDateChip(context, 0, isArabic ? 'اليوم' : 'Today'),
+                      _buildDateChip(context, 7, isArabic ? '٧ أيام' : '7 days'),
+                      _buildDateChip(context, 30, isArabic ? '٣٠ يوم' : '30 days'),
+                      ChoiceChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            _buildDateChip(context, null,
-                                isArabic ? 'الكل' : 'All'),
-                            const SizedBox(width: 8),
-                            _buildDateChip(context, 0,
-                                isArabic ? 'اليوم' : 'Today'),
-                            const SizedBox(width: 8),
-                            _buildDateChip(context, 7,
-                                isArabic ? '٧ أيام' : '7 days'),
-                            const SizedBox(width: 8),
-                            _buildDateChip(context, 30,
-                                isArabic ? '٣٠ يوم' : '30 days'),
-                            const SizedBox(width: 8),
-                            ChoiceChip(
-                              label: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(LucideIcons.calendarDays,
-                                      size: 14),
-                                  const SizedBox(width: 4),
-                                  Text(_customRangeLabel(isArabic)),
-                                  if (_customRange != null) ...[
-                                    const SizedBox(width: 4),
-                                    InkWell(
-                                      onTap: () => setState(() =>
-                                          _customRange = null),
-                                      child: const Icon(
-                                          LucideIcons.x,
-                                          size: 14),
-                                    ),
-                                  ],
-                                ],
+                            const Icon(LucideIcons.calendarDays, size: 14),
+                            const SizedBox(width: 4),
+                            Text(_customRangeLabel(isArabic)),
+                            if (_customRange != null) ...[
+                              const SizedBox(width: 4),
+                              InkWell(
+                                onTap: () =>
+                                    setState(() => _customRange = null),
+                                child: const Icon(LucideIcons.x, size: 14),
                               ),
-                              selected: _customRange != null,
-                              onSelected: (_) =>
-                                  _pickCustomRange(context),
-                              selectedColor: AppColors.primary
-                                  .withValues(alpha: 0.2),
-                              labelStyle: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: _customRange != null
-                                    ? AppColors.primary
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.7),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(20)),
-                              side: BorderSide(
-                                color: _customRange != null
-                                    ? AppColors.primary
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.15),
-                              ),
-                            ),
+                            ],
+                          ],
+                        ),
+                        selected: _customRange != null,
+                        onSelected: (_) => _pickCustomRange(context),
+                        selectedColor: AppColors.primary.withValues(
+                          alpha: Theme.of(context).brightness == Brightness.dark
+                              ? 0.2
+                              : 0.22,
+                        ),
+                        checkmarkColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.primary
+                                : const Color(0xFFB45309),
+                        labelStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: _customRange != null
+                              ? (Theme.of(context).brightness == Brightness.dark
+                                  ? AppColors.primary
+                                  : const Color(0xFFB45309))
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.7),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        side: BorderSide(
+                          color: _customRange != null
+                              ? AppColors.primary
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.15),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -883,23 +885,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: gradientColors,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.25),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ],
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 18),
                     ),
-                    child: Icon(icon, color: Theme.of(context).colorScheme.onSurface, size: 18),
-                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1092,7 +1094,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       final createdAt =
           DateTime.tryParse(order['createdAt']?.toString() ?? '')?.toLocal();
       if (createdAt != null) {
-        dateStr = DateFormat('yyyy-MM-dd hh:mm a').format(createdAt);
+        dateStr = DateFormat(
+          'dd MMM yyyy • hh:mm a',
+          isArabic ? 'ar' : 'en',
+        ).format(createdAt);
       }
     } catch (_) {}
 
@@ -1216,12 +1221,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: Text(
-                                        '#$orderNumber',
-                                        style: TextStyle(
-                                          color: statusColor,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
+                                      child: Directionality(
+                                        textDirection: TextDirection.ltr,
+                                        child: Text(
+                                          '#$orderNumber',
+                                          style: TextStyle(
+                                            color: statusColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1438,11 +1446,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             ),
                             const SizedBox(width: 16),
                             Text(
-                              '${total.toStringAsFixed(2)} EGP',
+                              '${total.toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                                 color: AppColors.success,
+                                fontFeatures: [FontFeature.tabularFigures()],
                               ),
                             ),
                           ],
@@ -1976,7 +1985,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      '$itemsCount ${isArabic ? "أصناف" : "items"}',
+                      isArabic
+                          ? (itemsCount == 1
+                              ? 'صنف واحد'
+                              : (itemsCount == 2
+                                  ? 'صنفان'
+                                  : '$itemsCount ${itemsCount <= 10 ? "أصناف" : "صنف"}'))
+                          : (itemsCount == 1 ? '1 item' : '$itemsCount items'),
                       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
                     ),
                   ),
@@ -2827,7 +2842,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(top: 2),
                                 child: Text(
-                                  '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} EGP)' : ''}',
+                                  '+ ${opt['optionName']}${(double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0) > 0 ? ' (+${opt['priceAdded']} ${isArabic ? 'ج.م' : 'EGP'})' : ''}',
                                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                                 ),
                               ),
@@ -2836,7 +2851,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${(price * quantity).toStringAsFixed(2)} EGP',
+                      '${(price * quantity).toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
@@ -3209,12 +3224,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              '${sSub.toStringAsFixed(2)} EGP',
+                              '${sSub.toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                             if (isCont)
                               Text(
-                                isArabic ? 'صافي: ${sPay.toStringAsFixed(2)} EGP' : 'Net: ${sPay.toStringAsFixed(2)} EGP',
+                                isArabic ? 'صافي: ${sPay.toStringAsFixed(2)} ج.م' : 'Net: ${sPay.toStringAsFixed(2)} EGP',
                                 style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
                               ),
                           ],
@@ -3252,7 +3267,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           ),
                         ),
                         Text(
-                          '${sSub.toStringAsFixed(2)} EGP',
+                          '${sSub.toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -3303,7 +3318,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${grandTotal.toStringAsFixed(2)} EGP',
+                  '${grandTotal.toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -3326,7 +3341,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '${totalNetPayout.toStringAsFixed(2)} EGP',
+                  '${totalNetPayout.toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -3397,7 +3412,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                '${netPayout.toStringAsFixed(2)} EGP',
+                '${netPayout.toStringAsFixed(2)} ${isArabic ? 'ج.م' : 'EGP'}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
@@ -3446,6 +3461,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 
   Widget _buildPriceRow(String label, double? value, {bool isDiscount = false}) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final currency = isArabic ? 'ج.م' : 'EGP';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
@@ -3465,7 +3482,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         Text(
           value == null
               ? '---'
-              : '${value > 0 && isDiscount ? '-' : ''}${value.abs().toStringAsFixed(2)} EGP',
+              : '${value > 0 && isDiscount ? '-' : ''}${value.abs().toStringAsFixed(2)} $currency',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.bold,
@@ -3488,6 +3505,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     Widget? leading,
     Widget? trailing,
   }) {
+    final hasArabic = RegExp(r'[\u0600-\u06FF]').hasMatch(value);
+    final hasLatinOrDigits = RegExp(r'[A-Za-z0-9+]').hasMatch(value);
+    final forceLtrValue = !hasArabic && hasLatinOrDigits;
+    final valueText = Text(
+      value,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+      ),
+    );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3516,13 +3543,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              forceLtrValue
+                  ? Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: valueText,
+                    )
+                  : valueText,
             ],
           ),
         ),

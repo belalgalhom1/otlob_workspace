@@ -140,9 +140,9 @@ model PlatformSetting {
   maxSingleBreakMinutes                 Int       @default(30)
   pendingBreakExpiryMins                Int       @default(15)
   otpExpirySeconds                      Int       @default(900)
-  bronzeTierBonusPerKm                  Int       @default(0)
-  silverTierBonusPerKm                  Int       @default(0)
-  goldTierBonusPerKm                    Int       @default(0)
+  goldTierBonusPerOrder                 Float     @default(0)
+  bronzeTierDeductionAmount             Float     @default(0)
+  bronzeSupervisorDeductionAmount       Float     @default(0)
   highValueOrderThreshold               Int       @default(0)
   highValueUpfrontRate                  Int       @default(0)
   driverRankingAutoEvalEnabled          Boolean   @default(true)
@@ -891,24 +891,31 @@ model Order {
   pickupLocation       Unsupported("geometry")?
   itemDetails          String?
   requestedVehicleType VehicleType?
-  subtotal             Int
-  deliveryFee          Int
-  driverBonusFee       Int                       @default(0)
-  serviceFee           Int
-  tax                  Int
-  discount             Int                       @default(0)
-  coinsUsed            Int                       @default(0)
-  coinsEarned          Int                       @default(0)
-  grandTotal           Int
-  upfrontAmount        Int                       @default(0)
-  specialRequest       String?
-  distanceKm           Float?
-  deletedAt            DateTime?                 @db.Timestamptz(3)
-  createdAt            DateTime                  @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                  @updatedAt @db.Timestamptz(3)
-  paymentReceiptUrl    String?
-  actualDeliveryTime   DateTime?                 @db.Timestamptz(3)
-  settledAt            DateTime?                 @db.Timestamptz(3)
+  subtotal                              Int
+  deliveryFee                           Int
+  goldSurchargeAmount                   Int                       @default(0)
+  driverBonusFee                        Int                       @default(0)
+  serviceFee                            Int
+  tax                                   Int
+  discount                              Int                       @default(0)
+  coinsUsed                             Int                       @default(0)
+  coinsEarned                           Int                       @default(0)
+  grandTotal                            Int
+  upfrontAmount                         Int                       @default(0)
+  specialRequest                        String?
+  distanceKm                            Float?
+  deletedAt                             DateTime?                 @db.Timestamptz(3)
+  createdAt                             DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt                             DateTime                  @updatedAt @db.Timestamptz(3)
+  paymentReceiptUrl                     String?
+  actualDeliveryTime                    DateTime?                 @db.Timestamptz(3)
+  settledAt                             DateTime?                 @db.Timestamptz(3)
+  settledGoldBonusAmount                Int                       @default(0)
+  settledGoldPlatformRetainedAmount     Int                       @default(0)
+  settledBronzeDriverDeduction          Int                       @default(0)
+  settledBronzeSupervisorDeduction      Int                       @default(0)
+  settledBronzeDriverDeductionRate      Float?
+  settledBronzeSupervisorDeductionRate  Float?
   cancelledByUserId    String?
   cancelledByRole      Role?
   cancelledByName      String?
@@ -1105,9 +1112,16 @@ model OrderDeliveryGroup {
   isPaymentCollector     Boolean                   @default(false)
   assignedByUserId       String?
   assignedAt             DateTime?                 @db.Timestamptz(3)
-  distanceKm             Float?
-  deliveryFee            Int                       @default(0)
-  estimatedPrepTime      Int?
+  distanceKm                       Float?
+  deliveryFee                      Int                       @default(0)
+  goldSurchargeAmount              Int                       @default(0)
+  primaryDriverTierSnapshot        DriverTier?
+  settledGoldBonusAmount           Int                       @default(0)
+  settledGoldPlatformRetainedAmount Int                      @default(0)
+  settledBronzeDriverDeduction     Int                       @default(0)
+  settledBronzeSupervisorDeduction Int                       @default(0)
+  settledPrimaryManagerId          String?
+  estimatedPrepTime                Int?
   pickupImageUrl         String?
   deliveryImageUrl       String?
   pickedUpAt             DateTime?                 @db.Timestamptz(3)

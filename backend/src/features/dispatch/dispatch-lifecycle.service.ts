@@ -27,6 +27,7 @@ import { PlatformSettingsService } from '../platform-settings/platform-settings.
 import { LocationRepository } from '../location/location.repository';
 import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
+import { requiresActiveShiftForOrderType } from '../../common/orders/money.helper';
 import { OrderErrors } from '../../common/constants/response.constants';
 import {
   recordOrderStatusEventIdempotent,
@@ -448,8 +449,9 @@ export class DispatchLifecycleService {
   }> {
     const settings = await this.platformSettings.getSettings();
     const maxActiveOrders = Number(settings.maxActiveOrdersPerDriver ?? 1);
-    const requireActiveShift = Boolean(
-      settings.driverShiftsEnabled && dispatchData.type === 'STANDARD',
+    const requireActiveShift = requiresActiveShiftForOrderType(
+      settings.driverShiftsEnabled,
+      dispatchData.type,
     );
     const candidateIds = Array.from(
       new Set(unresponded.map((c) => c.driverId)),
@@ -927,6 +929,14 @@ export class DispatchLifecycleService {
           },
         });
 
+        const assignedDriver =
+          typeof tx.driver?.findUnique === 'function'
+            ? await tx.driver.findUnique({
+                where: { id: driverId },
+                select: { tier: true },
+              })
+            : null;
+
         const groupClaimed = await tx.orderDeliveryGroup.updateMany({
           where: {
             id: groupId,
@@ -941,6 +951,9 @@ export class DispatchLifecycleService {
           data: {
             primaryDriverId: driverId,
             primaryDriverShiftId: candidate.driverShiftId,
+            ...(assignedDriver?.tier
+              ? { primaryDriverTierSnapshot: assignedDriver.tier }
+              : {}),
             isStacked: isStackedOrder,
             status: nextGroupStatus,
             assignedByUserId: 'system',

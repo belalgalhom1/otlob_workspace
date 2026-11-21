@@ -25,6 +25,10 @@ import {
   GroupingResult,
   haversineKm,
 } from './order-grouping.service';
+import {
+  centsToWholeEgp,
+  toMoneyCents,
+} from '../../common/orders/money.helper';
 import { CustomerErrors } from '../../common/constants/response.constants';
 import { OrderErrors } from '../../common/constants/response.constants';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
@@ -336,7 +340,7 @@ export class OrdersMultiVendorService {
           id, "orderNumber", "clientOrderKey", type, "customerId",
           "zoneId", status, "paymentMethod", "paymentStatus",
           "deliveryAddress", "deliveryLocation",
-          subtotal, "deliveryFee", "driverBonusFee", "serviceFee", tax,
+          subtotal, "deliveryFee", "goldSurchargeAmount", "driverBonusFee", "serviceFee", tax,
           discount, "coinsUsed", "coinsEarned", "grandTotal", "upfrontAmount",
           "specialRequest", "distanceKm", "updatedAt"
         ) VALUES (
@@ -346,7 +350,7 @@ export class OrdersMultiVendorService {
           ${plan.grandTotal <= 0 ? 'PAID' : 'PENDING'}::"PaymentStatus",
           ${dto.deliveryAddress},
           ST_SetSRID(ST_MakePoint(${plan.deliveryLng}, ${plan.deliveryLat}), 4326),
-          ${plan.subtotal}, ${plan.deliveryFee}, ${plan.driverBonusFee},
+          ${plan.subtotal}, ${plan.deliveryFee}, ${Math.round(plan.goldSurchargeAmount ?? 0)}, ${plan.driverBonusFee},
           ${plan.serviceFee}, ${plan.tax}, ${plan.discount},
           ${plan.coinsUsed}, ${plan.coinsEarned}, ${plan.grandTotal}, ${plan.upfrontAmount},
           ${dto.specialRequest ?? null}, ${orderDistanceKm}, NOW()
@@ -504,6 +508,8 @@ export class OrdersMultiVendorService {
               group.farthestToCustomerKm,
               group.sequence - 1,
             ),
+            goldSurchargeAmount:
+              groupIndex === 0 ? Math.round(plan.goldSurchargeAmount ?? 0) : 0,
             isPaymentCollector: groupIndex === 0,
           },
         });
@@ -780,6 +786,7 @@ export class OrdersMultiVendorService {
               stopDists,
               zone.baseDeliveryFeeOverride ?? null,
               settings,
+              false,
             )
           : await (async () => {
               let rawSum = 0;
@@ -790,6 +797,8 @@ export class OrdersMultiVendorService {
                   null,
                   true,
                   settings,
+                  null,
+                  false,
                 );
               }
               if (stopDists.length <= 1) {
@@ -807,6 +816,18 @@ export class OrdersMultiVendorService {
               );
             })();
       groupFees.push(fee);
+    }
+    const goldSurchargeAmount = Math.max(
+      0,
+      centsToWholeEgp(
+        toMoneyCents(
+          (settings as { goldTierBonusPerOrder?: number | null })
+            ?.goldTierBonusPerOrder ?? 0,
+        ),
+      ),
+    );
+    if (groupFees.length > 0 && goldSurchargeAmount > 0) {
+      groupFees[0] = Math.round(groupFees[0] + goldSurchargeAmount);
     }
     const deliveryFee = groupFees.reduce((a, b) => a + b, 0);
 
@@ -890,6 +911,7 @@ export class OrdersMultiVendorService {
       groupFees,
       subtotal,
       deliveryFee,
+      goldSurchargeAmount,
       serviceFee,
       tax,
       discount,

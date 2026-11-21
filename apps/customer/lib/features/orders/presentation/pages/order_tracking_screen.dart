@@ -266,6 +266,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   XFile? _receiptFile;
   double _sheetHeightPx = 0.0;
   List<RoadRoutePoint> _roadRoutePoints = const [];
+  List<LatLng> _cachedRoadLatLngs = const [];
+  List<RoadRoutePoint>? _cachedSourceRoadPoints;
+  List<LatLng> _cachedTrimmedTail = const [];
+  LatLng? _cachedTrimmedForDriverPos;
+  LatLng? _lastCameraMovePos;
   String _lastRouteSignature = '';
   RoadRoutePoint? _lastRoutedDriverPoint;
   DateTime? _lastRouteFetchAt;
@@ -379,6 +384,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
               finalRoute.hasRenderablePath) {
             setState(() {
               _roadRoutePoints = finalRoute.points;
+              _cachedTrimmedForDriverPos = null;
             });
           }
         })
@@ -402,16 +408,20 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       duration: const Duration(milliseconds: 1400),
     );
     _driverMoveController.addListener(() {
-      // Throttle camera movement to prevent excessive map redraws on budget devices
       if (_followDriver && _driverAnimTarget != null) {
         final now = DateTime.now();
-        if (_lastCameraMove == null || now.difference(_lastCameraMove!).inMilliseconds > 350) {
+        final pos = _currentDriverLocation;
+        final movedEnough = pos != null &&
+            (_lastCameraMovePos == null ||
+                const Distance().as(LengthUnit.Meter, _lastCameraMovePos!, pos) >=
+                    1.5);
+        if (movedEnough &&
+            (_lastCameraMove == null ||
+                now.difference(_lastCameraMove!).inMilliseconds > 65)) {
           _lastCameraMove = now;
-          final pos = _currentDriverLocation;
-          if (pos != null) {
-            final zoom = _mapController.camera.zoom;
-            _mapController.move(pos, zoom);
-          }
+          _lastCameraMovePos = pos;
+          final zoom = _mapController.camera.zoom;
+          _mapController.move(pos, zoom);
         }
       }
     });
@@ -420,6 +430,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         setState(() {
           _isDriverWalking = false;
           _driverLocation = _driverAnimTarget ?? _driverLocation;
+          _cachedTrimmedForDriverPos = null;
         });
         if (_followDriver && _driverLocation != null) {
           final zoom = _mapController.camera.zoom;
@@ -1097,6 +1108,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     _driverAnimStart = currentPos;
     _driverAnimTarget = target;
     _driverLocation = currentPos;
+    _cachedTrimmedForDriverPos = null;
     _isDriverWalking = true;
     _driverMoveController.forward(from: 0.0);
     _maybeRefreshOrderRoadRoute(driverOverride: target);
@@ -1262,6 +1274,45 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     return stops;
   }
 
+  List<LatLng> _resolveLiveTripPath(
+    LatLng? driverPos,
+    List<LatLng> fallbackPath,
+  ) {
+    if (_roadRoutePoints.length < 2) {
+      return fallbackPath;
+    }
+    if (!identical(_cachedSourceRoadPoints, _roadRoutePoints)) {
+      _cachedSourceRoadPoints = _roadRoutePoints;
+      _cachedRoadLatLngs = fromRoadRoutePoints(_roadRoutePoints);
+      _cachedTrimmedTail = const [];
+      _cachedTrimmedForDriverPos = null;
+    }
+    if (driverPos == null) {
+      return _cachedRoadLatLngs;
+    }
+    final shouldReTrim = _cachedTrimmedForDriverPos == null ||
+        const Distance().as(
+              LengthUnit.Meter,
+              _cachedTrimmedForDriverPos!,
+              driverPos,
+            ) >=
+            8.0;
+    if (shouldReTrim) {
+      final trimmed = trimRouteToDriverPosition(
+        _roadRoutePoints,
+        toRoadRoutePoint(driverPos),
+      ).points;
+      _cachedTrimmedTail = trimmed.length > 1
+          ? fromRoadRoutePoints(trimmed.sublist(1))
+          : const [];
+      _cachedTrimmedForDriverPos = driverPos;
+    }
+    if (_cachedTrimmedTail.isEmpty) {
+      return _cachedRoadLatLngs;
+    }
+    return [driverPos, ..._cachedTrimmedTail];
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
@@ -1286,22 +1337,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       waypointFallbackPath.add(destPos);
     }
 
-    final List<LatLng> roadLatLngs = fromRoadRoutePoints(_roadRoutePoints);
-    final List<LatLng> tripPath;
-    if (roadLatLngs.length >= 2) {
-      if (_driverLocation != null) {
-        tripPath = fromRoadRoutePoints(
-          trimRouteToDriverPosition(
-            _roadRoutePoints,
-            toRoadRoutePoint(_driverLocation!),
-          ).points,
-        );
-      } else {
-        tripPath = roadLatLngs;
-      }
-    } else {
-      tripPath = waypointFallbackPath;
-    }
+    final tripPath = _resolveLiveTripPath(
+      _currentDriverLocation ?? _driverLocation,
+      waypointFallbackPath,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -1320,9 +1359,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
               child: CircularProgressIndicator(color: AppColors.primary),
             )
           else if (_driverLocation == null && _initialMapCenter == null)
-            ColoredBox(
-              color: isDark ? const Color(0xFF111827) : const Color(0xFFF3F4F6),
-            )
+            const ColoredBox(color: Color(0xFFF8FAFC))
           else
             FlutterMap(
               mapController: _mapController,
@@ -1339,47 +1376,45 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
               ),
               children: [
                 const AppMapTileLayer(userAgentPackageName: 'com.otlob.customer'),
-                AnimatedBuilder(
-                  animation: _driverMoveController,
-                  builder: (context, _) {
-                    final currentDriverPos = _currentDriverLocation ?? _driverLocation;
-                    final List<LatLng> liveTripPath;
-                    if (_roadRoutePoints.length >= 2) {
-                      if (currentDriverPos != null) {
-                        liveTripPath = fromRoadRoutePoints(
-                          trimRouteToDriverPosition(
-                            _roadRoutePoints,
-                            toRoadRoutePoint(currentDriverPos),
-                          ).points,
+                RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _driverMoveController,
+                    builder: (context, _) {
+                      final currentDriverPos =
+                          _currentDriverLocation ?? _driverLocation;
+                      final List<LatLng> liveTripPath;
+                      if (_roadRoutePoints.length >= 2) {
+                        liveTripPath = _resolveLiveTripPath(
+                          currentDriverPos,
+                          waypointFallbackPath,
                         );
                       } else {
-                        liveTripPath = roadLatLngs;
+                        liveTripPath = [
+                          ?currentDriverPos,
+                          for (final stop in storeStops)
+                            if (stop['isPickedUp'] != true)
+                              LatLng(stop['lat'] as double, stop['lng'] as double),
+                          ?destPos,
+                        ];
                       }
-                    } else {
-                      liveTripPath = [
-                        ?currentDriverPos,
-                        for (final stop in storeStops)
-                          if (stop['isPickedUp'] != true)
-                            LatLng(stop['lat'] as double, stop['lng'] as double),
-                        ?destPos,
-                      ];
-                    }
 
-                    if (liveTripPath.length < 2) return const SizedBox.shrink();
-                    return PolylineLayer(
-                      polylines: NavigationRoutePolylines.build(
-                        points: liveTripPath,
-                        foregroundColor: AppColors.primary,
-                        strokeWidth: 4.5,
-                        casingWidth: 7.5,
-                      ),
-                    );
-                  },
+                      if (liveTripPath.length < 2) return const SizedBox.shrink();
+                      return PolylineLayer(
+                        polylines: NavigationRoutePolylines.build(
+                          points: liveTripPath,
+                          foregroundColor: AppColors.primary,
+                          strokeWidth: 4.5,
+                          casingWidth: 7.5,
+                        ),
+                      );
+                    },
+                  ),
                 ),
 
                 // 1. Store Pickup Stops Markers
                 if (storeStops.isNotEmpty)
-                  MarkerLayer(
+                  RepaintBoundary(
+                    child: MarkerLayer(
                     markers: storeStops.map((stop) {
                       final point = LatLng(stop['lat'] as double, stop['lng'] as double);
                       final bool isPickedUp = stop['isPickedUp'] == true;
@@ -1480,10 +1515,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                       );
                     }).toList(),
                   ),
+                  ),
 
                 // 2. Customer Delivery Destination Marker
                 if (destPos != null)
-                  MarkerLayer(
+                  RepaintBoundary(
+                    child: MarkerLayer(
                     markers: [
                       Marker(
                         point: destPos,
@@ -1552,7 +1589,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                       ),
                     ],
                   ),
-                AnimatedBuilder(
+                  ),
+                RepaintBoundary(
+                  child: AnimatedBuilder(
                   animation: _driverMoveController,
                   builder: (context, _) {
                     final pos = _currentDriverLocation;
@@ -1584,6 +1623,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                       ],
                     );
                   },
+                  ),
                 ),
               ],
             ),

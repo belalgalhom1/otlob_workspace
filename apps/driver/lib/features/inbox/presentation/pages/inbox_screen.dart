@@ -209,7 +209,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       typeLabel = isAr ? 'محادثة طلب' : 'Order Conversation';
       final orderIdStr = convo['orderId']?.toString() ?? '';
       final orderNumStr =
-          convo['order']?['orderNumber']?.toString() ??
+          (convo['order']?['orderNumber'] ?? convo['orderNumber'])?.toString() ??
           (orderIdStr.length > 8 ? orderIdStr.substring(0, 8) : orderIdStr);
       title = isAr ? 'طلب #$orderNumStr' : 'Order #$orderNumStr';
       icon = Icons.receipt_long_rounded;

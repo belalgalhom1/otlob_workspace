@@ -338,6 +338,9 @@ class _DriverRankingAdminScreenState
                 isScrollable: isCompactTabs,
                 tabAlignment:
                     isCompactTabs ? TabAlignment.start : TabAlignment.fill,
+                labelPadding: EdgeInsets.symmetric(
+                  horizontal: isCompactTabs ? 12 : 16,
+                ),
                 indicatorColor: AppColors.primary,
                 labelColor: AppColors.primary,
                 unselectedLabelColor: Theme.of(
@@ -584,67 +587,77 @@ class _DriverRankingAdminScreenState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (preview != null) ...[
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final pills = <Widget>[
                       _SummaryStatPill(
                         label: isAr ? 'الأسبوع المستهدف' : 'Target Week',
                         value: preview.week.periodKey,
                         color: AppColors.primary,
                         icon: LucideIcons.calendar,
                       ),
-                      const SizedBox(width: 8),
                       _SummaryStatPill(
                         label: isAr ? 'إجمالي السائقين' : 'Total Drivers',
                         value: '${preview.totalDrivers.toInt()}',
                         color: AppColors.info,
                         icon: LucideIcons.users,
                       ),
-                      const SizedBox(width: 8),
                       _SummaryStatPill(
                         label: isAr ? 'ترقية' : 'Promoted',
                         value: '${preview.promotedCount.toInt()}',
                         color: AppColors.success,
                         icon: LucideIcons.trendingUp,
                       ),
-                      const SizedBox(width: 8),
                       _SummaryStatPill(
                         label: isAr ? 'تراجع' : 'Demoted',
                         value: '${preview.demotedCount.toInt()}',
                         color: AppColors.error,
                         icon: LucideIcons.trendingDown,
                       ),
-                      const SizedBox(width: 8),
                       _SummaryStatPill(
                         label: isAr ? 'ثابت' : 'Unchanged',
                         value: '${preview.unchangedCount.toInt()}',
                         color: Colors.blueGrey,
                         icon: LucideIcons.minus,
                       ),
-                      const SizedBox(width: 8),
                       _SummaryStatPill(
                         label: isAr ? 'غير نشط' : 'Inactive',
                         value: '${preview.inactiveCount.toInt()}',
                         color: AppColors.warning,
                         icon: LucideIcons.moon,
                       ),
-                      const SizedBox(width: 8),
                       _SummaryStatPill(
                         label: isAr ? 'الحد الذهبي' : 'Gold Tier',
                         value: '≥ ${preview.goldThreshold.toInt()}%',
                         color: const Color(0xFFD4920E),
                         icon: LucideIcons.trophy,
                       ),
-                      const SizedBox(width: 8),
                       _SummaryStatPill(
                         label: isAr ? 'الحد الفضي' : 'Silver Tier',
                         value: '≥ ${preview.silverThreshold.toInt()}%',
                         color: const Color(0xFF64748B),
                         icon: LucideIcons.award,
                       ),
-                    ],
-                  ),
+                    ];
+                    if (constraints.maxWidth >= 600) {
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: pills,
+                      );
+                    }
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < pills.length; i++) ...[
+                            if (i > 0) const SizedBox(width: 8),
+                            pills[i],
+                          ],
+                        ],
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 10),
               ],

@@ -221,9 +221,9 @@ describe('OrderSettlementService', () => {
     const platformSettings: any = {
       getSettings: jest.fn().mockResolvedValue({
         driverShiftsEnabled: true,
-        goldTierBonusPerKm: 2,
-        silverTierBonusPerKm: 1.5,
-        bronzeTierBonusPerKm: 1,
+        goldTierBonusPerOrder: 0,
+        bronzeTierDeductionAmount: 0,
+        bronzeSupervisorDeductionAmount: 0,
         deliveryCommissionRate: 20,
         driverManagerCommissionRate: 10,
         multiVendorDriverManagerCommissionRate: 12,
@@ -301,9 +301,14 @@ describe('OrderSettlementService', () => {
     expect(h.eventEmit).not.toHaveBeenCalled();
   });
 
-  it('settles single-vendor Bronze-tier COD order with -2 tier deduction, vendor ledger, coins, stats & ORDER_SETTLED', async () => {
+  it('settles single-vendor Bronze-tier COD order without hardcoded -2 and with configurable Bronze deductions, vendor ledger, coins, stats & ORDER_SETTLED', async () => {
     const h = createHarness({
       driverSnapshot: { walletBalance: 100, ordersSinceSettlement: 0 },
+      settings: {
+        bronzeTierDeductionAmount: 5,
+        bronzeSupervisorDeductionAmount: 3,
+      },
+      managerAssignment: { driverManagerId: 'mgr-1' },
     });
 
     await h.service.settleOrder(
@@ -319,11 +324,19 @@ describe('OrderSettlementService', () => {
       }),
     );
 
-    // Bronze diff vs Gold = (2 - 1) * 5 = 5 -> 50 - 5 = 45; Bronze - 2 = 43; 80% share = 34
+    // Base fee = 50 -> 80% driver share = 40 (no per-km tier diff, no hardcoded -2)
+    // Plus separate PENALTY -5 on driver, and separate BRONZE_PENALTY -3 on primary supervisor (share = 5)
     const txByType = new Map(h.walletTxCreates.map((t) => [t.type, t.amount]));
     expect(txByType.get('CASH_HANDED_TO_VENDOR')).toBe(180);
     expect(txByType.get('CASH_COLLECTED')).toBe(-250);
-    expect(txByType.get('DELIVERY_FEE')).toBe(34);
+    expect(txByType.get('DELIVERY_FEE')).toBe(40);
+    expect(txByType.get('PENALTY')).toBe(-5);
+    expect(h.managerTxCreates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ managerId: 'mgr-1', type: 'DELIVERY_SHARE', amount: 5 }),
+        expect.objectContaining({ managerId: 'mgr-1', type: 'BRONZE_PENALTY', amount: -3 }),
+      ]),
+    );
 
     expect(h.vendorWalletTxCreates).toEqual(
       expect.arrayContaining([
@@ -445,14 +458,14 @@ describe('OrderSettlementService', () => {
     ).toBe(false);
 
     // grp-1: 40 * 0.85 = 34, grp-2 (stacked): 20 * 0.75 = 15 => combined d-primary = 49
-    // assist d-assist (BRONZE): (40 - (2-1)*2) = 38 * 0.8 = 30, Bronze -2 = 28
+    // assist d-assist (BRONZE): 40 * 0.8 = 32 (no per-km tier diff, no hardcoded -2)
     const feeTxByDriver = new Map(
       h.walletTxCreates
         .filter((t) => t.type === 'DELIVERY_FEE')
         .map((t) => [t.driverId, t]),
     );
     expect(feeTxByDriver.get('d-primary')?.amount).toBe(49);
-    expect(feeTxByDriver.get('d-assist')?.amount).toBe(28);
+    expect(feeTxByDriver.get('d-assist')?.amount).toBe(32);
 
     // Manager gets round(40*0.12)=5 + round(20*0.08)=2 = 7
     expect(h.managerTxCreates).toHaveLength(1);
@@ -681,8 +694,8 @@ describe('OrderSettlementService', () => {
     const appJobCall = (h.statsQueue.add as jest.Mock).mock.calls.find(
       (c) => c[0] === STATS_JOBS.UPDATE_APP,
     );
-    // platformFee(25) + (deliveryFee 60 - primary 49) - totalAssist 28 - manager 7 = 1
-    expect(appJobCall?.[1]?.increment?.totalAdminRevenue).toBe(1);
+    // platformFee(25) + (deliveryFee 60 - primary 49) - totalAssist 32 - manager 7 = -3
+    expect(appJobCall?.[1]?.increment?.totalAdminRevenue).toBe(-3);
   });
 
   it('scopes transaction idempotency checks to settle: or null keys', async () => {

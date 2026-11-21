@@ -45,6 +45,8 @@ export class OrderRejectionRecomputor {
       where: { id: deliveryGroupId },
       select: {
         deliveryFee: true,
+        goldSurchargeAmount: true,
+        isPaymentCollector: true,
         sequence: true,
         primaryDriverId: true,
         assistDriverId: true,
@@ -60,6 +62,10 @@ export class OrderRejectionRecomputor {
       // Nobody left to pick up from: cancel the delivery group (as long as it
       // has not been picked up/delivered yet), cancel any pending dispatches for
       // it, and return any assigned driver(s) so they can be freed after commit.
+      const carriedGold = Math.max(
+        0,
+        Math.round(Number((group as { goldSurchargeAmount?: number }).goldSurchargeAmount ?? 0)),
+      );
       const cancelled = await tx.orderDeliveryGroup.updateMany({
         where: {
           id: deliveryGroupId,
@@ -72,10 +78,40 @@ export class OrderRejectionRecomputor {
             ],
           },
         },
-        data: { status: DeliveryGroupStatus.CANCELLED, deliveryFee: 0 },
+        data: {
+          status: DeliveryGroupStatus.CANCELLED,
+          deliveryFee: 0,
+          ...(carriedGold > 0 ? { goldSurchargeAmount: 0 } : {}),
+        },
       });
       if (cancelled.count === 0) {
         return { deliveryFeeDelta: 0, freedDriverIds: [] };
+      }
+
+      let transferredGold = 0;
+      if (carriedGold > 0 && typeof tx.orderDeliveryGroup.findFirst === 'function') {
+        const nextActiveGroup = await tx.orderDeliveryGroup.findFirst({
+          where: {
+            orderId,
+            id: { not: deliveryGroupId },
+            status: { not: DeliveryGroupStatus.CANCELLED },
+          },
+          orderBy: { sequence: 'asc' },
+          select: { id: true },
+        });
+        if (nextActiveGroup) {
+          await tx.orderDeliveryGroup.update({
+            where: { id: nextActiveGroup.id },
+            data: {
+              deliveryFee: { increment: carriedGold },
+              goldSurchargeAmount: { increment: carriedGold },
+              ...((group as { isPaymentCollector?: boolean }).isPaymentCollector
+                ? { isPaymentCollector: true }
+                : {}),
+            },
+          });
+          transferredGold = carriedGold;
+        }
       }
 
       await tx.orderDispatch.updateMany({
@@ -114,8 +150,17 @@ export class OrderRejectionRecomputor {
         group.primaryDriverId,
         group.assistDriverId,
       ].filter((id): id is string => Boolean(id));
-      return { deliveryFeeDelta: -group.deliveryFee, freedDriverIds };
+      return {
+        deliveryFeeDelta: -(group.deliveryFee - transferredGold),
+        freedDriverIds,
+      };
     }
+
+    const preservedGold = Math.max(
+      0,
+      Math.round(Number((group as { goldSurchargeAmount?: number }).goldSurchargeAmount ?? 0)),
+    );
+    const currentBaseFee = Math.max(0, group.deliveryFee - preservedGold);
 
     // Recompute the delivery fee for the remaining vendor portions in this group.
     let newFee: number;
@@ -199,26 +244,29 @@ export class OrderRejectionRecomputor {
           zoneBaseDeliveryFeeOverride = zone?.baseDeliveryFeeOverride ?? null;
         }
 
-        newFee = await this.platformSettings.calculateGroupDeliveryFee(
+        const baseNewFee = await this.platformSettings.calculateGroupDeliveryFee(
           stopDists,
           zoneBaseDeliveryFeeOverride,
           settings,
         );
+        newFee = baseNewFee + preservedGold;
       } else {
-        // Fallback when coordinates are missing or incomplete: scale fee proportionally to remaining stops
-        newFee = Math.max(
-          minFee,
-          Math.round((group.deliveryFee * remaining) / (remaining + 1)),
-        );
+        // Fallback when coordinates are missing or incomplete: scale base fee proportionally to remaining stops
+        newFee =
+          Math.max(
+            minFee,
+            Math.round((currentBaseFee * remaining) / (remaining + 1)),
+          ) + preservedGold;
       }
     } catch {
       const minFee = Number(
         (await this.platformSettings.getSettings()).minDeliveryFee ?? 15,
       );
-      newFee = Math.max(
-        minFee,
-        Math.round((group.deliveryFee * remaining) / (remaining + 1)),
-      );
+      newFee =
+        Math.max(
+          minFee,
+          Math.round((currentBaseFee * remaining) / (remaining + 1)),
+        ) + preservedGold;
     }
 
     if (newFee === group.deliveryFee) {

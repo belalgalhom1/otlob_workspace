@@ -473,7 +473,7 @@ class _AddVendorDialogState extends ConsumerState<AddVendorDialog> {
             size: 16,
             color: theme.colorScheme.onSurfaceVariant,
           ),
-          style: TextStyle(
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 14,
             color: theme.colorScheme.onSurface,
           ),

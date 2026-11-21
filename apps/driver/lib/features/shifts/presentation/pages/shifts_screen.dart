@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui show TextDirection;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,7 +50,9 @@ class ShiftsScreen extends ConsumerWidget {
               Tab(text: l10n.swapBoardTab),
             ],
             indicatorColor: AppColors.primary,
-            labelColor: AppColors.primary,
+            labelColor: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.primary
+                : const Color(0xFF92400E),
             unselectedLabelColor: Theme.of(
               context,
             ).colorScheme.onSurface.withValues(alpha: 0.6),
@@ -869,15 +872,24 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  status,
+                  switch (status.toString().toUpperCase()) {
+                    'CHECKED_IN' => isAr ? 'تم تسجيل الدخول' : 'Checked In',
+                    'ACTIVE' => isAr ? 'نشطة' : 'Active',
+                    'SCHEDULED' => isAr ? 'مجدولة' : 'Scheduled',
+                    'COMPLETED' => isAr ? 'مكتملة' : 'Completed',
+                    'MISSED' => isAr ? 'فائتة' : 'Missed',
+                    'CANCELLED' => isAr ? 'ملغاة' : 'Cancelled',
+                    'ABSENT' => isAr ? 'غائب' : 'Absent',
+                    _ => status.toString(),
+                  },
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: isActive
-                        ? AppColors.primary
-                        : (isUpcoming
-                              ? AppColors.warning
-                              : Theme.of(context).colorScheme.onSurface),
+                    color: (isActive || isUpcoming)
+                        ? (Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.primary
+                            : const Color(0xFF92400E))
+                        : Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -982,11 +994,14 @@ class _MyShiftsTabState extends ConsumerState<_MyShiftsTab> {
                 ).colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               const SizedBox(width: 8),
-              Text(
-                '$startTime - $endTime',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
+              Directionality(
+                textDirection: ui.TextDirection.ltr,
+                child: Text(
+                  '$startTime - $endTime',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
               ),
             ],

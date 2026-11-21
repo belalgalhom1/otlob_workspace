@@ -225,7 +225,9 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      '${l10n.driverId}: ${topUp.driverName ?? topUp.driverId}',
+                                      (topUp.driverName ?? '').trim().isNotEmpty
+                                          ? '${isAr ? 'السائق' : 'Driver'}: ${topUp.driverName}'
+                                          : '${l10n.driverId}: ${topUp.driverId}',
                                       softWrap: true,
                                       style: TextStyle(
                                         fontSize: 12,
@@ -286,7 +288,7 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                                 side: BorderSide(color: AppColors.error.withValues(alpha: 0.6)),
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 minimumSize: Size.zero,
-                                textStyle: const TextStyle(fontSize: 13),
+                                textStyle: theme.textTheme.labelMedium?.copyWith(fontSize: 13),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -300,7 +302,10 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 minimumSize: Size.zero,
-                                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                textStyle: theme.textTheme.labelMedium?.copyWith(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
                                 elevation: 0,
                               ),
                             ),

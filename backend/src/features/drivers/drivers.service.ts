@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DriversRepository } from './drivers.repository';
@@ -18,8 +19,9 @@ import {
 import { DriverStatusChangedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { DriverErrors } from 'src/common/constants/response.constants';
-import { DriverStatus, Role } from '@prisma/client';
+import { DriverShiftStatus, DriverStatus, Role } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { LocationRepository } from '../location/location.repository';
 import { requireDriverByUserId } from './driver-lookup.helper';
 
 @Injectable()
@@ -31,6 +33,7 @@ export class DriversService {
     private readonly storage: StorageService,
     private readonly eventEmitter: EventEmitter2,
     private readonly prisma: PrismaService,
+    @Optional() private readonly locationRepository?: LocationRepository,
   ) {}
 
   // ─── Register ─────────────────────────────────────────────────────────────
@@ -267,23 +270,62 @@ export class DriversService {
       throw new BadRequestException(DriverErrors.BREAK_USE_ENDPOINTS);
     }
 
-    // Online/offline is fully shift-driven: starting a shift flips the
-    // driver ONLINE, ending it flips OFFLINE. Manual flips are rejected so
-    // drivers can never go online/offline on their own.
+    // Manual ONLINE/OFFLINE is allowed when shifts are disabled or when the
+    // driver is not inside an active shift (needed for shift-independent
+    // Custom Delivery participation). Going OFFLINE mid-shift still requires
+    // ending the active shift cleanly.
     if (
       dto.status === DriverStatus.ONLINE ||
       dto.status === DriverStatus.OFFLINE
     ) {
-      throw new BadRequestException(DriverErrors.STATUS_MANAGED_BY_SHIFT);
+      const [settingsRow, activeShift] = await Promise.all([
+        typeof this.prisma.platformSetting?.findUnique === 'function'
+          ? this.prisma.platformSetting.findUnique({
+              where: { id: 'default' },
+              select: { driverShiftsEnabled: true },
+            })
+          : null,
+        typeof this.prisma.driverShift?.findFirst === 'function'
+          ? this.prisma.driverShift.findFirst({
+              where: {
+                driverId: driver.id,
+                status: DriverShiftStatus.ACTIVE,
+              },
+              select: { id: true },
+            })
+          : null,
+      ]);
+
+      const shiftsEnabled = Boolean(settingsRow?.driverShiftsEnabled);
+      if (shiftsEnabled && activeShift && dto.status === DriverStatus.OFFLINE) {
+        throw new BadRequestException(DriverErrors.STATUS_MANAGED_BY_SHIFT);
+      }
     }
 
     const oldStatus = driver.status;
     await this.driversRepository.updateStatus(driver.id, dto.status);
 
-    // NOTE: manual ONLINE/OFFLINE is rejected above, so the old
-    // offline-cleanup branches are gone. Shift end paths settle breaks,
-    // persist the last location and drop live tracking themselves
-    // (see endShift / endShiftBySystem).
+    if (dto.status === DriverStatus.OFFLINE) {
+      if (typeof this.driversRepository.findPendingBreak === 'function') {
+        const pending = await this.driversRepository.findPendingBreak(
+          driver.id,
+        );
+        if (pending && typeof this.driversRepository.cancelBreak === 'function') {
+          await this.driversRepository.cancelBreak(pending.id);
+        }
+      }
+      if (this.locationRepository) {
+        const pos = await this.locationRepository.getDriverLocation(driver.id);
+        if (pos) {
+          await this.driversRepository.updateLastLocation(
+            driver.id,
+            pos.lng,
+            pos.lat,
+          );
+        }
+        await this.locationRepository.removeDriverLocation(driver.id);
+      }
+    }
 
     this.eventEmitter.emit(
       EVENTS.DRIVER_STATUS_CHANGED,

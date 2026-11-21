@@ -216,7 +216,21 @@ export class DeliveryGroupTransitionService {
       status: newStatus,
     };
     if (dto.status === OrderStatus.PICKED_UP) data.pickedUpAt = new Date();
-    if (dto.status === OrderStatus.DELIVERED) data.deliveredAt = new Date();
+    if (dto.status === OrderStatus.DELIVERED) {
+      data.deliveredAt = new Date();
+      if (
+        group.primaryDriverId &&
+        typeof this.prisma.driver?.findUnique === 'function'
+      ) {
+        const drv = await this.prisma.driver.findUnique({
+          where: { id: group.primaryDriverId },
+          select: { tier: true },
+        });
+        if (drv?.tier) {
+          data.primaryDriverTierSnapshot = drv.tier;
+        }
+      }
+    }
     if (dto.status === OrderStatus.PICKED_UP && dto.pickupImageUrl) {
       data.pickupImageUrl = dto.pickupImageUrl;
     }
@@ -775,6 +789,8 @@ export class DeliveryGroupTransitionService {
           sequence: true,
           status: true,
           deliveryFee: true,
+          goldSurchargeAmount: true,
+          isPaymentCollector: true,
           primaryDriverId: true,
           assistDriverId: true,
           order: {
@@ -848,9 +864,38 @@ export class DeliveryGroupTransitionService {
         data: {
           status: DeliveryGroupStatus.CANCELLED,
           deliveryFee: 0,
+          goldSurchargeAmount: 0,
         },
       });
       if (cancelled.count === 0) return null;
+
+      const carriedGold = Math.max(
+        0,
+        Math.round(Number((group as { goldSurchargeAmount?: number }).goldSurchargeAmount ?? 0)),
+      );
+      let transferredGold = 0;
+      if (carriedGold > 0 && typeof tx.orderDeliveryGroup.findFirst === 'function') {
+        const nextActiveGroup = await tx.orderDeliveryGroup.findFirst({
+          where: {
+            orderId,
+            id: { not: deliveryGroupId },
+            status: { not: DeliveryGroupStatus.CANCELLED },
+          },
+          orderBy: { sequence: 'asc' },
+          select: { id: true },
+        });
+        if (nextActiveGroup) {
+          await tx.orderDeliveryGroup.update({
+            where: { id: nextActiveGroup.id },
+            data: {
+              deliveryFee: { increment: carriedGold },
+              goldSurchargeAmount: { increment: carriedGold },
+              ...(group.isPaymentCollector ? { isPaymentCollector: true } : {}),
+            },
+          });
+          transferredGold = carriedGold;
+        }
+      }
 
       let refundAmount = 0;
       let serviceFeeDelta = 0;
@@ -955,7 +1000,7 @@ export class DeliveryGroupTransitionService {
           itemNames: f.items.map((it) => it.productName).filter(Boolean),
         })),
         refundAmount,
-        deliveryFeeDelta: -Number(group.deliveryFee ?? 0),
+        deliveryFeeDelta: -(Number(group.deliveryFee ?? 0) - transferredGold),
         serviceFeeDelta,
         remainingActiveCount,
         freedDriverIds: [

@@ -1,5 +1,11 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { PlatformSettingsService } from '../../features/platform-settings/platform-settings.service';
+import {
+  centsToDecimalEgp,
+  centsToWholeEgp,
+  multiplyMoneyRatioToWholeEgp,
+  toMoneyCents,
+} from './money.helper';
 
 export interface DriverCommissionSettings {
   deliveryCommissionRate?: number | null;
@@ -11,9 +17,9 @@ export interface DriverCommissionSettings {
   multiVendorDriverManagerCommissionRate?: number | null;
   multiVendorDriverPercentage?: number | null;
   driverShiftsEnabled?: boolean | null;
-  goldTierBonusPerKm?: number | null;
-  silverTierBonusPerKm?: number | null;
-  bronzeTierBonusPerKm?: number | null;
+  goldTierBonusPerOrder?: number | null;
+  bronzeTierDeductionAmount?: number | null;
+  bronzeSupervisorDeductionAmount?: number | null;
 }
 
 export interface DriverShareContext {
@@ -25,6 +31,30 @@ export interface DriverFeeEarningsContext extends DriverShareContext {
   driverTier?: string | null;
   distanceKm?: number | null;
   isStandardOrder?: boolean;
+  /**
+   * Fixed per-order Gold surcharge already included inside `fee`.
+   * Stripped before applying commission percentages so supervisors,
+   * assisting drivers, and Silver/Bronze drivers never receive a share of it,
+   * and Gold drivers receive 100% of it as a separate bonus.
+   */
+  goldSurcharge?: number | null;
+  /**
+   * Controls whether the fixed Bronze driver deduction is subtracted in `netEarnings`.
+   * Defaults to true.
+   */
+  applyBronzeDeduction?: boolean;
+}
+
+export interface DriverEarningsBreakdown {
+  baseDeliveryFee: number;
+  adjustedBaseFee: number;
+  driverShareRatio: number;
+  baseEarnings: number;
+  goldSurcharge: number;
+  goldBonus: number;
+  platformRetainedGoldSurcharge: number;
+  bronzeDeduction: number;
+  netEarnings: number;
 }
 
 export interface DriverDistanceEarningsParams extends DriverFeeEarningsContext {
@@ -81,49 +111,112 @@ export class OrderEarningsCalculator {
     return Math.max(0, 1 - platformShare - supervisorShare);
   }
 
+  computeSupervisorShare(
+    settings: DriverCommissionSettings | null | undefined,
+    context: DriverShareContext = {},
+  ): number {
+    if (context.isStacked) {
+      return Math.max(
+        0,
+        Number(
+          settings?.batchedDriverManagerCommissionRate ??
+            settings?.driverManagerCommissionRate ??
+            10,
+        ) / 100,
+      );
+    }
+    if (context.isMultiVendor) {
+      return Math.max(
+        0,
+        Number(
+          settings?.multiVendorDriverManagerCommissionRate ??
+            settings?.driverManagerCommissionRate ??
+            10,
+        ) / 100,
+      );
+    }
+    return Math.max(0, Number(settings?.driverManagerCommissionRate ?? 10) / 100);
+  }
+
   /**
-   * Mirrors settlement tier adjustments: when shifts are enabled on STANDARD
-   * orders, customer delivery fees include `goldTierBonusPerKm`; SILVER/BRONZE
-   * drivers receive their tier's per-km bonus rate instead, plus the -2 EGP
-   * Bronze adjustment.
+   * Returns eligible base delivery fee before tier surcharge / deduction
+   * adjustments. Per-km tier modifiers are removed because Silver is the default
+   * baseline, Gold adds a fixed per-order surcharge (`goldTierBonusPerOrder`),
+   * and Bronze applies fixed deductions (`bronzeTierDeductionAmount`).
    */
   adjustPrimaryFeeForTier(
     fee: number,
-    settings: DriverCommissionSettings | null | undefined,
-    context: {
+    _settings?: DriverCommissionSettings | null,
+    _context: {
       driverTier?: string | null;
       distanceKm?: number | null;
       isStandardOrder?: boolean;
     } = {},
   ): number {
-    const baseFee = Number(fee ?? 0);
-    const goldBonus = Number(settings?.goldTierBonusPerKm ?? 0);
-    const silverBonus = Number(settings?.silverTierBonusPerKm ?? 0);
-    const bronzeBonus = Number(settings?.bronzeTierBonusPerKm ?? 0);
+    const baseFeeCents = Math.max(0, toMoneyCents(fee ?? 0));
+    return centsToDecimalEgp(baseFeeCents);
+  }
 
-    const tier = context.driverTier;
-    const tierBonus =
-      tier === 'SILVER'
-        ? silverBonus
-        : tier === 'BRONZE'
-          ? bronzeBonus
-          : goldBonus;
+  calculateDriverEarningsBreakdown(
+    fee: number,
+    settings: DriverCommissionSettings | null | undefined,
+    context: DriverFeeEarningsContext = {},
+  ): DriverEarningsBreakdown {
+    const feeCents = Math.max(0, toMoneyCents(fee ?? 0));
+    const rawSurchargeCents = Math.max(
+      0,
+      toMoneyCents(context.goldSurcharge ?? 0),
+    );
+    const effectiveSurchargeCents = Math.min(feeCents, rawSurchargeCents);
+    const baseDeliveryFee = centsToDecimalEgp(
+      Math.max(0, feeCents - effectiveSurchargeCents),
+    );
+    const goldSurcharge = centsToWholeEgp(effectiveSurchargeCents);
 
-    const routeKm = Number(context.distanceKm ?? 0);
-    const tierDiffPerKm = goldBonus - tierBonus;
+    const share = this.computeDriverShare(settings, context);
+    const adjustedBaseFee = this.adjustPrimaryFeeForTier(
+      baseDeliveryFee,
+      settings,
+      {
+        driverTier: context.driverTier,
+        distanceKm: context.distanceKm,
+        isStandardOrder: context.isStandardOrder,
+      },
+    );
+    const baseEarnings = Math.max(
+      0,
+      multiplyMoneyRatioToWholeEgp(adjustedBaseFee, share),
+    );
 
-    let adjustedFee =
-      settings?.driverShiftsEnabled &&
-      context.isStandardOrder === true &&
-      tierDiffPerKm > 0 &&
-      routeKm > 0
-        ? Math.max(0, baseFee - tierDiffPerKm * routeKm)
-        : baseFee;
+    const tier = String(context.driverTier ?? '').toUpperCase();
+    const goldBonus = tier === 'GOLD' ? goldSurcharge : 0;
+    const platformRetainedGoldSurcharge = tier === 'GOLD' ? 0 : goldSurcharge;
 
-    if (tier === 'BRONZE') {
-      adjustedFee = Math.max(0, adjustedFee - 2);
-    }
-    return adjustedFee;
+    const configuredBronzeDeduction =
+      context.applyBronzeDeduction === false
+        ? 0
+        : Math.max(
+            0,
+            centsToWholeEgp(toMoneyCents(settings?.bronzeTierDeductionAmount ?? 0)),
+          );
+    const bronzeDeduction =
+      tier === 'BRONZE'
+        ? Math.min(configuredBronzeDeduction, baseEarnings)
+        : 0;
+
+    const netEarnings = Math.max(0, baseEarnings + goldBonus - bronzeDeduction);
+
+    return {
+      baseDeliveryFee,
+      adjustedBaseFee,
+      driverShareRatio: share,
+      baseEarnings,
+      goldSurcharge,
+      goldBonus,
+      platformRetainedGoldSurcharge,
+      bronzeDeduction,
+      netEarnings,
+    };
   }
 
   calculateDriverEarningsForFee(
@@ -131,13 +224,8 @@ export class OrderEarningsCalculator {
     settings: DriverCommissionSettings | null | undefined,
     context: DriverFeeEarningsContext = {},
   ): number {
-    const share = this.computeDriverShare(settings, context);
-    const adjustedFee = this.adjustPrimaryFeeForTier(fee, settings, {
-      driverTier: context.driverTier,
-      distanceKm: context.distanceKm,
-      isStandardOrder: context.isStandardOrder,
-    });
-    return Math.max(0, Math.round(adjustedFee * share));
+    return this.calculateDriverEarningsBreakdown(fee, settings, context)
+      .netEarnings;
   }
 
   async calculateEstimatedEarningsFromDistance(
@@ -149,16 +237,47 @@ export class OrderEarningsCalculator {
       );
     }
 
-    const deliveryFee = await this.platformSettings.calculateDeliveryFee(
-      params.distanceKm,
-      null,
-      params.perKmOverride,
-      params.isStandardOrder ?? true,
-      params.prefetchedSettings,
-      params.vehicleType,
-    );
     const settings =
       params.prefetchedSettings ?? (await this.platformSettings.getSettings());
+
+    let deliveryFee: number;
+    let goldSurcharge =
+      params.goldSurcharge != null
+        ? Math.max(0, centsToWholeEgp(toMoneyCents(params.goldSurcharge)))
+        : Math.max(
+            0,
+            centsToWholeEgp(toMoneyCents(settings?.goldTierBonusPerOrder ?? 0)),
+          );
+
+    if (
+      typeof this.platformSettings.calculateCustomerDeliveryBreakdown ===
+      'function'
+    ) {
+      const breakdown =
+        await this.platformSettings.calculateCustomerDeliveryBreakdown(
+          params.distanceKm,
+          null,
+          params.perKmOverride,
+          params.isStandardOrder ?? true,
+          settings,
+          params.vehicleType,
+        );
+      deliveryFee = breakdown.totalFee;
+      goldSurcharge = breakdown.goldSurcharge;
+    } else {
+      deliveryFee = await this.platformSettings.calculateDeliveryFee(
+        params.distanceKm,
+        null,
+        params.perKmOverride,
+        params.isStandardOrder ?? true,
+        settings,
+        params.vehicleType,
+        false,
+      );
+      if (params.goldSurcharge == null && goldSurcharge > 0) {
+        deliveryFee += goldSurcharge;
+      }
+    }
 
     return this.calculateDriverEarningsForFee(deliveryFee, settings, {
       isStacked: params.isStacked,
@@ -166,6 +285,8 @@ export class OrderEarningsCalculator {
       driverTier: params.driverTier,
       distanceKm: params.distanceKm,
       isStandardOrder: params.isStandardOrder ?? true,
+      goldSurcharge,
+      applyBronzeDeduction: params.applyBronzeDeduction,
     });
   }
 }

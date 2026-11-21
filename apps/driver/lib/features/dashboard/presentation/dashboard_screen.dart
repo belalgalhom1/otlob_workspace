@@ -1,7 +1,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -16,6 +15,7 @@ import 'package:driver/features/statistics/presentation/driver_statistics_screen
 import 'package:api/api.dart' show DriverTier;
 import 'package:driver/features/profile/presentation/pages/nearby_vendors_map_screen.dart';
 import 'package:driver/features/wallet/presentation/pages/wallet_screen.dart';
+import 'package:driver/features/wallet/presentation/wallet_provider.dart';
 import 'package:driver/features/inbox/presentation/pages/inbox_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -415,32 +415,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         }
                       }
                     },
-                    child: SizedBox(
-                      width: 100,
-                      height: 100,
-                      child: ClipOval(
-                        child: avatarUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: ImageUtils.thumbnailUrl(avatarUrl),
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
-                                  child: const Center(child: CircularProgressIndicator()),
-                                ),
-                                errorWidget: (context, url, error) => Container(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
-                                  child: const Center(
-                                    child: Icon(LucideIcons.camera, size: 40),
-                                  ),
-                                ),
-                              )
-                            : Container(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                child: const Center(
-                                  child: Icon(LucideIcons.camera, size: 40),
-                                ),
-                              ),
-                      ),
+                    child: AppNetworkAvatar(
+                      imageUrl: avatarUrl != null
+                          ? ImageUtils.thumbnailUrl(avatarUrl)
+                          : null,
+                      size: 100,
+                      fallbackIcon: LucideIcons.camera,
+                      fallbackIconSize: 38,
+                      fallbackText: (data['name'] ?? user['name'] ?? '').toString(),
+                      preferInitialFallback: false,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                      foregroundColor: Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.primary
+                          : const Color(0xFF92400E),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -449,37 +436,56 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
                   ),
                   const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () => context.push('/ranking'),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.12),
+                  Builder(
+                    builder: (context) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      final isAr = l10n.localeName == 'ar';
+                      final tierAccent =
+                          isDark ? AppColors.primary : const Color(0xFF92400E);
+                      final rawTier =
+                          (data['tier'] ?? '').toString().toUpperCase();
+                      final localizedTier = switch (rawTier) {
+                        'GOLD' => isAr ? 'الذهبية' : 'Gold',
+                        'SILVER' => isAr ? 'الفضية' : 'Silver',
+                        'BRONZE' => isAr ? 'البرونزية' : 'Bronze',
+                        _ => data['tier']?.toString() ?? l10n.standardTier,
+                      };
+                      return InkWell(
+                        onTap: () => context.push('/ranking'),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            LucideIcons.award,
-                            size: 16,
-                            color: AppColors.primary,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            l10n.tierLabel(data['tier'] ?? l10n.standardTier),
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.35),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                LucideIcons.award,
+                                size: 16,
+                                color: tierAccent,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                l10n.tierLabel(localizedTier),
+                                style: TextStyle(
+                                  color: tierAccent,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1227,21 +1233,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildStatsRow(Map<dynamic, dynamic> data, String currency, AppLocalizations l10n) {
-    final totalOrders = data['totalOrders'] ?? 0;
-    final rawBalance = data['walletBalance'];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAr = l10n.localeName == 'ar';
+    final displayCurrency = (isAr && currency == 'EGP') ? 'ج.م' : currency;
+    final totalOrders = data['totalOrders'] ?? data['totalDeliveries'] ?? 0;
+    final walletState = ref.watch(driverWalletProvider).asData?.value;
+    final rawBalance = walletState?['balance'] ?? data['walletBalance'];
     final double walletBalance = rawBalance is num ? rawBalance.toDouble() : (double.tryParse(rawBalance?.toString() ?? '0') ?? 0.0);
     final earningsText = data['todaysEarnings'] != null
-        ? '${(data['todaysEarnings'] is num ? data['todaysEarnings'] : double.tryParse(data['todaysEarnings'].toString()) ?? 0).toStringAsFixed(2)} $currency'
-        : '${walletBalance.toStringAsFixed(2)} $currency';
+        ? '${(data['todaysEarnings'] is num ? data['todaysEarnings'] : double.tryParse(data['todaysEarnings'].toString()) ?? 0).toStringAsFixed(2)} $displayCurrency'
+        : '${walletBalance.toStringAsFixed(2)} $displayCurrency';
 
     return Row(
       children: [
         Expanded(
           child: _buildStatCard(
-            data['todaysEarnings'] != null ? l10n.todaysEarnings : (l10n.localeName == 'ar' ? 'رصيد المحفظة' : 'Wallet Balance'),
+            data['todaysEarnings'] != null ? l10n.todaysEarnings : (isAr ? 'رصيد المحفظة' : 'Wallet Balance'),
             earningsText,
             LucideIcons.banknote,
-            AppColors.primary,
+            isDark ? AppColors.primary : const Color(0xFF92400E),
             onTap: () => setState(() => _selectedIndex = 1),
           ),
         ),

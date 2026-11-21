@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -252,15 +251,15 @@ class DriverMapDetailsCard extends StatelessWidget {
               children: [
                 Stack(
                   children: [
-                    CircleAvatar(
-                      radius: 22,
+                    AppNetworkAvatar(
+                      imageUrl: avatarUrl ?? '',
+                      size: 44,
+                      fallbackIcon: LucideIcons.user,
+                      fallbackIconSize: 20,
+                      fallbackText: driver.name,
+                      preferInitialFallback: true,
                       backgroundColor: driverStatusColor.withValues(alpha: 0.15),
-                      backgroundImage: avatarUrl != null
-                          ? CachedNetworkImageProvider(avatarUrl)
-                          : null,
-                      child: avatarUrl == null
-                          ? Icon(LucideIcons.user, size: 20, color: driverStatusColor)
-                          : null,
+                      foregroundColor: driverStatusColor,
                     ),
                     PositionedDirectional(
                       end: 0,
@@ -693,10 +692,14 @@ class DriverMapDetailsCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Flexible(
-                          child: Text(
-                            '#$orderNumber',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                            overflow: TextOverflow.ellipsis,
+                          child: Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Text(
+                              '\u2066#$orderNumber\u2069',
+                              textDirection: TextDirection.ltr,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -735,7 +738,7 @@ class DriverMapDetailsCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${isArabic ? "النوع: " : "Type: "}$orderType • $paymentMethod',
+                      '${isArabic ? "النوع: " : "Type: "}${OrderTypeHelper.requestTypeLabel(OrderTypeHelper.resolve(Map<String, dynamic>.from(order)), isArabic: isArabic)} • ${_translatePaymentMethod(paymentMethod, isArabic)}',
                       style: TextStyle(
                         fontSize: 11,
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -852,6 +855,26 @@ class DriverMapDetailsCard extends StatelessWidget {
     );
   }
 
+  String _translatePaymentMethod(String method, bool isArabic) {
+    switch (method.toUpperCase()) {
+      case 'CASH_ON_DELIVERY':
+      case 'CASH':
+        return isArabic ? 'الدفع عند الاستلام' : 'Cash on Delivery';
+      case 'CARD':
+      case 'ONLINE':
+      case 'CREDIT_CARD':
+        return isArabic ? 'بطاقة إلكترونية' : 'Card';
+      case 'WALLET':
+        return isArabic ? 'المحفظة' : 'Wallet';
+      case 'MOBILE_WALLET':
+        return isArabic ? 'محفظة إلكترونية' : 'Mobile Wallet';
+      case 'INSTAPAY':
+        return isArabic ? 'إنستا باي' : 'InstaPay';
+      default:
+        return method;
+    }
+  }
+
   Widget _buildActionButtonsRow({
     required BuildContext context,
     required bool isArabic,
@@ -863,125 +886,114 @@ class DriverMapDetailsCard extends StatelessWidget {
     final orderStatus = activeOrder != null ? _effectiveOrderStatus(activeOrder!) : '';
     final isHeadingToCustomer = (orderStatus == 'PICKED_UP');
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          // 1. Call Driver
-          if (driver.phone != null && driver.phone!.isNotEmpty) ...[
-            OutlinedButton.icon(
-              onPressed: () => onCallPhone(driver.phone!),
-              icon: const Icon(LucideIcons.phone, size: 14),
-              label: Text(
-                isArabic ? 'اتصال بالسائق' : 'Call Driver',
-                style: const TextStyle(fontSize: 12),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-
-          // 2. Call Customer
-          if (customerPhone != null && customerPhone.isNotEmpty) ...[
-            OutlinedButton.icon(
-              onPressed: () => onCallPhone(customerPhone),
-              icon: const Icon(LucideIcons.phoneCall, size: 14, color: AppColors.success),
-              label: Text(
-                isArabic ? 'اتصال بالعميل' : 'Call Customer',
-                style: const TextStyle(fontSize: 12, color: AppColors.success),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: AppColors.success.withValues(alpha: 0.3)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-
-          // 3. Driver location in Google Maps (exact pin)
-          ElevatedButton.icon(
-            onPressed: () => onOpenMaps(
-              location.latitude,
-              location.longitude,
-              label: driver.name.isNotEmpty ? driver.name : (isArabic ? 'السائق' : 'Driver'),
-            ),
-            icon: const Icon(LucideIcons.mapPin, size: 14),
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        // 1. Call Driver
+        if (driver.phone != null && driver.phone!.isNotEmpty)
+          OutlinedButton.icon(
+            onPressed: () => onCallPhone(driver.phone!),
+            icon: const Icon(LucideIcons.phone, size: 14),
             label: Text(
-              isArabic ? 'فتح موقع السائق' : 'Driver in Maps',
+              isArabic ? 'اتصال بالسائق' : 'Call Driver',
               style: const TextStyle(fontSize: 12),
             ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: theme.colorScheme.onPrimary,
+            style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
-          const SizedBox(width: 8),
 
-          // 4. Store / Pickup in Google Maps (if order exists & heading to vendor)
-          if (pickupLocation != null && !isHeadingToCustomer) ...[
-            OutlinedButton.icon(
-              onPressed: () => onOpenMaps(
-                pickupLocation!.latitude,
-                pickupLocation!.longitude,
-                label: isArabic ? 'المتجر' : 'Store',
-              ),
-              icon: const Icon(LucideIcons.store, size: 14, color: Colors.amber),
-              label: Text(
-                isArabic ? 'موقع المتجر' : 'Store in Maps',
-                style: const TextStyle(fontSize: 12),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
+        // 2. Call Customer
+        if (customerPhone != null && customerPhone.isNotEmpty)
+          OutlinedButton.icon(
+            onPressed: () => onCallPhone(customerPhone),
+            icon: const Icon(LucideIcons.phoneCall, size: 14, color: AppColors.success),
+            label: Text(
+              isArabic ? 'اتصال بالعميل' : 'Call Customer',
+              style: const TextStyle(fontSize: 12, color: AppColors.success),
             ),
-            const SizedBox(width: 8),
-          ],
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: AppColors.success.withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
 
-          // 5. Customer / Delivery in Google Maps (if order exists)
-          if (deliveryLocation != null) ...[
-            OutlinedButton.icon(
-              onPressed: () => onOpenMaps(
-                deliveryLocation!.latitude,
-                deliveryLocation!.longitude,
-                label: isArabic ? 'العميل' : 'Customer',
-              ),
-              icon: const Icon(LucideIcons.navigation, size: 14),
-              label: Text(
-                isArabic ? 'موقع العميل' : 'Customer in Maps',
-                style: const TextStyle(fontSize: 12),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
+        // 3. Driver location in Google Maps (exact pin)
+        ElevatedButton.icon(
+          onPressed: () => onOpenMaps(
+            location.latitude,
+            location.longitude,
+            label: driver.name.isNotEmpty ? driver.name : (isArabic ? 'السائق' : 'Driver'),
+          ),
+          icon: const Icon(LucideIcons.mapPin, size: 14),
+          label: Text(
+            isArabic ? 'فتح موقع السائق' : 'Driver in Maps',
+            style: const TextStyle(fontSize: 12),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: theme.colorScheme.onPrimary,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
 
-          // 5. Center Camera on Route
-          if (onCenterOnDelivery != null && (pickupLocation != null || deliveryLocation != null)) ...[
-            OutlinedButton.icon(
-              onPressed: onCenterOnDelivery,
-              icon: const Icon(LucideIcons.expand, size: 14),
-              label: Text(
-                isArabic ? 'عرض كامل المسار' : 'Fit Route',
-                style: const TextStyle(fontSize: 12),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
+        // 4. Store / Pickup in Google Maps (if order exists & heading to vendor)
+        if (pickupLocation != null && !isHeadingToCustomer)
+          OutlinedButton.icon(
+            onPressed: () => onOpenMaps(
+              pickupLocation!.latitude,
+              pickupLocation!.longitude,
+              label: isArabic ? 'المتجر' : 'Store',
             ),
-          ],
-        ],
-      ),
+            icon: const Icon(LucideIcons.store, size: 14, color: Colors.amber),
+            label: Text(
+              isArabic ? 'موقع المتجر' : 'Store in Maps',
+              style: const TextStyle(fontSize: 12),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+
+        // 5. Customer / Delivery in Google Maps (if order exists)
+        if (deliveryLocation != null)
+          OutlinedButton.icon(
+            onPressed: () => onOpenMaps(
+              deliveryLocation!.latitude,
+              deliveryLocation!.longitude,
+              label: isArabic ? 'العميل' : 'Customer',
+            ),
+            icon: const Icon(LucideIcons.navigation, size: 14),
+            label: Text(
+              isArabic ? 'موقع العميل' : 'Customer in Maps',
+              style: const TextStyle(fontSize: 12),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+
+        // 5. Center Camera on Route
+        if (onCenterOnDelivery != null && (pickupLocation != null || deliveryLocation != null))
+          OutlinedButton.icon(
+            onPressed: onCenterOnDelivery,
+            icon: const Icon(LucideIcons.expand, size: 14),
+            label: Text(
+              isArabic ? 'عرض كامل المسار' : 'Fit Route',
+              style: const TextStyle(fontSize: 12),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+      ],
     );
   }
 }

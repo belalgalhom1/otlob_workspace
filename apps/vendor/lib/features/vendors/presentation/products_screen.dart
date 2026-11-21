@@ -95,7 +95,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: Icon(
-                        LucideIcons.arrowLeft,
+                        Localizations.localeOf(context).languageCode == 'ar'
+                            ? LucideIcons.arrowRight
+                            : LucideIcons.arrowLeft,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                       style: IconButton.styleFrom(
@@ -292,7 +294,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                         ),
                         errorWidget: (context, url, error) => const Icon(
                           LucideIcons.image,
-                          
+                          color: AppColors.primary,
                           size: 20,
                         ),
                       )
@@ -321,10 +323,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      '\$${price.toStringAsFixed(2)}',
+                      '${price.toStringAsFixed(2)} ${Localizations.localeOf(context).languageCode == 'ar' ? 'ج.م' : 'EGP'}',
                       style: const TextStyle(
                         color: AppColors.success,
                         fontWeight: FontWeight.bold,
+                        fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
                     if (product['sellByStrip'] == true &&
@@ -339,7 +342,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          '${(price / (product['stripsPerPackage'] as int)).toStringAsFixed(2)} / ${AppLocalizations.of(context)!.sellByStrip}',
+                          '${(price / (product['stripsPerPackage'] as int)).toStringAsFixed(2)} ${Localizations.localeOf(context).languageCode == 'ar' ? 'ج.م' : 'EGP'} / ${AppLocalizations.of(context)!.sellByStrip}',
                           style: const TextStyle(
                             color: AppColors.primary,
                             fontSize: 10,

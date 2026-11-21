@@ -253,6 +253,11 @@ class ChatBubbleWidget extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 child: Text(
                   content,
+                  textDirection: RegExp(r'[\u0600-\u06FF]').hasMatch(content)
+                      ? TextDirection.rtl
+                      : (RegExp(r'[A-Za-z]').hasMatch(content)
+                          ? TextDirection.ltr
+                          : null),
                   style: TextStyle(color: isMe ? Colors.white : colorScheme.onSurface),
                 ),
               ),
@@ -261,6 +266,11 @@ class ChatBubbleWidget extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 child: Text(
                   content,
+                  textDirection: RegExp(r'[\u0600-\u06FF]').hasMatch(content)
+                      ? TextDirection.rtl
+                      : (RegExp(r'[A-Za-z]').hasMatch(content)
+                          ? TextDirection.ltr
+                          : null),
                   style: TextStyle(color: isMe ? Colors.white : colorScheme.onSurface),
                 ),
               ),
@@ -274,14 +284,17 @@ class ChatBubbleWidget extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (time != null)
-                    Text(
-                      time!,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isMe
-                            ? Colors.white.withValues(alpha: 0.7)
-                            : colorScheme.onSurface.withValues(alpha: 0.5),
-                        fontWeight: FontWeight.w500,
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Text(
+                        time!,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isMe
+                              ? Colors.white.withValues(alpha: 0.7)
+                              : colorScheme.onSurface.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   if (isMe) ...[

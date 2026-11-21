@@ -124,7 +124,9 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: Icon(
-                        LucideIcons.arrowLeft,
+                        Localizations.localeOf(context).languageCode == 'ar'
+                            ? LucideIcons.arrowRight
+                            : LucideIcons.arrowLeft,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                       style: IconButton.styleFrom(
@@ -271,8 +273,12 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
-            blurRadius: 10,
+            color: Colors.black.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.18
+                  : 0.04,
+            ),
+            blurRadius: 14,
             offset: const Offset(0, 4),
           ),
         ],
@@ -298,7 +304,9 @@ class _MenuCategoriesScreenState extends ConsumerState<MenuCategoriesScreen> {
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.network(
-                        '${ImageUtils.formatImageUrl(category['iconUrl'] ?? category['icon'])}?t=${DateTime.now().millisecondsSinceEpoch}',
+                        ImageUtils.formatImageUrl(
+                          category['iconUrl'] ?? category['icon'],
+                        ),
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) =>
                             const Icon(

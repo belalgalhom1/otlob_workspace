@@ -129,7 +129,7 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
                             label: Text(l10n.refresh),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
+                              foregroundColor: AppColors.onPrimary,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                           ),
@@ -184,7 +184,7 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
                           label: Text(l10n.refresh),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
+                            foregroundColor: AppColors.onPrimary,
                           ),
                         ),
                       ],
@@ -192,6 +192,12 @@ class _AccessControlScreenState extends ConsumerState<AccessControlScreen> with 
               const SizedBox(height: 24),
               TabBar(
                 controller: _tabController,
+                isScrollable: isMobile,
+                tabAlignment:
+                    isMobile ? TabAlignment.start : TabAlignment.fill,
+                labelPadding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 12 : 16,
+                ),
                 indicatorColor: AppColors.primary,
                 labelColor: AppColors.primary,
                 tabs: [

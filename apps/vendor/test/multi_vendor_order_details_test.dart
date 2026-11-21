@@ -283,7 +283,7 @@ void main() {
         final labelRect = tester.getRect(
           find.text('إجمالي أصناف المتجر').first,
         );
-        final valueRect = tester.getRect(find.text('100.00 EGP').first);
+        final valueRect = tester.getRect(find.text('100.00 ج.م').first);
 
         // In RTL, label stays to the right of the value without colliding or overflowing.
         expect(valueRect.right, lessThan(labelRect.left));

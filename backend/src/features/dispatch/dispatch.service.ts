@@ -24,6 +24,7 @@ import {
   resolveAllowedVehicleTypes,
 } from '../location/driver-geo-search.service';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
+import { requiresActiveShiftForOrderType } from '../../common/orders/money.helper';
 import { DispatchPort } from '../../common/orders/order-dispatch.ports';
 import {
   DispatchBroadcastPayload,
@@ -175,7 +176,7 @@ export class DispatchService implements DispatchPort {
       radiusKm,
       excludeDriverIds,
       allowedVehicleTypes,
-      settings.driverShiftsEnabled && order.type === 'STANDARD',
+      requiresActiveShiftForOrderType(settings.driverShiftsEnabled, order.type),
       dropoffLocation,
     );
 
@@ -382,6 +383,7 @@ export class DispatchService implements DispatchPort {
       sequence: true,
       status: true,
       deliveryFee: true,
+      goldSurchargeAmount: true,
       distanceKm: true,
       primaryDriverId: true,
       items: {
@@ -531,6 +533,7 @@ export class DispatchService implements DispatchPort {
     group: {
       id: string;
       sequence: number;
+      goldSurchargeAmount?: number | null;
       items: Array<{
         sequence: number;
         fulfillment: {
@@ -599,6 +602,11 @@ export class DispatchService implements DispatchPort {
         const isCandidateMultiVendor =
           totalGroupsCount > 1 || group.items.length > 1;
 
+        const groupGoldSurcharge = Math.max(
+          0,
+          Math.round(Number(group.goldSurchargeAmount ?? 0)),
+        );
+
         const estimatedEarnings =
           await this.earnings.calculateEstimatedEarningsFromDistance({
             distanceKm: totalDistanceKm,
@@ -609,6 +617,7 @@ export class DispatchService implements DispatchPort {
             isStacked: isCandidateStacked,
             isMultiVendor: isCandidateMultiVendor,
             driverTier: candidate.tier,
+            goldSurcharge: groupGoldSurcharge,
           });
 
         const advertisedEarnings =
@@ -622,6 +631,7 @@ export class DispatchService implements DispatchPort {
                   driverTier: candidate.tier,
                   distanceKm: orderDistanceKm,
                   isStandardOrder: order.type === 'STANDARD',
+                  goldSurcharge: groupGoldSurcharge,
                 },
               )
             : estimatedEarnings;

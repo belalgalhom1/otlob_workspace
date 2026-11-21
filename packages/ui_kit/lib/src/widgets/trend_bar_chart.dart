@@ -57,10 +57,13 @@ class TrendBarChart extends StatelessWidget {
     final minRaw = values.reduce(math.min);
     final maxRaw = values.reduce(math.max);
     final minY = minRaw < 0 ? minRaw * 1.15 : 0.0;
+    final span = math.max(maxRaw.abs(), minRaw.abs());
+    final gridInterval = _niceInterval(span);
     final maxY = (maxRaw == 0 && minRaw == 0)
         ? 1.0
-        : (maxRaw <= 0 ? 0.0 : maxRaw * 1.15);
-    final span = math.max(maxRaw.abs(), minRaw.abs());
+        : (maxRaw <= 0
+            ? 0.0
+            : (((maxRaw * 1.15) / gridInterval).ceil() * gridInterval).toDouble());
     final labelStep =
         ((labels.length / 7).ceil()).clamp(1, labels.length).toInt();
     final barWidth = values.length > 20 ? 6.0 : (values.length > 10 ? 10.0 : 16.0);
@@ -76,7 +79,7 @@ class TrendBarChart extends StatelessWidget {
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: _niceInterval(span),
+            horizontalInterval: gridInterval,
             getDrawingHorizontalLine: (value) =>
                 FlLine(color: gridColor, strokeWidth: 1),
           ),
@@ -90,6 +93,7 @@ class TrendBarChart extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 52,
+                interval: gridInterval,
                 getTitlesWidget: (value, meta) {
                   if (value == meta.min && minRaw >= 0) {
                     return const SizedBox.shrink();

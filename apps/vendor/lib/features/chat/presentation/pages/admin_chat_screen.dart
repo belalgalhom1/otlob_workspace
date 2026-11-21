@@ -2148,7 +2148,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        itemCount: _messages.length + (_hasMore ? 1 : 0),
+                        itemCount: _messages.length + (_hasMore && _isLoadingMore ? 1 : 0),
                         itemBuilder: (context, index) {
                           if (index == _messages.length) {
                             return const Padding(
@@ -2664,26 +2664,41 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                           message['text'].toString().isNotEmpty &&
                           (message['type']?.toString().toUpperCase() != 'LOCATION' ||
                               !message['text'].toString().startsWith('Shared location:')))
-                        Text(
-                          message['text'] ?? '',
-                          style: TextStyle(
-                            color: isMe || Theme.of(context).brightness == Brightness.dark ? Colors.white : AppColors.textPrimary,
-                            fontSize: 15,
-                            height: 1.4,
-                          ),
+                        Builder(
+                          builder: (context) {
+                            final msgText = (message['text'] ?? '').toString();
+                            final hasAr = RegExp(r'[\u0600-\u06FF]').hasMatch(msgText);
+                            final hasLat = RegExp(r'[A-Za-z]').hasMatch(msgText);
+                            return Text(
+                              msgText,
+                              textDirection: hasAr
+                                  ? ui.TextDirection.rtl
+                                  : (hasLat ? ui.TextDirection.ltr : null),
+                              style: TextStyle(
+                                color: isMe || Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                                fontSize: 15,
+                                height: 1.4,
+                              ),
+                            );
+                          },
                         ),
                       const SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            time,
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: isMe
-                                  ? Colors.white.withValues(alpha: 0.7)
-                                  : (Theme.of(context).brightness == Brightness.dark ? Colors.white60 : AppColors.textMuted),
-                              fontWeight: FontWeight.w500,
+                          Directionality(
+                            textDirection: ui.TextDirection.ltr,
+                            child: Text(
+                              time,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isMe
+                                    ? Colors.white.withValues(alpha: 0.7)
+                                    : (Theme.of(context).brightness == Brightness.dark ? Colors.white60 : AppColors.textMuted),
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                           if (isMe) ...[

@@ -56,6 +56,7 @@ export interface CreateOrderData {
   deliveryLat: number;
   subtotal: number;
   deliveryFee: number;
+  goldSurchargeAmount?: number;
   driverBonusFee: number;
   serviceFee: number;
   tax: number;
@@ -281,7 +282,7 @@ export class OrdersRepository {
           status, "paymentMethod", "paymentStatus",
           "pickupAddress", "pickupLocation",
           "deliveryAddress", "deliveryLocation",
-          subtotal, "deliveryFee", "driverBonusFee", "serviceFee", tax, discount, "coinsUsed", "coinsEarned", "grandTotal", "upfrontAmount",
+          subtotal, "deliveryFee", "goldSurchargeAmount", "driverBonusFee", "serviceFee", tax, discount, "coinsUsed", "coinsEarned", "grandTotal", "upfrontAmount",
           "itemDetails", "requestedVehicleType",
           "specialRequest", "distanceKm", "updatedAt"
         ) VALUES (
@@ -304,6 +305,7 @@ export class OrdersRepository {
           ST_SetSRID(ST_MakePoint(${data.deliveryLng}, ${data.deliveryLat}), 4326),
           ${Math.round(data.subtotal)},
           ${Math.round(data.deliveryFee)},
+          ${Math.round(data.goldSurchargeAmount ?? 0)},
           ${Math.round(data.driverBonusFee)},
           ${Math.round(data.serviceFee)},
           ${Math.round(data.tax)},
@@ -405,6 +407,7 @@ export class OrdersRepository {
           status: DeliveryGroupStatus.PENDING,
           distanceKm: data.distanceKm,
           deliveryFee: Math.round(data.deliveryFee),
+          goldSurchargeAmount: Math.round(data.goldSurchargeAmount ?? 0),
           isPaymentCollector: true,
         },
       });
@@ -1042,11 +1045,22 @@ export class OrdersRepository {
         resolvedOrderStatus = OrderStatus.PREPARING;
       }
 
+      const assignedDriver =
+        typeof tx.driver?.findUnique === 'function'
+          ? await tx.driver.findUnique({
+              where: { id: driverId },
+              select: { tier: true },
+            })
+          : null;
+
       await tx.orderDeliveryGroup.update({
         where: { id: targetGroup.id },
         data: {
           primaryDriverId: driverId,
           primaryDriverShiftId: driverShiftId,
+          ...(assignedDriver?.tier
+            ? { primaryDriverTierSnapshot: assignedDriver.tier }
+            : {}),
           isStacked: activeCount > 0,
           status: groupNextStatus,
           assignedByUserId: actorUserId,

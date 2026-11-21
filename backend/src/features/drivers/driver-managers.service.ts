@@ -64,6 +64,7 @@ export class DriverManagersService {
     const transactions =
       await this.prisma.driverManagerWalletTransaction.findMany({
         where: { managerId: manager.id },
+        include: { order: { select: { id: true, orderNumber: true } } },
         orderBy: { createdAt: 'desc' },
         take: 20,
       });
@@ -81,6 +82,7 @@ export class DriverManagersService {
     const [data, total] = await Promise.all([
       this.prisma.driverManagerWalletTransaction.findMany({
         where: { managerId: manager.id },
+        include: { order: { select: { id: true, orderNumber: true } } },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,

@@ -614,7 +614,9 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
         scrolledUnderElevation: 1,
         backgroundColor: isDark ? theme.colorScheme.surface : Colors.white,
         leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft),
+          icon: Icon(
+            isAr ? LucideIcons.arrowRight : LucideIcons.arrowLeft,
+          ),
           tooltip: isAr ? 'رجوع' : 'Back',
           onPressed: () => Navigator.pop(context),
         ),
@@ -677,14 +679,16 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                 icon: const Icon(LucideIcons.userPlus, size: 16),
                 label: Text(isAr ? 'إضافة عضو جديد' : 'Add Team Member'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  textStyle: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -732,7 +736,15 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '${members.length} ${isAr ? 'أعضاء في الفريق' : 'members'}',
+                            isAr
+                                ? (members.length == 1
+                                    ? 'عضو واحد في الفريق'
+                                    : (members.length == 2
+                                        ? 'عضوان في الفريق'
+                                        : '${members.length} ${members.length <= 10 ? "أعضاء في الفريق" : "عضو في الفريق"}'))
+                                : (members.length == 1
+                                    ? '1 member'
+                                    : '${members.length} members'),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -751,8 +763,8 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                       icon: const Icon(LucideIcons.userPlus, size: 16),
                       label: Text(isAr ? 'إضافة عضو' : 'Add Member'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -761,7 +773,7 @@ class _VendorMembersScreenState extends ConsumerState<VendorMembersScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        textStyle: const TextStyle(
+                        textStyle: theme.textTheme.labelLarge?.copyWith(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                         ),

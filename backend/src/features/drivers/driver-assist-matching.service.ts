@@ -16,6 +16,7 @@ import { DriverErrors } from '../../common/constants/response.constants';
 import { DriverAssistOfferedEvent } from '../../common/events';
 import { EVENTS } from '../../common/events/event-names';
 import { haversineKm } from '../../common/geo/geo.utils';
+import { requiresActiveShiftForOrderType } from '../../common/orders/money.helper';
 import type { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { RedisService } from '../../infrastructure/redis/redis.service';
@@ -388,8 +389,19 @@ export class DriverAssistMatchingService {
     if (freeCandidateIds.length === 0) return [];
 
     let activeShiftDriverIds: Set<string> | null = null;
+    const orderRow =
+      typeof this.prisma.order?.findUnique === 'function'
+        ? await this.prisma.order.findUnique({
+            where: { id: request.orderId },
+            select: { type: true },
+          })
+        : null;
+    const requireActiveShift = requiresActiveShiftForOrderType(
+      settings.driverShiftsEnabled,
+      orderRow?.type ?? null,
+    );
     if (
-      settings.driverShiftsEnabled &&
+      requireActiveShift &&
       typeof this.prisma.driverShift?.findMany === 'function'
     ) {
       const activeShifts = await this.prisma.driverShift.findMany({
@@ -408,7 +420,7 @@ export class DriverAssistMatchingService {
       const ll = locations.get(candidateId);
       if (!ll) continue;
       const dist = haversineKm({ lng: ll.lng, lat: ll.lat }, { lng, lat });
-      if (settings.driverShiftsEnabled) {
+      if (requireActiveShift) {
         if (activeShiftDriverIds !== null) {
           if (!activeShiftDriverIds.has(candidateId)) continue;
         } else {

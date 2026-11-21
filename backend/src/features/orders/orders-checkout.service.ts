@@ -157,6 +157,7 @@ export class OrdersCheckoutService {
         deliveryLat: dto.deliveryLocation[1],
         subtotal: cart.subtotal,
         deliveryFee: money.deliveryFee,
+        goldSurchargeAmount: money.goldSurchargeAmount,
         driverBonusFee: money.driverBonusFee,
         serviceFee: money.serviceFee,
         tax: money.tax,
@@ -384,13 +385,33 @@ export class OrdersCheckoutService {
       throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
     }
 
-    const deliveryFee = await this.platformSettings.calculateDeliveryFee(
-      distanceKm,
-      zone?.baseDeliveryFeeOverride ?? null,
-      null,
-      true,
-      settings,
-    );
+    let deliveryFee: number;
+    let goldSurchargeAmount = 0;
+    const settingsSvc = this.platformSettings as any;
+    if (typeof settingsSvc.calculateCustomerDeliveryBreakdown === 'function') {
+      const breakdown = await settingsSvc.calculateCustomerDeliveryBreakdown(
+        distanceKm,
+        zone?.baseDeliveryFeeOverride ?? null,
+        null,
+        true,
+        settings,
+      );
+      deliveryFee = Number(breakdown.totalFee ?? 0);
+      goldSurchargeAmount = Math.max(0, Math.round(Number(breakdown.goldSurcharge ?? 0)));
+    } else {
+      const baseFee = await this.platformSettings.calculateDeliveryFee(
+        distanceKm,
+        zone?.baseDeliveryFeeOverride ?? null,
+        null,
+        true,
+        settings,
+      );
+      goldSurchargeAmount = Math.max(
+        0,
+        Math.round(Number((settings as any).goldTierBonusPerOrder ?? 0)),
+      );
+      deliveryFee = Math.round(baseFee) + goldSurchargeAmount;
+    }
 
     const branchCommission =
       typeof branch !== 'undefined' && branch?.commissionRate != null
@@ -476,6 +497,7 @@ export class OrdersCheckoutService {
       branch,
       distanceKm,
       deliveryFee,
+      goldSurchargeAmount,
       serviceFee,
       driverBonusFee,
       tax,
@@ -553,14 +575,35 @@ export class OrdersCheckoutService {
         break;
     }
 
-    const deliveryFee = await this.platformSettings.calculateDeliveryFee(
-      distanceKm,
-      null, // no zone override
-      perKm,
-      false, // isStandardOrder
-      settings,
-      dto.vehicleType,
-    );
+    let deliveryFee: number;
+    let goldSurchargeAmount = 0;
+    const settingsSvc = this.platformSettings as any;
+    if (typeof settingsSvc.calculateCustomerDeliveryBreakdown === 'function') {
+      const breakdown = await settingsSvc.calculateCustomerDeliveryBreakdown(
+        distanceKm,
+        null, // no zone override
+        perKm,
+        false, // isStandardOrder
+        settings,
+        dto.vehicleType,
+      );
+      deliveryFee = Number(breakdown.totalFee ?? 0);
+      goldSurchargeAmount = Math.max(0, Math.round(Number(breakdown.goldSurcharge ?? 0)));
+    } else {
+      const baseFee = await this.platformSettings.calculateDeliveryFee(
+        distanceKm,
+        null, // no zone override
+        perKm,
+        false, // isStandardOrder
+        settings,
+        dto.vehicleType,
+      );
+      goldSurchargeAmount = Math.max(
+        0,
+        Math.round(Number((settings as any).goldTierBonusPerOrder ?? 0)),
+      );
+      deliveryFee = Math.round(baseFee) + goldSurchargeAmount;
+    }
     const serviceFee = Number(settings.customOrderPlatformFee) || 0;
     const taxRate = Number(settings.defaultTaxRate) / 100;
     const tax = Math.round(serviceFee * taxRate);
@@ -626,6 +669,7 @@ export class OrdersCheckoutService {
       deliveryLat,
       distanceKm,
       deliveryFee,
+      goldSurchargeAmount,
       serviceFee,
       driverBonusFee,
       tax,
@@ -675,6 +719,7 @@ export class OrdersCheckoutService {
       deliveryLat,
       distanceKm,
       deliveryFee,
+      goldSurchargeAmount,
       serviceFee,
       driverBonusFee,
       tax,
@@ -700,6 +745,7 @@ export class OrdersCheckoutService {
         deliveryLat,
         subtotal: 0,
         deliveryFee,
+        goldSurchargeAmount,
         driverBonusFee,
         serviceFee,
         tax,

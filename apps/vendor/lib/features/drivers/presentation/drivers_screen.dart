@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'driver_managers_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
@@ -280,9 +279,6 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _driverMoveController.addListener(() {
-      if (mounted) setState(() {});
-    });
     _driverMoveController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         setState(() {
@@ -1088,68 +1084,53 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                   children: [
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: ListenableBuilder(
-                        listenable: Listenable.merge([
-                          _driverMoveController,
-                          _routeVersion,
-                        ]),
-                        builder: (ctx, _) {
-                          final curLoc = _currentDriverLocation ?? location;
-                          final sheetPolylines = activeOrder != null
-                              ? _buildDriverOrderPolylines(
-                                  activeOrder: activeOrder,
-                                  driverPos: curLoc,
-                                  pickupLocation: pickupLocation,
-                                  deliveryLocation: deliveryLocation,
-                                )
-                              : const <Polyline>[];
-
-                          return FlutterMap(
-                            mapController: sheetMapController,
-                            options: MapOptions(
-                              initialCenter: curLoc,
-                              initialZoom: 15.0,
-                              onMapReady: () {
-                                if (routePoints.length > 1) {
-                                  try {
-                                    final b = LatLngBounds.fromPoints(routePoints);
-                                    sheetMapController.fitCamera(
-                                      CameraFit.bounds(
-                                        bounds: b,
-                                        padding: const EdgeInsets.all(40),
-                                      ),
-                                    );
-                                  } catch (_) {}
-                                }
-                              },
-                            ),
-                            children: [
-                              const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
-                              if (sheetPolylines.isNotEmpty) PolylineLayer(polylines: sheetPolylines),
-                              MarkerLayer(
-                                markers: [
-                                  // Driver vehicle marker
-                                  Marker(
-                                    point: curLoc,
-                                    width: 96,
-                                    height: 88,
-                                    child: Center(
-                                      child: RepaintBoundary(
-                                        child: InDriveVehicleMarker(
-                                          size: 48,
-                                          heading: _currentDriverHeading,
-                                          isMoving: _isDriverMoving,
-                                          vehicleType: (driver.vehicleType != null &&
-                                                  driver.vehicleType!.trim().isNotEmpty)
-                                              ? driver.vehicleType!.trim()
-                                              : 'MOTORCYCLE',
-                                          plateNumber: driver.vehiclePlate,
-                                          label: driver.name,
-                                          color: isLive ? AppColors.success : AppColors.primary,
-                                        ),
-                                      ),
-                                    ),
+                      child: FlutterMap(
+                        mapController: sheetMapController,
+                        options: MapOptions(
+                          initialCenter: location,
+                          initialZoom: 15.0,
+                          onMapReady: () {
+                            if (routePoints.length > 1) {
+                              try {
+                                final b = LatLngBounds.fromPoints(routePoints);
+                                sheetMapController.fitCamera(
+                                  CameraFit.bounds(
+                                    bounds: b,
+                                    padding: const EdgeInsets.all(40),
                                   ),
+                                );
+                              } catch (_) {}
+                            }
+                          },
+                        ),
+                        children: [
+                          const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
+                          if (activeOrder != null)
+                            RepaintBoundary(
+                              child: ListenableBuilder(
+                                listenable: Listenable.merge([
+                                  _driverMoveController,
+                                  _routeVersion,
+                                ]),
+                                builder: (ctx, _) {
+                                  final curLoc = _currentDriverLocation ?? location;
+                                  final sheetPolylines = _buildDriverOrderPolylines(
+                                    activeOrder: activeOrder,
+                                    driverPos: curLoc,
+                                    pickupLocation: pickupLocation,
+                                    deliveryLocation: deliveryLocation,
+                                  );
+                                  if (sheetPolylines.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return PolylineLayer(polylines: sheetPolylines);
+                                },
+                              ),
+                            ),
+                          if (pickupLocation != null || deliveryLocation != null)
+                            RepaintBoundary(
+                              child: MarkerLayer(
+                                markers: [
                                   // Store / Pickup marker
                                   if (pickupLocation != null)
                                     Marker(
@@ -1196,9 +1177,42 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                                     ),
                                 ],
                               ),
-                            ],
-                          );
-                        },
+                            ),
+                          RepaintBoundary(
+                            child: ListenableBuilder(
+                              listenable: _driverMoveController,
+                              builder: (ctx, _) {
+                                final curLoc = _currentDriverLocation ?? location;
+                                return MarkerLayer(
+                                  markers: [
+                                    // Driver vehicle marker
+                                    Marker(
+                                      point: curLoc,
+                                      width: 96,
+                                      height: 88,
+                                      child: Center(
+                                        child: RepaintBoundary(
+                                          child: InDriveVehicleMarker(
+                                            size: 48,
+                                            heading: _currentDriverHeading,
+                                            isMoving: _isDriverMoving,
+                                            vehicleType: (driver.vehicleType != null &&
+                                                    driver.vehicleType!.trim().isNotEmpty)
+                                                ? driver.vehicleType!.trim()
+                                                : 'MOTORCYCLE',
+                                            plateNumber: driver.vehiclePlate,
+                                            label: driver.name,
+                                            color: isLive ? AppColors.success : AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     // Google Maps direct pin button overlay
@@ -1360,7 +1374,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                   label: Text(
                     isMobile
                         ? (isArabic ? 'سائق جديد' : 'New')
-                        : l10n.createNewUser,
+                        : (isArabic ? 'إضافة سائق' : 'Add Driver'),
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -1381,9 +1395,12 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
           const SizedBox(height: 10),
 
           // Row 2: Status Filter Chips & Zone Selector & Auxiliary Action Buttons
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _buildStatusChip(null, l10n.filterAll),
                 _buildStatusChip('ONLINE', l10n.statusOnline, color: AppColors.success),
@@ -1392,18 +1409,15 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                 _buildStatusChip('OFFLINE', l10n.statusOffline, color: Colors.grey),
                 _buildStatusChip('SUSPENDED', l10n.statusSuspended, color: AppColors.error),
 
-                const SizedBox(width: 8),
                 Container(
                   height: 24,
                   width: 1,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
                 ),
-                const SizedBox(width: 8),
 
                 _buildZoneDropdown(zones, isArabic, l10n),
 
                 if (_canManageDrivers) ...[
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: () {
                       Navigator.of(context).push(
@@ -1424,8 +1438,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  if (_canViewAllDriversStats) ...[
+                  if (_canViewAllDriversStats)
                     OutlinedButton.icon(
                       onPressed: () {
                         Navigator.of(context).push(
@@ -1444,9 +1457,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  if (!_isDriverManager) ...[
+                  if (!_isDriverManager)
                     OutlinedButton.icon(
                       onPressed: () {
                         Navigator.of(context).push(
@@ -1465,8 +1476,6 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                  ],
                   OutlinedButton.icon(
                     onPressed: () {
                       showDialog(
@@ -1486,8 +1495,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                   ),
                 ],
 
-                if (hasActiveFilters) ...[
-                  const SizedBox(width: 8),
+                if (hasActiveFilters)
                   TextButton.icon(
                     onPressed: () {
                       _searchController.clear();
@@ -1504,7 +1512,6 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                       style: const TextStyle(fontSize: 12, color: AppColors.error),
                     ),
                   ),
-                ],
               ],
             ),
           ),
@@ -1518,46 +1525,44 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 6.0),
-      child: FilterChip(
-        selected: isSelected,
-        showCheckmark: false,
-        avatar: color != null
-            ? Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-              )
-            : null,
-        label: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected
-                ? (isDark ? Colors.black : Colors.white)
-                : theme.colorScheme.onSurface,
-          ),
-        ),
-        backgroundColor: isDark
-            ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
-            : const Color(0xFFF1F3F5),
-        selectedColor: AppColors.primary,
-        side: BorderSide(
+    return FilterChip(
+      selected: isSelected,
+      showCheckmark: false,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      avatar: color != null
+          ? Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            )
+          : null,
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           color: isSelected
-              ? AppColors.primary
-              : theme.colorScheme.onSurface.withValues(alpha: 0.1),
+              ? AppColors.onPrimary
+              : theme.colorScheme.onSurface,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        onSelected: (_) {
-          setState(() => _selectedStatus = status);
-          _applyFilters();
-        },
       ),
+      backgroundColor: isDark
+          ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
+          : const Color(0xFFF1F3F5),
+      selectedColor: AppColors.primary,
+      side: BorderSide(
+        color: isSelected
+            ? AppColors.primary
+            : theme.colorScheme.onSurface.withValues(alpha: 0.1),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      onSelected: (_) {
+        setState(() => _selectedStatus = status);
+        _applyFilters();
+      },
     );
   }
 
@@ -1587,7 +1592,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
         child: DropdownButton<String?>(
           value: _selectedZoneId,
           icon: const Icon(LucideIcons.chevronDown, size: 14),
-          style: TextStyle(
+          style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: 12,
             fontWeight: _selectedZoneId != null ? FontWeight.bold : FontWeight.w500,
             color: theme.colorScheme.onSurface,
@@ -1740,15 +1745,15 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
               children: [
                 Stack(
                   children: [
-                    CircleAvatar(
-                      radius: 25,
+                    AppNetworkAvatar(
+                      imageUrl: avatarUrl ?? '',
+                      size: 50,
+                      fallbackIcon: LucideIcons.user,
+                      fallbackIconSize: 24,
+                      fallbackText: driver.name,
+                      preferInitialFallback: true,
                       backgroundColor: statusColor.withValues(alpha: 0.12),
-                      backgroundImage: avatarUrl != null
-                          ? CachedNetworkImageProvider(avatarUrl)
-                          : null,
-                      child: avatarUrl == null
-                          ? Icon(LucideIcons.user, color: statusColor, size: 24)
-                          : null,
+                      foregroundColor: statusColor,
                     ),
                     PositionedDirectional(
                       end: 0,
@@ -1954,176 +1959,168 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
             ),
             const SizedBox(height: 12),
 
-            // Row 4: Elegant Horizontal Action Strip (All actions in 1 smooth scrolling line)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildActionPill(
-                    icon: LucideIcons.wallet,
-                    label: l10n.actionWallet,
-                    color: AppColors.primary,
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => ManualTransactionDialog(
-                          entityId: driver.id,
-                          isVendor: false,
+            // Row 4: Responsive Wrap Action Strip
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildActionPill(
+                  icon: LucideIcons.wallet,
+                  label: l10n.actionWallet,
+                  color: AppColors.primary,
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => ManualTransactionDialog(
+                        entityId: driver.id,
+                        isVendor: false,
+                      ),
+                    ).then((_) => ref.read(driversProvider.notifier).refresh());
+                  },
+                ),
+                _buildActionPill(
+                  icon: LucideIcons.barChart3,
+                  label: isArabic ? 'إحصائيات' : 'Statistics',
+                  color: Colors.indigoAccent,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DriverStatisticsScreen(driverId: driver.id, driverName: driver.name),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionPill(
+                  icon: LucideIcons.trophy,
+                  label: isArabic ? 'الشارة والتصنيف' : 'Badge & Rank',
+                  color: const Color(0xFFD4920E),
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => DriverRankHistoryDialog(
+                        driverId: driver.id,
+                        driverName: driver.name,
+                        initialTier: AdminDriverTierVisuals.parseTier(
+                          driver.tier,
                         ),
-                      ).then((_) => ref.read(driversProvider.notifier).refresh());
-                    },
-                  ),
-                  const SizedBox(width: 8),
+                        canOverride:
+                            _canCreateOrEditDrivers && !_isDriverManager,
+                      ),
+                    );
+                  },
+                ),
+                _buildActionPill(
+                  icon: LucideIcons.truck,
+                  label: l10n.actionAssign,
+                  color: Colors.blue,
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AssignOrderDialog(driver: driver),
+                    );
+                  },
+                ),
+                _buildActionPill(
+                  icon: LucideIcons.calendarClock,
+                  label: l10n.actionShifts,
+                  color: Colors.purpleAccent,
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => DriverShiftsDialog(driver: driver),
+                    );
+                  },
+                ),
+                if (_canManageDrivers) ...[
                   _buildActionPill(
-                    icon: LucideIcons.barChart3,
-                    label: isArabic ? 'إحصائيات' : 'Statistics',
-                    color: Colors.indigoAccent,
+                    icon: LucideIcons.mapPin,
+                    label: l10n.actionLocation,
+                    color: Colors.teal,
+                    onTap: () => _locateDriver(driver),
+                  ),
+                  _buildActionPill(
+                    icon: _canCreateOrEditDrivers
+                        ? LucideIcons.pencil
+                        : LucideIcons.eye,
+                    label: _canCreateOrEditDrivers
+                        ? l10n.actionEdit
+                        : (isArabic ? 'عرض' : 'View'),
+                    color: Colors.grey,
                     onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => DriverStatisticsScreen(driverId: driver.id, driverName: driver.name),
+                      showDialog(
+                        context: context,
+                        builder: (context) => DriverFormDialog(
+                          driver: driver,
+                          readOnly: !_canCreateOrEditDrivers,
                         ),
                       );
                     },
                   ),
-                  const SizedBox(width: 8),
-                  _buildActionPill(
-                    icon: LucideIcons.trophy,
-                    label: isArabic ? 'الشارة والتصنيف' : 'Badge & Rank',
-                    color: const Color(0xFFD4920E),
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => DriverRankHistoryDialog(
-                          driverId: driver.id,
-                          driverName: driver.name,
-                          initialTier: AdminDriverTierVisuals.parseTier(
-                            driver.tier,
-                          ),
-                          canOverride:
-                              _canCreateOrEditDrivers && !_isDriverManager,
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _buildActionPill(
-                    icon: LucideIcons.truck,
-                    label: l10n.actionAssign,
-                    color: Colors.blue,
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AssignOrderDialog(driver: driver),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  _buildActionPill(
-                    icon: LucideIcons.calendarClock,
-                    label: l10n.actionShifts,
-                    color: Colors.purpleAccent,
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => DriverShiftsDialog(driver: driver),
-                      );
-                    },
-                  ),
-                  if (_canManageDrivers) ...[
-                    const SizedBox(width: 8),
+                  if (!driver.isApproved && _canCreateOrEditDrivers)
                     _buildActionPill(
-                      icon: LucideIcons.mapPin,
-                      label: l10n.actionLocation,
-                      color: Colors.teal,
-                      onTap: () => _locateDriver(driver),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildActionPill(
-                      icon: _canCreateOrEditDrivers
-                          ? LucideIcons.pencil
-                          : LucideIcons.eye,
-                      label: _canCreateOrEditDrivers
-                          ? l10n.actionEdit
-                          : (isArabic ? 'عرض' : 'View'),
-                      color: Colors.grey,
+                      icon: LucideIcons.checkCircle,
+                      label: l10n.actionApprove,
+                      color: AppColors.success,
+                      bg: AppColors.success.withValues(alpha: 0.12),
                       onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => DriverFormDialog(
-                            driver: driver,
-                            readOnly: !_canCreateOrEditDrivers,
-                          ),
-                        );
+                        final messenger = ScaffoldMessenger.of(context);
+                        ref.read(driversProvider.notifier).updateDriver(driver.id, {
+                          'isApproved': true,
+                        }).then((_) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Driver Approved')),
+                          );
+                        }).catchError((err) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(ErrorUtils.translate(context, err)),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        });
+                      },
+                    )
+                  else
+                    _buildActionPill(
+                      icon: driver.isSuspended ? LucideIcons.checkCircle : LucideIcons.ban,
+                      label: driver.isSuspended
+                          ? l10n.actionUnsuspend
+                          : l10n.actionSuspend,
+                      color: driver.isSuspended ? AppColors.success : AppColors.error,
+                      bg: (driver.isSuspended ? AppColors.success : AppColors.error)
+                          .withValues(alpha: 0.12),
+                      onTap: () {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final notifier = ref.read(driversProvider.notifier);
+                        final action = driver.isSuspended
+                            ? notifier.unsuspendDriver(driver.id)
+                            : notifier.suspendDriver(driver.id);
+                        action.then((_) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                driver.isSuspended
+                                    ? 'Driver Unsuspended'
+                                    : 'Driver Suspended',
+                              ),
+                            ),
+                          );
+                        }).catchError((err) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(ErrorUtils.translate(context, err)),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        });
                       },
                     ),
-                    const SizedBox(width: 8),
-                    if (!driver.isApproved && _canCreateOrEditDrivers)
-                      _buildActionPill(
-                        icon: LucideIcons.checkCircle,
-                        label: l10n.actionApprove,
-                        color: AppColors.success,
-                        bg: AppColors.success.withValues(alpha: 0.12),
-                        onTap: () {
-                          final messenger = ScaffoldMessenger.of(context);
-                          ref.read(driversProvider.notifier).updateDriver(driver.id, {
-                            'isApproved': true,
-                          }).then((_) {
-                            if (!mounted) return;
-                            messenger.showSnackBar(
-                              const SnackBar(content: Text('Driver Approved')),
-                            );
-                          }).catchError((err) {
-                            if (!mounted) return;
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(ErrorUtils.translate(context, err)),
-                                backgroundColor: AppColors.error,
-                              ),
-                            );
-                          });
-                        },
-                      )
-                    else
-                      _buildActionPill(
-                        icon: driver.isSuspended ? LucideIcons.checkCircle : LucideIcons.ban,
-                        label: driver.isSuspended
-                            ? l10n.actionUnsuspend
-                            : l10n.actionSuspend,
-                        color: driver.isSuspended ? AppColors.success : AppColors.error,
-                        bg: (driver.isSuspended ? AppColors.success : AppColors.error)
-                            .withValues(alpha: 0.12),
-                        onTap: () {
-                          final messenger = ScaffoldMessenger.of(context);
-                          final notifier = ref.read(driversProvider.notifier);
-                          final action = driver.isSuspended
-                              ? notifier.unsuspendDriver(driver.id)
-                              : notifier.suspendDriver(driver.id);
-                          action.then((_) {
-                            if (!mounted) return;
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  driver.isSuspended
-                                      ? 'Driver Unsuspended'
-                                      : 'Driver Suspended',
-                                ),
-                              ),
-                            );
-                          }).catchError((err) {
-                            if (!mounted) return;
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(ErrorUtils.translate(context, err)),
-                                backgroundColor: AppColors.error,
-                              ),
-                            );
-                          });
-                        },
-                      ),
-                  ],
                 ],
-              ),
+              ],
             ),
           ],
         ),
@@ -2220,18 +2217,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
         data: (data) {
           final List<Marker> markers = [];
 
-          // Route Polylines
           final curDriverPos = _currentDriverLocation ?? _selectedDriverLocation;
-          final polylines = (_selectedDriver != null &&
-                  curDriverPos != null &&
-                  _selectedDriverOrder != null)
-              ? _buildDriverOrderPolylines(
-                  activeOrder: _selectedDriverOrder!,
-                  driverPos: curDriverPos,
-                  pickupLocation: _orderPickupLocation,
-                  deliveryLocation: _orderDeliveryLocation,
-                )
-              : const <Polyline>[];
 
           // Build Markers for unselected drivers
           for (final d in data.drivers) {
@@ -2280,33 +2266,8 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
             }
           }
 
-          // Selected Driver: Smooth Animated InDrive Vehicle Marker
-          if (_selectedDriver != null && curDriverPos != null) {
-            final selectedVehicleType = (_selectedDriver?.vehicleType != null &&
-                    _selectedDriver!.vehicleType!.trim().isNotEmpty)
-                ? _selectedDriver!.vehicleType!.trim()
-                : 'MOTORCYCLE';
-            markers.add(
-              Marker(
-                point: curDriverPos,
-                width: 104,
-                height: 92,
-                child: Center(
-                  child: RepaintBoundary(
-                    child: InDriveVehicleMarker(
-                      size: 54,
-                      heading: _currentDriverHeading,
-                      isMoving: _isDriverMoving,
-                      vehicleType: selectedVehicleType,
-                      plateNumber: _selectedDriver?.vehiclePlate,
-                      label: _selectedDriver?.name,
-                      color: _selectedDriverIsLive ? AppColors.success : AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }
+          // Static pickup & delivery markers; selected animated driver marker is
+          // isolated inside ListenableBuilder below.
 
           // Active Order Store / Pickup Marker
           if (_orderPickupLocation != null) {
@@ -2457,18 +2418,91 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                 children: [
                   const AppMapTileLayer(userAgentPackageName: 'com.otlob.admin'),
                   if (_selectedZonePolygon.isNotEmpty)
-                    PolygonLayer(
-                      polygons: [
-                        Polygon(
-                          points: _selectedZonePolygon,
-                          color: AppColors.primary.withValues(alpha: 0.15),
-                          borderColor: AppColors.primary,
-                          borderStrokeWidth: 2,
-                        ),
-                      ],
+                    RepaintBoundary(
+                      child: PolygonLayer(
+                        polygons: [
+                          Polygon(
+                            points: _selectedZonePolygon,
+                            color: AppColors.primary.withValues(alpha: 0.15),
+                            borderColor: AppColors.primary,
+                            borderStrokeWidth: 2,
+                          ),
+                        ],
+                      ),
                     ),
-                  if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
-                  MarkerLayer(markers: markers),
+                  if (_selectedDriver != null && _selectedDriverOrder != null)
+                    RepaintBoundary(
+                      child: ListenableBuilder(
+                        listenable: Listenable.merge([
+                          _driverMoveController,
+                          _routeVersion,
+                        ]),
+                        builder: (ctx, _) {
+                          final driverPos =
+                              _currentDriverLocation ?? _selectedDriverLocation;
+                          if (driverPos == null) {
+                            return const SizedBox.shrink();
+                          }
+                          final polylines = _buildDriverOrderPolylines(
+                            activeOrder: _selectedDriverOrder!,
+                            driverPos: driverPos,
+                            pickupLocation: _orderPickupLocation,
+                            deliveryLocation: _orderDeliveryLocation,
+                          );
+                          if (polylines.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          return PolylineLayer(polylines: polylines);
+                        },
+                      ),
+                    ),
+                  RepaintBoundary(
+                    child: MarkerLayer(markers: markers),
+                  ),
+                  if (_selectedDriver != null)
+                    RepaintBoundary(
+                      child: ListenableBuilder(
+                        listenable: _driverMoveController,
+                        builder: (ctx, _) {
+                          final driverPos =
+                              _currentDriverLocation ?? _selectedDriverLocation;
+                          if (driverPos == null) {
+                            return const SizedBox.shrink();
+                          }
+                          final selectedVehicleType = (_selectedDriver?.vehicleType !=
+                                      null &&
+                                  _selectedDriver!.vehicleType!
+                                      .trim()
+                                      .isNotEmpty)
+                              ? _selectedDriver!.vehicleType!.trim()
+                              : 'MOTORCYCLE';
+                          return MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: driverPos,
+                                width: 104,
+                                height: 92,
+                                child: Center(
+                                  child: RepaintBoundary(
+                                    child: InDriveVehicleMarker(
+                                      size: 54,
+                                      heading: _currentDriverHeading,
+                                      isMoving: _isDriverMoving,
+                                      vehicleType: selectedVehicleType,
+                                      plateNumber: _selectedDriver?.vehiclePlate,
+                                      label: _selectedDriver?.name,
+                                      color: _selectedDriverIsLive
+                                          ? AppColors.success
+                                          : AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
 

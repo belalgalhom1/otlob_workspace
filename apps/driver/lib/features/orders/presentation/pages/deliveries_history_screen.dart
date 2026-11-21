@@ -1,3 +1,5 @@
+import 'dart:ui' as ui show TextDirection;
+
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -184,15 +186,20 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
+                          color: AppColors.primary.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(
-                          orderNumber,
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                        child: Directionality(
+                          textDirection: ui.TextDirection.ltr,
+                          child: Text(
+                            orderNumber,
+                            style: TextStyle(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? AppColors.primary
+                                  : const Color(0xFF92400E),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ),
@@ -200,7 +207,7 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withValues(alpha: 0.15),
+                            color: Colors.amber.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -208,8 +215,10 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                               orderType,
                               isArabic: isAr,
                             ),
-                            style: const TextStyle(
-                              color: Colors.amber,
+                            style: TextStyle(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.amber
+                                  : const Color(0xFF92400E),
                               fontWeight: FontWeight.w600,
                               fontSize: 11,
                             ),
@@ -326,7 +335,7 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${deliveryFee.toStringAsFixed(2)} $currency',
+                        '${deliveryFee.toStringAsFixed(2)} ${(isAr && currency == 'EGP') ? 'ج.م' : currency}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -345,7 +354,7 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                       if (createdAt != null)
                         Flexible(
                           child: Text(
-                            DateFormat.yMMMd().format(createdAt),
+                            DateFormat.yMMMd(isAr ? 'ar' : 'en').format(createdAt),
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,

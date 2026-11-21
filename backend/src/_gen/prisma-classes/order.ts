@@ -67,6 +67,9 @@ export class Order {
   deliveryFee: number;
 
   @ApiProperty({ type: Number })
+  goldSurchargeAmount: number = 0;
+
+  @ApiProperty({ type: Number })
   driverBonusFee: number;
 
   @ApiProperty({ type: Number })
@@ -113,6 +116,24 @@ export class Order {
 
   @ApiPropertyOptional({ type: Date })
   settledAt?: Date;
+
+  @ApiProperty({ type: Number })
+  settledGoldBonusAmount: number = 0;
+
+  @ApiProperty({ type: Number })
+  settledGoldPlatformRetainedAmount: number = 0;
+
+  @ApiProperty({ type: Number })
+  settledBronzeDriverDeduction: number = 0;
+
+  @ApiProperty({ type: Number })
+  settledBronzeSupervisorDeduction: number = 0;
+
+  @ApiPropertyOptional({ type: Number })
+  settledBronzeDriverDeductionRate?: number;
+
+  @ApiPropertyOptional({ type: Number })
+  settledBronzeSupervisorDeductionRate?: number;
 
   @ApiPropertyOptional({ type: String })
   cancelledByUserId?: string;

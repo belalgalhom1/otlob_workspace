@@ -186,6 +186,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       style: const TextStyle(fontSize: 12),
                     ),
                     style: OutlinedButton.styleFrom(
+                      foregroundColor: accentTextColor,
+                      side: BorderSide(
+                        color: accentTextColor.withValues(alpha: 0.45),
+                      ),
                       minimumSize: const Size(0, 36),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                     ),

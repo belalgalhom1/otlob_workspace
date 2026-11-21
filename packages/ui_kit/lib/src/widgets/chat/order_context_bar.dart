@@ -55,10 +55,10 @@ class OrderContextBar extends StatelessWidget {
                   color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   LucideIcons.packageCheck,
                   size: 16,
-                  color: AppColors.primary,
+                  color: isDark ? AppColors.primary : const Color(0xFF92400E),
                 ),
               ),
               const SizedBox(width: 10),
@@ -72,14 +72,17 @@ class OrderContextBar extends StatelessWidget {
                     Row(
                       children: [
                         Flexible(
-                          child: Text(
-                            '#$orderNumber',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: colorScheme.onSurface,
+                          child: Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Text(
+                              '#$orderNumber',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: colorScheme.onSurface,
+                              ),
                             ),
                           ),
                         ),
@@ -136,7 +139,7 @@ class OrderContextBar extends StatelessWidget {
                 IconButton(
                   onPressed: onCall,
                   icon: const Icon(LucideIcons.phoneCall, size: 16),
-                  color: AppColors.primary,
+                  color: isDark ? AppColors.primary : const Color(0xFF92400E),
                   tooltip: 'Call',
                   visualDensity: VisualDensity.compact,
                 ),

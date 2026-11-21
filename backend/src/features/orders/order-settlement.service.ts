@@ -12,6 +12,11 @@ import { OrderSettledEvent, DriverStatusChangedEvent } from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
 import {
+  centsToWholeEgp,
+  multiplyMoneyRatioToWholeEgp,
+  toMoneyCents,
+} from '../../common/orders/money.helper';
+import {
   allocateDriverBonus,
   allocateOrderCashCollection,
   computeIsMultiVendorOrder,
@@ -42,6 +47,7 @@ export interface SettleOrderPayload {
   distanceKm: number;
   driverTier: string;
   deliveryFee: number;
+  goldSurchargeAmount?: number;
   driverBonusFee: number;
   subtotal: number;
   serviceFee: number;
@@ -69,9 +75,12 @@ interface DeliveredGroupRow {
   id: string;
   sequence: number;
   deliveryFee: number;
+  goldSurchargeAmount?: number | null;
   distanceKm: number | null;
   primaryDriverId: string | null;
   primaryDriverShiftId: string | null;
+  primaryDriverTierSnapshot?: string | null;
+  deliveredAt?: Date | null;
   assistDriverId: string | null;
   assistDriverShiftId: string | null;
   assistCustomerApproved: boolean | null;
@@ -83,6 +92,31 @@ interface ManagerPayout {
   managerId: string;
   amount: number;
   deliveryGroupId: string | null;
+}
+
+interface DriverAdjustment {
+  driverId: string;
+  driverShiftId: string | null;
+  deliveryGroupId: string | null;
+  amount: number;
+}
+
+interface BronzeSupervisorDeduction {
+  managerId: string;
+  bronzeDriverId: string;
+  deliveryGroupId: string | null;
+  amount: number;
+}
+
+interface GroupSettlementSnapshot {
+  deliveryGroupId: string;
+  goldSurchargeAmount: number;
+  primaryDriverTierSnapshot: string;
+  settledGoldBonusAmount: number;
+  settledGoldPlatformRetainedAmount: number;
+  settledBronzeDriverDeduction: number;
+  settledBronzeSupervisorDeduction: number;
+  settledPrimaryManagerId: string | null;
 }
 
 interface SettlementPortionRow {
@@ -117,6 +151,16 @@ interface SettlementPlan {
   paidDriverIds: string[];
   driverEarnings: number;
   totalAssistEarnings: number;
+  goldDriverBonuses: DriverAdjustment[];
+  bronzeDriverDeductions: DriverAdjustment[];
+  bronzeSupervisorDeductions: BronzeSupervisorDeduction[];
+  settledGoldBonusAmount: number;
+  settledGoldPlatformRetainedAmount: number;
+  settledBronzeDriverDeduction: number;
+  settledBronzeSupervisorDeduction: number;
+  configuredBronzeDriverDeduction: number;
+  configuredBronzeSupervisorDeduction: number;
+  groupSnapshots: GroupSettlementSnapshot[];
   platformRevenue: number;
   managerPayouts: ManagerPayout[];
   isDriverCollected: boolean;
@@ -166,14 +210,20 @@ export class OrderSettlementService {
   }
 
   async settleOrder(payload: SettleOrderPayload): Promise<void> {
-    // Fast-path idempotency guard before loading settlement inputs.
+    // Fast-path idempotency & eligibility guard before loading settlement inputs.
     const orderRow = await this.prisma.order.findUnique({
       where: { id: payload.orderId },
-      select: { settledAt: true },
+      select: { settledAt: true, status: true },
     });
     if (orderRow?.settledAt) {
       this.logger.log(
         `Order ${payload.orderNumber} already settled; skipping.`,
+      );
+      return;
+    }
+    if ((orderRow as { status?: string } | null)?.status && (orderRow as { status?: string }).status !== 'DELIVERED') {
+      this.logger.warn(
+        `Order ${payload.orderNumber} status is ${(orderRow as { status?: string }).status} (not DELIVERED); skipping settlement.`,
       );
       return;
     }
@@ -254,17 +304,6 @@ export class OrderSettlementService {
         : subtotal;
     const settings = await this.platformSettings.getSettings();
 
-    const goldBonus = Number(settings.goldTierBonusPerKm ?? 0);
-    const silverBonus = Number(settings.silverTierBonusPerKm ?? 0);
-    const bronzeBonus = Number(settings.bronzeTierBonusPerKm ?? 0);
-
-    const tierBonusPerKm = (tier: string): number =>
-      tier === 'SILVER'
-        ? silverBonus
-        : tier === 'BRONZE'
-          ? bronzeBonus
-          : goldBonus;
-
     const effectiveEarningsSettings = {
       ...settings,
       deliveryCommissionRate:
@@ -280,6 +319,25 @@ export class OrderSettlementService {
     const multiVendorDriverShare = this.earnings.computeDriverShare(
       effectiveEarningsSettings,
       { isMultiVendor: true },
+    );
+
+    const configuredBronzeDriverDeduction = Math.max(
+      0,
+      centsToWholeEgp(
+        toMoneyCents(
+          (settings as { bronzeTierDeductionAmount?: number | null })
+            .bronzeTierDeductionAmount ?? 0,
+        ),
+      ),
+    );
+    const configuredBronzeSupervisorDeduction = Math.max(
+      0,
+      centsToWholeEgp(
+        toMoneyCents(
+          (settings as { bronzeSupervisorDeductionAmount?: number | null })
+            .bronzeSupervisorDeductionAmount ?? 0,
+        ),
+      ),
     );
 
     const supervisorCommissionRate =
@@ -307,24 +365,11 @@ export class OrderSettlementService {
         isStandardOrder: orderType === 'STANDARD',
       });
 
-    // 100% rule: assisting driver keeps their own full fee based on their own tier.
-    const assistFeeFor = (
-      primaryTier: string,
-      assistTier: string,
-      fee: number,
-      routeKm: number,
-    ): number => {
-      const tierDiffPerKm =
-        tierBonusPerKm(primaryTier) - tierBonusPerKm(assistTier);
-      const base = settings.driverShiftsEnabled
-        ? Math.max(0, fee - Math.max(0, tierDiffPerKm) * routeKm)
-        : fee;
-      let amount = Math.max(0, Math.round(base * driverShare));
-      if (assistTier === 'BRONZE') {
-        amount = Math.max(0, amount - 2);
-      }
-      return amount;
-    };
+    // Assisting driver receives their base delivery fee share; Gold per-order
+    // surcharge is strictly excluded from assisting drivers, and fixed Bronze
+    // deductions are recorded separately via `bronzeTierDeductionAmount`.
+    const assistFeeFor = (baseFee: number): number =>
+      Math.max(0, multiplyMoneyRatioToWholeEgp(baseFee, driverShare));
 
     const groups = (await this.prisma.orderDeliveryGroup.findMany({
       where: {
@@ -336,9 +381,12 @@ export class OrderSettlementService {
         id: true,
         sequence: true,
         deliveryFee: true,
+        goldSurchargeAmount: true,
         distanceKm: true,
         primaryDriverId: true,
         primaryDriverShiftId: true,
+        primaryDriverTierSnapshot: true,
+        deliveredAt: true,
         assistDriverId: true,
         assistDriverShiftId: true,
         assistCustomerApproved: true,
@@ -350,10 +398,103 @@ export class OrderSettlementService {
 
     const primaryPayouts: DriverPayout[] = [];
     const assistPayouts: DriverPayout[] = [];
+    const goldBonusBuckets = new Map<
+      string,
+      { driverId: string; driverShiftId: string | null; deliveryGroupId: string | null; amount: number }
+    >();
+    const bronzeDriverEligibleBuckets = new Map<
+      string,
+      { driverId: string; driverShiftId: string | null; deliveryGroupId: string | null; eligibleEarnings: number }
+    >();
+    const bronzeManagerEligibleBuckets = new Map<
+      string,
+      { managerId: string; bronzeDriverId: string; deliveryGroupId: string | null; eligibleEarnings: number }
+    >();
+    const groupSnapshots: GroupSettlementSnapshot[] = [];
+    let settledGoldBonusAmount = 0;
+    let settledGoldPlatformRetainedAmount = 0;
+
+    const addGoldBonus = (
+      targetDriverId: string,
+      targetShiftId: string | null,
+      targetGroupId: string | null,
+      amount: number,
+    ) => {
+      if (amount <= 0) return;
+      settledGoldBonusAmount += amount;
+      const existing = goldBonusBuckets.get(targetDriverId);
+      if (existing) {
+        existing.amount += amount;
+      } else {
+        goldBonusBuckets.set(targetDriverId, {
+          driverId: targetDriverId,
+          driverShiftId: targetShiftId,
+          deliveryGroupId: targetGroupId,
+          amount,
+        });
+      }
+    };
+
+    const addBronzeDriverEligible = (
+      targetDriverId: string,
+      targetShiftId: string | null,
+      targetGroupId: string | null,
+      eligibleAmount: number,
+    ) => {
+      const existing = bronzeDriverEligibleBuckets.get(targetDriverId);
+      if (existing) {
+        existing.eligibleEarnings += Math.max(0, eligibleAmount);
+      } else {
+        bronzeDriverEligibleBuckets.set(targetDriverId, {
+          driverId: targetDriverId,
+          driverShiftId: targetShiftId,
+          deliveryGroupId: targetGroupId,
+          eligibleEarnings: Math.max(0, eligibleAmount),
+        });
+      }
+    };
+
+    const resolveDriverTierSnapshot = async (
+      targetDriverId: string,
+      snapshotTier: string | null | undefined,
+      deliveredAt: Date | null | undefined,
+      currentTierMap: Map<string, string>,
+      fallback: string,
+    ): Promise<string> => {
+      if (snapshotTier) return snapshotTier;
+      if (
+        deliveredAt &&
+        typeof this.prisma.driverRankHistory?.findFirst === 'function'
+      ) {
+        const nextHistory = await this.prisma.driverRankHistory.findFirst({
+          where: {
+            driverId: targetDriverId,
+            createdAt: { gt: deliveredAt },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { previousTier: true },
+        });
+        if (nextHistory?.previousTier) {
+          return nextHistory.previousTier;
+        }
+      }
+      return currentTierMap.get(targetDriverId) ?? fallback;
+    };
+
     const isMultiVendorOrder = computeIsMultiVendorOrder({
       activeGroupsCount: groups.length,
       activeFulfillmentsCount: portions.length,
     });
+
+    const managerPayoutBuckets = new Map<
+      string,
+      { amount: number; groupIds: Set<string> }
+    >();
+
+    const payloadGoldSurcharge = Math.max(
+      0,
+      Math.round(Number(payload.goldSurchargeAmount ?? 0)),
+    );
 
     if (groups.length > 0) {
       const primaryIds = Array.from(
@@ -372,18 +513,54 @@ export class OrderSettlementService {
       });
       const tierById = new Map(tierRows.map((d) => [d.id, d.tier as string]));
 
+      const resolvedManagers = await Promise.all(
+        primaryIds.map(
+          async (id) =>
+            [id, await this.resolveDriverManager(id, zoneId)] as const,
+        ),
+      );
+      const managerByDriverId = new Map(resolvedManagers);
+
+      // Determine exact per-group Gold surcharge without ever duplicating order-level surcharge.
+      const explicitSurchargeSum = groups.reduce(
+        (sum, g) => sum + Math.max(0, Math.round(Number(g.goldSurchargeAmount ?? 0))),
+        0,
+      );
+      const collectorGroupForSurcharge =
+        groups.find((g) => g.isPaymentCollector === true) ?? groups[0];
+
       for (const g of groups) {
         const primaryId = g.primaryDriverId!;
-        const primaryTier = tierById.get(primaryId) ?? driverTier;
+        const primaryTier = await resolveDriverTierSnapshot(
+          primaryId,
+          g.primaryDriverTierSnapshot,
+          g.deliveredAt,
+          tierById,
+          driverTier,
+        );
         const routeKm = g.distanceKm ?? distanceKm;
-        const primaryFee = primaryFeeFor(g.deliveryFee, routeKm, primaryTier);
+
+        const rawGroupGold =
+          explicitSurchargeSum > 0
+            ? Math.max(0, Math.round(Number(g.goldSurchargeAmount ?? 0)))
+            : g.id === collectorGroupForSurcharge?.id
+              ? payloadGoldSurcharge
+              : 0;
+        const groupGoldSurcharge = Math.min(g.deliveryFee, rawGroupGold);
+        const baseGroupDeliveryFee = Math.max(0, g.deliveryFee - groupGoldSurcharge);
+
+        const primaryFee = primaryFeeFor(
+          baseGroupDeliveryFee,
+          routeKm,
+          primaryTier,
+        );
         const isGroupStacked = g.isStacked === true;
         const groupShare = isGroupStacked
           ? stackedDriverShare
           : isMultiVendorOrder
             ? multiVendorDriverShare
             : driverShare;
-        const amount = Math.max(0, Math.round(primaryFee * groupShare));
+        const amount = Math.max(0, multiplyMoneyRatioToWholeEgp(primaryFee, groupShare));
 
         primaryPayouts.push({
           driverId: primaryId,
@@ -392,14 +569,93 @@ export class OrderSettlementService {
           amount,
         });
 
-        if (g.assistDriverId) {
-          const assistTier = tierById.get(g.assistDriverId) ?? 'SILVER';
-          const assistAmount = assistFeeFor(
-            primaryTier,
-            assistTier,
-            g.deliveryFee,
-            routeKm,
+        const gManager = managerByDriverId.get(primaryId) ?? null;
+        let managerShareForGroup = 0;
+        if (gManager) {
+          const rate =
+            g.isStacked === true
+              ? batchedSupervisorRate
+              : isMultiVendorOrder
+                ? multiVendorSupervisorRate
+                : supervisorCommissionRate;
+          managerShareForGroup = Math.max(
+            0,
+            multiplyMoneyRatioToWholeEgp(baseGroupDeliveryFee, rate),
           );
+          if (managerShareForGroup > 0) {
+            const existing = managerPayoutBuckets.get(gManager.id);
+            if (existing) {
+              existing.amount += managerShareForGroup;
+              existing.groupIds.add(g.id);
+            } else {
+              managerPayoutBuckets.set(gManager.id, {
+                amount: managerShareForGroup,
+                groupIds: new Set([g.id]),
+              });
+            }
+          }
+        }
+
+        let groupGoldBonus = 0;
+        let groupGoldRetained = 0;
+        if (groupGoldSurcharge > 0) {
+          if (primaryTier === 'GOLD') {
+            groupGoldBonus = groupGoldSurcharge;
+            addGoldBonus(
+              primaryId,
+              g.primaryDriverShiftId ?? null,
+              g.id,
+              groupGoldBonus,
+            );
+          } else {
+            groupGoldRetained = groupGoldSurcharge;
+            settledGoldPlatformRetainedAmount += groupGoldRetained;
+          }
+        }
+
+        if (primaryTier === 'BRONZE') {
+          addBronzeDriverEligible(
+            primaryId,
+            g.primaryDriverShiftId ?? null,
+            g.id,
+            amount,
+          );
+          if (gManager && managerShareForGroup > 0) {
+            const pairKey = `${gManager.id}:${primaryId}`;
+            const existingPair = bronzeManagerEligibleBuckets.get(pairKey);
+            if (existingPair) {
+              existingPair.eligibleEarnings += managerShareForGroup;
+            } else {
+              bronzeManagerEligibleBuckets.set(pairKey, {
+                managerId: gManager.id,
+                bronzeDriverId: primaryId,
+                deliveryGroupId: g.id,
+                eligibleEarnings: managerShareForGroup,
+              });
+            }
+          }
+        }
+
+        groupSnapshots.push({
+          deliveryGroupId: g.id,
+          goldSurchargeAmount: groupGoldSurcharge,
+          primaryDriverTierSnapshot: primaryTier,
+          settledGoldBonusAmount: groupGoldBonus,
+          settledGoldPlatformRetainedAmount: groupGoldRetained,
+          settledBronzeDriverDeduction: 0,
+          settledBronzeSupervisorDeduction: 0,
+          settledPrimaryManagerId: gManager?.id ?? null,
+        });
+
+        if (g.assistDriverId) {
+          const assistTier = await resolveDriverTierSnapshot(
+            g.assistDriverId,
+            null,
+            g.deliveredAt,
+            tierById,
+            'SILVER',
+          );
+          const assistAmount = assistFeeFor(baseGroupDeliveryFee);
           if (assistAmount > 0) {
             assistPayouts.push({
               driverId: g.assistDriverId,
@@ -407,19 +663,135 @@ export class OrderSettlementService {
               deliveryGroupId: g.id,
               amount: assistAmount,
             });
+            if (assistTier === 'BRONZE') {
+              addBronzeDriverEligible(
+                g.assistDriverId,
+                g.assistDriverShiftId ?? null,
+                g.id,
+                assistAmount,
+              );
+            }
           }
         }
       }
     } else if (driverId) {
-      const primaryFee = primaryFeeFor(deliveryFee, distanceKm, driverTier);
+      const effectiveTier = driverTier || 'SILVER';
+      const orderGoldSurcharge = Math.min(deliveryFee, payloadGoldSurcharge);
+      const baseDeliveryFee = Math.max(0, deliveryFee - orderGoldSurcharge);
+
+      const primaryFee = primaryFeeFor(baseDeliveryFee, distanceKm, effectiveTier);
       const orderShare =
         payload.isStacked === true ? stackedDriverShare : driverShare;
+      const normalDriverAmount = Math.max(
+        0,
+        multiplyMoneyRatioToWholeEgp(primaryFee, orderShare),
+      );
       primaryPayouts.push({
         driverId,
         driverShiftId,
         deliveryGroupId: null,
-        amount: Math.round(primaryFee * orderShare),
+        amount: normalDriverAmount,
       });
+
+      const manager = await this.resolveDriverManager(driverId, zoneId);
+      let managerShare = 0;
+      if (manager) {
+        const rate =
+          payload.isStacked === true
+            ? batchedSupervisorRate
+            : supervisorCommissionRate;
+        managerShare = Math.max(
+          0,
+          multiplyMoneyRatioToWholeEgp(baseDeliveryFee, rate),
+        );
+        if (managerShare > 0) {
+          managerPayoutBuckets.set(manager.id, {
+            amount: managerShare,
+            groupIds: new Set(),
+          });
+        }
+      }
+
+      if (orderGoldSurcharge > 0) {
+        if (effectiveTier === 'GOLD') {
+          addGoldBonus(driverId, driverShiftId, null, orderGoldSurcharge);
+        } else {
+          settledGoldPlatformRetainedAmount += orderGoldSurcharge;
+        }
+      }
+
+      if (effectiveTier === 'BRONZE') {
+        addBronzeDriverEligible(
+          driverId,
+          driverShiftId,
+          null,
+          normalDriverAmount,
+        );
+        if (manager && managerShare > 0) {
+          bronzeManagerEligibleBuckets.set(`${manager.id}:${driverId}`, {
+            managerId: manager.id,
+            bronzeDriverId: driverId,
+            deliveryGroupId: null,
+            eligibleEarnings: managerShare,
+          });
+        }
+      }
+    }
+
+    const goldDriverBonuses: DriverAdjustment[] = Array.from(
+      goldBonusBuckets.values(),
+    ).filter((b) => b.amount > 0);
+
+    const bronzeDriverDeductions: DriverAdjustment[] = [];
+    let settledBronzeDriverDeduction = 0;
+    if (configuredBronzeDriverDeduction > 0) {
+      for (const bucket of bronzeDriverEligibleBuckets.values()) {
+        const applied = Math.min(
+          configuredBronzeDriverDeduction,
+          bucket.eligibleEarnings,
+        );
+        if (applied > 0) {
+          settledBronzeDriverDeduction += applied;
+          bronzeDriverDeductions.push({
+            driverId: bucket.driverId,
+            driverShiftId: bucket.driverShiftId,
+            deliveryGroupId: bucket.deliveryGroupId,
+            amount: applied,
+          });
+          if (bucket.deliveryGroupId) {
+            const snap = groupSnapshots.find(
+              (s) => s.deliveryGroupId === bucket.deliveryGroupId,
+            );
+            if (snap) snap.settledBronzeDriverDeduction += applied;
+          }
+        }
+      }
+    }
+
+    const bronzeSupervisorDeductions: BronzeSupervisorDeduction[] = [];
+    let settledBronzeSupervisorDeduction = 0;
+    if (configuredBronzeSupervisorDeduction > 0) {
+      for (const bucket of bronzeManagerEligibleBuckets.values()) {
+        const applied = Math.min(
+          configuredBronzeSupervisorDeduction,
+          bucket.eligibleEarnings,
+        );
+        if (applied > 0) {
+          settledBronzeSupervisorDeduction += applied;
+          bronzeSupervisorDeductions.push({
+            managerId: bucket.managerId,
+            bronzeDriverId: bucket.bronzeDriverId,
+            deliveryGroupId: bucket.deliveryGroupId,
+            amount: applied,
+          });
+          if (bucket.deliveryGroupId) {
+            const snap = groupSnapshots.find(
+              (s) => s.deliveryGroupId === bucket.deliveryGroupId,
+            );
+            if (snap) snap.settledBronzeSupervisorDeduction += applied;
+          }
+        }
+      }
     }
 
     const driverEarnings = primaryPayouts.reduce((sum, p) => sum + p.amount, 0);
@@ -433,6 +805,8 @@ export class OrderSettlementService {
           driverId,
           ...primaryPayouts.map((p) => p.driverId),
           ...assistPayouts.map((p) => p.driverId),
+          ...goldDriverBonuses.map((b) => b.driverId),
+          ...bronzeDriverDeductions.map((d) => d.driverId),
         ].filter(Boolean),
       ),
     );
@@ -453,67 +827,12 @@ export class OrderSettlementService {
     // Total assist payouts come out of platform delivery cut regardless of whether customer paid assistFee in deliveryFee.
     platformRevenue -= totalAssistEarnings;
 
-    const managerPayoutBuckets = new Map<
-      string,
-      { amount: number; groupIds: Set<string> }
-    >();
-    if (groups.length > 0) {
-      const uniquePrimaryIds = Array.from(
-        new Set(
-          groups
-            .map((g) => g.primaryDriverId)
-            .filter((id): id is string => !!id),
-        ),
-      );
-      const resolvedManagers = await Promise.all(
-        uniquePrimaryIds.map(
-          async (id) =>
-            [id, await this.resolveDriverManager(id, zoneId)] as const,
-        ),
-      );
-      const managerByDriverId = new Map(resolvedManagers);
+    // Gold surcharge given to GOLD drivers belongs strictly to those drivers, never platform revenue.
+    platformRevenue -= settledGoldBonusAmount;
 
-      for (const g of groups) {
-        if (!g.primaryDriverId) continue;
-        const gManager = managerByDriverId.get(g.primaryDriverId);
-        if (gManager) {
-          const rate =
-            g.isStacked === true
-              ? batchedSupervisorRate
-              : isMultiVendorOrder
-                ? multiVendorSupervisorRate
-                : supervisorCommissionRate;
-          const share = Math.round(g.deliveryFee * rate);
-          if (share > 0) {
-            const existing = managerPayoutBuckets.get(gManager.id);
-            if (existing) {
-              existing.amount += share;
-              existing.groupIds.add(g.id);
-            } else {
-              managerPayoutBuckets.set(gManager.id, {
-                amount: share,
-                groupIds: new Set([g.id]),
-              });
-            }
-          }
-        }
-      }
-    } else if (driverId) {
-      const manager = await this.resolveDriverManager(driverId, zoneId);
-      if (manager) {
-        const rate =
-          payload.isStacked === true
-            ? batchedSupervisorRate
-            : supervisorCommissionRate;
-        const share = Math.round(deliveryFee * rate);
-        if (share > 0) {
-          managerPayoutBuckets.set(manager.id, {
-            amount: share,
-            groupIds: new Set(),
-          });
-        }
-      }
-    }
+    // Bronze fixed deductions recovered from Bronze drivers and their primary supervisors return to platform settlement.
+    platformRevenue += settledBronzeDriverDeduction;
+    platformRevenue += settledBronzeSupervisorDeduction;
 
     const managerPayouts: ManagerPayout[] = Array.from(
       managerPayoutBuckets.entries(),
@@ -540,6 +859,16 @@ export class OrderSettlementService {
       paidDriverIds,
       driverEarnings,
       totalAssistEarnings,
+      goldDriverBonuses,
+      bronzeDriverDeductions,
+      bronzeSupervisorDeductions,
+      settledGoldBonusAmount,
+      settledGoldPlatformRetainedAmount,
+      settledBronzeDriverDeduction,
+      settledBronzeSupervisorDeduction,
+      configuredBronzeDriverDeduction,
+      configuredBronzeSupervisorDeduction,
+      groupSnapshots,
       platformRevenue,
       managerPayouts,
       isDriverCollected:
@@ -572,7 +901,7 @@ export class OrderSettlementService {
       const [lockedOrder, alreadySettled] = await Promise.all([
         client.order.findUnique({
           where: { id: orderId },
-          select: { settledAt: true },
+          select: { settledAt: true, status: true },
         }),
         client.driverWalletTransaction.findFirst({
           where: {
@@ -588,6 +917,15 @@ export class OrderSettlementService {
       if (lockedOrder?.settledAt || alreadySettled) {
         this.logger.warn(
           `Order ${orderNumber} already settled — skipping duplicate settlement.`,
+        );
+        return;
+      }
+      if (
+        (lockedOrder as { status?: string } | null)?.status &&
+        (lockedOrder as { status?: string }).status !== 'DELIVERED'
+      ) {
+        this.logger.warn(
+          `Order ${orderNumber} status is ${(lockedOrder as { status?: string }).status} inside tx — skipping settlement.`,
         );
         return;
       }
@@ -634,7 +972,14 @@ export class OrderSettlementService {
       }
 
       await this.applyDriverDeliveryPayouts(client, payload, plan);
+      await this.applyGoldDriverBonuses(client, payload, plan);
+      await this.applyBronzeDriverDeductions(client, payload, plan);
       await this.applyManagerPayouts(client, payload, plan.managerPayouts);
+      await this.applyBronzeSupervisorDeductions(
+        client,
+        payload,
+        plan.bronzeSupervisorDeductions,
+      );
 
       if (payload.driverBonusFee > 0) {
         const bonusAllocations = allocateDriverBonus({
@@ -652,7 +997,11 @@ export class OrderSettlementService {
             bonus.driverShiftId,
             `Time-based bonus for order ${orderNumber}`,
             'BONUS',
-            { skipLock: true, deliveryGroupId: bonus.deliveryGroupId },
+            {
+              skipLock: true,
+              deliveryGroupId: bonus.deliveryGroupId,
+              idempotencyKeyOverride: `settle:${orderId}:BONUS:${bonus.driverId}`,
+            },
           );
         }
       }
@@ -663,9 +1012,40 @@ export class OrderSettlementService {
       await this.awardCustomerCoins(client, payload);
       await this.applyVendorPayables(client, payload, plan);
 
+      if (typeof client.orderDeliveryGroup?.update === 'function') {
+        for (const snap of plan.groupSnapshots) {
+          await client.orderDeliveryGroup.update({
+            where: { id: snap.deliveryGroupId },
+            data: {
+              goldSurchargeAmount: snap.goldSurchargeAmount,
+              primaryDriverTierSnapshot: snap.primaryDriverTierSnapshot as any,
+              settledGoldBonusAmount: snap.settledGoldBonusAmount,
+              settledGoldPlatformRetainedAmount:
+                snap.settledGoldPlatformRetainedAmount,
+              settledBronzeDriverDeduction: snap.settledBronzeDriverDeduction,
+              settledBronzeSupervisorDeduction:
+                snap.settledBronzeSupervisorDeduction,
+              settledPrimaryManagerId: snap.settledPrimaryManagerId,
+            },
+          });
+        }
+      }
+
       await client.order.update({
         where: { id: orderId },
-        data: { settledAt: now },
+        data: {
+          settledAt: now,
+          settledGoldBonusAmount: plan.settledGoldBonusAmount,
+          settledGoldPlatformRetainedAmount:
+            plan.settledGoldPlatformRetainedAmount,
+          settledBronzeDriverDeduction: plan.settledBronzeDriverDeduction,
+          settledBronzeSupervisorDeduction:
+            plan.settledBronzeSupervisorDeduction,
+          settledBronzeDriverDeductionRate:
+            plan.configuredBronzeDriverDeduction,
+          settledBronzeSupervisorDeductionRate:
+            plan.configuredBronzeSupervisorDeduction,
+        },
       });
     });
 
@@ -947,6 +1327,104 @@ export class OrderSettlementService {
             payout.groupIds.size === 1 ? Array.from(payout.groupIds)[0] : null,
         },
       );
+    }
+  }
+
+  private async applyGoldDriverBonuses(
+    client: Prisma.TransactionClient,
+    payload: SettleOrderPayload,
+    plan: SettlementPlan,
+  ): Promise<void> {
+    for (const bonus of plan.goldDriverBonuses) {
+      if (bonus.amount <= 0) continue;
+      await this.creditDriverWallet(
+        client,
+        bonus.driverId,
+        bonus.amount,
+        payload.orderId,
+        bonus.driverShiftId,
+        `Weekly Gold badge order bonus for order ${payload.orderNumber}`,
+        'BONUS',
+        {
+          skipLock: true,
+          deliveryGroupId: bonus.deliveryGroupId,
+          idempotencyKeyOverride: `settle:${payload.orderId}:GOLD_BONUS:${bonus.driverId}`,
+        },
+      );
+    }
+  }
+
+  private async applyBronzeDriverDeductions(
+    client: Prisma.TransactionClient,
+    payload: SettleOrderPayload,
+    plan: SettlementPlan,
+  ): Promise<void> {
+    for (const ded of plan.bronzeDriverDeductions) {
+      if (ded.amount <= 0) continue;
+      await this.creditDriverWallet(
+        client,
+        ded.driverId,
+        -ded.amount,
+        payload.orderId,
+        ded.driverShiftId,
+        `Weekly Bronze badge fixed deduction for order ${payload.orderNumber}`,
+        'PENALTY',
+        {
+          skipLock: true,
+          deliveryGroupId: ded.deliveryGroupId,
+          idempotencyKeyOverride: `settle:${payload.orderId}:BRONZE_PENALTY:${ded.driverId}`,
+        },
+      );
+    }
+  }
+
+  private async applyBronzeSupervisorDeductions(
+    client: Prisma.TransactionClient,
+    payload: SettleOrderPayload,
+    deductions: BronzeSupervisorDeduction[],
+  ): Promise<void> {
+    if (deductions.length === 0) return;
+    const sorted = [...deductions].sort(
+      (a, b) =>
+        a.managerId.localeCompare(b.managerId) ||
+        a.bronzeDriverId.localeCompare(b.bronzeDriverId),
+    );
+    const lockedManagers = new Set<string>();
+    for (const item of sorted) {
+      if (item.amount <= 0) continue;
+      if (!lockedManagers.has(item.managerId)) {
+        await client.$executeRaw`SELECT id FROM driver_managers WHERE id = ${item.managerId} FOR UPDATE`;
+        lockedManagers.add(item.managerId);
+      }
+
+      const idempotencyKey = `settle:${payload.orderId}:BRONZE_PENALTY:${item.managerId}:${item.bronzeDriverId}`;
+      const existing = await client.driverManagerWalletTransaction.findFirst({
+        where: {
+          managerId: item.managerId,
+          idempotencyKey,
+        },
+      });
+      if (existing) continue;
+
+      const updatedManager = await client.driverManager.update({
+        where: { id: item.managerId },
+        data: { walletBalance: { increment: -item.amount } },
+        select: { walletBalance: true },
+      });
+
+      await client.driverManagerWalletTransaction.create({
+        data: {
+          managerId: item.managerId,
+          orderId: payload.orderId,
+          deliveryGroupId: item.deliveryGroupId ?? null,
+          referenceId: item.bronzeDriverId,
+          type: 'BRONZE_PENALTY',
+          amount: -item.amount,
+          balanceAfter: updatedManager.walletBalance,
+          description: `Weekly Bronze driver fixed deduction for order ${payload.orderNumber}`,
+          idempotencyKey,
+        },
+      });
     }
   }
 
@@ -1565,12 +2043,14 @@ export class OrderSettlementService {
     if (zoneId) {
       const zoneManager = await this.prisma.driverManager.findFirst({
         where: { zoneId },
+        orderBy: { createdAt: 'asc' },
         select: { id: true },
       });
       if (zoneManager) return zoneManager;
     }
     return this.prisma.driverManager.findFirst({
       where: { manageAllDrivers: true },
+      orderBy: { createdAt: 'asc' },
       select: { id: true },
     });
   }
@@ -1583,24 +2063,36 @@ export class OrderSettlementService {
     driverShiftId: string | null,
     description: string,
     type: DriverWalletTxType = 'DELIVERY_FEE',
-    options: { skipLock?: boolean; deliveryGroupId?: string | null } = {},
+    options: {
+      skipLock?: boolean;
+      deliveryGroupId?: string | null;
+      idempotencyKeyOverride?: string;
+    } = {},
   ): Promise<void> {
     if (!options.skipLock) {
       await client.$executeRaw`SELECT id FROM drivers WHERE id = ${driverId} FOR UPDATE`;
     }
 
-    const idempotencyKey = `settle:${orderId}:${type}:${driverId}`;
-    const existing = await client.driverWalletTransaction.findFirst({
-      where: {
-        orderId,
-        type,
-        driverId,
-        OR: [
-          { idempotencyKey: null },
-          { idempotencyKey: { startsWith: 'settle:' } },
-        ],
-      },
-    });
+    const idempotencyKey =
+      options.idempotencyKeyOverride ?? `settle:${orderId}:${type}:${driverId}`;
+    const existing = options.idempotencyKeyOverride
+      ? await client.driverWalletTransaction.findFirst({
+          where: {
+            driverId,
+            idempotencyKey,
+          },
+        })
+      : await client.driverWalletTransaction.findFirst({
+          where: {
+            orderId,
+            type,
+            driverId,
+            OR: [
+              { idempotencyKey: null },
+              { idempotencyKey: { startsWith: 'settle:' } },
+            ],
+          },
+        });
     if (existing) return;
 
     const driver = await client.driver.update({

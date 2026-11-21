@@ -20,8 +20,15 @@ class PlatformWalletsScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _createWallet(context, ref, l10n),
         backgroundColor: AppColors.primary,
-        icon: const Icon(LucideIcons.plus, color: Colors.white),
-        label: Text(l10n.addWallet, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
+        foregroundColor: AppColors.onPrimary,
+        icon: const Icon(LucideIcons.plus, color: AppColors.onPrimary),
+        label: Text(
+          l10n.addWallet,
+          style: const TextStyle(
+            color: AppColors.onPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),

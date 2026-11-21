@@ -185,6 +185,14 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
         widget.driver?.driverManagerName,
       );
     }
+    final knownManagerIds = _driverManagers
+        .map((m) => (m['userId'] ?? '').toString())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final hasExtraSelected = _selectedDriverManagerUserId != null &&
+        _selectedDriverManagerUserId!.isNotEmpty &&
+        !knownManagerIds.contains(_selectedDriverManagerUserId);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -215,6 +223,16 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (hasExtraSelected)
+                DropdownMenuItem<String?>(
+                  value: _selectedDriverManagerUserId,
+                  child: Text(
+                    (widget.driver?.driverManagerName ?? '').trim().isNotEmpty
+                        ? widget.driver!.driverManagerName!
+                        : (isAr ? 'المسؤول المعين حالياً' : 'Assigned Manager'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ..._driverManagers.map((m) {
                 final uid = (m['userId'] ?? '').toString();
                 final name = (m['name'] ?? '').toString();
@@ -357,7 +375,9 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
         icon: isNew ? LucideIcons.userPlus : LucideIcons.user,
         title: widget.readOnly
             ? (isAr ? 'تفاصيل السائق' : 'Driver Details')
-            : (isNew ? l10n.createNewUser : l10n.editUserProfile),
+            : (isNew
+                ? (isAr ? 'إضافة سائق جديد' : 'Add Driver')
+                : (isAr ? 'تعديل بيانات السائق' : 'Edit Driver')),
         isCloseDisabled: _isLoading,
         onClose: () => Navigator.of(context).pop(),
       ),

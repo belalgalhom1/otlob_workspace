@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' as ui show TextDirection;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,43 +72,67 @@ class NotificationsScreen extends ConsumerWidget {
                 if (notification['createdAt'] != null) {
                   try {
                     final dt = DateTime.parse(notification['createdAt'].toString()).toLocal();
-                    timeStr = DateFormat.MMMd().add_jm().format(dt);
+                    timeStr = DateFormat.MMMd(isArabic ? 'ar' : 'en').add_jm().format(dt);
                   } catch (_) {}
                 }
+
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                final bellAccent = isDark ? AppColors.primary : const Color(0xFF92400E);
+                final titleText = title.toString();
+                final titleDir = RegExp(r'[\u0600-\u06FF]').hasMatch(titleText)
+                    ? ui.TextDirection.rtl
+                    : (RegExp(r'[A-Za-z]').hasMatch(titleText)
+                        ? ui.TextDirection.ltr
+                        : null);
+                final bodyText = body.toString();
+                final bodyDir = RegExp(r'[\u0600-\u06FF]').hasMatch(bodyText)
+                    ? ui.TextDirection.rtl
+                    : (RegExp(r'[A-Za-z]').hasMatch(bodyText)
+                        ? ui.TextDirection.ltr
+                        : null);
 
                 return ListTile(
                   tileColor: isRead
                       ? Theme.of(context).colorScheme.surface
                       : AppColors.primary.withValues(alpha: 0.05),
                   leading: CircleAvatar(
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    child: const Icon(LucideIcons.bell, color: AppColors.primary),
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                    child: Icon(LucideIcons.bell, color: bellAccent),
                   ),
                   title: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Text(
-                          title,
+                          titleText,
+                          textDirection: titleDir,
                           style: TextStyle(
                             fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
                           ),
                         ),
                       ),
-                      if (timeStr.isNotEmpty)
-                        Text(
-                          timeStr,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                      if (timeStr.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Directionality(
+                          textDirection: ui.TextDirection.ltr,
+                          child: Text(
+                            timeStr,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+                            ),
                           ),
                         ),
+                      ],
                     ],
                   ),
-                  subtitle: body.isNotEmpty
+                  subtitle: bodyText.isNotEmpty
                       ? Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(body),
+                          child: Text(
+                            bodyText,
+                            textDirection: bodyDir,
+                          ),
                         )
                       : null,
                   onTap: () async {

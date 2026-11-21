@@ -131,8 +131,9 @@ void main() {
             : 'Adjustment History';
         expect(find.text(expectedHeader), findsOneWidget);
         expect(find.text(longAdminNote), findsWidgets);
-        expect(find.text('+120.00 EGP'), findsOneWidget);
-        expect(find.text('-25.00 EGP'), findsOneWidget);
+        final expectedCurr = locale.languageCode == 'ar' ? 'ج.م' : 'EGP';
+        expect(find.text('+120.00 $expectedCurr'), findsOneWidget);
+        expect(find.text('-25.00 $expectedCurr'), findsOneWidget);
 
         // Verify the note Text inside Adjustment History is NOT limited with ellipsis
         final noteFinder = find.text(longAdminNote).first;

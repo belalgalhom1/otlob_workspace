@@ -977,37 +977,40 @@ export class UpdatePlatformSettingsDto {
   breaksEnabled?: boolean;
 
   @ApiProperty({
-    example: 1,
+    example: 5,
     required: false,
-    description: 'Per-km bonus for Bronze tier drivers',
+    description:
+      'Fixed Gold surcharge (in EGP) added once to total delivery cost per eligible order across Standard, Ride, and Custom Delivery; allocated to Gold drivers or retained by platform for Silver (default)/Bronze drivers.',
   })
-  @IsInt()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  bronzeTierBonusPerKm?: number;
+  goldTierBonusPerOrder?: number;
 
   @ApiProperty({
-    example: 2,
+    example: 5,
     required: false,
-    description: 'Per-km bonus for Silver tier drivers',
+    description:
+      'Fixed amount (in EGP) deducted from a Bronze driver’s eligible order earnings.',
   })
-  @IsInt()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  silverTierBonusPerKm?: number;
+  bronzeTierDeductionAmount?: number;
 
   @ApiProperty({
     example: 3,
     required: false,
-    description: 'Per-km bonus for Gold tier drivers (Used at checkout)',
+    description:
+      'Fixed amount (in EGP) deducted from the primary supervisor’s eligible earnings attributable to a Bronze driver.',
   })
-  @IsInt()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  goldTierBonusPerKm?: number;
+  bronzeSupervisorDeductionAmount?: number;
 
   @ApiProperty({
     example: true,

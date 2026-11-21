@@ -177,7 +177,8 @@ void main() {
         );
 
         expect(tester.takeException(), isNull);
-        expect(find.text('99999.00 EGP'), findsOneWidget);
+        final expectedCurr = locale.languageCode == 'ar' ? 'ج.م' : 'EGP';
+        expect(find.text('99999.00 $expectedCurr'), findsOneWidget);
       },
     );
   }
