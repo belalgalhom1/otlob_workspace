@@ -96,6 +96,10 @@ class DriverDispatchCoordinator {
   Future<void> checkPendingDispatches({bool checkOnline = true}) async {
     if (!_ref.mounted) return;
     try {
+      final isLoggedIn =
+          await _ref.read(sharedAuthRepositoryProvider).isLoggedIn();
+      if (!_ref.mounted || !isLoggedIn) return;
+
       if (checkOnline) {
         final profile = _ref.read(driverProfileProvider).value;
         if (!_mapToOnline(profile)) {
@@ -124,6 +128,10 @@ class DriverDispatchCoordinator {
     Map<String, dynamic> notification,
   ) async {
     if (!_ref.mounted) {
+      return DispatchTapResult.notDispatch;
+    }
+    if (!await _ref.read(sharedAuthRepositoryProvider).isLoggedIn() ||
+        !_ref.mounted) {
       return DispatchTapResult.notDispatch;
     }
     Map<String, dynamic>? payload;

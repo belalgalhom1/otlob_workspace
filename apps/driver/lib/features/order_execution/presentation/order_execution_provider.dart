@@ -30,6 +30,13 @@ class OrderExecution extends _$OrderExecution {
 
   Future<void> _fetchActiveOrder() async {
     try {
+      final isLoggedIn = await ref.read(sharedAuthRepositoryProvider).isLoggedIn();
+      if (!ref.mounted) return;
+      if (!isLoggedIn) {
+        _selectedOrderId = null;
+        state = const AsyncValue.data(null);
+        return;
+      }
       final repository = ref.read(driverOrdersRepositoryProvider);
       final response = await repository.getActiveDriverOrder(orderId: _selectedOrderId);
       // The provider can be auto-disposed while this network call is in

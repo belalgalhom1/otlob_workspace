@@ -30,7 +30,7 @@ part 'app_router.g.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-@riverpod
+@Riverpod(keepAlive: true)
 GoRouter appRouter(Ref ref) {
   final authRefresh = ValueNotifier<int>(0);
   ref.listen(authProvider, (_, _) => authRefresh.value++);

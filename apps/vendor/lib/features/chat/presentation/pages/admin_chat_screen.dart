@@ -1370,105 +1370,6 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     return true;
   }
 
-  Future<void> _takePhotoDirectly() async {
-    final picker = ImagePicker();
-    XFile? pickedFile;
-    try {
-      pickedFile = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 85,
-      );
-    } catch (e) {
-      MediaPermissionHelper.handlePickerError(
-        e,
-        context: mounted ? context : null,
-      );
-      return;
-    }
-    if (pickedFile == null || !mounted) return;
-
-    final path = pickedFile.path;
-    if (!await _validateMediaSize(path)) return;
-
-    final caption = await ChatMediaCaptionDialog.show(
-      context,
-      filePath: path,
-      isVideo: false,
-    );
-    if (caption == null || !mounted) return;
-
-    final tempId = 'temp-${DateTime.now().millisecondsSinceEpoch}';
-    setState(() {
-      _messages.insert(0, {
-        'id': tempId,
-        'text': caption,
-        'type': 'IMAGE',
-        'mediaUrl': null,
-        'isUploading': true,
-        'localFilePath': path,
-        'uploadProgress': 0.05,
-        'sender': {
-          'id': _currentUserId,
-          'role': _currentUserRole ?? 'VENDOR_MEMBER',
-          'name': 'Me',
-        },
-        'createdAt': DateTime.now().toIso8601String(),
-      });
-    });
-    _scrollToBottom();
-
-    try {
-      final repository = ref.read(sharedChatRepositoryProvider);
-      int lastUpdate = 0;
-      final uploadRes = await repository.uploadMedia(
-        widget.conversationId,
-        path,
-        onSendProgress: (sent, total) {
-          if (total <= 0 || !mounted) return;
-          final now = DateTime.now().millisecondsSinceEpoch;
-          if (now - lastUpdate > 80 || sent >= total) {
-            lastUpdate = now;
-            setState(() {
-              final idx = _messages.indexWhere((m) => m['id'] == tempId);
-              if (idx != -1) {
-                _messages[idx]['uploadProgress'] = (sent / total).clamp(0.05, 0.98);
-              }
-            });
-          }
-        },
-      );
-      final mediaUrl = _extractMediaUrl(uploadRes);
-
-      if (mediaUrl != null) {
-        setState(() {
-          final idx = _messages.indexWhere((m) => m['id'] == tempId);
-          if (idx != -1) {
-            _messages[idx]['mediaUrl'] = mediaUrl;
-            _messages[idx]['isUploading'] = false;
-          }
-        });
-
-        await repository.sendMessage(
-          widget.conversationId,
-          caption,
-          type: 'IMAGE',
-          mediaUrl: mediaUrl,
-        );
-        _loadMessages();
-      } else {
-        setState(() {
-          _messages.removeWhere((m) => m['id'] == tempId);
-        });
-      }
-    } catch (_) {
-      setState(() {
-        _messages.removeWhere((m) => m['id'] == tempId);
-      });
-    }
-  }
-
   Future<void> _pickDocument() async {
     final option = await ChatMediaPickerSheet.show(context, allowVideo: true);
     if (option == null || !mounted) return;
@@ -1509,6 +1410,8 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           );
           isVideo = true;
           break;
+        case ChatMediaPickerOption.location:
+          return;
       }
     } catch (e) {
       MediaPermissionHelper.handlePickerError(
@@ -3198,17 +3101,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                               ),
                             ),
                           ),
-                    if (!_isRecording) ...[
-                      IconButton(
-                        icon: const Icon(
-                          LucideIcons.camera,
-                          size: 18,
-                        ),
-                        onPressed: _takePhotoDirectly,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        constraints: const BoxConstraints(),
-                        tooltip: 'Take Photo',
-                      ),
+                    if (!_isRecording)
                       IconButton(
                         icon: const Icon(
                           LucideIcons.paperclip,
@@ -3217,9 +3110,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                         onPressed: _pickDocument,
                         padding: const EdgeInsetsDirectional.only(end: 8),
                         constraints: const BoxConstraints(),
-                        tooltip: 'Attach Media',
+                        tooltip: Localizations.localeOf(context).languageCode == 'ar'
+                            ? 'مشاركة الوسائط'
+                            : 'Share Media',
                       ),
-                    ],
                   ],
                 ),
               ),

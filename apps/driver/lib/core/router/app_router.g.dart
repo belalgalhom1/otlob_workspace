@@ -21,7 +21,7 @@ final class AppRouterProvider
         argument: null,
         retry: null,
         name: r'appRouterProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );

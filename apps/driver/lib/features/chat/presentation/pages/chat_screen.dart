@@ -458,49 +458,18 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
     }
   }
 
-  Future<void> _takePhotoDirectly() async {
-    final picker = ImagePicker();
-    XFile? pickedFile;
-    try {
-      pickedFile = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 85,
-      );
-    } catch (e) {
-      if (mounted) {
-        MediaPermissionHelper.handlePickerError(e, context: context);
-      }
+  Future<void> _showMediaPicker() async {
+    final option = await ChatMediaPickerSheet.show(
+      context,
+      allowVideo: true,
+      allowLocation: true,
+    );
+    if (option == null || !mounted) return;
+
+    if (option == ChatMediaPickerOption.location) {
+      await _sendCurrentLocation();
       return;
     }
-    if (pickedFile == null || !mounted) return;
-
-    final caption = await ChatMediaCaptionDialog.show(
-      context,
-      filePath: pickedFile.path,
-      isVideo: false,
-    );
-    if (caption == null || !mounted) return;
-
-    final replyId = _replyingTo?.id;
-    final replyPayload = _buildReplyPayload();
-    if (_replyingTo != null) {
-      setState(() => _replyingTo = null);
-    }
-
-    ref.read(sharedChatProvider(_args).notifier).sendMedia(
-      pickedFile.path,
-      MessageType.image,
-      caption: caption,
-      replyToId: replyId,
-      replyTo: replyPayload,
-    );
-  }
-
-  Future<void> _showMediaPicker() async {
-    final option = await ChatMediaPickerSheet.show(context, allowVideo: true);
-    if (option == null || !mounted) return;
 
     final picker = ImagePicker();
     XFile? pickedFile;
@@ -538,6 +507,8 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
           );
           isVideo = true;
           break;
+        case ChatMediaPickerOption.location:
+          return;
       }
     } catch (e) {
       if (mounted) {
@@ -832,27 +803,13 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
         children: [
           IconButton(
             icon: Icon(
-              LucideIcons.camera,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            onPressed: _takePhotoDirectly,
-            tooltip: 'Take Photo',
-          ),
-          IconButton(
-            icon: Icon(
               LucideIcons.paperclip,
               color: Theme.of(context).colorScheme.primary,
             ),
             onPressed: _showMediaPicker,
-            tooltip: 'Attach Media',
-          ),
-          IconButton(
-            icon: Icon(
-              LucideIcons.mapPin,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            onPressed: _sendCurrentLocation,
-            tooltip: 'Send Location',
+            tooltip: Localizations.localeOf(context).languageCode == 'ar'
+                ? 'مشاركة الوسائط'
+                : 'Share Media',
           ),
           Expanded(
             child: TextField(

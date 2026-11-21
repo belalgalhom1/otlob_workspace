@@ -384,49 +384,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.dispose();
   }
 
-  Future<void> _takePhotoDirectly() async {
-    final picker = ImagePicker();
-    XFile? pickedFile;
-    try {
-      pickedFile = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 85,
-      );
-    } catch (e) {
-      if (mounted) {
-        MediaPermissionHelper.handlePickerError(e, context: context);
-      }
+  Future<void> _showMediaPicker() async {
+    final option = await ChatMediaPickerSheet.show(
+      context,
+      allowVideo: true,
+      allowLocation: true,
+    );
+    if (option == null || !mounted) return;
+
+    if (option == ChatMediaPickerOption.location) {
+      await _sendCurrentLocation();
       return;
     }
-    if (pickedFile == null || !mounted) return;
-
-    final caption = await ChatMediaCaptionDialog.show(
-      context,
-      filePath: pickedFile.path,
-      isVideo: false,
-    );
-    if (caption == null || !mounted) return;
-
-    final replyId = _replyingTo?.id;
-    final replyPayload = _buildReplyPayload();
-    if (_replyingTo != null) {
-      setState(() => _replyingTo = null);
-    }
-
-    ref.read(sharedChatProvider(_args).notifier).sendMedia(
-      pickedFile.path,
-      MessageType.image,
-      caption: caption,
-      replyToId: replyId,
-      replyTo: replyPayload,
-    );
-  }
-
-  Future<void> _showMediaPicker() async {
-    final option = await ChatMediaPickerSheet.show(context, allowVideo: true);
-    if (option == null || !mounted) return;
 
     final picker = ImagePicker();
     XFile? pickedFile;
@@ -464,6 +433,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           );
           isVideo = true;
           break;
+        case ChatMediaPickerOption.location:
+          return;
       }
     } catch (e) {
       if (mounted) {
@@ -1202,29 +1173,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               ),
                             ),
                           ),
-                    if (!_isRecording) ...[
-                      IconButton(
-                        icon: const Icon(LucideIcons.camera, color: AppColors.textHint, size: 18),
-                        onPressed: _takePhotoDirectly,
-                        padding: const EdgeInsets.symmetric(horizontal: 5),
-                        constraints: const BoxConstraints(),
-                        tooltip: 'Take Photo',
-                      ),
+                    if (!_isRecording)
                       IconButton(
                         icon: const Icon(LucideIcons.paperclip, color: AppColors.textHint, size: 18),
                         onPressed: _showMediaPicker,
-                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        padding: const EdgeInsetsDirectional.only(end: 10, start: 6),
                         constraints: const BoxConstraints(),
-                        tooltip: 'Attach Media',
+                        tooltip: Localizations.localeOf(context).languageCode == 'ar'
+                            ? 'مشاركة الوسائط'
+                            : 'Share Media',
                       ),
-                      IconButton(
-                        icon: const Icon(LucideIcons.mapPin, color: AppColors.textHint, size: 18),
-                        onPressed: _sendCurrentLocation,
-                        padding: const EdgeInsets.only(right: 12, left: 2),
-                        constraints: const BoxConstraints(),
-                        tooltip: 'Send Location',
-                      ),
-                    ],
                   ],
                 ),
               ),

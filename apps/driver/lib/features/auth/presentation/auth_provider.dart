@@ -53,13 +53,19 @@ class Auth extends _$Auth {
 
   Future<void> _handleUnauthenticated() async {
     if (_logoutInProgress) return;
+    if (state.value != true) {
+      // Only force logout/redirect when an active authenticated session expires.
+      // Cold-start / SplashScreen token checks transition to /login via SplashScreen
+      // so the logo spin and welcome celebration overlay run uninterrupted.
+      return;
+    }
     // The interceptor fires this event when it has concluded the session is
     // unusable (refresh token missing, or refresh 401/403). Whether or not it
     // already cleared the tokens, always return to the login screen: skipping
     // logout while `state` stays `true` strands the dashboard on an
     // "Unauthorized" error card that only a force-restart escapes. `logout()`
     // is safe with no session left (it skips the network call entirely).
-    logout();
+    await logout();
   }
 
   void _initPushInBackground() {
@@ -341,8 +347,14 @@ class Auth extends _$Auth {
   }
 
   void _goToLogin() {
-    if (rootNavigatorKey.currentContext != null) {
-      rootNavigatorKey.currentContext!.go('/login');
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    final router = GoRouter.of(ctx);
+    final currentPath = router.routerDelegate.currentConfiguration.uri.path;
+    if (currentPath == '/') {
+      debugPrint('Driver Auth: deferring /login navigation while SplashScreen is active');
+      return;
     }
+    router.go('/login');
   }
 }

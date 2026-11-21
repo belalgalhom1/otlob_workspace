@@ -8,21 +8,25 @@ enum ChatMediaPickerOption {
   cameraVideo,
   galleryPhoto,
   galleryVideo,
+  location,
 }
 
 class ChatMediaPickerSheet extends StatelessWidget {
   final ValueChanged<ChatMediaPickerOption> onOptionSelected;
   final bool allowVideo;
+  final bool allowLocation;
 
   const ChatMediaPickerSheet({
     super.key,
     required this.onOptionSelected,
     this.allowVideo = true,
+    this.allowLocation = false,
   });
 
   static Future<ChatMediaPickerOption?> show(
     BuildContext context, {
     bool allowVideo = true,
+    bool allowLocation = false,
   }) {
     return showModalBottomSheet<ChatMediaPickerOption>(
       context: context,
@@ -31,6 +35,7 @@ class ChatMediaPickerSheet extends StatelessWidget {
       useSafeArea: true,
       builder: (ctx) => ChatMediaPickerSheet(
         allowVideo: allowVideo,
+        allowLocation: allowLocation,
         onOptionSelected: (option) {
           HapticFeedback.lightImpact();
           Navigator.of(ctx).pop(option);
@@ -158,6 +163,17 @@ class ChatMediaPickerSheet extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ],
+          if (allowLocation) ...[
+            const SizedBox(height: 12),
+            _buildTile(
+              context,
+              icon: LucideIcons.mapPin,
+              iconBg: const Color(0xFFEF4444), // Red
+              title: isAr ? 'مشاركة الموقع' : 'Share Location',
+              subtitle: isAr ? 'الموقع الحالي' : 'Current Location',
+              onTap: () => onOptionSelected(ChatMediaPickerOption.location),
             ),
           ],
           ],

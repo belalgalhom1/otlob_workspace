@@ -1,14 +1,18 @@
+import 'package:core/core.dart';
 import 'package:data/data.dart';
+import 'package:driver/core/providers/driver_dispatch_coordinator.dart';
+import 'package:driver/core/router/app_router.dart';
+import 'package:driver/features/auth/presentation/auth_provider.dart';
+import 'package:driver/features/auth/presentation/pages/login_screen.dart';
+import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
+import 'package:driver/features/splash/presentation/pages/splash_screen.dart';
+import 'package:driver/features/splash/presentation/splash_provider.dart';
+import 'package:driver/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:driver/features/auth/presentation/auth_provider.dart';
-import 'package:driver/features/auth/presentation/pages/login_screen.dart';
-import 'package:driver/features/splash/presentation/pages/splash_screen.dart';
-import 'package:driver/features/splash/presentation/splash_provider.dart';
-import 'package:driver/l10n/app_localizations.dart';
 import 'package:ui_kit/ui_kit.dart';
 
 class _FakeDriverSplash extends Splash {
@@ -24,6 +28,29 @@ class _FakeDriverAuth extends Auth {
 class _FakeDriverAuthRepo extends Fake implements SharedAuthRepository {
   @override
   Future<bool> isLoggedIn() async => false;
+
+  @override
+  Future<void> logout({String? fcmToken, Duration? timeout}) async {}
+}
+
+class _CountingOrdersRepo extends Fake implements DriverOrdersRepository {
+  int getActiveCalls = 0;
+
+  @override
+  Future<dynamic> getActiveDriverOrder({String? orderId}) async {
+    getActiveCalls++;
+    return {'data': null};
+  }
+}
+
+class _CountingDispatchRepo extends Fake implements DriverDispatchRepository {
+  int getMyDispatchesCalls = 0;
+
+  @override
+  Future<dynamic> getMyDispatches() async {
+    getMyDispatchesCalls++;
+    return <dynamic>[];
+  }
 }
 
 class _FakeStaleDriverAuth extends Auth {
@@ -314,6 +341,92 @@ void main() {
       expect(overlayState.effectsController.isAnimating, isTrue);
       await tester.pumpAndSettle(const Duration(seconds: 1));
       expect(find.text('مرحباً بك في أطلب'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test(
+    'Unauthenticated startup does not fire active order or dispatch requests',
+    () async {
+      final ordersRepo = _CountingOrdersRepo();
+      final dispatchRepo = _CountingDispatchRepo();
+      final container = ProviderContainer(
+        overrides: [
+          sharedAuthRepositoryProvider.overrideWithValue(_FakeDriverAuthRepo()),
+          driverOrdersRepositoryProvider.overrideWithValue(ordersRepo),
+          driverDispatchRepositoryProvider.overrideWithValue(dispatchRepo),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(orderExecutionProvider);
+      await container
+          .read(driverDispatchCoordinatorProvider)
+          .checkPendingDispatches(checkOnline: false);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(ordersRepo.getActiveCalls, 0);
+      expect(dispatchRepo.getMyDispatchesCalls, 0);
+      expect(container.read(orderExecutionProvider).value, isNull);
+    },
+  );
+
+  testWidgets(
+    'Unauthenticated 401 stream event on Splash does not abort 4s spin or skip confetti/sparkles',
+    (tester) async {
+      late GoRouter router;
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            splashProvider.overrideWith(_FakeDriverSplash.new),
+            sharedAuthRepositoryProvider
+                .overrideWithValue(_FakeDriverAuthRepo()),
+          ],
+          child: Consumer(
+            builder: (context, ref, _) {
+              router = ref.watch(appRouterProvider);
+              return MaterialApp.router(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('en'),
+                theme: AppTheme.lightTheme,
+                darkTheme: AppTheme.darkTheme,
+                themeMode: ThemeMode.dark,
+                routerConfig: router,
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.pump();
+      expect(find.byType(SplashScreen), findsOneWidget);
+
+      // Simulate an unexpected 401 event during splash spin.
+      unauthenticatedEventStream.add(null);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(SplashScreen), findsOneWidget);
+      expect(find.byType(LoginScreen), findsNothing);
+
+      // Splash spin completes (~3.9s) and transitions into Login with confetti & sparkles.
+      await tester.pump(const Duration(milliseconds: 3600));
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 900));
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+      final overlayState = tester.state<OtlobLoginWelcomeOverlayState>(
+        find.byType(OtlobLoginWelcomeOverlay),
+      );
+      expect(overlayState.effectsController.isAnimating, isTrue);
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+      expect(find.text('WELCOME TO OTLOB'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

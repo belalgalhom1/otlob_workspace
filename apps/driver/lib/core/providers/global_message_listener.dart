@@ -10,6 +10,7 @@ import 'package:driver/features/dashboard/presentation/dashboard_screen.dart'
     show pendingAssistOffersProvider;
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/core/providers/driver_breaks_provider.dart';
+import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/ranking/presentation/driver_ranking_provider.dart';
 
 class _DispatchLifecycleObserver with WidgetsBindingObserver {
@@ -136,9 +137,12 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     ref.invalidate(driverRankingSummaryProvider);
   }));
 
+  bool isAuthenticatedSession() =>
+      ref.mounted && ref.read(authProvider).value == true;
+
   // 2. WebSocket Reconnection Fallback
   subscriptions.add(socketService.onConnect.listen((_) {
-    if (!ref.mounted) return;
+    if (!ref.mounted || !isAuthenticatedSession()) return;
     debugPrint('Global listener: Socket connected/reconnected -> Checking pending dispatches & active order');
     ref.invalidate(configurationProvider);
     coordinator.checkPendingDispatches(checkOnline: false);
@@ -149,8 +153,9 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   final lifecycleObserver = _DispatchLifecycleObserver(
     onResume: () async {
       if (!ref.mounted) return;
-      debugPrint('📱 Driver App Resumed: Reconnecting + checking pending dispatches & active order');
       ref.invalidate(configurationProvider);
+      if (!isAuthenticatedSession()) return;
+      debugPrint('📱 Driver App Resumed: Reconnecting + checking pending dispatches & active order');
       // Break decisions may have landed while backgrounded (missed socket).
       ref.invalidate(breaksOverviewProvider);
       ref.invalidate(driverRankingSummaryProvider);
@@ -168,7 +173,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
         }
       }
       await coordinator.checkPendingDispatches(checkOnline: false);
-      if (ref.mounted) {
+      if (ref.mounted && isAuthenticatedSession()) {
         await ref.read(orderExecutionProvider.notifier).refresh();
       }
     },
@@ -176,7 +181,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
 
   // 4. Background Push Notification Clicks & Cold Start Check
   subscriptions.add(pushService.onMessage.listen((message) {
-    if (!ref.mounted) return;
+    if (!ref.mounted || !isAuthenticatedSession()) return;
     debugPrint('Global listener: FCM foreground message -> ${message.data}');
     if (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId')) {
       coordinator.checkPendingDispatches(checkOnline: false);
@@ -184,7 +189,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   }));
 
   subscriptions.add(pushService.onMessageOpenedApp.listen((message) {
-    if (!ref.mounted) return;
+    if (!ref.mounted || !isAuthenticatedSession()) return;
     debugPrint('Global listener: FCM opened app -> ${message.data}');
     if (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId')) {
       coordinator.checkPendingDispatches(checkOnline: false);
@@ -192,7 +197,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   }));
 
   pushService.getInitialMessage().then((message) {
-    if (!ref.mounted) return;
+    if (!ref.mounted || !isAuthenticatedSession()) return;
     if (message != null && (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId'))) {
       debugPrint('Global listener: FCM cold start message -> ${message.data}');
       coordinator.checkPendingDispatches(checkOnline: false);
@@ -218,7 +223,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     if (shouldRun && dispatchSweepTimer == null) {
       debugPrint('📍 Dispatch sweep started (driver $status)');
       dispatchSweepTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-        if (!ref.mounted) return;
+        if (!ref.mounted || !isAuthenticatedSession()) return;
         // No polling while backgrounded: socket push + resume check cover it,
         // and background HTTP polling just burns radio/battery.
         if (!lifecycleObserver.isResumed) return;
@@ -241,8 +246,9 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     ref.read(connectivityServiceProvider).onConnectivityChanged.listen((isOnline) {
       if (!ref.mounted) return;
       if (isOnline) {
-        debugPrint('🌐 Driver Global Listener: Hardware Internet Reconnected -> Checking dispatches & syncing state');
         ref.invalidate(configurationProvider);
+        if (!isAuthenticatedSession()) return;
+        debugPrint('🌐 Driver Global Listener: Hardware Internet Reconnected -> Checking dispatches & syncing state');
         ref.invalidate(breaksOverviewProvider);
         ref.invalidate(driverRankingSummaryProvider);
         coordinator.checkPendingDispatches(checkOnline: false);
