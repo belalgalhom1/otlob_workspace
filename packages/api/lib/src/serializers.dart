@@ -42,6 +42,7 @@ import 'package:api/src/model/cart_item_option.dart';
 import 'package:api/src/model/change_email_dto.dart';
 import 'package:api/src/model/change_password_dto.dart';
 import 'package:api/src/model/check_location_dto.dart';
+import 'package:api/src/model/compute_route_dto.dart';
 import 'package:api/src/model/confirm_payment_dto.dart';
 import 'package:api/src/model/create_address_dto.dart';
 import 'package:api/src/model/create_direct_conversation_dto.dart';
@@ -149,12 +150,14 @@ import 'package:api/src/model/order_item.dart';
 import 'package:api/src/model/order_item_option.dart';
 import 'package:api/src/model/order_response_dto.dart';
 import 'package:api/src/model/order_review.dart';
+import 'package:api/src/model/order_route_response_dto.dart';
 import 'package:api/src/model/order_search_status_dto.dart';
 import 'package:api/src/model/order_status.dart';
 import 'package:api/src/model/order_status_event.dart';
 import 'package:api/src/model/order_type.dart';
 import 'package:api/src/model/order_vendor_fulfillment.dart';
 import 'package:api/src/model/order_vendor_fulfillment_status.dart';
+import 'package:api/src/model/orders_controller_compute_route200_response.dart';
 import 'package:api/src/model/orders_controller_estimate_custom_order200_response.dart';
 import 'package:api/src/model/orders_controller_get_custom_nearby_drivers200_response.dart';
 import 'package:api/src/model/orders_controller_get_search_status200_response.dart';
@@ -207,6 +210,7 @@ import 'package:api/src/model/review_target_type.dart';
 import 'package:api/src/model/review_wallet_top_up_dto.dart';
 import 'package:api/src/model/reviews_controller_get_vendor_reviews200_response.dart';
 import 'package:api/src/model/role.dart';
+import 'package:api/src/model/route_coordinate_dto.dart';
 import 'package:api/src/model/search_customers_in_polygon_dto.dart';
 import 'package:api/src/model/search_terminal_reason.dart';
 import 'package:api/src/model/send_message_dto.dart';
@@ -299,6 +303,7 @@ part 'serializers.g.dart';
   ChangeEmailDto,
   ChangePasswordDto,
   CheckLocationDto,
+  ComputeRouteDto,
   ConfirmPaymentDto,
   CreateAddressDto,
   CreateDirectConversationDto,
@@ -406,12 +411,14 @@ part 'serializers.g.dart';
   OrderItemOption,
   OrderResponseDto,
   OrderReview,
+  OrderRouteResponseDto,
   OrderSearchStatusDto,
   OrderStatus,
   OrderStatusEvent,
   OrderType,
   OrderVendorFulfillment,
   OrderVendorFulfillmentStatus,
+  OrdersControllerComputeRoute200Response,
   OrdersControllerEstimateCustomOrder200Response,
   OrdersControllerGetCustomNearbyDrivers200Response,
   OrdersControllerGetSearchStatus200Response,
@@ -464,6 +471,7 @@ part 'serializers.g.dart';
   ReviewWalletTopUpDto,
   ReviewsControllerGetVendorReviews200Response,
   Role,
+  RouteCoordinateDto,
   SearchCustomersInPolygonDto,
   SearchTerminalReason,
   SendMessageDto,

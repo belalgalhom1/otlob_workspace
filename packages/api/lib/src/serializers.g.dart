@@ -47,6 +47,7 @@ Serializers _$serializers =
           ..add(ChangeEmailDto.serializer)
           ..add(ChangePasswordDto.serializer)
           ..add(CheckLocationDto.serializer)
+          ..add(ComputeRouteDto.serializer)
           ..add(ConfirmPaymentDto.serializer)
           ..add(CreateAddressDto.serializer)
           ..add(CreateDirectConversationDto.serializer)
@@ -164,12 +165,15 @@ Serializers _$serializers =
           ..add(OrderItemOption.serializer)
           ..add(OrderResponseDto.serializer)
           ..add(OrderReview.serializer)
+          ..add(OrderRouteResponseDto.serializer)
+          ..add(OrderRouteResponseDtoSource_Enum.serializer)
           ..add(OrderSearchStatusDto.serializer)
           ..add(OrderStatus.serializer)
           ..add(OrderStatusEvent.serializer)
           ..add(OrderType.serializer)
           ..add(OrderVendorFulfillment.serializer)
           ..add(OrderVendorFulfillmentStatus.serializer)
+          ..add(OrdersControllerComputeRoute200Response.serializer)
           ..add(OrdersControllerEstimateCustomOrder200Response.serializer)
           ..add(OrdersControllerGetCustomNearbyDrivers200Response.serializer)
           ..add(OrdersControllerGetSearchStatus200Response.serializer)
@@ -238,6 +242,7 @@ Serializers _$serializers =
           ..add(ReviewWalletTopUpDto.serializer)
           ..add(ReviewsControllerGetVendorReviews200Response.serializer)
           ..add(Role.serializer)
+          ..add(RouteCoordinateDto.serializer)
           ..add(SearchCustomersInPolygonDto.serializer)
           ..add(SearchTerminalReason.serializer)
           ..add(SendMessageDto.serializer)
@@ -551,6 +556,24 @@ Serializers _$serializers =
             () => ListBuilder<ReviewDto>(),
           )
           ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(RouteCoordinateDto),
+            ]),
+            () => ListBuilder<RouteCoordinateDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(RouteCoordinateDto),
+            ]),
+            () => ListBuilder<RouteCoordinateDto>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [
+              const FullType(RouteCoordinateDto),
+            ]),
+            () => ListBuilder<RouteCoordinateDto>(),
+          )
+          ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(String)]),
             () => ListBuilder<String>(),
           )
@@ -683,6 +706,13 @@ Serializers _$serializers =
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(num)]),
             () => ListBuilder<num>(),
+          )
+          ..addBuilderFactory(
+            const FullType(BuiltMap, const [
+              const FullType(String),
+              const FullType(BuiltList, const [const FullType(String)]),
+            ]),
+            () => MapBuilder<String, BuiltList<String>>(),
           )
           ..addBuilderFactory(
             const FullType(BuiltMap, const [

@@ -18,6 +18,7 @@ export 'src/socket/socket_events.dart';
 export 'src/socket/socket_service.dart';
 export 'src/socket/order_revision.dart';
 export 'src/permissions/permission_service.dart';
+export 'src/location/road_route_utils.dart';
 // export 'src/models/paginated_result.dart';
 export 'src/utils/image_utils.dart';
 export 'src/utils/order_activity_helper.dart';
@@ -28,4 +29,4 @@ export 'src/utils/phone_utils.dart';
 // Third-party infrastructure exports for unified versions across apps
 export 'package:firebase_core/firebase_core.dart';
 export 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart' show InternetStatus;
-export 'package:dio/dio.dart' show Dio, DioException, DioExceptionType, FormData, MultipartFile;
+export 'package:dio/dio.dart' show CancelToken, Dio, DioException, DioExceptionType, FormData, MultipartFile;

@@ -38,6 +38,11 @@ import {
   QueryNearbyDriversDto,
   RetrySearchResponseDto,
 } from './dto/order-search.dto';
+import {
+  ComputeRouteDto,
+  OrderRouteResponseDto,
+  QueryOrderRouteDto,
+} from './dto/order-route.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
@@ -54,6 +59,7 @@ import { OrdersPaymentService } from './orders-payment.service';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
 import { OrderSearchService } from './order-search.service';
+import { OrderRouteService } from './order-route.service';
 import { OrderResponseDto } from 'src/common/dto/response-models.dto';
 
 @ApiTags('Orders')
@@ -70,6 +76,7 @@ export class OrdersController {
     private readonly vendorDecisionService: OrderVendorDecisionService,
     private readonly multiVendorService: OrdersMultiVendorService,
     private readonly searchService: OrderSearchService,
+    private readonly routeService: OrderRouteService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -560,6 +567,35 @@ export class OrdersController {
     @Param('orderId') orderId: string,
   ) {
     return this.searchService.retryCustomOrderSearch(actor, orderId);
+  }
+
+  @ApiStandardResponse(OrderRouteResponseDto)
+  @Post('route')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Compute a driving road route across ordered waypoints (customer/driver/vendor/admin)',
+  })
+  computeRoute(@Body() dto: ComputeRouteDto) {
+    return this.routeService.computeCustomRoute(dto);
+  }
+
+  @ApiStandardResponse(OrderRouteResponseDto)
+  @Get(':orderId/route')
+  @ApiOperation({
+    summary:
+      'Get the canonical driving road route polyline for an order (driver/store stops/destination)',
+  })
+  getOrderRoute(
+    @CurrentUser() actor: JwtAccessPayload,
+    @Param('orderId') orderId: string,
+    @Query() query: QueryOrderRouteDto,
+  ) {
+    return this.routeService.getOrderRoute(
+      actor,
+      orderId,
+      query.includeDriver !== false,
+    );
   }
 
   @ApiStandardResponse(OrderResponseDto)

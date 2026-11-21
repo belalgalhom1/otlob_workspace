@@ -84,6 +84,127 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
   bool _isMapReady = false;
   XFile? _pickupPhoto;
   XFile? _deliveryPhoto;
+  List<LatLng> _roadRoutePoints = const [];
+  String _lastRouteSignature = '';
+  RoadRoutePoint? _lastRoutedPosition;
+  DateTime? _lastRouteFetchAt;
+  bool _isFetchingRoadRoute = false;
+  CancelToken? _routeCancelToken;
+
+  List<RoadRoutePoint> _collectDesiredWaypoints(
+    Map<String, dynamic> order,
+    bool isDelivering,
+    List<Map<String, dynamic>> pickupStops,
+    double customerLat,
+    double customerLng,
+  ) {
+    final points = <RoadRoutePoint>[];
+    if (_currentPosition != null) {
+      points.add(
+        RoadRoutePoint(_currentPosition!.latitude, _currentPosition!.longitude),
+      );
+    }
+    if (!isDelivering) {
+      for (int i = 0; i < pickupStops.length; i++) {
+        if (_collectedStopIndices.contains(i) && i < _currentStopIndex) {
+          continue;
+        }
+        final sLat = pickupStops[i]['lat'] as double;
+        final sLng = pickupStops[i]['lng'] as double;
+        if (sLat != 0.0 && sLng != 0.0) {
+          points.add(RoadRoutePoint(sLat, sLng));
+        }
+      }
+    }
+    if (customerLat != 0.0 && customerLng != 0.0) {
+      points.add(RoadRoutePoint(customerLat, customerLng));
+    }
+    return points;
+  }
+
+  void _maybeRefreshDriverRoadRoute({
+    required Map<String, dynamic> order,
+    required bool isDelivering,
+    required List<Map<String, dynamic>> pickupStops,
+    required double customerLat,
+    required double customerLng,
+  }) {
+    final waypoints = _collectDesiredWaypoints(
+      order,
+      isDelivering,
+      pickupStops,
+      customerLat,
+      customerLng,
+    );
+    if (waypoints.length < 2) return;
+
+    final currentPt = _currentPosition == null
+        ? null
+        : RoadRoutePoint(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+          );
+    final stopsTail = currentPt == null ? waypoints : waypoints.skip(1).toList();
+    final stopSig =
+        '${order['id']}|${order['status']}|$isDelivering|$_currentStopIndex|${stopsTail.map((p) => p.toCacheSegment()).join(';')}';
+
+    final movedFar =
+        currentPt != null &&
+        (_lastRoutedPosition == null ||
+            GeoPointUtils.distanceMeters(_lastRoutedPosition!, currentPt) >=
+                50.0);
+    final cooldownElapsed =
+        _lastRouteFetchAt == null ||
+        DateTime.now().difference(_lastRouteFetchAt!) >=
+            const Duration(seconds: 5);
+    final isOffRoute =
+        currentPt != null &&
+        _roadRoutePoints.length >= 2 &&
+        trimRouteToDriverPosition(
+          _roadRoutePoints
+              .map((p) => RoadRoutePoint(p.latitude, p.longitude))
+              .toList(),
+          currentPt,
+        ).isOffRoute;
+
+    final stopsChanged = stopSig != _lastRouteSignature;
+    final needsInitial = _roadRoutePoints.length < 2 && !_isFetchingRoadRoute;
+    final needsLiveRefresh =
+        (movedFar && cooldownElapsed) || (isOffRoute && cooldownElapsed);
+
+    if (!stopsChanged && !needsInitial && !needsLiveRefresh) return;
+    if (_isFetchingRoadRoute && !stopsChanged) return;
+
+    if (stopsChanged) {
+      _routeCancelToken?.cancel('stops_changed');
+    }
+    final token = CancelToken();
+    _routeCancelToken = token;
+    _lastRouteSignature = stopSig;
+    _lastRoutedPosition = currentPt;
+    _lastRouteFetchAt = DateTime.now();
+    _isFetchingRoadRoute = true;
+
+    ref
+        .read(sharedRoutingRepositoryProvider)
+        .computeWaypointsRoute(waypoints, cancelToken: token)
+        .then((resolved) {
+          if (!mounted || token.isCancelled) return;
+          if (resolved.hasRenderablePath) {
+            setState(() {
+              _roadRoutePoints = resolved.points
+                  .map((p) => LatLng(p.latitude, p.longitude))
+                  .toList(growable: false);
+            });
+          }
+        })
+        .catchError((_) {})
+        .whenComplete(() {
+          if (identical(_routeCancelToken, token)) {
+            _isFetchingRoadRoute = false;
+          }
+        });
+  }
 
   String _resolveMediaUrl(String path) {
     final trimmed = path.trim();
@@ -230,11 +351,16 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         final prevId = previous?.value is Map ? previous!.value['id']?.toString() : null;
         final nextId = state.value is Map ? state.value['id']?.toString() : null;
         if (prevId != null && nextId != null && prevId != nextId && mounted) {
+          _routeCancelToken?.cancel('order_switched');
           setState(() {
             _currentStopIndex = 0;
             _collectedStopIndices.clear();
             _pickupPhoto = null;
             _deliveryPhoto = null;
+            _roadRoutePoints = const [];
+            _lastRouteSignature = '';
+            _lastRoutedPosition = null;
+            _lastRouteFetchAt = null;
           });
         }
         _maybeLeaveForDashboard(state);
@@ -260,6 +386,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
 
   @override
   void dispose() {
+    _routeCancelToken?.cancel('disposed');
     _orderExecSub?.close();
     _fulfillmentSub?.cancel();
     _positionStreamSub?.cancel();
@@ -926,6 +1053,39 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
       }
     }
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _maybeRefreshDriverRoadRoute(
+        order: order,
+        isDelivering: isDelivering,
+        pickupStops: pickupStops,
+        customerLat: customerLat,
+        customerLng: customerLng,
+      );
+    });
+
+    final List<LatLng> renderedRoutePoints;
+    if (_roadRoutePoints.length >= 2) {
+      if (_currentPosition != null) {
+        final trimmed = trimRouteToDriverPosition(
+          _roadRoutePoints
+              .map((p) => RoadRoutePoint(p.latitude, p.longitude))
+              .toList(growable: false),
+          RoadRoutePoint(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+          ),
+        );
+        renderedRoutePoints = trimmed.points
+            .map((p) => LatLng(p.latitude, p.longitude))
+            .toList(growable: false);
+      } else {
+        renderedRoutePoints = _roadRoutePoints;
+      }
+    } else {
+      renderedRoutePoints = polylinePoints;
+    }
+
     return Stack(
       children: [
         FlutterMap(
@@ -943,10 +1103,10 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             const AppMapTileLayer(
               userAgentPackageName: 'com.otlobegy.driver',
             ),
-            if (polylinePoints.isNotEmpty)
+            if (renderedRoutePoints.length >= 2)
               PolylineLayer(
                 polylines: NavigationRoutePolylines.build(
-                  points: polylinePoints,
+                  points: renderedRoutePoints,
                   foregroundColor: AppColors.primary,
                 ),
               ),

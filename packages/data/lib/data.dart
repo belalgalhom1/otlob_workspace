@@ -57,6 +57,7 @@ export 'src/shared/shared_health_repository.dart';
 export 'src/shared/shared_inbox_repository.dart';
 export 'src/shared/shared_notifications_repository.dart';
 export 'src/shared/shared_platform_settings_repository.dart';
+export 'src/shared/shared_routing_repository.dart';
 export 'src/shared/shared_tickets_repository.dart';
 export 'src/shared/shared_user_repository.dart';
 export 'src/shared/shared_verticals_repository.dart';

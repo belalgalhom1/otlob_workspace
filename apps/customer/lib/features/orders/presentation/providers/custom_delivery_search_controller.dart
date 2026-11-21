@@ -771,7 +771,21 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
 
     _routeFetchDebounce?.cancel();
     _routeFetchDebounce = Timer(const Duration(milliseconds: 50), () async {
-      final points = await fetchRoadRoutePoints(
+      List<LatLng>? points;
+      try {
+        final route = await ref
+            .read(sharedRoutingRepositoryProvider)
+            .computeWaypointsRoute([
+              toRoadRoutePoint(pickup),
+              toRoadRoutePoint(dropoff),
+            ]);
+        if (route.isRoadRoute && route.points.length >= 2) {
+          points = fromRoadRoutePoints(route.points);
+        }
+      } catch (_) {
+        // Fallback if sharedRoutingRepositoryProvider isn't mounted in isolated tests
+      }
+      points ??= await fetchRoadRoutePoints(
         ref.read(dioProvider),
         pickup,
         dropoff,

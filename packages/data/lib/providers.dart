@@ -55,6 +55,7 @@ final sharedInboxRepositoryProvider = Provider<SharedInboxRepository>((ref) => S
 final sharedNotificationsRepositoryProvider = Provider<SharedNotificationsRepository>((ref) => SharedNotificationsRepository(ref.watch(apiClientProvider).getNotificationsApi()));
 
 final sharedPlatformSettingsRepositoryProvider = Provider<SharedPlatformSettingsRepository>((ref) => SharedPlatformSettingsRepository(ref.watch(apiClientProvider).getPlatformSettingsVersioningApi()));
+final sharedRoutingRepositoryProvider = Provider<SharedRoutingRepository>((ref) => SharedRoutingRepository(ref.watch(apiClientProvider).getOrdersApi(), externalDio: ref.watch(dioProvider)));
 final sharedSupportTicketsRepositoryProvider = Provider<SharedTicketsRepository>((ref) => SharedTicketsRepository(ref.watch(apiClientProvider).getSupportTicketsApi()));
 final sharedTicketsRepositoryProvider = sharedSupportTicketsRepositoryProvider;
 final sharedUserRepositoryProvider = Provider<SharedUserRepository>((ref) => SharedUserRepository(ref.watch(apiClientProvider).getUsersApi()));

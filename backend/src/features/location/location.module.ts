@@ -3,12 +3,14 @@ import { PlatformSettingsModule } from '../platform-settings/platform-settings.m
 import { DriverGeoSearchService } from './driver-geo-search.service';
 import { DriverTrackingService } from './driver-tracking.service';
 import { LocationRepository } from './location.repository';
+import { RoutingService } from './routing.service';
 
 /**
  * Shared geospatial & live driver tracking feature module.
  * Deliberately controller-free and queue-free so API, Worker, and WebSocket
  * processes can all import it without pulling in HTTP routes or BullMQ workers.
  */
+
 @Global()
 @Module({
   imports: [PlatformSettingsModule],
@@ -16,7 +18,13 @@ import { LocationRepository } from './location.repository';
     LocationRepository,
     DriverTrackingService,
     DriverGeoSearchService,
+    RoutingService,
   ],
-  exports: [LocationRepository, DriverTrackingService, DriverGeoSearchService],
+  exports: [
+    LocationRepository,
+    DriverTrackingService,
+    DriverGeoSearchService,
+    RoutingService,
+  ],
 })
 export class LocationModule {}

@@ -67,6 +67,164 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
   StreamSubscription<dynamic>? _driverLocationSub;
   String? _trackedDriverId;
 
+  List<LatLng> _routeToPickupPoints = const [];
+  List<LatLng> _routePickupToDeliveryPoints = const [];
+  List<LatLng> _routeToDeliveryPoints = const [];
+  final ValueNotifier<int> _routeVersion = ValueNotifier<int>(0);
+  String _lastVendorRouteSignature = '';
+  RoadRoutePoint? _lastVendorRoutedDriverPt;
+  DateTime? _lastVendorRouteFetchAt;
+  bool _isFetchingVendorRoute = false;
+  CancelToken? _routeCancelToken;
+
+  List<LatLng> _trimLegToDriver(List<LatLng> cachedLeg, LatLng? driverPos) {
+    if (driverPos == null || cachedLeg.length < 2) return cachedLeg;
+    final res = trimRouteToDriverPosition(
+      cachedLeg
+          .map((p) => RoadRoutePoint(p.latitude, p.longitude))
+          .toList(growable: false),
+      RoadRoutePoint(driverPos.latitude, driverPos.longitude),
+    );
+    return res.points
+        .map((p) => LatLng(p.latitude, p.longitude))
+        .toList(growable: false);
+  }
+
+  void _maybeRefreshSelectedDriverRoutes({
+    LatLng? driverOverride,
+    Map<String, dynamic>? orderOverride,
+    LatLng? pickupOverride,
+    LatLng? deliveryOverride,
+    bool forceRefresh = false,
+  }) {
+    final driverLoc = driverOverride ?? _selectedDriverLocation;
+    final activeOrder = orderOverride ?? _selectedDriverOrder;
+    final pickupLoc = pickupOverride ?? _orderPickupLocation;
+    final deliveryLoc = deliveryOverride ?? _orderDeliveryLocation;
+    if (driverLoc == null || activeOrder == null) return;
+
+    final st = _resolveDriverGroupStatus(activeOrder, _selectedDriver?.id);
+    final isHeadingToCustomer = st == 'PICKED_UP';
+    final driverPt = RoadRoutePoint(driverLoc.latitude, driverLoc.longitude);
+    final pickupPt = pickupLoc == null
+        ? null
+        : RoadRoutePoint(pickupLoc.latitude, pickupLoc.longitude);
+    final deliveryPt = deliveryLoc == null
+        ? null
+        : RoadRoutePoint(deliveryLoc.latitude, deliveryLoc.longitude);
+
+    final stopSig =
+        '${activeOrder['id']}|$st|${pickupPt?.toCacheSegment() ?? ''}|${deliveryPt?.toCacheSegment() ?? ''}';
+    final stopsChanged = stopSig != _lastVendorRouteSignature;
+    final movedFar =
+        _lastVendorRoutedDriverPt == null ||
+        GeoPointUtils.distanceMeters(_lastVendorRoutedDriverPt!, driverPt) >=
+            50.0;
+    final cooldownElapsed =
+        _lastVendorRouteFetchAt == null ||
+        DateTime.now().difference(_lastVendorRouteFetchAt!) >=
+            const Duration(seconds: 6);
+    final activeCachedLeg =
+        isHeadingToCustomer ? _routeToDeliveryPoints : _routeToPickupPoints;
+    final isOffRoute =
+        activeCachedLeg.length >= 2 &&
+        trimRouteToDriverPosition(
+          activeCachedLeg
+              .map((p) => RoadRoutePoint(p.latitude, p.longitude))
+              .toList(growable: false),
+          driverPt,
+        ).isOffRoute;
+    final needsInitial =
+        isHeadingToCustomer
+            ? (_routeToDeliveryPoints.length < 2 && deliveryPt != null)
+            : ((_routeToPickupPoints.length < 2 && pickupPt != null) ||
+                  (_routePickupToDeliveryPoints.length < 2 &&
+                      pickupPt != null &&
+                      deliveryPt != null));
+
+    if (!forceRefresh &&
+        !stopsChanged &&
+        !(needsInitial && !_isFetchingVendorRoute) &&
+        !((movedFar || isOffRoute) && cooldownElapsed)) {
+      return;
+    }
+    if (_isFetchingVendorRoute && !stopsChanged && !forceRefresh) return;
+
+    if (stopsChanged || forceRefresh) {
+      _routeCancelToken?.cancel('vendor_route_changed');
+    }
+    final token = CancelToken();
+    _routeCancelToken = token;
+    _lastVendorRouteSignature = stopSig;
+    _lastVendorRoutedDriverPt = driverPt;
+    _lastVendorRouteFetchAt = DateTime.now();
+    _isFetchingVendorRoute = true;
+
+    final repo = ref.read(sharedRoutingRepositoryProvider);
+
+    Future<void> run() async {
+      if (isHeadingToCustomer && deliveryPt != null) {
+        final leg = await repo.computeWaypointsRoute(
+          [driverPt, deliveryPt],
+          cancelToken: token,
+        );
+        if (!mounted || token.isCancelled) return;
+        setState(() {
+          _routeToDeliveryPoints = leg.hasRenderablePath
+              ? leg.points
+                    .map((p) => LatLng(p.latitude, p.longitude))
+                    .toList(growable: false)
+              : const [];
+          _routeToPickupPoints = const [];
+          _routePickupToDeliveryPoints = const [];
+        });
+        _routeVersion.value++;
+        return;
+      }
+
+      final Future<ResolvedRoadRoute?> pickupFuture = pickupPt != null
+          ? repo.computeWaypointsRoute(
+              [driverPt, pickupPt],
+              cancelToken: token,
+            )
+          : Future<ResolvedRoadRoute?>.value(null);
+      final Future<ResolvedRoadRoute?> deliveryFuture =
+          (pickupPt != null && deliveryPt != null)
+              ? repo.computeWaypointsRoute(
+                  [pickupPt, deliveryPt],
+                  cancelToken: token,
+                )
+              : Future<ResolvedRoadRoute?>.value(null);
+
+      final results = await Future.wait([pickupFuture, deliveryFuture]);
+      if (!mounted || token.isCancelled) return;
+      final pickupRes = results[0];
+      final deliveryRes = results[1];
+      setState(() {
+        _routeToDeliveryPoints = const [];
+        if (pickupRes != null && pickupRes.hasRenderablePath) {
+          _routeToPickupPoints = pickupRes.points
+              .map((p) => LatLng(p.latitude, p.longitude))
+              .toList(growable: false);
+        }
+        if (deliveryRes != null && deliveryRes.hasRenderablePath) {
+          _routePickupToDeliveryPoints = deliveryRes.points
+              .map((p) => LatLng(p.latitude, p.longitude))
+              .toList(growable: false);
+        }
+      });
+      _routeVersion.value++;
+    }
+
+    run()
+        .catchError((_) {})
+        .whenComplete(() {
+          if (identical(_routeCancelToken, token)) {
+            _isFetchingVendorRoute = false;
+          }
+        });
+  }
+
   static double _lerpAngle(double from, double to, double t) {
     double diff = (to - from) % 360.0;
     if (diff > 180.0) diff -= 360.0;
@@ -191,6 +349,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
         _driverStartHeading = _driverHeading;
         _driverTargetHeading = _driverHeading;
       });
+      _maybeRefreshSelectedDriverRoutes(driverOverride: target);
       return;
     }
 
@@ -215,6 +374,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
     _isDriverMoving = true;
     _selectedDriverIsLive = true;
     _driverMoveController.forward(from: 0.0);
+    _maybeRefreshSelectedDriverRoutes(driverOverride: target);
   }
 
   void _clearSelectedDriver() {
@@ -224,6 +384,7 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
       } catch (_) {}
       _trackedDriverId = null;
     }
+    _routeCancelToken?.cancel('driver_cleared');
     _driverPollTimer?.cancel();
     _driverRenderTimer?.cancel();
     _driverMoveController.stop();
@@ -236,11 +397,20 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
       _selectedDriverOrder = null;
       _orderPickupLocation = null;
       _orderDeliveryLocation = null;
+      _routeToPickupPoints = const [];
+      _routePickupToDeliveryPoints = const [];
+      _routeToDeliveryPoints = const [];
+      _lastVendorRouteSignature = '';
+      _lastVendorRoutedDriverPt = null;
+      _lastVendorRouteFetchAt = null;
     });
+    _routeVersion.value++;
   }
 
   @override
   void dispose() {
+    _routeCancelToken?.cancel('disposed');
+    _routeVersion.dispose();
     _driverMoveController.dispose();
     _driverRenderTimer?.cancel();
     _driverPollTimer?.cancel();
@@ -726,7 +896,20 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
         _isLoadingDriverOrder = false;
         _orderPickupLocation = pickup;
         _orderDeliveryLocation = delivery;
+        _routeToPickupPoints = const [];
+        _routePickupToDeliveryPoints = const [];
+        _routeToDeliveryPoints = const [];
+        _lastVendorRouteSignature = '';
+        _lastVendorRoutedDriverPt = null;
+        _lastVendorRouteFetchAt = null;
       });
+      _maybeRefreshSelectedDriverRoutes(
+        driverOverride: driverLocation,
+        orderOverride: fullOrder,
+        pickupOverride: pickup,
+        deliveryOverride: delivery,
+        forceRefresh: true,
+      );
 
       _driverPollTimer?.cancel();
       _driverPollTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
@@ -795,6 +978,59 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
     }
   }
 
+  List<Polyline> _buildDriverOrderPolylines({
+    required Map<String, dynamic> activeOrder,
+    required LatLng driverPos,
+    LatLng? pickupLocation,
+    LatLng? deliveryLocation,
+  }) {
+    final st = _resolveDriverGroupStatus(activeOrder, _selectedDriver?.id);
+    final isHeadingToCustomer = st == 'PICKED_UP';
+    final polylines = <Polyline>[];
+
+    if (isHeadingToCustomer && deliveryLocation != null) {
+      final roadPoints = _routeToDeliveryPoints.length >= 2
+          ? _trimLegToDriver(_routeToDeliveryPoints, driverPos)
+          : [driverPos, deliveryLocation];
+      polylines.addAll(
+        NavigationRoutePolylines.build(
+          points: roadPoints,
+          foregroundColor: AppColors.primary,
+          strokeWidth: 4.5,
+          casingWidth: 7.5,
+        ),
+      );
+    } else if (!isHeadingToCustomer) {
+      if (pickupLocation != null) {
+        final legPoints = _routeToPickupPoints.length >= 2
+            ? _trimLegToDriver(_routeToPickupPoints, driverPos)
+            : [driverPos, pickupLocation];
+        polylines.addAll(
+          NavigationRoutePolylines.build(
+            points: legPoints,
+            foregroundColor: Colors.amber.shade700,
+            strokeWidth: 4.5,
+            casingWidth: 7.5,
+          ),
+        );
+      }
+      if (pickupLocation != null && deliveryLocation != null) {
+        final deliveryLeg = _routePickupToDeliveryPoints.length >= 2
+            ? _routePickupToDeliveryPoints
+            : [pickupLocation, deliveryLocation];
+        polylines.addAll(
+          NavigationRoutePolylines.build(
+            points: deliveryLeg,
+            foregroundColor: Colors.blue.withValues(alpha: 0.85),
+            strokeWidth: 3.5,
+            casingWidth: 6.0,
+          ),
+        );
+      }
+    }
+    return polylines;
+  }
+
   void _showDriverLocationBottomSheet({
     required DriverProfile driver,
     required LatLng location,
@@ -808,47 +1044,12 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
     final theme = Theme.of(context);
     final sheetMapController = MapController();
 
-    // Compute route points
+    // Compute route points for camera fitting
     final routePoints = <LatLng>[
       location,
       ?pickupLocation,
       ?deliveryLocation,
     ];
-
-    // Compute polylines
-    final polylines = <Polyline>[];
-    if (activeOrder != null) {
-      final st = _resolveDriverGroupStatus(activeOrder, _selectedDriver?.id);
-      final isHeadingToCustomer = (st == 'PICKED_UP');
-      if (isHeadingToCustomer && deliveryLocation != null) {
-        polylines.add(
-          Polyline(
-            points: [location, deliveryLocation],
-            color: AppColors.primary,
-            strokeWidth: 4.5,
-          ),
-        );
-      } else if (!isHeadingToCustomer) {
-        if (pickupLocation != null) {
-          polylines.add(
-            Polyline(
-              points: [location, pickupLocation],
-              color: Colors.amber.shade700,
-              strokeWidth: 4.5,
-            ),
-          );
-        }
-        if (pickupLocation != null && deliveryLocation != null) {
-          polylines.add(
-            Polyline(
-              points: [pickupLocation, deliveryLocation],
-              color: Colors.blue.withValues(alpha: 0.65),
-              strokeWidth: 3.5,
-            ),
-          );
-        }
-      }
-    }
 
     showModalBottomSheet(
       context: context,
@@ -887,43 +1088,21 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                   children: [
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: AnimatedBuilder(
-                        animation: _driverMoveController,
+                      child: ListenableBuilder(
+                        listenable: Listenable.merge([
+                          _driverMoveController,
+                          _routeVersion,
+                        ]),
                         builder: (ctx, _) {
                           final curLoc = _currentDriverLocation ?? location;
-                          final sheetPolylines = <Polyline>[];
-                          if (activeOrder != null) {
-                            final st = _resolveDriverGroupStatus(activeOrder, _selectedDriver?.id);
-                            final isHeadingToCustomer = (st == 'PICKED_UP');
-                            if (isHeadingToCustomer && deliveryLocation != null) {
-                              sheetPolylines.add(
-                                Polyline(
-                                  points: [curLoc, deliveryLocation],
-                                  color: AppColors.primary,
-                                  strokeWidth: 4.5,
-                                ),
-                              );
-                            } else if (!isHeadingToCustomer) {
-                              if (pickupLocation != null) {
-                                sheetPolylines.add(
-                                  Polyline(
-                                    points: [curLoc, pickupLocation],
-                                    color: Colors.amber.shade700,
-                                    strokeWidth: 4.5,
-                                  ),
-                                );
-                              }
-                              if (pickupLocation != null && deliveryLocation != null) {
-                                sheetPolylines.add(
-                                  Polyline(
-                                    points: [pickupLocation, deliveryLocation],
-                                    color: Colors.blue.withValues(alpha: 0.65),
-                                    strokeWidth: 3.5,
-                                  ),
-                                );
-                              }
-                            }
-                          }
+                          final sheetPolylines = activeOrder != null
+                              ? _buildDriverOrderPolylines(
+                                  activeOrder: activeOrder,
+                                  driverPos: curLoc,
+                                  pickupLocation: pickupLocation,
+                                  deliveryLocation: deliveryLocation,
+                                )
+                              : const <Polyline>[];
 
                           return FlutterMap(
                             mapController: sheetMapController,
@@ -2042,44 +2221,17 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
           final List<Marker> markers = [];
 
           // Route Polylines
-          final polylines = <Polyline>[];
           final curDriverPos = _currentDriverLocation ?? _selectedDriverLocation;
-          if (_selectedDriver != null &&
-              curDriverPos != null &&
-              _selectedDriverOrder != null) {
-            final st =
-                (_selectedDriverOrder!['status']?.toString() ?? '').toUpperCase();
-            final isHeadingToCustomer = (st == 'PICKED_UP');
-
-            if (isHeadingToCustomer && _orderDeliveryLocation != null) {
-              polylines.add(
-                Polyline(
-                  points: [curDriverPos, _orderDeliveryLocation!],
-                  color: AppColors.primary,
-                  strokeWidth: 4.5,
-                ),
-              );
-            } else if (!isHeadingToCustomer) {
-              if (_orderPickupLocation != null) {
-                polylines.add(
-                  Polyline(
-                    points: [curDriverPos, _orderPickupLocation!],
-                    color: Colors.amber.shade700,
-                    strokeWidth: 4.5,
-                  ),
-                );
-              }
-              if (_orderPickupLocation != null && _orderDeliveryLocation != null) {
-                polylines.add(
-                  Polyline(
-                    points: [_orderPickupLocation!, _orderDeliveryLocation!],
-                    color: Colors.blue.withValues(alpha: 0.65),
-                    strokeWidth: 3.5,
-                  ),
-                );
-              }
-            }
-          }
+          final polylines = (_selectedDriver != null &&
+                  curDriverPos != null &&
+                  _selectedDriverOrder != null)
+              ? _buildDriverOrderPolylines(
+                  activeOrder: _selectedDriverOrder!,
+                  driverPos: curDriverPos,
+                  pickupLocation: _orderPickupLocation,
+                  deliveryLocation: _orderDeliveryLocation,
+                )
+              : const <Polyline>[];
 
           // Build Markers for unselected drivers
           for (final d in data.drivers) {

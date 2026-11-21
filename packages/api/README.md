@@ -242,11 +242,12 @@ Class | Method | HTTP request | Description
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminForceAssignDriver**](doc/OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerAdminPlaceDirectOrder**](doc/OrdersApi.md#orderscontrolleradminplacedirectorder) | **POST** /orders/admin/direct | [Admin/Vendor] Create a pending order directly for a customer
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerCancelOrder**](doc/OrdersApi.md#orderscontrollercancelorder) | **POST** /orders/{orderId}/cancel | Cancel an order (customer or vendor)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerComputeRoute**](doc/OrdersApi.md#orderscontrollercomputeroute) | **POST** /orders/route | Compute a driving road route across ordered waypoints (customer/driver/vendor/admin)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerCustomerMarkPaid**](doc/OrdersApi.md#orderscontrollercustomermarkpaid) | **POST** /orders/customer/{orderId}/payment/mark-paid | Customer marks mobile wallet payment as paid with receipt
-[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmDelivery**](doc/OrdersApi.md#orderscontrollerdriverconfirmdelivery) | **POST** /orders/driver/{orderId}/delivery | Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmDelivery**](doc/OrdersApi.md#orderscontrollerdriverconfirmdelivery) | **POST** /orders/driver/{orderId}/delivery | Driver confirms delivery (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmFulfillmentPickup**](doc/OrdersApi.md#orderscontrollerdriverconfirmfulfillmentpickup) | **POST** /orders/driver/{orderId}/fulfillment/{fulfillmentId}/pickup | Driver confirms pickup for a specific vendor fulfillment stop with photo
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmPayment**](doc/OrdersApi.md#orderscontrollerdriverconfirmpayment) | **POST** /orders/driver/{orderId}/payment/confirm | Driver confirms or denies receiving mobile wallet payment
-[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmPickup**](doc/OrdersApi.md#orderscontrollerdriverconfirmpickup) | **POST** /orders/driver/{orderId}/pickup | Driver confirms pickup with a photo of the order (STAGE to READY_FOR_PICKUP / CUSTOM_DELIVERY)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverConfirmPickup**](doc/OrdersApi.md#orderscontrollerdriverconfirmpickup) | **POST** /orders/driver/{orderId}/pickup | Driver confirms pickup (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerDriverUpdateStatus**](doc/OrdersApi.md#orderscontrollerdriverupdatestatus) | **PATCH** /orders/driver/{orderId}/status | Driver updates order status (PICKED_UP / DELIVERED)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateCustomOrder**](doc/OrdersApi.md#orderscontrollerestimatecustomorder) | **POST** /orders/custom-fee-estimate | Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerEstimateMultiVendor**](doc/OrdersApi.md#orderscontrollerestimatemultivendor) | **POST** /orders/multi-vendor/fee-estimate | Estimate a multi-vendor checkout, including the per-delivery fee breakdown and whether it splits
@@ -256,6 +257,7 @@ Class | Method | HTTP request | Description
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyOrdersAsCustomer**](doc/OrdersApi.md#orderscontrollergetmyordersascustomer) | **GET** /orders/my | Get my order history (customer)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetMyOrdersAsDriver**](doc/OrdersApi.md#orderscontrollergetmyordersasdriver) | **GET** /orders/driver/my | Get my orders as driver
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetOne**](doc/OrdersApi.md#orderscontrollergetone) | **GET** /orders/{orderId} | Get a single order (customer/driver/vendor/admin)
+[*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetOrderRoute**](doc/OrdersApi.md#orderscontrollergetorderroute) | **GET** /orders/{orderId}/route | Get the canonical driving road route polyline for an order (driver/store stops/destination)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetSearchStatus**](doc/OrdersApi.md#orderscontrollergetsearchstatus) | **GET** /orders/{orderId}/search-status | Get real-time driver search progress, anonymized nearby drivers, and assigned driver distance
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerGetVendorOrders**](doc/OrdersApi.md#orderscontrollergetvendororders) | **GET** /orders/vendor/{vendorId} | Get orders for a vendor (vendor member or admin)
 [*OrdersApi*](doc/OrdersApi.md) | [**ordersControllerListOrderDecisions**](doc/OrdersApi.md#orderscontrollerlistorderdecisions) | **GET** /orders/vendor-decisions/order/{orderId} | [Admin] Vendor portions and their states for an order
@@ -438,6 +440,7 @@ Class | Method | HTTP request | Description
  - [ChangeEmailDto](doc/ChangeEmailDto.md)
  - [ChangePasswordDto](doc/ChangePasswordDto.md)
  - [CheckLocationDto](doc/CheckLocationDto.md)
+ - [ComputeRouteDto](doc/ComputeRouteDto.md)
  - [ConfirmPaymentDto](doc/ConfirmPaymentDto.md)
  - [CreateAddressDto](doc/CreateAddressDto.md)
  - [CreateDirectConversationDto](doc/CreateDirectConversationDto.md)
@@ -545,12 +548,14 @@ Class | Method | HTTP request | Description
  - [OrderItemOption](doc/OrderItemOption.md)
  - [OrderResponseDto](doc/OrderResponseDto.md)
  - [OrderReview](doc/OrderReview.md)
+ - [OrderRouteResponseDto](doc/OrderRouteResponseDto.md)
  - [OrderSearchStatusDto](doc/OrderSearchStatusDto.md)
  - [OrderStatus](doc/OrderStatus.md)
  - [OrderStatusEvent](doc/OrderStatusEvent.md)
  - [OrderType](doc/OrderType.md)
  - [OrderVendorFulfillment](doc/OrderVendorFulfillment.md)
  - [OrderVendorFulfillmentStatus](doc/OrderVendorFulfillmentStatus.md)
+ - [OrdersControllerComputeRoute200Response](doc/OrdersControllerComputeRoute200Response.md)
  - [OrdersControllerEstimateCustomOrder200Response](doc/OrdersControllerEstimateCustomOrder200Response.md)
  - [OrdersControllerGetCustomNearbyDrivers200Response](doc/OrdersControllerGetCustomNearbyDrivers200Response.md)
  - [OrdersControllerGetSearchStatus200Response](doc/OrdersControllerGetSearchStatus200Response.md)
@@ -603,6 +608,7 @@ Class | Method | HTTP request | Description
  - [ReviewWalletTopUpDto](doc/ReviewWalletTopUpDto.md)
  - [ReviewsControllerGetVendorReviews200Response](doc/ReviewsControllerGetVendorReviews200Response.md)
  - [Role](doc/Role.md)
+ - [RouteCoordinateDto](doc/RouteCoordinateDto.md)
  - [SearchCustomersInPolygonDto](doc/SearchCustomersInPolygonDto.md)
  - [SearchTerminalReason](doc/SearchTerminalReason.md)
  - [SendMessageDto](doc/SendMessageDto.md)

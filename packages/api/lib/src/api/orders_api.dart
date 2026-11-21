@@ -12,10 +12,12 @@ import 'package:api/src/api_util.dart';
 import 'package:api/src/model/admin_assign_driver_dto.dart';
 import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/cancel_order_dto.dart';
+import 'package:api/src/model/compute_route_dto.dart';
 import 'package:api/src/model/confirm_payment_dto.dart';
 import 'package:api/src/model/custom_order_preview_type.dart';
 import 'package:api/src/model/customer_decide_assist_dto.dart';
 import 'package:api/src/model/drivers_controller_my_assist_requests200_response.dart';
+import 'package:api/src/model/orders_controller_compute_route200_response.dart';
 import 'package:api/src/model/orders_controller_estimate_custom_order200_response.dart';
 import 'package:api/src/model/orders_controller_get_custom_nearby_drivers200_response.dart';
 import 'package:api/src/model/orders_controller_get_search_status200_response.dart';
@@ -738,6 +740,107 @@ class OrdersApi {
     );
   }
 
+  /// Compute a driving road route across ordered waypoints (customer/driver/vendor/admin)
+  /// 
+  ///
+  /// Parameters:
+  /// * [computeRouteDto] 
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerComputeRoute200Response] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<OrdersControllerComputeRoute200Response>> ordersControllerComputeRoute({ 
+    required ComputeRouteDto computeRouteDto,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/orders/route';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'bearer',
+          },
+        ],
+        ...?extra,
+      },
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(ComputeRouteDto);
+      _bodyData = _serializers.serialize(computeRouteDto, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    OrdersControllerComputeRoute200Response? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(OrdersControllerComputeRoute200Response),
+      ) as OrdersControllerComputeRoute200Response;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<OrdersControllerComputeRoute200Response>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// Customer marks mobile wallet payment as paid with receipt
   /// 
   ///
@@ -842,7 +945,7 @@ class OrdersApi {
     );
   }
 
-  /// Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)
+  /// Driver confirms delivery (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)
   /// 
   ///
   /// Parameters:
@@ -1163,7 +1266,7 @@ class OrdersApi {
     );
   }
 
-  /// Driver confirms pickup with a photo of the order (STAGE to READY_FOR_PICKUP / CUSTOM_DELIVERY)
+  /// Driver confirms pickup (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)
   /// 
   ///
   /// Parameters:
@@ -2127,6 +2230,94 @@ class OrdersApi {
     }
 
     return Response<OrdersControllerPlaceOrder200Response>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Get the canonical driving road route polyline for an order (driver/store stops/destination)
+  /// 
+  ///
+  /// Parameters:
+  /// * [orderId] 
+  /// * [includeDriver] - Include the live assigned driver location as the route origin when available (default: true).
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [OrdersControllerComputeRoute200Response] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<OrdersControllerComputeRoute200Response>> ordersControllerGetOrderRoute({ 
+    required String orderId,
+    bool? includeDriver = true,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/orders/{orderId}/route'.replaceAll('{' r'orderId' '}', encodeQueryParameter(_serializers, orderId, const FullType(String)).toString());
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'http',
+            'scheme': 'bearer',
+            'name': 'bearer',
+          },
+        ],
+        ...?extra,
+      },
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      if (includeDriver != null) r'includeDriver': encodeQueryParameter(_serializers, includeDriver, const FullType(bool)),
+    };
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    OrdersControllerComputeRoute200Response? _responseData;
+
+    try {
+      final rawResponse = _response.data;
+      _responseData = rawResponse == null ? null : _serializers.deserialize(
+        rawResponse,
+        specifiedType: const FullType(OrdersControllerComputeRoute200Response),
+      ) as OrdersControllerComputeRoute200Response;
+
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<OrdersControllerComputeRoute200Response>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

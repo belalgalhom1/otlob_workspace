@@ -16,11 +16,12 @@ Method | HTTP request | Description
 [**ordersControllerAdminForceAssignDriver**](OrdersApi.md#orderscontrolleradminforceassigndriver) | **POST** /orders/{orderId}/assign-driver | [Admin] Force-assign a driver to an order
 [**ordersControllerAdminPlaceDirectOrder**](OrdersApi.md#orderscontrolleradminplacedirectorder) | **POST** /orders/admin/direct | [Admin/Vendor] Create a pending order directly for a customer
 [**ordersControllerCancelOrder**](OrdersApi.md#orderscontrollercancelorder) | **POST** /orders/{orderId}/cancel | Cancel an order (customer or vendor)
+[**ordersControllerComputeRoute**](OrdersApi.md#orderscontrollercomputeroute) | **POST** /orders/route | Compute a driving road route across ordered waypoints (customer/driver/vendor/admin)
 [**ordersControllerCustomerMarkPaid**](OrdersApi.md#orderscontrollercustomermarkpaid) | **POST** /orders/customer/{orderId}/payment/mark-paid | Customer marks mobile wallet payment as paid with receipt
-[**ordersControllerDriverConfirmDelivery**](OrdersApi.md#orderscontrollerdriverconfirmdelivery) | **POST** /orders/driver/{orderId}/delivery | Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)
+[**ordersControllerDriverConfirmDelivery**](OrdersApi.md#orderscontrollerdriverconfirmdelivery) | **POST** /orders/driver/{orderId}/delivery | Driver confirms delivery (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)
 [**ordersControllerDriverConfirmFulfillmentPickup**](OrdersApi.md#orderscontrollerdriverconfirmfulfillmentpickup) | **POST** /orders/driver/{orderId}/fulfillment/{fulfillmentId}/pickup | Driver confirms pickup for a specific vendor fulfillment stop with photo
 [**ordersControllerDriverConfirmPayment**](OrdersApi.md#orderscontrollerdriverconfirmpayment) | **POST** /orders/driver/{orderId}/payment/confirm | Driver confirms or denies receiving mobile wallet payment
-[**ordersControllerDriverConfirmPickup**](OrdersApi.md#orderscontrollerdriverconfirmpickup) | **POST** /orders/driver/{orderId}/pickup | Driver confirms pickup with a photo of the order (STAGE to READY_FOR_PICKUP / CUSTOM_DELIVERY)
+[**ordersControllerDriverConfirmPickup**](OrdersApi.md#orderscontrollerdriverconfirmpickup) | **POST** /orders/driver/{orderId}/pickup | Driver confirms pickup (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)
 [**ordersControllerDriverUpdateStatus**](OrdersApi.md#orderscontrollerdriverupdatestatus) | **PATCH** /orders/driver/{orderId}/status | Driver updates order status (PICKED_UP / DELIVERED)
 [**ordersControllerEstimateCustomOrder**](OrdersApi.md#orderscontrollerestimatecustomorder) | **POST** /orders/custom-fee-estimate | Estimate custom delivery/ride fare before placing (fee is fixed to pickup→dropoff distance)
 [**ordersControllerEstimateMultiVendor**](OrdersApi.md#orderscontrollerestimatemultivendor) | **POST** /orders/multi-vendor/fee-estimate | Estimate a multi-vendor checkout, including the per-delivery fee breakdown and whether it splits
@@ -30,6 +31,7 @@ Method | HTTP request | Description
 [**ordersControllerGetMyOrdersAsCustomer**](OrdersApi.md#orderscontrollergetmyordersascustomer) | **GET** /orders/my | Get my order history (customer)
 [**ordersControllerGetMyOrdersAsDriver**](OrdersApi.md#orderscontrollergetmyordersasdriver) | **GET** /orders/driver/my | Get my orders as driver
 [**ordersControllerGetOne**](OrdersApi.md#orderscontrollergetone) | **GET** /orders/{orderId} | Get a single order (customer/driver/vendor/admin)
+[**ordersControllerGetOrderRoute**](OrdersApi.md#orderscontrollergetorderroute) | **GET** /orders/{orderId}/route | Get the canonical driving road route polyline for an order (driver/store stops/destination)
 [**ordersControllerGetSearchStatus**](OrdersApi.md#orderscontrollergetsearchstatus) | **GET** /orders/{orderId}/search-status | Get real-time driver search progress, anonymized nearby drivers, and assigned driver distance
 [**ordersControllerGetVendorOrders**](OrdersApi.md#orderscontrollergetvendororders) | **GET** /orders/vendor/{vendorId} | Get orders for a vendor (vendor member or admin)
 [**ordersControllerListOrderDecisions**](OrdersApi.md#orderscontrollerlistorderdecisions) | **GET** /orders/vendor-decisions/order/{orderId} | [Admin] Vendor portions and their states for an order
@@ -353,6 +355,47 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **ordersControllerComputeRoute**
+> OrdersControllerComputeRoute200Response ordersControllerComputeRoute(computeRouteDto)
+
+Compute a driving road route across ordered waypoints (customer/driver/vendor/admin)
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getOrdersApi();
+final ComputeRouteDto computeRouteDto = ; // ComputeRouteDto | 
+
+try {
+    final response = api.ordersControllerComputeRoute(computeRouteDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling OrdersApi->ordersControllerComputeRoute: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **computeRouteDto** | [**ComputeRouteDto**](ComputeRouteDto.md)|  | 
+
+### Return type
+
+[**OrdersControllerComputeRoute200Response**](OrdersControllerComputeRoute200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **ordersControllerCustomerMarkPaid**
 > OrdersControllerPlaceOrder200Response ordersControllerCustomerMarkPaid(orderId, file)
 
@@ -399,7 +442,7 @@ Name | Type | Description  | Notes
 # **ordersControllerDriverConfirmDelivery**
 > ApiControllerRoot200Response ordersControllerDriverConfirmDelivery(orderId, deliveryGroupId, file)
 
-Driver confirms delivery with a photo of the order (PICKED_UP to DELIVERED)
+Driver confirms delivery (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)
 
 ### Example
 ```dart
@@ -532,7 +575,7 @@ Name | Type | Description  | Notes
 # **ordersControllerDriverConfirmPickup**
 > ApiControllerRoot200Response ordersControllerDriverConfirmPickup(orderId, fulfillmentId, file)
 
-Driver confirms pickup with a photo of the order (STAGE to READY_FOR_PICKUP / CUSTOM_DELIVERY)
+Driver confirms pickup (photo required for STANDARD and CUSTOM_DELIVERY; optional for RIDE)
 
 ### Example
 ```dart
@@ -955,6 +998,49 @@ Name | Type | Description  | Notes
 ### Return type
 
 [**OrdersControllerPlaceOrder200Response**](OrdersControllerPlaceOrder200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **ordersControllerGetOrderRoute**
+> OrdersControllerComputeRoute200Response ordersControllerGetOrderRoute(orderId, includeDriver)
+
+Get the canonical driving road route polyline for an order (driver/store stops/destination)
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getOrdersApi();
+final String orderId = orderId_example; // String | 
+final bool includeDriver = true; // bool | Include the live assigned driver location as the route origin when available (default: true).
+
+try {
+    final response = api.ordersControllerGetOrderRoute(orderId, includeDriver);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling OrdersApi->ordersControllerGetOrderRoute: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **orderId** | **String**|  | 
+ **includeDriver** | **bool**| Include the live assigned driver location as the route origin when available (default: true). | [optional] [default to true]
+
+### Return type
+
+[**OrdersControllerComputeRoute200Response**](OrdersControllerComputeRoute200Response.md)
 
 ### Authorization
 

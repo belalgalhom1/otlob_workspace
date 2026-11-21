@@ -7,10 +7,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:core/core.dart'
     show
         AppOrderType,
+        CancelToken,
+        GeoPointUtils,
         OrderTypeHelper,
+        RoadRoutePoint,
         SocketEvent,
         orderRevisionOf,
-        orderRevisionTrackerProvider;
+        orderRevisionTrackerProvider,
+        trimRouteToDriverPosition;
 import '../../../../core/utils/image_utils.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -26,6 +30,7 @@ import '../../../../core/services/location_service.dart';
 import '../providers/orders_provider.dart';
 import '../utils/order_geo_utils.dart';
 import 'package:data/providers.dart';
+import 'package:data/data.dart' show ResolvedRoadRoute;
 import '../widgets/order_tracking_sheet.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 
@@ -260,6 +265,130 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   double? _pendingDriverHeading;
   XFile? _receiptFile;
   double _sheetHeightPx = 0.0;
+  List<RoadRoutePoint> _roadRoutePoints = const [];
+  String _lastRouteSignature = '';
+  RoadRoutePoint? _lastRoutedDriverPoint;
+  DateTime? _lastRouteFetchAt;
+  bool _isFetchingRoadRoute = false;
+  CancelToken? _routeCancelToken;
+
+  List<RoadRoutePoint> _collectDesiredRouteWaypoints({LatLng? driverOverride}) {
+    final storeStops = _extractStoreStops(false);
+    final destPos = _deliveryLocation ?? _initialMapCenter;
+    final effectiveDriver = driverOverride ?? _driverLocation;
+    final waypoints = <RoadRoutePoint>[];
+    if (effectiveDriver != null) {
+      waypoints.add(toRoadRoutePoint(effectiveDriver));
+    }
+    for (final stop in storeStops) {
+      if (stop['isPickedUp'] != true) {
+        waypoints.add(
+          RoadRoutePoint(stop['lat'] as double, stop['lng'] as double),
+        );
+      }
+    }
+    if (destPos != null) {
+      waypoints.add(toRoadRoutePoint(destPos));
+    }
+    return waypoints;
+  }
+
+  void _maybeRefreshOrderRoadRoute({
+    LatLng? driverOverride,
+    bool forceRefresh = false,
+  }) {
+    final waypoints = _collectDesiredRouteWaypoints(
+      driverOverride: driverOverride,
+    );
+    if (waypoints.length < 2 && _orderDetails == null) return;
+
+    final effectiveDriver = driverOverride ?? _driverLocation;
+    final driverPt = effectiveDriver == null
+        ? null
+        : toRoadRoutePoint(effectiveDriver);
+    final stopsTail = driverPt == null ? waypoints : waypoints.skip(1).toList();
+    final stopSig =
+        '$_orderStatus|${stopsTail.map((p) => p.toCacheSegment()).join(';')}|${driverPt != null}';
+
+    final stopsChanged = stopSig != _lastRouteSignature;
+    final movedFar =
+        driverPt != null &&
+        (_lastRoutedDriverPoint == null ||
+            GeoPointUtils.distanceMeters(_lastRoutedDriverPoint!, driverPt) >=
+                50.0);
+    final cooldownElapsed =
+        _lastRouteFetchAt == null ||
+        DateTime.now().difference(_lastRouteFetchAt!) >=
+            const Duration(seconds: 5);
+    final isOffRoute =
+        driverPt != null &&
+        _roadRoutePoints.length >= 2 &&
+        trimRouteToDriverPosition(_roadRoutePoints, driverPt).isOffRoute;
+
+    final needsInitial = _roadRoutePoints.length < 2 && !_isFetchingRoadRoute;
+    final needsLiveRefresh =
+        (movedFar && cooldownElapsed) || (isOffRoute && cooldownElapsed);
+
+    if (!forceRefresh &&
+        !stopsChanged &&
+        !needsInitial &&
+        !needsLiveRefresh) {
+      return;
+    }
+    if (_isFetchingRoadRoute && !stopsChanged && !forceRefresh) return;
+
+    if (stopsChanged || forceRefresh) {
+      _routeCancelToken?.cancel('route_inputs_changed');
+    }
+    final token = CancelToken();
+    _routeCancelToken = token;
+    _lastRouteSignature = stopSig;
+    _lastRoutedDriverPoint = driverPt;
+    _lastRouteFetchAt = DateTime.now();
+    _isFetchingRoadRoute = true;
+
+    final repo = ref.read(sharedRoutingRepositoryProvider);
+    Future<ResolvedRoadRoute> routeFuture = repo.getOrderRoute(
+      orderId: widget.orderId,
+      includeDriver: driverPt != null,
+      fallbackWaypoints: waypoints,
+      cancelToken: token,
+    );
+
+    routeFuture
+        .then((resolved) async {
+          if (!mounted || token.isCancelled) return;
+          var finalRoute = resolved;
+          // If socket already delivered a driver coordinate that Redis has not
+          // persisted yet, compute driver -> stops -> destination explicitly so
+          // the first leg also follows real roads.
+          if (driverPt != null &&
+              finalRoute.driverLocation == null &&
+              waypoints.length >= 2) {
+            final computed = await repo.computeWaypointsRoute(
+              waypoints,
+              cancelToken: token,
+            );
+            if (!mounted || token.isCancelled) return;
+            if (computed.hasRenderablePath) {
+              finalRoute = computed;
+            }
+          }
+          if (mounted &&
+              !token.isCancelled &&
+              finalRoute.hasRenderablePath) {
+            setState(() {
+              _roadRoutePoints = finalRoute.points;
+            });
+          }
+        })
+        .catchError((_) {})
+        .whenComplete(() {
+          if (identical(_routeCancelToken, token)) {
+            _isFetchingRoadRoute = false;
+          }
+        });
+  }
 
   Future<void> _callDriver(BuildContext context, String phone, AppStrings s) async {
     await ExternalActionLauncher.callPhone(phone, context: context);
@@ -354,7 +483,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           if (_initialMapCenter == null) {
             _initialMapCenter = deliveryPoint;
             if (_driverLocation == null) {
-              _mapController.move(_initialMapCenter!, 14.0);
+              try {
+                _mapController.move(_initialMapCenter!, 14.0);
+              } catch (_) {}
             }
           }
         } else if (_initialMapCenter == null) {
@@ -362,7 +493,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           if (pickupPoint != null) {
             _initialMapCenter = pickupPoint;
             if (_driverLocation == null) {
-              _mapController.move(_initialMapCenter!, 14.0);
+              try {
+                _mapController.move(_initialMapCenter!, 14.0);
+              } catch (_) {}
             }
           }
         }
@@ -372,6 +505,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         _fetchOrderDetails();
       }
       _extractDriverLocationFromOrder();
+      _maybeRefreshOrderRoadRoute();
     }
 
     final token = await tokenService.getAccessToken();
@@ -502,6 +636,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
   @override
   void dispose() {
+    _routeCancelToken?.cancel('disposed');
     _driverMoveController.dispose();
     _statusSub?.cancel();
     _fulfillmentSub?.cancel();
@@ -520,11 +655,16 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         .read(ordersProvider.notifier)
         .fetchOrderDetails(widget.orderId);
     if (mounted && order != null) {
+      final deliveryPoint = extractGeoPoint(order['deliveryLocation']);
       setState(() {
         _orderDetails = order;
         _orderStatus = order['status']?.toString() ?? _orderStatus;
+        if (deliveryPoint != null) {
+          _deliveryLocation = deliveryPoint;
+        }
       });
       _extractDriverLocationFromOrder();
+      _maybeRefreshOrderRoadRoute();
     }
   }
 
@@ -942,6 +1082,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
           _mapController.move(target, 15.0);
         } catch (_) {}
       }
+      _maybeRefreshOrderRoadRoute();
       return;
     }
 
@@ -958,6 +1099,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     _driverLocation = currentPos;
     _isDriverWalking = true;
     _driverMoveController.forward(from: 0.0);
+    _maybeRefreshOrderRoadRoute(driverOverride: target);
   }
 
   void _recenterOnDriver() {
@@ -1050,20 +1192,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         final v = f['vendor'] is Map ? f['vendor'] as Map : {};
         final b = f['vendorBranch'] is Map ? f['vendorBranch'] as Map : {};
 
-        double sLat = 0.0;
-        double sLng = 0.0;
-        if (b['location'] is List && (b['location'] as List).length > 1) {
-          sLng = double.tryParse(b['location'][0].toString()) ?? 0.0;
-          sLat = double.tryParse(b['location'][1].toString()) ?? 0.0;
-        } else if (b['lat'] != null && b['lng'] != null) {
-          sLat = double.tryParse(b['lat'].toString()) ?? 0.0;
-          sLng = double.tryParse(b['lng'].toString()) ?? 0.0;
-        } else if (v['latitude'] != null && v['longitude'] != null) {
-          sLat = double.tryParse(v['latitude'].toString()) ?? 0.0;
-          sLng = double.tryParse(v['longitude'].toString()) ?? 0.0;
-        }
-
-        if (sLat == 0.0 || sLng == 0.0) continue;
+        final stopPoint =
+            extractGeoPoint(b['location']) ??
+            extractGeoPoint({'lat': b['lat'], 'lng': b['lng']}) ??
+            extractGeoPoint({'lat': v['latitude'], 'lng': v['longitude']});
+        if (stopPoint == null) continue;
+        final double sLat = stopPoint.latitude;
+        final double sLng = stopPoint.longitude;
 
         final storeName = (isArabic
                 ? (v['storeNameAr'] ?? v['storeName'] ?? v['name'] ?? 'متجر')
@@ -1092,20 +1227,14 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       final b = _orderDetails!['vendorBranch'] is Map ? _orderDetails!['vendorBranch'] as Map : {};
       final pickupLoc = _orderDetails!['pickupLocation'];
 
-      double sLat = 0.0;
-      double sLng = 0.0;
-      if (pickupLoc is List && pickupLoc.length > 1) {
-        sLng = double.tryParse(pickupLoc[0].toString()) ?? 0.0;
-        sLat = double.tryParse(pickupLoc[1].toString()) ?? 0.0;
-      } else if (b['lat'] != null && b['lng'] != null) {
-        sLat = double.tryParse(b['lat'].toString()) ?? 0.0;
-        sLng = double.tryParse(b['lng'].toString()) ?? 0.0;
-      } else if (v['latitude'] != null && v['longitude'] != null) {
-        sLat = double.tryParse(v['latitude'].toString()) ?? 0.0;
-        sLng = double.tryParse(v['longitude'].toString()) ?? 0.0;
-      }
-
-      if (sLat != 0.0 && sLng != 0.0) {
+      final stopPoint =
+          extractGeoPoint(pickupLoc) ??
+          extractGeoPoint(b['location']) ??
+          extractGeoPoint({'lat': b['lat'], 'lng': b['lng']}) ??
+          extractGeoPoint({'lat': v['latitude'], 'lng': v['longitude']});
+      if (stopPoint != null) {
+        final double sLat = stopPoint.latitude;
+        final double sLng = stopPoint.longitude;
         final rawOrderType = _orderDetails!['type']?.toString();
         final isCustomOrder =
             rawOrderType == 'CUSTOM_DELIVERY' || rawOrderType == 'RIDE';
@@ -1141,18 +1270,37 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     final isMultipleStores = storeStops.length > 1;
     final destPos = _deliveryLocation ?? _initialMapCenter;
 
-    // Build the dynamic sequential trip polyline
-    final List<LatLng> tripPath = [];
+    // Build the dynamic sequential fallback waypoints and resolved road path
+    final List<LatLng> waypointFallbackPath = [];
     if (_driverLocation != null) {
-      tripPath.add(_driverLocation!);
+      waypointFallbackPath.add(_driverLocation!);
     }
     for (final stop in storeStops) {
       if (stop['isPickedUp'] != true) {
-        tripPath.add(LatLng(stop['lat'] as double, stop['lng'] as double));
+        waypointFallbackPath.add(
+          LatLng(stop['lat'] as double, stop['lng'] as double),
+        );
       }
     }
     if (destPos != null) {
-      tripPath.add(destPos);
+      waypointFallbackPath.add(destPos);
+    }
+
+    final List<LatLng> roadLatLngs = fromRoadRoutePoints(_roadRoutePoints);
+    final List<LatLng> tripPath;
+    if (roadLatLngs.length >= 2) {
+      if (_driverLocation != null) {
+        tripPath = fromRoadRoutePoints(
+          trimRouteToDriverPosition(
+            _roadRoutePoints,
+            toRoadRoutePoint(_driverLocation!),
+          ).points,
+        );
+      } else {
+        tripPath = roadLatLngs;
+      }
+    } else {
+      tripPath = waypointFallbackPath;
     }
 
     return Scaffold(
@@ -1195,28 +1343,36 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                   animation: _driverMoveController,
                   builder: (context, _) {
                     final currentDriverPos = _currentDriverLocation ?? _driverLocation;
-                    final List<LatLng> liveTripPath = [];
-                    if (currentDriverPos != null) {
-                      liveTripPath.add(currentDriverPos);
-                    }
-                    for (final stop in storeStops) {
-                      if (stop['isPickedUp'] != true) {
-                        liveTripPath.add(LatLng(stop['lat'] as double, stop['lng'] as double));
+                    final List<LatLng> liveTripPath;
+                    if (_roadRoutePoints.length >= 2) {
+                      if (currentDriverPos != null) {
+                        liveTripPath = fromRoadRoutePoints(
+                          trimRouteToDriverPosition(
+                            _roadRoutePoints,
+                            toRoadRoutePoint(currentDriverPos),
+                          ).points,
+                        );
+                      } else {
+                        liveTripPath = roadLatLngs;
                       }
-                    }
-                    if (destPos != null) {
-                      liveTripPath.add(destPos);
+                    } else {
+                      liveTripPath = [
+                        ?currentDriverPos,
+                        for (final stop in storeStops)
+                          if (stop['isPickedUp'] != true)
+                            LatLng(stop['lat'] as double, stop['lng'] as double),
+                        ?destPos,
+                      ];
                     }
 
                     if (liveTripPath.length < 2) return const SizedBox.shrink();
                     return PolylineLayer(
-                      polylines: [
-                        Polyline(
-                          points: liveTripPath,
-                          color: AppColors.primary,
-                          strokeWidth: 4.0,
-                        ),
-                      ],
+                      polylines: NavigationRoutePolylines.build(
+                        points: liveTripPath,
+                        foregroundColor: AppColors.primary,
+                        strokeWidth: 4.5,
+                        casingWidth: 7.5,
+                      ),
                     );
                   },
                 ),
