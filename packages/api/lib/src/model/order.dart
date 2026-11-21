@@ -36,6 +36,7 @@ part 'order.g.dart';
 /// * [requestedVehicleType] 
 /// * [subtotal] 
 /// * [deliveryFee] 
+/// * [goldSurchargeAmount] 
 /// * [driverBonusFee] 
 /// * [serviceFee] 
 /// * [tax] 
@@ -52,6 +53,12 @@ part 'order.g.dart';
 /// * [paymentReceiptUrl] 
 /// * [actualDeliveryTime] 
 /// * [settledAt] 
+/// * [settledGoldBonusAmount] 
+/// * [settledGoldPlatformRetainedAmount] 
+/// * [settledBronzeDriverDeduction] 
+/// * [settledBronzeSupervisorDeduction] 
+/// * [settledBronzeDriverDeductionRate] 
+/// * [settledBronzeSupervisorDeductionRate] 
 /// * [cancelledByUserId] 
 /// * [cancelledByRole] 
 /// * [cancelledByName] 
@@ -115,13 +122,16 @@ abstract class Order implements Built<Order, OrderBuilder> {
 
   @BuiltValueField(wireName: r'requestedVehicleType')
   VehicleType? get requestedVehicleType;
-  // enum requestedVehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  VAN,  TRUCK,  MOTOR_TRICYCLE,  };
+  // enum requestedVehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  MINIBUS,  TUK_TUK,  MOTOR_TRICYCLE,  QUARTER_TRUCK,  HALF_TRUCK,  };
 
   @BuiltValueField(wireName: r'subtotal')
   num get subtotal;
 
   @BuiltValueField(wireName: r'deliveryFee')
   num get deliveryFee;
+
+  @BuiltValueField(wireName: r'goldSurchargeAmount')
+  num get goldSurchargeAmount;
 
   @BuiltValueField(wireName: r'driverBonusFee')
   num get driverBonusFee;
@@ -170,6 +180,24 @@ abstract class Order implements Built<Order, OrderBuilder> {
 
   @BuiltValueField(wireName: r'settledAt')
   DateTime? get settledAt;
+
+  @BuiltValueField(wireName: r'settledGoldBonusAmount')
+  num get settledGoldBonusAmount;
+
+  @BuiltValueField(wireName: r'settledGoldPlatformRetainedAmount')
+  num get settledGoldPlatformRetainedAmount;
+
+  @BuiltValueField(wireName: r'settledBronzeDriverDeduction')
+  num get settledBronzeDriverDeduction;
+
+  @BuiltValueField(wireName: r'settledBronzeSupervisorDeduction')
+  num get settledBronzeSupervisorDeduction;
+
+  @BuiltValueField(wireName: r'settledBronzeDriverDeductionRate')
+  num? get settledBronzeDriverDeductionRate;
+
+  @BuiltValueField(wireName: r'settledBronzeSupervisorDeductionRate')
+  num? get settledBronzeSupervisorDeductionRate;
 
   @BuiltValueField(wireName: r'cancelledByUserId')
   String? get cancelledByUserId;
@@ -327,6 +355,11 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
       object.deliveryFee,
       specifiedType: const FullType(num),
     );
+    yield r'goldSurchargeAmount';
+    yield serializers.serialize(
+      object.goldSurchargeAmount,
+      specifiedType: const FullType(num),
+    );
     yield r'driverBonusFee';
     yield serializers.serialize(
       object.driverBonusFee,
@@ -417,6 +450,40 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
       yield serializers.serialize(
         object.settledAt,
         specifiedType: const FullType(DateTime),
+      );
+    }
+    yield r'settledGoldBonusAmount';
+    yield serializers.serialize(
+      object.settledGoldBonusAmount,
+      specifiedType: const FullType(num),
+    );
+    yield r'settledGoldPlatformRetainedAmount';
+    yield serializers.serialize(
+      object.settledGoldPlatformRetainedAmount,
+      specifiedType: const FullType(num),
+    );
+    yield r'settledBronzeDriverDeduction';
+    yield serializers.serialize(
+      object.settledBronzeDriverDeduction,
+      specifiedType: const FullType(num),
+    );
+    yield r'settledBronzeSupervisorDeduction';
+    yield serializers.serialize(
+      object.settledBronzeSupervisorDeduction,
+      specifiedType: const FullType(num),
+    );
+    if (object.settledBronzeDriverDeductionRate != null) {
+      yield r'settledBronzeDriverDeductionRate';
+      yield serializers.serialize(
+        object.settledBronzeDriverDeductionRate,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.settledBronzeSupervisorDeductionRate != null) {
+      yield r'settledBronzeSupervisorDeductionRate';
+      yield serializers.serialize(
+        object.settledBronzeSupervisorDeductionRate,
+        specifiedType: const FullType(num),
       );
     }
     if (object.cancelledByUserId != null) {
@@ -624,6 +691,13 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
           ) as num;
           result.deliveryFee = valueDes;
           break;
+        case r'goldSurchargeAmount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.goldSurchargeAmount = valueDes;
+          break;
         case r'driverBonusFee':
           final valueDes = serializers.deserialize(
             value,
@@ -735,6 +809,48 @@ class _$OrderSerializer implements PrimitiveSerializer<Order> {
             specifiedType: const FullType(DateTime),
           ) as DateTime;
           result.settledAt = valueDes;
+          break;
+        case r'settledGoldBonusAmount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledGoldBonusAmount = valueDes;
+          break;
+        case r'settledGoldPlatformRetainedAmount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledGoldPlatformRetainedAmount = valueDes;
+          break;
+        case r'settledBronzeDriverDeduction':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledBronzeDriverDeduction = valueDes;
+          break;
+        case r'settledBronzeSupervisorDeduction':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledBronzeSupervisorDeduction = valueDes;
+          break;
+        case r'settledBronzeDriverDeductionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledBronzeDriverDeductionRate = valueDes;
+          break;
+        case r'settledBronzeSupervisorDeductionRate':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledBronzeSupervisorDeductionRate = valueDes;
           break;
         case r'cancelledByUserId':
           final valueDes = serializers.deserialize(

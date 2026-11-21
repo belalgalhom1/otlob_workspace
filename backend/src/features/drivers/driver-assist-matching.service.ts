@@ -371,18 +371,22 @@ export class DriverAssistMatchingService {
           })
         : null;
 
-    const isStandardOrder = orderRow?.type === OrderType.STANDARD;
+    const orderType = orderRow?.type ?? null;
     const orderDistanceKm = Number(orderRow?.distanceKm ?? 0);
-    const allowedStandardVehicles = isStandardOrder
+    const shouldFilterByVehicle =
+      orderType === OrderType.STANDARD ||
+      orderType === OrderType.RIDE ||
+      orderType === OrderType.CUSTOM_DELIVERY;
+    const allowedOrderVehicles = shouldFilterByVehicle
       ? (resolveAllowedVehicleTypes(
           orderRow?.requestedVehicleType ?? null,
           orderDistanceKm,
           settings,
-          OrderType.STANDARD,
+          orderType,
         ) as VehicleType[])
       : null;
 
-    if (allowedStandardVehicles && allowedStandardVehicles.length === 0) {
+    if (allowedOrderVehicles && allowedOrderVehicles.length === 0) {
       return [];
     }
 
@@ -392,17 +396,17 @@ export class DriverAssistMatchingService {
         isApproved: true,
         deletedAt: null,
         hasUnpaidCommission: false,
-        ...(allowedStandardVehicles
-          ? { vehicleType: { in: allowedStandardVehicles } }
+        ...(allowedOrderVehicles
+          ? { vehicleType: { in: allowedOrderVehicles } }
           : {}),
         ...(primaryDriverId ? { NOT: { id: primaryDriverId } } : {}),
       },
       select: { id: true, vehicleType: true },
     });
-    const vehicleFilteredCandidates = isStandardOrder
+    const vehicleFilteredCandidates = shouldFilterByVehicle
       ? candidates.filter((c) =>
           isDriverVehicleEligibleForOrder({
-            orderType: OrderType.STANDARD,
+            orderType,
             requestedVehicleType: orderRow?.requestedVehicleType ?? null,
             driverVehicleType: c.vehicleType,
             orderDistanceKm,

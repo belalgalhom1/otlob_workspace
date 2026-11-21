@@ -24,10 +24,12 @@ import {
   SearchTerminalReason,
 } from '../dispatch/dispatch-search.types';
 import { OrdersStateService } from './orders-state.service';
+import { OrdersCheckoutService } from './orders-checkout.service';
 import { OrderSearchService } from './order-search.service';
 import { DriverAssistMatchingService } from '../drivers/driver-assist-matching.service';
 import { DriverAssistService } from '../drivers/driver-assist.service';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
+import { DeliveryFeeCalculator } from '../platform-settings/delivery-fee.calculator';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
 import { OrderErrors } from '../../common/constants/response.constants';
 
@@ -35,9 +37,11 @@ const ALL_VEHICLES_ACTIVE: VehicleAvailabilitySettings = {
   allowBicycle: true,
   allowMotorcycle: true,
   allowCar: true,
-  allowVan: true,
-  allowTruck: true,
+  allowMinibus: true,
+  allowTukTuk: true,
   allowMotorTricycle: true,
+  allowQuarterTruck: true,
+  allowHalfTruck: true,
   maxKmForBicycle: 5,
 };
 
@@ -71,12 +75,16 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
 
       for (const excluded of [
         VehicleType.CAR,
-        VehicleType.VAN,
-        VehicleType.TRUCK,
+        VehicleType.MINIBUS,
+        VehicleType.TUK_TUK,
         VehicleType.MOTOR_TRICYCLE,
+        VehicleType.QUARTER_TRUCK,
+        VehicleType.HALF_TRUCK,
         null,
         undefined,
         '',
+        'VAN',
+        'TRUCK',
         'SCOOTER',
       ]) {
         expect(
@@ -136,34 +144,78 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
       ).toEqual([]);
     });
 
-    it('preserves existing eligibility rules for CUSTOM_DELIVERY and RIDE orders', () => {
+    it('enforces exact service-specific vehicle matrices for RIDE and CUSTOM_DELIVERY orders', () => {
+      // RIDE supports ONLY MOTORCYCLE, CAR, MINIBUS, TUK_TUK
+      for (const rideVehicle of [
+        VehicleType.MOTORCYCLE,
+        VehicleType.CAR,
+        VehicleType.MINIBUS,
+        VehicleType.TUK_TUK,
+      ]) {
+        expect(
+          resolveAllowedVehicleTypes(
+            rideVehicle,
+            10,
+            ALL_VEHICLES_ACTIVE,
+            OrderType.RIDE,
+          ),
+        ).toEqual([rideVehicle]);
+      }
+      for (const nonRideVehicle of [
+        VehicleType.BICYCLE,
+        VehicleType.MOTOR_TRICYCLE,
+        VehicleType.QUARTER_TRUCK,
+        VehicleType.HALF_TRUCK,
+      ]) {
+        expect(
+          resolveAllowedVehicleTypes(
+            nonRideVehicle,
+            10,
+            ALL_VEHICLES_ACTIVE,
+            OrderType.RIDE,
+          ),
+        ).toEqual([]);
+      }
       expect(
-        resolveAllowedVehicleTypes(
-          VehicleType.CAR,
-          10,
-          ALL_VEHICLES_ACTIVE,
-          OrderType.RIDE,
-        ),
-      ).toEqual([VehicleType.CAR]);
+        resolveAllowedVehicleTypes(null, 10, ALL_VEHICLES_ACTIVE, OrderType.RIDE),
+      ).toEqual([
+        VehicleType.MOTORCYCLE,
+        VehicleType.CAR,
+        VehicleType.MINIBUS,
+        VehicleType.TUK_TUK,
+      ]);
 
-      expect(
-        resolveAllowedVehicleTypes(
-          VehicleType.VAN,
-          10,
-          ALL_VEHICLES_ACTIVE,
-          OrderType.CUSTOM_DELIVERY,
-        ),
-      ).toEqual([VehicleType.VAN]);
-
-      expect(
-        resolveAllowedVehicleTypes(
-          VehicleType.TRUCK,
-          10,
-          ALL_VEHICLES_ACTIVE,
-          OrderType.CUSTOM_DELIVERY,
-        ),
-      ).toEqual([VehicleType.TRUCK]);
-
+      // CUSTOM_DELIVERY supports ONLY MOTORCYCLE, MOTOR_TRICYCLE, QUARTER_TRUCK, HALF_TRUCK
+      for (const customVehicle of [
+        VehicleType.MOTORCYCLE,
+        VehicleType.MOTOR_TRICYCLE,
+        VehicleType.QUARTER_TRUCK,
+        VehicleType.HALF_TRUCK,
+      ]) {
+        expect(
+          resolveAllowedVehicleTypes(
+            customVehicle,
+            10,
+            ALL_VEHICLES_ACTIVE,
+            OrderType.CUSTOM_DELIVERY,
+          ),
+        ).toEqual([customVehicle]);
+      }
+      for (const nonCustomVehicle of [
+        VehicleType.BICYCLE,
+        VehicleType.CAR,
+        VehicleType.MINIBUS,
+        VehicleType.TUK_TUK,
+      ]) {
+        expect(
+          resolveAllowedVehicleTypes(
+            nonCustomVehicle,
+            10,
+            ALL_VEHICLES_ACTIVE,
+            OrderType.CUSTOM_DELIVERY,
+          ),
+        ).toEqual([]);
+      }
       expect(
         resolveAllowedVehicleTypes(
           null,
@@ -173,11 +225,9 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
         ),
       ).toEqual([
         VehicleType.MOTORCYCLE,
-        VehicleType.BICYCLE,
-        VehicleType.CAR,
-        VehicleType.VAN,
-        VehicleType.TRUCK,
         VehicleType.MOTOR_TRICYCLE,
+        VehicleType.QUARTER_TRUCK,
+        VehicleType.HALF_TRUCK,
       ]);
     });
   });
@@ -342,17 +392,31 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
             activeShiftId: null,
           },
           {
-            id: 'drv-van',
-            userId: 'u-van',
-            vehicleType: VehicleType.VAN,
+            id: 'drv-minibus',
+            userId: 'u-minibus',
+            vehicleType: VehicleType.MINIBUS,
             distanceKm: 0.6,
             activeShiftId: null,
           },
           {
-            id: 'drv-truck',
-            userId: 'u-truck',
-            vehicleType: VehicleType.TRUCK,
+            id: 'drv-tuktuk',
+            userId: 'u-tuktuk',
+            vehicleType: VehicleType.TUK_TUK,
+            distanceKm: 0.65,
+            activeShiftId: null,
+          },
+          {
+            id: 'drv-quarter',
+            userId: 'u-quarter',
+            vehicleType: VehicleType.QUARTER_TRUCK,
             distanceKm: 0.7,
+            activeShiftId: null,
+          },
+          {
+            id: 'drv-half',
+            userId: 'u-half',
+            vehicleType: VehicleType.HALF_TRUCK,
+            distanceKm: 0.75,
             activeShiftId: null,
           },
           {
@@ -388,12 +452,14 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
       );
       expect(offeredDriverIds).toEqual(['drv-moto', 'drv-bike']);
       expect(offeredDriverIds).not.toContain('drv-car');
-      expect(offeredDriverIds).not.toContain('drv-van');
-      expect(offeredDriverIds).not.toContain('drv-truck');
+      expect(offeredDriverIds).not.toContain('drv-minibus');
+      expect(offeredDriverIds).not.toContain('drv-tuktuk');
+      expect(offeredDriverIds).not.toContain('drv-quarter');
+      expect(offeredDriverIds).not.toContain('drv-half');
       expect(offeredDriverIds).not.toContain('drv-tri');
     });
 
-    it('returns no_drivers for STANDARD orders (including retries) when only CAR/VAN/TRUCK drivers exist, and triggers NO_DRIVERS_AVAILABLE upon exhaustion', async () => {
+    it('returns no_drivers for STANDARD orders (including retries) when only CAR/MINIBUS/QUARTER_TRUCK drivers exist, and triggers NO_DRIVERS_AVAILABLE upon exhaustion', async () => {
       const { dispatch, geoSearch, emitter } = buildDispatchHarness({
         orderType: OrderType.STANDARD,
         distanceKm: 3,
@@ -406,9 +472,9 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
             activeShiftId: null,
           },
           {
-            id: 'drv-van',
-            userId: 'u-van',
-            vehicleType: VehicleType.VAN,
+            id: 'drv-quarter',
+            userId: 'u-quarter',
+            vehicleType: VehicleType.QUARTER_TRUCK,
             distanceKm: 0.7,
             activeShiftId: null,
           },
@@ -492,56 +558,53 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
       expect(handleUndispatchableDeliveryGroup).toHaveBeenCalled();
     });
 
-    it('preserves CAR dispatch for RIDE and VAN dispatch for CUSTOM_DELIVERY', async () => {
-      const rideHarness = buildDispatchHarness({
-        orderType: OrderType.RIDE,
-        requestedVehicleType: VehicleType.CAR,
-        distanceKm: 8,
-        nearbyDrivers: [
-          {
-            id: 'drv-car',
-            userId: 'u-car',
-            vehicleType: VehicleType.CAR,
-            distanceKm: 1.0,
-            activeShiftId: null,
-          },
-        ],
-      });
-      expect(
-        await rideHarness.dispatch.attemptDispatch({
-          orderId: 'ord-1',
-          orderNumber: 'RIDE-1',
-          attempt: 1,
-        }),
-      ).toBe('dispatched');
-      expect(rideHarness.geoSearch.findNearbyDrivers.mock.calls[0][4]).toEqual([
-        VehicleType.CAR,
-      ]);
-
-      const customHarness = buildDispatchHarness({
-        orderType: OrderType.CUSTOM_DELIVERY,
-        requestedVehicleType: VehicleType.VAN,
-        distanceKm: 10,
-        nearbyDrivers: [
-          {
-            id: 'drv-van',
-            userId: 'u-van',
-            vehicleType: VehicleType.VAN,
-            distanceKm: 1.5,
-            activeShiftId: null,
-          },
-        ],
-      });
-      expect(
-        await customHarness.dispatch.attemptDispatch({
-          orderId: 'ord-1',
-          orderNumber: 'CD-1',
-          attempt: 1,
-        }),
-      ).toBe('dispatched');
-      expect(
-        customHarness.geoSearch.findNearbyDrivers.mock.calls[0][4],
-      ).toEqual([VehicleType.VAN]);
+    it('dispatches exact matching drivers for all RIDE and CUSTOM_DELIVERY vehicles and never sends cross-vehicle offers', async () => {
+      for (const [orderType, requestedVehicle, wrongVehicle] of [
+        [OrderType.RIDE, VehicleType.MOTORCYCLE, VehicleType.CAR],
+        [OrderType.RIDE, VehicleType.CAR, VehicleType.MINIBUS],
+        [OrderType.RIDE, VehicleType.MINIBUS, VehicleType.TUK_TUK],
+        [OrderType.RIDE, VehicleType.TUK_TUK, VehicleType.MOTOR_TRICYCLE],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.MOTORCYCLE, VehicleType.CAR],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.MOTOR_TRICYCLE, VehicleType.TUK_TUK],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.QUARTER_TRUCK, VehicleType.HALF_TRUCK],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.HALF_TRUCK, VehicleType.QUARTER_TRUCK],
+      ] as const) {
+        const harness = buildDispatchHarness({
+          orderType,
+          requestedVehicleType: requestedVehicle,
+          distanceKm: 8,
+          nearbyDrivers: [
+            {
+              id: `drv-match-${requestedVehicle}`,
+              userId: `u-match-${requestedVehicle}`,
+              vehicleType: requestedVehicle,
+              distanceKm: 1.0,
+              activeShiftId: null,
+            },
+            {
+              id: `drv-wrong-${wrongVehicle}`,
+              userId: `u-wrong-${wrongVehicle}`,
+              vehicleType: wrongVehicle,
+              distanceKm: 0.5,
+              activeShiftId: null,
+            },
+          ],
+        });
+        expect(
+          await harness.dispatch.attemptDispatch({
+            orderId: 'ord-1',
+            orderNumber: `${orderType}-${requestedVehicle}`,
+            attempt: 1,
+          }),
+        ).toBe('dispatched');
+        expect(harness.geoSearch.findNearbyDrivers.mock.calls[0][4]).toEqual([
+          requestedVehicle,
+        ]);
+        const offeredIds = harness.emitter.emit.mock.calls.map(
+          (c) => c[1].driverId,
+        );
+        expect(offeredIds).toEqual([`drv-match-${requestedVehicle}`]);
+      }
     });
   });
 
@@ -653,12 +716,122 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
       ).rejects.toThrow(OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE);
       expect(tx.orderDeliveryGroup.updateMany).not.toHaveBeenCalled();
     });
+
+    it.each([
+      [OrderType.RIDE, VehicleType.TUK_TUK, VehicleType.CAR],
+      [OrderType.CUSTOM_DELIVERY, VehicleType.QUARTER_TRUCK, VehicleType.HALF_TRUCK],
+    ])(
+      'rejects acceptance on %s (requested=%s) when driver vehicle is %s at accept time',
+      async (orderType, requestedVehicle, driverVehicle) => {
+        const dispatchData = {
+          orderId: 'ord-custom-acc',
+          deliveryGroupId: 'grp-1',
+          type: orderType,
+          requestedVehicleType: requestedVehicle,
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          candidates: [
+            {
+              driverId: 'drv-mismatch',
+              userId: 'u-mismatch',
+              driverShiftId: null,
+              deliveryGroupId: 'grp-1',
+              distanceKm: 1.0,
+              estimatedEarnings: 25,
+              isStacked: false,
+            },
+          ],
+        };
+        const tx: any = {
+          $queryRaw: jest.fn().mockResolvedValue([]),
+          orderDeliveryGroup: {
+            count: jest.fn().mockResolvedValue(0),
+            findMany: jest.fn().mockResolvedValue([]),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          orderDispatch: { create: jest.fn().mockResolvedValue({}) },
+          driver: {
+            findUnique: jest.fn().mockResolvedValue({
+              tier: 'SILVER',
+              vehicleType: driverVehicle,
+              isApproved: true,
+              deletedAt: null,
+              hasUnpaidCommission: false,
+            }),
+          },
+        };
+        const prisma: any = {
+          order: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'ord-custom-acc',
+              orderNumber: 'ORD-CUST-1',
+              type: orderType,
+              requestedVehicleType: requestedVehicle,
+              status: OrderStatus.LOOKING_FOR_DRIVER,
+              paymentMethod: 'CASH_ON_DELIVERY',
+              paymentStatus: 'PENDING',
+              upfrontAmount: 0,
+              customerId: 'c1',
+              distanceKm: 4,
+              customer: { userId: 'u-c1' },
+              vendorFulfillments: [],
+              deliveryGroups: [
+                {
+                  id: 'grp-1',
+                  status: DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+                  primaryDriverId: null,
+                },
+              ],
+            }),
+          },
+          orderVendorFulfillment: { findMany: jest.fn().mockResolvedValue([]) },
+          $transaction: jest.fn((cb: any) => Promise.resolve(cb(tx))),
+        };
+        const redis: any = {
+          get: jest.fn().mockResolvedValue(JSON.stringify(dispatchData)),
+          smembers: jest.fn().mockResolvedValue([]),
+          delIfValue: jest.fn().mockResolvedValue(true),
+        };
+        const lifecycle = new DispatchLifecycleService(
+          new DispatchRepository(prisma, redis),
+          {
+            getSettings: jest.fn().mockResolvedValue({
+              ...ALL_VEHICLES_ACTIVE,
+              maxActiveOrdersPerDriver: 1,
+            }),
+          } as any,
+          { emit: jest.fn() } as any,
+          prisma,
+          {
+            getOrderLocationContext: jest.fn().mockResolvedValue({
+              lng: 31.23,
+              lat: 30.04,
+              deliveryLng: 31.25,
+              deliveryLat: 30.05,
+              requestedVehicleType: requestedVehicle,
+            }),
+            getDeliveryGroupPickupLocation: jest.fn().mockResolvedValue(null),
+            getDistanceKm: jest.fn().mockResolvedValue(4),
+          } as any,
+          { add: jest.fn() } as any,
+          { add: jest.fn() } as any,
+          { record: jest.fn(), markProcessed: jest.fn() } as any,
+          { onOrderStatusChanged: jest.fn() } as any,
+          new DriverWorkloadHelper(),
+        );
+
+        await expect(
+          lifecycle.handleAcceptance('disp-custom-1', 'drv-mismatch'),
+        ).rejects.toThrow(OrderErrors.DRIVER_VEHICLE_NOT_ELIGIBLE);
+        expect(tx.orderDeliveryGroup.updateMany).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('OrdersStateService.adminForceAssignDriver vehicle validation', () => {
     function buildStateHarness(params: {
       orderType: OrderType;
       driverVehicleType: VehicleType | null;
+      requestedVehicleType?: VehicleType | null;
       distanceKm?: number;
     }) {
       const assignDriverMock = jest.fn().mockResolvedValue({
@@ -706,6 +879,7 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
           id: 'ord-1',
           orderNumber: 'ORD-1',
           type: params.orderType,
+          requestedVehicleType: params.requestedVehicleType ?? null,
           distanceKm: params.distanceKm ?? 3,
           status: OrderStatus.LOOKING_FOR_DRIVER,
           paymentMethod: 'CASH_ON_DELIVERY',
@@ -753,9 +927,11 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
 
     it.each([
       VehicleType.CAR,
-      VehicleType.VAN,
-      VehicleType.TRUCK,
+      VehicleType.MINIBUS,
+      VehicleType.TUK_TUK,
       VehicleType.MOTOR_TRICYCLE,
+      VehicleType.QUARTER_TRUCK,
+      VehicleType.HALF_TRUCK,
       null,
     ])(
       'rejects manual assignment of %s driver on STANDARD order',
@@ -792,13 +968,20 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
       expect(assignDriverMock).not.toHaveBeenCalled();
     });
 
-    it('continues allowing CAR for RIDE and VAN for CUSTOM_DELIVERY', async () => {
+    it('allows matching vehicle types for RIDE & CUSTOM_DELIVERY and rejects mismatches on manual assignment', async () => {
       for (const [orderType, vehicleType] of [
+        [OrderType.RIDE, VehicleType.MOTORCYCLE],
         [OrderType.RIDE, VehicleType.CAR],
-        [OrderType.CUSTOM_DELIVERY, VehicleType.VAN],
+        [OrderType.RIDE, VehicleType.MINIBUS],
+        [OrderType.RIDE, VehicleType.TUK_TUK],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.MOTORCYCLE],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.MOTOR_TRICYCLE],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.QUARTER_TRUCK],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.HALF_TRUCK],
       ] as const) {
         const { svc, assignDriverMock } = buildStateHarness({
           orderType,
+          requestedVehicleType: vehicleType,
           driverVehicleType: vehicleType,
           distanceKm: 10,
         });
@@ -808,6 +991,29 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
           { driverId: 'drv-1' },
         );
         expect(assignDriverMock).toHaveBeenCalledTimes(1);
+      }
+
+      // Cross-service and wrong-vehicle manual force-assign MUST be rejected
+      for (const [orderType, requestedVehicle, driverVehicle] of [
+        [OrderType.RIDE, VehicleType.TUK_TUK, VehicleType.CAR],
+        [OrderType.RIDE, VehicleType.MINIBUS, VehicleType.QUARTER_TRUCK],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.QUARTER_TRUCK, VehicleType.HALF_TRUCK],
+        [OrderType.CUSTOM_DELIVERY, VehicleType.MOTOR_TRICYCLE, VehicleType.CAR],
+      ] as const) {
+        const { svc, assignDriverMock } = buildStateHarness({
+          orderType,
+          requestedVehicleType: requestedVehicle,
+          driverVehicleType: driverVehicle,
+          distanceKm: 10,
+        });
+        await expect(
+          svc.adminForceAssignDriver(
+            { sub: 'admin-1', role: Role.SUPER_ADMIN } as any,
+            'ord-1',
+            { driverId: 'drv-1' },
+          ),
+        ).rejects.toThrow(OrderErrors.DRIVER_VEHICLE_NOT_ELIGIBLE);
+        expect(assignDriverMock).not.toHaveBeenCalled();
       }
     });
   });
@@ -955,6 +1161,148 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
         false,
         null,
       );
+    });
+  });
+
+  describe('OrdersCheckoutService Ride & Custom Delivery vehicle validation & pricing', () => {
+    function buildCheckoutHarness(settingOverrides: Record<string, any> = {}) {
+      const feeCalc = new DeliveryFeeCalculator();
+      const settings: any = {
+        ...ALL_VEHICLES_ACTIVE,
+        baseDeliveryFee: 15,
+        pricePerKm: 3,
+        pricePerKmBicycle: 2,
+        pricePerKmMotorcycle: 3,
+        pricePerKmCar: 5,
+        pricePerKmMinibus: 8,
+        pricePerKmTukTuk: 4,
+        pricePerKmMotorTricycle: 4,
+        pricePerKmQuarterTruck: 8,
+        pricePerKmHalfTruck: 12,
+        minDeliveryFee: 15,
+        maxDeliveryFee: 0,
+        minDeliveryFeeBicycle: 15,
+        maxDeliveryFeeBicycle: 0,
+        minDeliveryFeeMotorcycle: 15,
+        maxDeliveryFeeMotorcycle: 0,
+        minDeliveryFeeCar: 15,
+        maxDeliveryFeeCar: 0,
+        minDeliveryFeeMinibus: 15,
+        maxDeliveryFeeMinibus: 0,
+        minDeliveryFeeTukTuk: 15,
+        maxDeliveryFeeTukTuk: 0,
+        minDeliveryFeeMotorTricycle: 15,
+        maxDeliveryFeeMotorTricycle: 0,
+        minDeliveryFeeQuarterTruck: 15,
+        maxDeliveryFeeQuarterTruck: 0,
+        minDeliveryFeeHalfTruck: 15,
+        maxDeliveryFeeHalfTruck: 0,
+        customOrderPlatformFee: 10,
+        defaultTaxRate: 14,
+        maxDeliveryRadiusKm: 1500,
+        minOrderKm: 0,
+        minDistanceFixedPrice: 0,
+        goldTierBonusPerOrder: 0,
+        driverBonusActive: false,
+        driverBonusAmount: 0,
+        driverBonusPaidByCustomer: false,
+        coinValue: 1,
+        amountSpentPerCoin: 10,
+        minCoinsToUse: 1,
+        highValueOrderThreshold: 0,
+        highValueUpfrontRate: 0,
+        ...settingOverrides,
+      };
+      const checkout = new OrdersCheckoutService(
+        { getDistanceKm: jest.fn().mockResolvedValue(10) } as any,
+        {} as any,
+        {
+          getSettings: jest.fn().mockResolvedValue(settings),
+          calculateCustomerDeliveryBreakdown: jest.fn(
+            (distanceKm, zoneOverride, perKm, isStd, s, vehicleType) =>
+              feeCalc.calculateCustomerDeliveryBreakdown(s ?? settings, {
+                distanceKm,
+                zoneBaseDeliveryFeeOverride: zoneOverride,
+                perKmOverride: perKm,
+                isStandardOrder: isStd,
+                vehicleType,
+              }),
+          ),
+        } as any,
+        { emit: jest.fn() } as any,
+        {
+          customer: {
+            findUnique: jest
+              .fn()
+              .mockResolvedValue({ id: 'cust-1', coinBalance: 0 }),
+          },
+        } as any,
+        {} as any,
+        {} as any,
+      );
+      return { checkout };
+    }
+
+    const baseDto = {
+      paymentMethod: 'CASH_ON_DELIVERY' as const,
+      pickupAddress: 'Pickup St',
+      pickupLocation: [31.2357, 30.0444] as [number, number],
+      deliveryAddress: 'Dropoff St',
+      deliveryLocation: [31.2, 30.0111] as [number, number],
+      itemDetails: 'Box',
+    };
+
+    it.each([
+      [OrderType.RIDE, VehicleType.MOTORCYCLE, 45], // 15 + 10*3
+      [OrderType.RIDE, VehicleType.CAR, 65], // 15 + 10*5
+      [OrderType.RIDE, VehicleType.MINIBUS, 95], // 15 + 10*8
+      [OrderType.RIDE, VehicleType.TUK_TUK, 55], // 15 + 10*4
+      [OrderType.CUSTOM_DELIVERY, VehicleType.MOTORCYCLE, 45], // 15 + 10*3
+      [OrderType.CUSTOM_DELIVERY, VehicleType.MOTOR_TRICYCLE, 55], // 15 + 10*4
+      [OrderType.CUSTOM_DELIVERY, VehicleType.QUARTER_TRUCK, 95], // 15 + 10*8
+      [OrderType.CUSTOM_DELIVERY, VehicleType.HALF_TRUCK, 135], // 15 + 10*12
+    ])(
+      'accepts %s with %s and computes expected deliveryFee=%d',
+      async (type, vehicleType, expectedDeliveryFee) => {
+        const { checkout } = buildCheckoutHarness();
+        const estimate = await checkout.estimateCustomOrder(
+          { sub: 'u-cust-1', role: Role.CUSTOMER } as any,
+          { ...baseDto, type, vehicleType },
+        );
+        expect(estimate.deliveryFee).toBe(expectedDeliveryFee);
+      },
+    );
+
+    it.each([
+      [OrderType.RIDE, VehicleType.BICYCLE],
+      [OrderType.RIDE, VehicleType.MOTOR_TRICYCLE],
+      [OrderType.RIDE, VehicleType.QUARTER_TRUCK],
+      [OrderType.RIDE, VehicleType.HALF_TRUCK],
+      [OrderType.CUSTOM_DELIVERY, VehicleType.BICYCLE],
+      [OrderType.CUSTOM_DELIVERY, VehicleType.CAR],
+      [OrderType.CUSTOM_DELIVERY, VehicleType.MINIBUS],
+      [OrderType.CUSTOM_DELIVERY, VehicleType.TUK_TUK],
+    ])(
+      'rejects disallowed %s + %s pairing with VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE',
+      async (type, vehicleType) => {
+        const { checkout } = buildCheckoutHarness();
+        await expect(
+          checkout.estimateCustomOrder(
+            { sub: 'u-cust-1', role: Role.CUSTOMER } as any,
+            { ...baseDto, type, vehicleType },
+          ),
+        ).rejects.toThrow(OrderErrors.VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE);
+      },
+    );
+
+    it('rejects disabled Ride/Custom vehicle types with VEHICLE_TYPE_DISABLED', async () => {
+      const { checkout } = buildCheckoutHarness({ allowTukTuk: false });
+      await expect(
+        checkout.estimateCustomOrder(
+          { sub: 'u-cust-1', role: Role.CUSTOMER } as any,
+          { ...baseDto, type: OrderType.RIDE, vehicleType: VehicleType.TUK_TUK },
+        ),
+      ).rejects.toThrow(OrderErrors.VEHICLE_TYPE_DISABLED);
     });
   });
 });

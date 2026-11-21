@@ -34,11 +34,15 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? pricePerKmCar;
   @override
-  final num? pricePerKmVan;
+  final num? pricePerKmMinibus;
   @override
-  final num? pricePerKmTruck;
+  final num? pricePerKmTukTuk;
   @override
   final num? pricePerKmMotorTricycle;
+  @override
+  final num? pricePerKmQuarterTruck;
+  @override
+  final num? pricePerKmHalfTruck;
   @override
   final num? maxDeliveryFee;
   @override
@@ -56,17 +60,25 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? maxDeliveryFeeCar;
   @override
-  final num? minDeliveryFeeVan;
+  final num? minDeliveryFeeMinibus;
   @override
-  final num? maxDeliveryFeeVan;
+  final num? maxDeliveryFeeMinibus;
   @override
-  final num? minDeliveryFeeTruck;
+  final num? minDeliveryFeeTukTuk;
   @override
-  final num? maxDeliveryFeeTruck;
+  final num? maxDeliveryFeeTukTuk;
   @override
   final num? minDeliveryFeeMotorTricycle;
   @override
   final num? maxDeliveryFeeMotorTricycle;
+  @override
+  final num? minDeliveryFeeQuarterTruck;
+  @override
+  final num? maxDeliveryFeeQuarterTruck;
+  @override
+  final num? minDeliveryFeeHalfTruck;
+  @override
+  final num? maxDeliveryFeeHalfTruck;
   @override
   final bool? allowBicycle;
   @override
@@ -74,11 +86,15 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final bool? allowCar;
   @override
-  final bool? allowVan;
+  final bool? allowMinibus;
   @override
-  final bool? allowTruck;
+  final bool? allowTukTuk;
   @override
   final bool? allowMotorTricycle;
+  @override
+  final bool? allowQuarterTruck;
+  @override
+  final bool? allowHalfTruck;
   @override
   final num? minOrderKm;
   @override
@@ -224,11 +240,11 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final bool? breaksEnabled;
   @override
-  final num? bronzeTierBonusPerKm;
+  final num? goldTierBonusPerOrder;
   @override
-  final num? silverTierBonusPerKm;
+  final num? bronzeTierDeductionAmount;
   @override
-  final num? goldTierBonusPerKm;
+  final num? bronzeSupervisorDeductionAmount;
   @override
   final bool? driverRankingAutoEvalEnabled;
   @override
@@ -266,9 +282,11 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.pricePerKmBicycle,
     this.pricePerKmMotorcycle,
     this.pricePerKmCar,
-    this.pricePerKmVan,
-    this.pricePerKmTruck,
+    this.pricePerKmMinibus,
+    this.pricePerKmTukTuk,
     this.pricePerKmMotorTricycle,
+    this.pricePerKmQuarterTruck,
+    this.pricePerKmHalfTruck,
     this.maxDeliveryFee,
     this.minDeliveryFee,
     this.minDeliveryFeeBicycle,
@@ -277,18 +295,24 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.maxDeliveryFeeMotorcycle,
     this.minDeliveryFeeCar,
     this.maxDeliveryFeeCar,
-    this.minDeliveryFeeVan,
-    this.maxDeliveryFeeVan,
-    this.minDeliveryFeeTruck,
-    this.maxDeliveryFeeTruck,
+    this.minDeliveryFeeMinibus,
+    this.maxDeliveryFeeMinibus,
+    this.minDeliveryFeeTukTuk,
+    this.maxDeliveryFeeTukTuk,
     this.minDeliveryFeeMotorTricycle,
     this.maxDeliveryFeeMotorTricycle,
+    this.minDeliveryFeeQuarterTruck,
+    this.maxDeliveryFeeQuarterTruck,
+    this.minDeliveryFeeHalfTruck,
+    this.maxDeliveryFeeHalfTruck,
     this.allowBicycle,
     this.allowMotorcycle,
     this.allowCar,
-    this.allowVan,
-    this.allowTruck,
+    this.allowMinibus,
+    this.allowTukTuk,
     this.allowMotorTricycle,
+    this.allowQuarterTruck,
+    this.allowHalfTruck,
     this.minOrderKm,
     this.minDistanceFixedPrice,
     this.maxDeliveryRadiusKm,
@@ -361,9 +385,9 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.highValueUpfrontRate,
     this.driverShiftsEnabled,
     this.breaksEnabled,
-    this.bronzeTierBonusPerKm,
-    this.silverTierBonusPerKm,
-    this.goldTierBonusPerKm,
+    this.goldTierBonusPerOrder,
+    this.bronzeTierDeductionAmount,
+    this.bronzeSupervisorDeductionAmount,
     this.driverRankingAutoEvalEnabled,
     this.driverRankingEvalTime,
     this.driverRankingGoldThreshold,
@@ -401,9 +425,11 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         pricePerKmBicycle == other.pricePerKmBicycle &&
         pricePerKmMotorcycle == other.pricePerKmMotorcycle &&
         pricePerKmCar == other.pricePerKmCar &&
-        pricePerKmVan == other.pricePerKmVan &&
-        pricePerKmTruck == other.pricePerKmTruck &&
+        pricePerKmMinibus == other.pricePerKmMinibus &&
+        pricePerKmTukTuk == other.pricePerKmTukTuk &&
         pricePerKmMotorTricycle == other.pricePerKmMotorTricycle &&
+        pricePerKmQuarterTruck == other.pricePerKmQuarterTruck &&
+        pricePerKmHalfTruck == other.pricePerKmHalfTruck &&
         maxDeliveryFee == other.maxDeliveryFee &&
         minDeliveryFee == other.minDeliveryFee &&
         minDeliveryFeeBicycle == other.minDeliveryFeeBicycle &&
@@ -412,18 +438,24 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         maxDeliveryFeeMotorcycle == other.maxDeliveryFeeMotorcycle &&
         minDeliveryFeeCar == other.minDeliveryFeeCar &&
         maxDeliveryFeeCar == other.maxDeliveryFeeCar &&
-        minDeliveryFeeVan == other.minDeliveryFeeVan &&
-        maxDeliveryFeeVan == other.maxDeliveryFeeVan &&
-        minDeliveryFeeTruck == other.minDeliveryFeeTruck &&
-        maxDeliveryFeeTruck == other.maxDeliveryFeeTruck &&
+        minDeliveryFeeMinibus == other.minDeliveryFeeMinibus &&
+        maxDeliveryFeeMinibus == other.maxDeliveryFeeMinibus &&
+        minDeliveryFeeTukTuk == other.minDeliveryFeeTukTuk &&
+        maxDeliveryFeeTukTuk == other.maxDeliveryFeeTukTuk &&
         minDeliveryFeeMotorTricycle == other.minDeliveryFeeMotorTricycle &&
         maxDeliveryFeeMotorTricycle == other.maxDeliveryFeeMotorTricycle &&
+        minDeliveryFeeQuarterTruck == other.minDeliveryFeeQuarterTruck &&
+        maxDeliveryFeeQuarterTruck == other.maxDeliveryFeeQuarterTruck &&
+        minDeliveryFeeHalfTruck == other.minDeliveryFeeHalfTruck &&
+        maxDeliveryFeeHalfTruck == other.maxDeliveryFeeHalfTruck &&
         allowBicycle == other.allowBicycle &&
         allowMotorcycle == other.allowMotorcycle &&
         allowCar == other.allowCar &&
-        allowVan == other.allowVan &&
-        allowTruck == other.allowTruck &&
+        allowMinibus == other.allowMinibus &&
+        allowTukTuk == other.allowTukTuk &&
         allowMotorTricycle == other.allowMotorTricycle &&
+        allowQuarterTruck == other.allowQuarterTruck &&
+        allowHalfTruck == other.allowHalfTruck &&
         minOrderKm == other.minOrderKm &&
         minDistanceFixedPrice == other.minDistanceFixedPrice &&
         maxDeliveryRadiusKm == other.maxDeliveryRadiusKm &&
@@ -503,9 +535,10 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
         highValueUpfrontRate == other.highValueUpfrontRate &&
         driverShiftsEnabled == other.driverShiftsEnabled &&
         breaksEnabled == other.breaksEnabled &&
-        bronzeTierBonusPerKm == other.bronzeTierBonusPerKm &&
-        silverTierBonusPerKm == other.silverTierBonusPerKm &&
-        goldTierBonusPerKm == other.goldTierBonusPerKm &&
+        goldTierBonusPerOrder == other.goldTierBonusPerOrder &&
+        bronzeTierDeductionAmount == other.bronzeTierDeductionAmount &&
+        bronzeSupervisorDeductionAmount ==
+            other.bronzeSupervisorDeductionAmount &&
         driverRankingAutoEvalEnabled == other.driverRankingAutoEvalEnabled &&
         driverRankingEvalTime == other.driverRankingEvalTime &&
         driverRankingGoldThreshold == other.driverRankingGoldThreshold &&
@@ -534,9 +567,11 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, pricePerKmBicycle.hashCode);
     _$hash = $jc(_$hash, pricePerKmMotorcycle.hashCode);
     _$hash = $jc(_$hash, pricePerKmCar.hashCode);
-    _$hash = $jc(_$hash, pricePerKmVan.hashCode);
-    _$hash = $jc(_$hash, pricePerKmTruck.hashCode);
+    _$hash = $jc(_$hash, pricePerKmMinibus.hashCode);
+    _$hash = $jc(_$hash, pricePerKmTukTuk.hashCode);
     _$hash = $jc(_$hash, pricePerKmMotorTricycle.hashCode);
+    _$hash = $jc(_$hash, pricePerKmQuarterTruck.hashCode);
+    _$hash = $jc(_$hash, pricePerKmHalfTruck.hashCode);
     _$hash = $jc(_$hash, maxDeliveryFee.hashCode);
     _$hash = $jc(_$hash, minDeliveryFee.hashCode);
     _$hash = $jc(_$hash, minDeliveryFeeBicycle.hashCode);
@@ -545,18 +580,24 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, maxDeliveryFeeMotorcycle.hashCode);
     _$hash = $jc(_$hash, minDeliveryFeeCar.hashCode);
     _$hash = $jc(_$hash, maxDeliveryFeeCar.hashCode);
-    _$hash = $jc(_$hash, minDeliveryFeeVan.hashCode);
-    _$hash = $jc(_$hash, maxDeliveryFeeVan.hashCode);
-    _$hash = $jc(_$hash, minDeliveryFeeTruck.hashCode);
-    _$hash = $jc(_$hash, maxDeliveryFeeTruck.hashCode);
+    _$hash = $jc(_$hash, minDeliveryFeeMinibus.hashCode);
+    _$hash = $jc(_$hash, maxDeliveryFeeMinibus.hashCode);
+    _$hash = $jc(_$hash, minDeliveryFeeTukTuk.hashCode);
+    _$hash = $jc(_$hash, maxDeliveryFeeTukTuk.hashCode);
     _$hash = $jc(_$hash, minDeliveryFeeMotorTricycle.hashCode);
     _$hash = $jc(_$hash, maxDeliveryFeeMotorTricycle.hashCode);
+    _$hash = $jc(_$hash, minDeliveryFeeQuarterTruck.hashCode);
+    _$hash = $jc(_$hash, maxDeliveryFeeQuarterTruck.hashCode);
+    _$hash = $jc(_$hash, minDeliveryFeeHalfTruck.hashCode);
+    _$hash = $jc(_$hash, maxDeliveryFeeHalfTruck.hashCode);
     _$hash = $jc(_$hash, allowBicycle.hashCode);
     _$hash = $jc(_$hash, allowMotorcycle.hashCode);
     _$hash = $jc(_$hash, allowCar.hashCode);
-    _$hash = $jc(_$hash, allowVan.hashCode);
-    _$hash = $jc(_$hash, allowTruck.hashCode);
+    _$hash = $jc(_$hash, allowMinibus.hashCode);
+    _$hash = $jc(_$hash, allowTukTuk.hashCode);
     _$hash = $jc(_$hash, allowMotorTricycle.hashCode);
+    _$hash = $jc(_$hash, allowQuarterTruck.hashCode);
+    _$hash = $jc(_$hash, allowHalfTruck.hashCode);
     _$hash = $jc(_$hash, minOrderKm.hashCode);
     _$hash = $jc(_$hash, minDistanceFixedPrice.hashCode);
     _$hash = $jc(_$hash, maxDeliveryRadiusKm.hashCode);
@@ -629,9 +670,9 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, highValueUpfrontRate.hashCode);
     _$hash = $jc(_$hash, driverShiftsEnabled.hashCode);
     _$hash = $jc(_$hash, breaksEnabled.hashCode);
-    _$hash = $jc(_$hash, bronzeTierBonusPerKm.hashCode);
-    _$hash = $jc(_$hash, silverTierBonusPerKm.hashCode);
-    _$hash = $jc(_$hash, goldTierBonusPerKm.hashCode);
+    _$hash = $jc(_$hash, goldTierBonusPerOrder.hashCode);
+    _$hash = $jc(_$hash, bronzeTierDeductionAmount.hashCode);
+    _$hash = $jc(_$hash, bronzeSupervisorDeductionAmount.hashCode);
     _$hash = $jc(_$hash, driverRankingAutoEvalEnabled.hashCode);
     _$hash = $jc(_$hash, driverRankingEvalTime.hashCode);
     _$hash = $jc(_$hash, driverRankingGoldThreshold.hashCode);
@@ -664,9 +705,11 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('pricePerKmBicycle', pricePerKmBicycle)
           ..add('pricePerKmMotorcycle', pricePerKmMotorcycle)
           ..add('pricePerKmCar', pricePerKmCar)
-          ..add('pricePerKmVan', pricePerKmVan)
-          ..add('pricePerKmTruck', pricePerKmTruck)
+          ..add('pricePerKmMinibus', pricePerKmMinibus)
+          ..add('pricePerKmTukTuk', pricePerKmTukTuk)
           ..add('pricePerKmMotorTricycle', pricePerKmMotorTricycle)
+          ..add('pricePerKmQuarterTruck', pricePerKmQuarterTruck)
+          ..add('pricePerKmHalfTruck', pricePerKmHalfTruck)
           ..add('maxDeliveryFee', maxDeliveryFee)
           ..add('minDeliveryFee', minDeliveryFee)
           ..add('minDeliveryFeeBicycle', minDeliveryFeeBicycle)
@@ -675,18 +718,24 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('maxDeliveryFeeMotorcycle', maxDeliveryFeeMotorcycle)
           ..add('minDeliveryFeeCar', minDeliveryFeeCar)
           ..add('maxDeliveryFeeCar', maxDeliveryFeeCar)
-          ..add('minDeliveryFeeVan', minDeliveryFeeVan)
-          ..add('maxDeliveryFeeVan', maxDeliveryFeeVan)
-          ..add('minDeliveryFeeTruck', minDeliveryFeeTruck)
-          ..add('maxDeliveryFeeTruck', maxDeliveryFeeTruck)
+          ..add('minDeliveryFeeMinibus', minDeliveryFeeMinibus)
+          ..add('maxDeliveryFeeMinibus', maxDeliveryFeeMinibus)
+          ..add('minDeliveryFeeTukTuk', minDeliveryFeeTukTuk)
+          ..add('maxDeliveryFeeTukTuk', maxDeliveryFeeTukTuk)
           ..add('minDeliveryFeeMotorTricycle', minDeliveryFeeMotorTricycle)
           ..add('maxDeliveryFeeMotorTricycle', maxDeliveryFeeMotorTricycle)
+          ..add('minDeliveryFeeQuarterTruck', minDeliveryFeeQuarterTruck)
+          ..add('maxDeliveryFeeQuarterTruck', maxDeliveryFeeQuarterTruck)
+          ..add('minDeliveryFeeHalfTruck', minDeliveryFeeHalfTruck)
+          ..add('maxDeliveryFeeHalfTruck', maxDeliveryFeeHalfTruck)
           ..add('allowBicycle', allowBicycle)
           ..add('allowMotorcycle', allowMotorcycle)
           ..add('allowCar', allowCar)
-          ..add('allowVan', allowVan)
-          ..add('allowTruck', allowTruck)
+          ..add('allowMinibus', allowMinibus)
+          ..add('allowTukTuk', allowTukTuk)
           ..add('allowMotorTricycle', allowMotorTricycle)
+          ..add('allowQuarterTruck', allowQuarterTruck)
+          ..add('allowHalfTruck', allowHalfTruck)
           ..add('minOrderKm', minOrderKm)
           ..add('minDistanceFixedPrice', minDistanceFixedPrice)
           ..add('maxDeliveryRadiusKm', maxDeliveryRadiusKm)
@@ -780,9 +829,12 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           ..add('highValueUpfrontRate', highValueUpfrontRate)
           ..add('driverShiftsEnabled', driverShiftsEnabled)
           ..add('breaksEnabled', breaksEnabled)
-          ..add('bronzeTierBonusPerKm', bronzeTierBonusPerKm)
-          ..add('silverTierBonusPerKm', silverTierBonusPerKm)
-          ..add('goldTierBonusPerKm', goldTierBonusPerKm)
+          ..add('goldTierBonusPerOrder', goldTierBonusPerOrder)
+          ..add('bronzeTierDeductionAmount', bronzeTierDeductionAmount)
+          ..add(
+            'bronzeSupervisorDeductionAmount',
+            bronzeSupervisorDeductionAmount,
+          )
           ..add('driverRankingAutoEvalEnabled', driverRankingAutoEvalEnabled)
           ..add('driverRankingEvalTime', driverRankingEvalTime)
           ..add('driverRankingGoldThreshold', driverRankingGoldThreshold)
@@ -870,20 +922,30 @@ class UpdatePlatformSettingsDtoBuilder
   set pricePerKmCar(num? pricePerKmCar) =>
       _$this._pricePerKmCar = pricePerKmCar;
 
-  num? _pricePerKmVan;
-  num? get pricePerKmVan => _$this._pricePerKmVan;
-  set pricePerKmVan(num? pricePerKmVan) =>
-      _$this._pricePerKmVan = pricePerKmVan;
+  num? _pricePerKmMinibus;
+  num? get pricePerKmMinibus => _$this._pricePerKmMinibus;
+  set pricePerKmMinibus(num? pricePerKmMinibus) =>
+      _$this._pricePerKmMinibus = pricePerKmMinibus;
 
-  num? _pricePerKmTruck;
-  num? get pricePerKmTruck => _$this._pricePerKmTruck;
-  set pricePerKmTruck(num? pricePerKmTruck) =>
-      _$this._pricePerKmTruck = pricePerKmTruck;
+  num? _pricePerKmTukTuk;
+  num? get pricePerKmTukTuk => _$this._pricePerKmTukTuk;
+  set pricePerKmTukTuk(num? pricePerKmTukTuk) =>
+      _$this._pricePerKmTukTuk = pricePerKmTukTuk;
 
   num? _pricePerKmMotorTricycle;
   num? get pricePerKmMotorTricycle => _$this._pricePerKmMotorTricycle;
   set pricePerKmMotorTricycle(num? pricePerKmMotorTricycle) =>
       _$this._pricePerKmMotorTricycle = pricePerKmMotorTricycle;
+
+  num? _pricePerKmQuarterTruck;
+  num? get pricePerKmQuarterTruck => _$this._pricePerKmQuarterTruck;
+  set pricePerKmQuarterTruck(num? pricePerKmQuarterTruck) =>
+      _$this._pricePerKmQuarterTruck = pricePerKmQuarterTruck;
+
+  num? _pricePerKmHalfTruck;
+  num? get pricePerKmHalfTruck => _$this._pricePerKmHalfTruck;
+  set pricePerKmHalfTruck(num? pricePerKmHalfTruck) =>
+      _$this._pricePerKmHalfTruck = pricePerKmHalfTruck;
 
   num? _maxDeliveryFee;
   num? get maxDeliveryFee => _$this._maxDeliveryFee;
@@ -925,25 +987,25 @@ class UpdatePlatformSettingsDtoBuilder
   set maxDeliveryFeeCar(num? maxDeliveryFeeCar) =>
       _$this._maxDeliveryFeeCar = maxDeliveryFeeCar;
 
-  num? _minDeliveryFeeVan;
-  num? get minDeliveryFeeVan => _$this._minDeliveryFeeVan;
-  set minDeliveryFeeVan(num? minDeliveryFeeVan) =>
-      _$this._minDeliveryFeeVan = minDeliveryFeeVan;
+  num? _minDeliveryFeeMinibus;
+  num? get minDeliveryFeeMinibus => _$this._minDeliveryFeeMinibus;
+  set minDeliveryFeeMinibus(num? minDeliveryFeeMinibus) =>
+      _$this._minDeliveryFeeMinibus = minDeliveryFeeMinibus;
 
-  num? _maxDeliveryFeeVan;
-  num? get maxDeliveryFeeVan => _$this._maxDeliveryFeeVan;
-  set maxDeliveryFeeVan(num? maxDeliveryFeeVan) =>
-      _$this._maxDeliveryFeeVan = maxDeliveryFeeVan;
+  num? _maxDeliveryFeeMinibus;
+  num? get maxDeliveryFeeMinibus => _$this._maxDeliveryFeeMinibus;
+  set maxDeliveryFeeMinibus(num? maxDeliveryFeeMinibus) =>
+      _$this._maxDeliveryFeeMinibus = maxDeliveryFeeMinibus;
 
-  num? _minDeliveryFeeTruck;
-  num? get minDeliveryFeeTruck => _$this._minDeliveryFeeTruck;
-  set minDeliveryFeeTruck(num? minDeliveryFeeTruck) =>
-      _$this._minDeliveryFeeTruck = minDeliveryFeeTruck;
+  num? _minDeliveryFeeTukTuk;
+  num? get minDeliveryFeeTukTuk => _$this._minDeliveryFeeTukTuk;
+  set minDeliveryFeeTukTuk(num? minDeliveryFeeTukTuk) =>
+      _$this._minDeliveryFeeTukTuk = minDeliveryFeeTukTuk;
 
-  num? _maxDeliveryFeeTruck;
-  num? get maxDeliveryFeeTruck => _$this._maxDeliveryFeeTruck;
-  set maxDeliveryFeeTruck(num? maxDeliveryFeeTruck) =>
-      _$this._maxDeliveryFeeTruck = maxDeliveryFeeTruck;
+  num? _maxDeliveryFeeTukTuk;
+  num? get maxDeliveryFeeTukTuk => _$this._maxDeliveryFeeTukTuk;
+  set maxDeliveryFeeTukTuk(num? maxDeliveryFeeTukTuk) =>
+      _$this._maxDeliveryFeeTukTuk = maxDeliveryFeeTukTuk;
 
   num? _minDeliveryFeeMotorTricycle;
   num? get minDeliveryFeeMotorTricycle => _$this._minDeliveryFeeMotorTricycle;
@@ -954,6 +1016,26 @@ class UpdatePlatformSettingsDtoBuilder
   num? get maxDeliveryFeeMotorTricycle => _$this._maxDeliveryFeeMotorTricycle;
   set maxDeliveryFeeMotorTricycle(num? maxDeliveryFeeMotorTricycle) =>
       _$this._maxDeliveryFeeMotorTricycle = maxDeliveryFeeMotorTricycle;
+
+  num? _minDeliveryFeeQuarterTruck;
+  num? get minDeliveryFeeQuarterTruck => _$this._minDeliveryFeeQuarterTruck;
+  set minDeliveryFeeQuarterTruck(num? minDeliveryFeeQuarterTruck) =>
+      _$this._minDeliveryFeeQuarterTruck = minDeliveryFeeQuarterTruck;
+
+  num? _maxDeliveryFeeQuarterTruck;
+  num? get maxDeliveryFeeQuarterTruck => _$this._maxDeliveryFeeQuarterTruck;
+  set maxDeliveryFeeQuarterTruck(num? maxDeliveryFeeQuarterTruck) =>
+      _$this._maxDeliveryFeeQuarterTruck = maxDeliveryFeeQuarterTruck;
+
+  num? _minDeliveryFeeHalfTruck;
+  num? get minDeliveryFeeHalfTruck => _$this._minDeliveryFeeHalfTruck;
+  set minDeliveryFeeHalfTruck(num? minDeliveryFeeHalfTruck) =>
+      _$this._minDeliveryFeeHalfTruck = minDeliveryFeeHalfTruck;
+
+  num? _maxDeliveryFeeHalfTruck;
+  num? get maxDeliveryFeeHalfTruck => _$this._maxDeliveryFeeHalfTruck;
+  set maxDeliveryFeeHalfTruck(num? maxDeliveryFeeHalfTruck) =>
+      _$this._maxDeliveryFeeHalfTruck = maxDeliveryFeeHalfTruck;
 
   bool? _allowBicycle;
   bool? get allowBicycle => _$this._allowBicycle;
@@ -968,18 +1050,28 @@ class UpdatePlatformSettingsDtoBuilder
   bool? get allowCar => _$this._allowCar;
   set allowCar(bool? allowCar) => _$this._allowCar = allowCar;
 
-  bool? _allowVan;
-  bool? get allowVan => _$this._allowVan;
-  set allowVan(bool? allowVan) => _$this._allowVan = allowVan;
+  bool? _allowMinibus;
+  bool? get allowMinibus => _$this._allowMinibus;
+  set allowMinibus(bool? allowMinibus) => _$this._allowMinibus = allowMinibus;
 
-  bool? _allowTruck;
-  bool? get allowTruck => _$this._allowTruck;
-  set allowTruck(bool? allowTruck) => _$this._allowTruck = allowTruck;
+  bool? _allowTukTuk;
+  bool? get allowTukTuk => _$this._allowTukTuk;
+  set allowTukTuk(bool? allowTukTuk) => _$this._allowTukTuk = allowTukTuk;
 
   bool? _allowMotorTricycle;
   bool? get allowMotorTricycle => _$this._allowMotorTricycle;
   set allowMotorTricycle(bool? allowMotorTricycle) =>
       _$this._allowMotorTricycle = allowMotorTricycle;
+
+  bool? _allowQuarterTruck;
+  bool? get allowQuarterTruck => _$this._allowQuarterTruck;
+  set allowQuarterTruck(bool? allowQuarterTruck) =>
+      _$this._allowQuarterTruck = allowQuarterTruck;
+
+  bool? _allowHalfTruck;
+  bool? get allowHalfTruck => _$this._allowHalfTruck;
+  set allowHalfTruck(bool? allowHalfTruck) =>
+      _$this._allowHalfTruck = allowHalfTruck;
 
   num? _minOrderKm;
   num? get minOrderKm => _$this._minOrderKm;
@@ -1355,20 +1447,21 @@ class UpdatePlatformSettingsDtoBuilder
   set breaksEnabled(bool? breaksEnabled) =>
       _$this._breaksEnabled = breaksEnabled;
 
-  num? _bronzeTierBonusPerKm;
-  num? get bronzeTierBonusPerKm => _$this._bronzeTierBonusPerKm;
-  set bronzeTierBonusPerKm(num? bronzeTierBonusPerKm) =>
-      _$this._bronzeTierBonusPerKm = bronzeTierBonusPerKm;
+  num? _goldTierBonusPerOrder;
+  num? get goldTierBonusPerOrder => _$this._goldTierBonusPerOrder;
+  set goldTierBonusPerOrder(num? goldTierBonusPerOrder) =>
+      _$this._goldTierBonusPerOrder = goldTierBonusPerOrder;
 
-  num? _silverTierBonusPerKm;
-  num? get silverTierBonusPerKm => _$this._silverTierBonusPerKm;
-  set silverTierBonusPerKm(num? silverTierBonusPerKm) =>
-      _$this._silverTierBonusPerKm = silverTierBonusPerKm;
+  num? _bronzeTierDeductionAmount;
+  num? get bronzeTierDeductionAmount => _$this._bronzeTierDeductionAmount;
+  set bronzeTierDeductionAmount(num? bronzeTierDeductionAmount) =>
+      _$this._bronzeTierDeductionAmount = bronzeTierDeductionAmount;
 
-  num? _goldTierBonusPerKm;
-  num? get goldTierBonusPerKm => _$this._goldTierBonusPerKm;
-  set goldTierBonusPerKm(num? goldTierBonusPerKm) =>
-      _$this._goldTierBonusPerKm = goldTierBonusPerKm;
+  num? _bronzeSupervisorDeductionAmount;
+  num? get bronzeSupervisorDeductionAmount =>
+      _$this._bronzeSupervisorDeductionAmount;
+  set bronzeSupervisorDeductionAmount(num? bronzeSupervisorDeductionAmount) =>
+      _$this._bronzeSupervisorDeductionAmount = bronzeSupervisorDeductionAmount;
 
   bool? _driverRankingAutoEvalEnabled;
   bool? get driverRankingAutoEvalEnabled =>
@@ -1438,9 +1531,11 @@ class UpdatePlatformSettingsDtoBuilder
       _pricePerKmBicycle = $v.pricePerKmBicycle;
       _pricePerKmMotorcycle = $v.pricePerKmMotorcycle;
       _pricePerKmCar = $v.pricePerKmCar;
-      _pricePerKmVan = $v.pricePerKmVan;
-      _pricePerKmTruck = $v.pricePerKmTruck;
+      _pricePerKmMinibus = $v.pricePerKmMinibus;
+      _pricePerKmTukTuk = $v.pricePerKmTukTuk;
       _pricePerKmMotorTricycle = $v.pricePerKmMotorTricycle;
+      _pricePerKmQuarterTruck = $v.pricePerKmQuarterTruck;
+      _pricePerKmHalfTruck = $v.pricePerKmHalfTruck;
       _maxDeliveryFee = $v.maxDeliveryFee;
       _minDeliveryFee = $v.minDeliveryFee;
       _minDeliveryFeeBicycle = $v.minDeliveryFeeBicycle;
@@ -1449,18 +1544,24 @@ class UpdatePlatformSettingsDtoBuilder
       _maxDeliveryFeeMotorcycle = $v.maxDeliveryFeeMotorcycle;
       _minDeliveryFeeCar = $v.minDeliveryFeeCar;
       _maxDeliveryFeeCar = $v.maxDeliveryFeeCar;
-      _minDeliveryFeeVan = $v.minDeliveryFeeVan;
-      _maxDeliveryFeeVan = $v.maxDeliveryFeeVan;
-      _minDeliveryFeeTruck = $v.minDeliveryFeeTruck;
-      _maxDeliveryFeeTruck = $v.maxDeliveryFeeTruck;
+      _minDeliveryFeeMinibus = $v.minDeliveryFeeMinibus;
+      _maxDeliveryFeeMinibus = $v.maxDeliveryFeeMinibus;
+      _minDeliveryFeeTukTuk = $v.minDeliveryFeeTukTuk;
+      _maxDeliveryFeeTukTuk = $v.maxDeliveryFeeTukTuk;
       _minDeliveryFeeMotorTricycle = $v.minDeliveryFeeMotorTricycle;
       _maxDeliveryFeeMotorTricycle = $v.maxDeliveryFeeMotorTricycle;
+      _minDeliveryFeeQuarterTruck = $v.minDeliveryFeeQuarterTruck;
+      _maxDeliveryFeeQuarterTruck = $v.maxDeliveryFeeQuarterTruck;
+      _minDeliveryFeeHalfTruck = $v.minDeliveryFeeHalfTruck;
+      _maxDeliveryFeeHalfTruck = $v.maxDeliveryFeeHalfTruck;
       _allowBicycle = $v.allowBicycle;
       _allowMotorcycle = $v.allowMotorcycle;
       _allowCar = $v.allowCar;
-      _allowVan = $v.allowVan;
-      _allowTruck = $v.allowTruck;
+      _allowMinibus = $v.allowMinibus;
+      _allowTukTuk = $v.allowTukTuk;
       _allowMotorTricycle = $v.allowMotorTricycle;
+      _allowQuarterTruck = $v.allowQuarterTruck;
+      _allowHalfTruck = $v.allowHalfTruck;
       _minOrderKm = $v.minOrderKm;
       _minDistanceFixedPrice = $v.minDistanceFixedPrice;
       _maxDeliveryRadiusKm = $v.maxDeliveryRadiusKm;
@@ -1537,9 +1638,9 @@ class UpdatePlatformSettingsDtoBuilder
       _highValueUpfrontRate = $v.highValueUpfrontRate;
       _driverShiftsEnabled = $v.driverShiftsEnabled;
       _breaksEnabled = $v.breaksEnabled;
-      _bronzeTierBonusPerKm = $v.bronzeTierBonusPerKm;
-      _silverTierBonusPerKm = $v.silverTierBonusPerKm;
-      _goldTierBonusPerKm = $v.goldTierBonusPerKm;
+      _goldTierBonusPerOrder = $v.goldTierBonusPerOrder;
+      _bronzeTierDeductionAmount = $v.bronzeTierDeductionAmount;
+      _bronzeSupervisorDeductionAmount = $v.bronzeSupervisorDeductionAmount;
       _driverRankingAutoEvalEnabled = $v.driverRankingAutoEvalEnabled;
       _driverRankingEvalTime = $v.driverRankingEvalTime;
       _driverRankingGoldThreshold = $v.driverRankingGoldThreshold;
@@ -1585,9 +1686,11 @@ class UpdatePlatformSettingsDtoBuilder
           pricePerKmBicycle: pricePerKmBicycle,
           pricePerKmMotorcycle: pricePerKmMotorcycle,
           pricePerKmCar: pricePerKmCar,
-          pricePerKmVan: pricePerKmVan,
-          pricePerKmTruck: pricePerKmTruck,
+          pricePerKmMinibus: pricePerKmMinibus,
+          pricePerKmTukTuk: pricePerKmTukTuk,
           pricePerKmMotorTricycle: pricePerKmMotorTricycle,
+          pricePerKmQuarterTruck: pricePerKmQuarterTruck,
+          pricePerKmHalfTruck: pricePerKmHalfTruck,
           maxDeliveryFee: maxDeliveryFee,
           minDeliveryFee: minDeliveryFee,
           minDeliveryFeeBicycle: minDeliveryFeeBicycle,
@@ -1596,18 +1699,24 @@ class UpdatePlatformSettingsDtoBuilder
           maxDeliveryFeeMotorcycle: maxDeliveryFeeMotorcycle,
           minDeliveryFeeCar: minDeliveryFeeCar,
           maxDeliveryFeeCar: maxDeliveryFeeCar,
-          minDeliveryFeeVan: minDeliveryFeeVan,
-          maxDeliveryFeeVan: maxDeliveryFeeVan,
-          minDeliveryFeeTruck: minDeliveryFeeTruck,
-          maxDeliveryFeeTruck: maxDeliveryFeeTruck,
+          minDeliveryFeeMinibus: minDeliveryFeeMinibus,
+          maxDeliveryFeeMinibus: maxDeliveryFeeMinibus,
+          minDeliveryFeeTukTuk: minDeliveryFeeTukTuk,
+          maxDeliveryFeeTukTuk: maxDeliveryFeeTukTuk,
           minDeliveryFeeMotorTricycle: minDeliveryFeeMotorTricycle,
           maxDeliveryFeeMotorTricycle: maxDeliveryFeeMotorTricycle,
+          minDeliveryFeeQuarterTruck: minDeliveryFeeQuarterTruck,
+          maxDeliveryFeeQuarterTruck: maxDeliveryFeeQuarterTruck,
+          minDeliveryFeeHalfTruck: minDeliveryFeeHalfTruck,
+          maxDeliveryFeeHalfTruck: maxDeliveryFeeHalfTruck,
           allowBicycle: allowBicycle,
           allowMotorcycle: allowMotorcycle,
           allowCar: allowCar,
-          allowVan: allowVan,
-          allowTruck: allowTruck,
+          allowMinibus: allowMinibus,
+          allowTukTuk: allowTukTuk,
           allowMotorTricycle: allowMotorTricycle,
+          allowQuarterTruck: allowQuarterTruck,
+          allowHalfTruck: allowHalfTruck,
           minOrderKm: minOrderKm,
           minDistanceFixedPrice: minDistanceFixedPrice,
           maxDeliveryRadiusKm: maxDeliveryRadiusKm,
@@ -1684,9 +1793,9 @@ class UpdatePlatformSettingsDtoBuilder
           highValueUpfrontRate: highValueUpfrontRate,
           driverShiftsEnabled: driverShiftsEnabled,
           breaksEnabled: breaksEnabled,
-          bronzeTierBonusPerKm: bronzeTierBonusPerKm,
-          silverTierBonusPerKm: silverTierBonusPerKm,
-          goldTierBonusPerKm: goldTierBonusPerKm,
+          goldTierBonusPerOrder: goldTierBonusPerOrder,
+          bronzeTierDeductionAmount: bronzeTierDeductionAmount,
+          bronzeSupervisorDeductionAmount: bronzeSupervisorDeductionAmount,
           driverRankingAutoEvalEnabled: driverRankingAutoEvalEnabled,
           driverRankingEvalTime: driverRankingEvalTime,
           driverRankingGoldThreshold: driverRankingGoldThreshold,

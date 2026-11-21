@@ -12,6 +12,7 @@ class AssignDriverSheet extends ConsumerStatefulWidget {
   final String orderId;
   final String orderCode;
   final String? orderType;
+  final String? requestedVehicleType;
   final List<dynamic>? deliveryGroups;
   final String? initialDeliveryGroupId;
 
@@ -20,6 +21,7 @@ class AssignDriverSheet extends ConsumerStatefulWidget {
     required this.orderId,
     required this.orderCode,
     this.orderType,
+    this.requestedVehicleType,
     this.deliveryGroups,
     this.initialDeliveryGroupId,
   });
@@ -29,7 +31,6 @@ class AssignDriverSheet extends ConsumerStatefulWidget {
 }
 
 class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
-  static const _standardEligibleVehicles = {'MOTORCYCLE', 'BICYCLE'};
   bool _isFetching = true;
   bool _isAssigning = false;
   List<dynamic> _drivers = [];
@@ -38,8 +39,15 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
   final TextEditingController _reassignmentReasonController =
       TextEditingController();
 
-  bool get _isStandardOrder =>
-      (widget.orderType ?? '').toUpperCase().trim() == 'STANDARD';
+  String get _normalizedOrderType =>
+      VehicleTypeHelper.normalizeOrderType(widget.orderType);
+
+  bool get _isStandardOrder => _normalizedOrderType == 'STANDARD';
+
+  bool get _hasServiceVehicleFilter =>
+      _normalizedOrderType == 'STANDARD' ||
+      _normalizedOrderType == 'RIDE' ||
+      _normalizedOrderType == 'CUSTOM_DELIVERY';
 
   @override
   void dispose() {
@@ -77,12 +85,14 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
 
       if (mounted) {
         final rawDrivers = (result['drivers'] ?? result['items'] ?? []) as List;
-        final filtered = _isStandardOrder
+        final filtered = _hasServiceVehicleFilter
             ? rawDrivers.where((d) {
                 if (d is! Map) return false;
-                final vType =
-                    (d['vehicleType'] ?? '').toString().toUpperCase().trim();
-                return _standardEligibleVehicles.contains(vType);
+                return VehicleTypeHelper.isEligibleForOrder(
+                  orderType: _normalizedOrderType,
+                  driverVehicleType: d['vehicleType']?.toString(),
+                  requestedVehicleType: widget.requestedVehicleType,
+                );
               }).toList()
             : rawDrivers;
         setState(() {
@@ -283,11 +293,17 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                     child: Text(
                       _isStandardOrder
                           ? (isAr
-                                ? 'لا يوجد سائقو دراجات نارية أو هوائية متصلون حالياً'
+                                ? 'لا يوجد سائقو موتوسيكل أو دراجة هوائية متصلون حالياً'
                                 : 'No eligible Motorcycle or Bicycle drivers online')
-                          : (isAr
-                                ? 'لا يوجد سائقون متصلون حالياً'
-                                : 'No online drivers found'),
+                          : (VehicleTypeHelper.normalize(
+                                      widget.requestedVehicleType) !=
+                                  null
+                              ? (isAr
+                                    ? 'لا يوجد سائقو ${VehicleTypeHelper.label(widget.requestedVehicleType, isArabic: true)} متصلون حالياً'
+                                    : 'No online ${VehicleTypeHelper.label(widget.requestedVehicleType, isArabic: false)} drivers found')
+                              : (isAr
+                                    ? 'لا يوجد سائقون مؤهلون متصلون حالياً'
+                                    : 'No eligible online drivers found')),
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: AppColors.textSecondary,
@@ -322,7 +338,8 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                       final avatarUrl =
                           ImageUtils.resolveDriverAvatarUrl(driver);
                       final subtitleParts = <String>[
-                        if (vehicleType.isNotEmpty) vehicleType,
+                        if (vehicleType.isNotEmpty)
+                          VehicleTypeHelper.label(vehicleType, isArabic: isAr),
                         if (phone.isNotEmpty) phone,
                       ];
 

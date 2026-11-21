@@ -42,6 +42,20 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
   @override
   final num deliveryFee;
   @override
+  final num goldSurchargeAmount;
+  @override
+  final DriverTier? primaryDriverTierSnapshot;
+  @override
+  final num settledGoldBonusAmount;
+  @override
+  final num settledGoldPlatformRetainedAmount;
+  @override
+  final num settledBronzeDriverDeduction;
+  @override
+  final num settledBronzeSupervisorDeduction;
+  @override
+  final String? settledPrimaryManagerId;
+  @override
   final num? estimatedPrepTime;
   @override
   final String? pickupImageUrl;
@@ -80,6 +94,13 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
     this.assignedAt,
     this.distanceKm,
     required this.deliveryFee,
+    required this.goldSurchargeAmount,
+    this.primaryDriverTierSnapshot,
+    required this.settledGoldBonusAmount,
+    required this.settledGoldPlatformRetainedAmount,
+    required this.settledBronzeDriverDeduction,
+    required this.settledBronzeSupervisorDeduction,
+    this.settledPrimaryManagerId,
     this.estimatedPrepTime,
     this.pickupImageUrl,
     this.deliveryImageUrl,
@@ -119,6 +140,15 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
         assignedAt == other.assignedAt &&
         distanceKm == other.distanceKm &&
         deliveryFee == other.deliveryFee &&
+        goldSurchargeAmount == other.goldSurchargeAmount &&
+        primaryDriverTierSnapshot == other.primaryDriverTierSnapshot &&
+        settledGoldBonusAmount == other.settledGoldBonusAmount &&
+        settledGoldPlatformRetainedAmount ==
+            other.settledGoldPlatformRetainedAmount &&
+        settledBronzeDriverDeduction == other.settledBronzeDriverDeduction &&
+        settledBronzeSupervisorDeduction ==
+            other.settledBronzeSupervisorDeduction &&
+        settledPrimaryManagerId == other.settledPrimaryManagerId &&
         estimatedPrepTime == other.estimatedPrepTime &&
         pickupImageUrl == other.pickupImageUrl &&
         deliveryImageUrl == other.deliveryImageUrl &&
@@ -149,6 +179,13 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
     _$hash = $jc(_$hash, assignedAt.hashCode);
     _$hash = $jc(_$hash, distanceKm.hashCode);
     _$hash = $jc(_$hash, deliveryFee.hashCode);
+    _$hash = $jc(_$hash, goldSurchargeAmount.hashCode);
+    _$hash = $jc(_$hash, primaryDriverTierSnapshot.hashCode);
+    _$hash = $jc(_$hash, settledGoldBonusAmount.hashCode);
+    _$hash = $jc(_$hash, settledGoldPlatformRetainedAmount.hashCode);
+    _$hash = $jc(_$hash, settledBronzeDriverDeduction.hashCode);
+    _$hash = $jc(_$hash, settledBronzeSupervisorDeduction.hashCode);
+    _$hash = $jc(_$hash, settledPrimaryManagerId.hashCode);
     _$hash = $jc(_$hash, estimatedPrepTime.hashCode);
     _$hash = $jc(_$hash, pickupImageUrl.hashCode);
     _$hash = $jc(_$hash, deliveryImageUrl.hashCode);
@@ -181,6 +218,19 @@ class _$OrderDeliveryGroup extends OrderDeliveryGroup {
           ..add('assignedAt', assignedAt)
           ..add('distanceKm', distanceKm)
           ..add('deliveryFee', deliveryFee)
+          ..add('goldSurchargeAmount', goldSurchargeAmount)
+          ..add('primaryDriverTierSnapshot', primaryDriverTierSnapshot)
+          ..add('settledGoldBonusAmount', settledGoldBonusAmount)
+          ..add(
+            'settledGoldPlatformRetainedAmount',
+            settledGoldPlatformRetainedAmount,
+          )
+          ..add('settledBronzeDriverDeduction', settledBronzeDriverDeduction)
+          ..add(
+            'settledBronzeSupervisorDeduction',
+            settledBronzeSupervisorDeduction,
+          )
+          ..add('settledPrimaryManagerId', settledPrimaryManagerId)
           ..add('estimatedPrepTime', estimatedPrepTime)
           ..add('pickupImageUrl', pickupImageUrl)
           ..add('deliveryImageUrl', deliveryImageUrl)
@@ -273,6 +323,47 @@ class OrderDeliveryGroupBuilder
   num? get deliveryFee => _$this._deliveryFee;
   set deliveryFee(num? deliveryFee) => _$this._deliveryFee = deliveryFee;
 
+  num? _goldSurchargeAmount;
+  num? get goldSurchargeAmount => _$this._goldSurchargeAmount;
+  set goldSurchargeAmount(num? goldSurchargeAmount) =>
+      _$this._goldSurchargeAmount = goldSurchargeAmount;
+
+  DriverTier? _primaryDriverTierSnapshot;
+  DriverTier? get primaryDriverTierSnapshot =>
+      _$this._primaryDriverTierSnapshot;
+  set primaryDriverTierSnapshot(DriverTier? primaryDriverTierSnapshot) =>
+      _$this._primaryDriverTierSnapshot = primaryDriverTierSnapshot;
+
+  num? _settledGoldBonusAmount;
+  num? get settledGoldBonusAmount => _$this._settledGoldBonusAmount;
+  set settledGoldBonusAmount(num? settledGoldBonusAmount) =>
+      _$this._settledGoldBonusAmount = settledGoldBonusAmount;
+
+  num? _settledGoldPlatformRetainedAmount;
+  num? get settledGoldPlatformRetainedAmount =>
+      _$this._settledGoldPlatformRetainedAmount;
+  set settledGoldPlatformRetainedAmount(
+    num? settledGoldPlatformRetainedAmount,
+  ) => _$this._settledGoldPlatformRetainedAmount =
+      settledGoldPlatformRetainedAmount;
+
+  num? _settledBronzeDriverDeduction;
+  num? get settledBronzeDriverDeduction => _$this._settledBronzeDriverDeduction;
+  set settledBronzeDriverDeduction(num? settledBronzeDriverDeduction) =>
+      _$this._settledBronzeDriverDeduction = settledBronzeDriverDeduction;
+
+  num? _settledBronzeSupervisorDeduction;
+  num? get settledBronzeSupervisorDeduction =>
+      _$this._settledBronzeSupervisorDeduction;
+  set settledBronzeSupervisorDeduction(num? settledBronzeSupervisorDeduction) =>
+      _$this._settledBronzeSupervisorDeduction =
+          settledBronzeSupervisorDeduction;
+
+  String? _settledPrimaryManagerId;
+  String? get settledPrimaryManagerId => _$this._settledPrimaryManagerId;
+  set settledPrimaryManagerId(String? settledPrimaryManagerId) =>
+      _$this._settledPrimaryManagerId = settledPrimaryManagerId;
+
   num? _estimatedPrepTime;
   num? get estimatedPrepTime => _$this._estimatedPrepTime;
   set estimatedPrepTime(num? estimatedPrepTime) =>
@@ -336,6 +427,13 @@ class OrderDeliveryGroupBuilder
       _assignedAt = $v.assignedAt;
       _distanceKm = $v.distanceKm;
       _deliveryFee = $v.deliveryFee;
+      _goldSurchargeAmount = $v.goldSurchargeAmount;
+      _primaryDriverTierSnapshot = $v.primaryDriverTierSnapshot;
+      _settledGoldBonusAmount = $v.settledGoldBonusAmount;
+      _settledGoldPlatformRetainedAmount = $v.settledGoldPlatformRetainedAmount;
+      _settledBronzeDriverDeduction = $v.settledBronzeDriverDeduction;
+      _settledBronzeSupervisorDeduction = $v.settledBronzeSupervisorDeduction;
+      _settledPrimaryManagerId = $v.settledPrimaryManagerId;
       _estimatedPrepTime = $v.estimatedPrepTime;
       _pickupImageUrl = $v.pickupImageUrl;
       _deliveryImageUrl = $v.deliveryImageUrl;
@@ -413,6 +511,35 @@ class OrderDeliveryGroupBuilder
               r'OrderDeliveryGroup',
               'deliveryFee',
             ),
+            goldSurchargeAmount: BuiltValueNullFieldError.checkNotNull(
+              goldSurchargeAmount,
+              r'OrderDeliveryGroup',
+              'goldSurchargeAmount',
+            ),
+            primaryDriverTierSnapshot: primaryDriverTierSnapshot,
+            settledGoldBonusAmount: BuiltValueNullFieldError.checkNotNull(
+              settledGoldBonusAmount,
+              r'OrderDeliveryGroup',
+              'settledGoldBonusAmount',
+            ),
+            settledGoldPlatformRetainedAmount:
+                BuiltValueNullFieldError.checkNotNull(
+                  settledGoldPlatformRetainedAmount,
+                  r'OrderDeliveryGroup',
+                  'settledGoldPlatformRetainedAmount',
+                ),
+            settledBronzeDriverDeduction: BuiltValueNullFieldError.checkNotNull(
+              settledBronzeDriverDeduction,
+              r'OrderDeliveryGroup',
+              'settledBronzeDriverDeduction',
+            ),
+            settledBronzeSupervisorDeduction:
+                BuiltValueNullFieldError.checkNotNull(
+                  settledBronzeSupervisorDeduction,
+                  r'OrderDeliveryGroup',
+                  'settledBronzeSupervisorDeduction',
+                ),
+            settledPrimaryManagerId: settledPrimaryManagerId,
             estimatedPrepTime: estimatedPrepTime,
             pickupImageUrl: pickupImageUrl,
             deliveryImageUrl: deliveryImageUrl,

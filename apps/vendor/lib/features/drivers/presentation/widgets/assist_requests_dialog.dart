@@ -231,9 +231,16 @@ class _AssistRequestsDialogState extends ConsumerState<AssistRequestsDialog> {
           itemBuilder: (ctx, i) {
             final d = drivers[i];
             final theme = Theme.of(ctx);
-            final subtitle =
-                '${d.status} • ${d.vehicleType ?? ''} ${d.vehiclePlate ?? ''}'
-                    .trim();
+            final vehicleLabel = (d.vehicleType != null &&
+                    d.vehicleType!.trim().isNotEmpty)
+                ? VehicleTypeHelper.label(d.vehicleType, isArabic: isAr)
+                : '';
+            final subtitle = [
+              d.status,
+              if (vehicleLabel.isNotEmpty) vehicleLabel,
+              if ((d.vehiclePlate ?? '').trim().isNotEmpty)
+                d.vehiclePlate!.trim(),
+            ].join(' • ');
             return ListTile(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 4),

@@ -44,13 +44,19 @@ export class PlatformSetting {
   pricePerKmCar: number = 5;
 
   @ApiProperty({ type: Number })
-  pricePerKmVan: number = 8;
+  pricePerKmMinibus: number = 8;
 
   @ApiProperty({ type: Number })
-  pricePerKmTruck: number = 12;
+  pricePerKmTukTuk: number = 4;
 
   @ApiProperty({ type: Number })
   pricePerKmMotorTricycle: number = 4;
+
+  @ApiProperty({ type: Number })
+  pricePerKmQuarterTruck: number = 8;
+
+  @ApiProperty({ type: Number })
+  pricePerKmHalfTruck: number = 12;
 
   @ApiProperty({ type: Number })
   maxDeliveryFee: number;
@@ -74,22 +80,34 @@ export class PlatformSetting {
   maxDeliveryFeeCar: number;
 
   @ApiProperty({ type: Number })
-  minDeliveryFeeVan: number = 15;
+  minDeliveryFeeMinibus: number = 15;
 
   @ApiProperty({ type: Number })
-  maxDeliveryFeeVan: number;
+  maxDeliveryFeeMinibus: number;
 
   @ApiProperty({ type: Number })
-  minDeliveryFeeTruck: number = 15;
+  minDeliveryFeeTukTuk: number = 15;
 
   @ApiProperty({ type: Number })
-  maxDeliveryFeeTruck: number;
+  maxDeliveryFeeTukTuk: number;
 
   @ApiProperty({ type: Number })
   minDeliveryFeeMotorTricycle: number = 15;
 
   @ApiProperty({ type: Number })
   maxDeliveryFeeMotorTricycle: number;
+
+  @ApiProperty({ type: Number })
+  minDeliveryFeeQuarterTruck: number = 15;
+
+  @ApiProperty({ type: Number })
+  maxDeliveryFeeQuarterTruck: number;
+
+  @ApiProperty({ type: Number })
+  minDeliveryFeeHalfTruck: number = 15;
+
+  @ApiProperty({ type: Number })
+  maxDeliveryFeeHalfTruck: number;
 
   @ApiProperty({ type: Boolean })
   allowBicycle: boolean = true;
@@ -101,13 +119,19 @@ export class PlatformSetting {
   allowCar: boolean = true;
 
   @ApiProperty({ type: Boolean })
-  allowVan: boolean = true;
+  allowMinibus: boolean = true;
 
   @ApiProperty({ type: Boolean })
-  allowTruck: boolean = true;
+  allowTukTuk: boolean = true;
 
   @ApiProperty({ type: Boolean })
   allowMotorTricycle: boolean = true;
+
+  @ApiProperty({ type: Boolean })
+  allowQuarterTruck: boolean = true;
+
+  @ApiProperty({ type: Boolean })
+  allowHalfTruck: boolean = true;
 
   @ApiProperty({ type: Number })
   minOrderKm: number;
@@ -188,16 +212,22 @@ export class PlatformSetting {
   carIconUrl?: string;
 
   @ApiPropertyOptional({ type: String })
+  minibusIconUrl?: string;
+
+  @ApiPropertyOptional({ type: String })
+  tukTukIconUrl?: string;
+
+  @ApiPropertyOptional({ type: String })
   bicycleIconUrl?: string;
 
   @ApiPropertyOptional({ type: String })
   motorTricycleIconUrl?: string;
 
   @ApiPropertyOptional({ type: String })
-  vanIconUrl?: string;
+  quarterTruckIconUrl?: string;
 
   @ApiPropertyOptional({ type: String })
-  truckIconUrl?: string;
+  halfTruckIconUrl?: string;
 
   @ApiPropertyOptional({ type: String })
   deliveryBannerIconUrl?: string;

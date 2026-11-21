@@ -46,6 +46,8 @@ class _$Order extends Order {
   @override
   final num deliveryFee;
   @override
+  final num goldSurchargeAmount;
+  @override
   final num driverBonusFee;
   @override
   final num serviceFee;
@@ -77,6 +79,18 @@ class _$Order extends Order {
   final DateTime? actualDeliveryTime;
   @override
   final DateTime? settledAt;
+  @override
+  final num settledGoldBonusAmount;
+  @override
+  final num settledGoldPlatformRetainedAmount;
+  @override
+  final num settledBronzeDriverDeduction;
+  @override
+  final num settledBronzeSupervisorDeduction;
+  @override
+  final num? settledBronzeDriverDeductionRate;
+  @override
+  final num? settledBronzeSupervisorDeductionRate;
   @override
   final String? cancelledByUserId;
   @override
@@ -115,6 +129,7 @@ class _$Order extends Order {
     this.requestedVehicleType,
     required this.subtotal,
     required this.deliveryFee,
+    required this.goldSurchargeAmount,
     required this.driverBonusFee,
     required this.serviceFee,
     required this.tax,
@@ -131,6 +146,12 @@ class _$Order extends Order {
     this.paymentReceiptUrl,
     this.actualDeliveryTime,
     this.settledAt,
+    required this.settledGoldBonusAmount,
+    required this.settledGoldPlatformRetainedAmount,
+    required this.settledBronzeDriverDeduction,
+    required this.settledBronzeSupervisorDeduction,
+    this.settledBronzeDriverDeductionRate,
+    this.settledBronzeSupervisorDeductionRate,
     this.cancelledByUserId,
     this.cancelledByRole,
     this.cancelledByName,
@@ -169,6 +190,7 @@ class _$Order extends Order {
         requestedVehicleType == other.requestedVehicleType &&
         subtotal == other.subtotal &&
         deliveryFee == other.deliveryFee &&
+        goldSurchargeAmount == other.goldSurchargeAmount &&
         driverBonusFee == other.driverBonusFee &&
         serviceFee == other.serviceFee &&
         tax == other.tax &&
@@ -185,6 +207,16 @@ class _$Order extends Order {
         paymentReceiptUrl == other.paymentReceiptUrl &&
         actualDeliveryTime == other.actualDeliveryTime &&
         settledAt == other.settledAt &&
+        settledGoldBonusAmount == other.settledGoldBonusAmount &&
+        settledGoldPlatformRetainedAmount ==
+            other.settledGoldPlatformRetainedAmount &&
+        settledBronzeDriverDeduction == other.settledBronzeDriverDeduction &&
+        settledBronzeSupervisorDeduction ==
+            other.settledBronzeSupervisorDeduction &&
+        settledBronzeDriverDeductionRate ==
+            other.settledBronzeDriverDeductionRate &&
+        settledBronzeSupervisorDeductionRate ==
+            other.settledBronzeSupervisorDeductionRate &&
         cancelledByUserId == other.cancelledByUserId &&
         cancelledByRole == other.cancelledByRole &&
         cancelledByName == other.cancelledByName &&
@@ -216,6 +248,7 @@ class _$Order extends Order {
     _$hash = $jc(_$hash, requestedVehicleType.hashCode);
     _$hash = $jc(_$hash, subtotal.hashCode);
     _$hash = $jc(_$hash, deliveryFee.hashCode);
+    _$hash = $jc(_$hash, goldSurchargeAmount.hashCode);
     _$hash = $jc(_$hash, driverBonusFee.hashCode);
     _$hash = $jc(_$hash, serviceFee.hashCode);
     _$hash = $jc(_$hash, tax.hashCode);
@@ -232,6 +265,12 @@ class _$Order extends Order {
     _$hash = $jc(_$hash, paymentReceiptUrl.hashCode);
     _$hash = $jc(_$hash, actualDeliveryTime.hashCode);
     _$hash = $jc(_$hash, settledAt.hashCode);
+    _$hash = $jc(_$hash, settledGoldBonusAmount.hashCode);
+    _$hash = $jc(_$hash, settledGoldPlatformRetainedAmount.hashCode);
+    _$hash = $jc(_$hash, settledBronzeDriverDeduction.hashCode);
+    _$hash = $jc(_$hash, settledBronzeSupervisorDeduction.hashCode);
+    _$hash = $jc(_$hash, settledBronzeDriverDeductionRate.hashCode);
+    _$hash = $jc(_$hash, settledBronzeSupervisorDeductionRate.hashCode);
     _$hash = $jc(_$hash, cancelledByUserId.hashCode);
     _$hash = $jc(_$hash, cancelledByRole.hashCode);
     _$hash = $jc(_$hash, cancelledByName.hashCode);
@@ -265,6 +304,7 @@ class _$Order extends Order {
           ..add('requestedVehicleType', requestedVehicleType)
           ..add('subtotal', subtotal)
           ..add('deliveryFee', deliveryFee)
+          ..add('goldSurchargeAmount', goldSurchargeAmount)
           ..add('driverBonusFee', driverBonusFee)
           ..add('serviceFee', serviceFee)
           ..add('tax', tax)
@@ -281,6 +321,24 @@ class _$Order extends Order {
           ..add('paymentReceiptUrl', paymentReceiptUrl)
           ..add('actualDeliveryTime', actualDeliveryTime)
           ..add('settledAt', settledAt)
+          ..add('settledGoldBonusAmount', settledGoldBonusAmount)
+          ..add(
+            'settledGoldPlatformRetainedAmount',
+            settledGoldPlatformRetainedAmount,
+          )
+          ..add('settledBronzeDriverDeduction', settledBronzeDriverDeduction)
+          ..add(
+            'settledBronzeSupervisorDeduction',
+            settledBronzeSupervisorDeduction,
+          )
+          ..add(
+            'settledBronzeDriverDeductionRate',
+            settledBronzeDriverDeductionRate,
+          )
+          ..add(
+            'settledBronzeSupervisorDeductionRate',
+            settledBronzeSupervisorDeductionRate,
+          )
           ..add('cancelledByUserId', cancelledByUserId)
           ..add('cancelledByRole', cancelledByRole)
           ..add('cancelledByName', cancelledByName)
@@ -378,6 +436,11 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   num? get deliveryFee => _$this._deliveryFee;
   set deliveryFee(num? deliveryFee) => _$this._deliveryFee = deliveryFee;
 
+  num? _goldSurchargeAmount;
+  num? get goldSurchargeAmount => _$this._goldSurchargeAmount;
+  set goldSurchargeAmount(num? goldSurchargeAmount) =>
+      _$this._goldSurchargeAmount = goldSurchargeAmount;
+
   num? _driverBonusFee;
   num? get driverBonusFee => _$this._driverBonusFee;
   set driverBonusFee(num? driverBonusFee) =>
@@ -447,6 +510,46 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
   DateTime? get settledAt => _$this._settledAt;
   set settledAt(DateTime? settledAt) => _$this._settledAt = settledAt;
 
+  num? _settledGoldBonusAmount;
+  num? get settledGoldBonusAmount => _$this._settledGoldBonusAmount;
+  set settledGoldBonusAmount(num? settledGoldBonusAmount) =>
+      _$this._settledGoldBonusAmount = settledGoldBonusAmount;
+
+  num? _settledGoldPlatformRetainedAmount;
+  num? get settledGoldPlatformRetainedAmount =>
+      _$this._settledGoldPlatformRetainedAmount;
+  set settledGoldPlatformRetainedAmount(
+    num? settledGoldPlatformRetainedAmount,
+  ) => _$this._settledGoldPlatformRetainedAmount =
+      settledGoldPlatformRetainedAmount;
+
+  num? _settledBronzeDriverDeduction;
+  num? get settledBronzeDriverDeduction => _$this._settledBronzeDriverDeduction;
+  set settledBronzeDriverDeduction(num? settledBronzeDriverDeduction) =>
+      _$this._settledBronzeDriverDeduction = settledBronzeDriverDeduction;
+
+  num? _settledBronzeSupervisorDeduction;
+  num? get settledBronzeSupervisorDeduction =>
+      _$this._settledBronzeSupervisorDeduction;
+  set settledBronzeSupervisorDeduction(num? settledBronzeSupervisorDeduction) =>
+      _$this._settledBronzeSupervisorDeduction =
+          settledBronzeSupervisorDeduction;
+
+  num? _settledBronzeDriverDeductionRate;
+  num? get settledBronzeDriverDeductionRate =>
+      _$this._settledBronzeDriverDeductionRate;
+  set settledBronzeDriverDeductionRate(num? settledBronzeDriverDeductionRate) =>
+      _$this._settledBronzeDriverDeductionRate =
+          settledBronzeDriverDeductionRate;
+
+  num? _settledBronzeSupervisorDeductionRate;
+  num? get settledBronzeSupervisorDeductionRate =>
+      _$this._settledBronzeSupervisorDeductionRate;
+  set settledBronzeSupervisorDeductionRate(
+    num? settledBronzeSupervisorDeductionRate,
+  ) => _$this._settledBronzeSupervisorDeductionRate =
+      settledBronzeSupervisorDeductionRate;
+
   String? _cancelledByUserId;
   String? get cancelledByUserId => _$this._cancelledByUserId;
   set cancelledByUserId(String? cancelledByUserId) =>
@@ -506,6 +609,7 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
       _requestedVehicleType = $v.requestedVehicleType;
       _subtotal = $v.subtotal;
       _deliveryFee = $v.deliveryFee;
+      _goldSurchargeAmount = $v.goldSurchargeAmount;
       _driverBonusFee = $v.driverBonusFee;
       _serviceFee = $v.serviceFee;
       _tax = $v.tax;
@@ -522,6 +626,13 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
       _paymentReceiptUrl = $v.paymentReceiptUrl;
       _actualDeliveryTime = $v.actualDeliveryTime;
       _settledAt = $v.settledAt;
+      _settledGoldBonusAmount = $v.settledGoldBonusAmount;
+      _settledGoldPlatformRetainedAmount = $v.settledGoldPlatformRetainedAmount;
+      _settledBronzeDriverDeduction = $v.settledBronzeDriverDeduction;
+      _settledBronzeSupervisorDeduction = $v.settledBronzeSupervisorDeduction;
+      _settledBronzeDriverDeductionRate = $v.settledBronzeDriverDeductionRate;
+      _settledBronzeSupervisorDeductionRate =
+          $v.settledBronzeSupervisorDeductionRate;
       _cancelledByUserId = $v.cancelledByUserId;
       _cancelledByRole = $v.cancelledByRole;
       _cancelledByName = $v.cancelledByName;
@@ -606,6 +717,11 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
             r'Order',
             'deliveryFee',
           ),
+          goldSurchargeAmount: BuiltValueNullFieldError.checkNotNull(
+            goldSurchargeAmount,
+            r'Order',
+            'goldSurchargeAmount',
+          ),
           driverBonusFee: BuiltValueNullFieldError.checkNotNull(
             driverBonusFee,
             r'Order',
@@ -658,6 +774,31 @@ class OrderBuilder implements Builder<Order, OrderBuilder> {
           paymentReceiptUrl: paymentReceiptUrl,
           actualDeliveryTime: actualDeliveryTime,
           settledAt: settledAt,
+          settledGoldBonusAmount: BuiltValueNullFieldError.checkNotNull(
+            settledGoldBonusAmount,
+            r'Order',
+            'settledGoldBonusAmount',
+          ),
+          settledGoldPlatformRetainedAmount:
+              BuiltValueNullFieldError.checkNotNull(
+                settledGoldPlatformRetainedAmount,
+                r'Order',
+                'settledGoldPlatformRetainedAmount',
+              ),
+          settledBronzeDriverDeduction: BuiltValueNullFieldError.checkNotNull(
+            settledBronzeDriverDeduction,
+            r'Order',
+            'settledBronzeDriverDeduction',
+          ),
+          settledBronzeSupervisorDeduction:
+              BuiltValueNullFieldError.checkNotNull(
+                settledBronzeSupervisorDeduction,
+                r'Order',
+                'settledBronzeSupervisorDeduction',
+              ),
+          settledBronzeDriverDeductionRate: settledBronzeDriverDeductionRate,
+          settledBronzeSupervisorDeductionRate:
+              settledBronzeSupervisorDeductionRate,
           cancelledByUserId: cancelledByUserId,
           cancelledByRole: cancelledByRole,
           cancelledByName: cancelledByName,

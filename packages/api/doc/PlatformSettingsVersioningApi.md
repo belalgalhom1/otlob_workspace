@@ -17,7 +17,7 @@ Method | HTTP request | Description
 [**platformSettingsControllerUploadDeliveryBannerIcon**](PlatformSettingsVersioningApi.md#platformsettingscontrolleruploaddeliverybannericon) | **POST** /platform-settings/delivery-banner-icon | Upload delivery banner icon
 [**platformSettingsControllerUploadHomeCover**](PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadhomecover) | **POST** /platform-settings/home-cover | Upload home cover image
 [**platformSettingsControllerUploadMotorcycleIcon**](PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadmotorcycleicon) | **POST** /platform-settings/motorcycle-icon | Upload motorcycle icon
-[**platformSettingsControllerUploadVehicleIcon**](PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadvehicleicon) | **POST** /platform-settings/vehicle-icon/{vehicleType} | Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)
+[**platformSettingsControllerUploadVehicleIcon**](PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadvehicleicon) | **POST** /platform-settings/vehicle-icon/{vehicleType} | Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|minibus|tuk_tuk|quarter_truck|half_truck)
 
 
 # **platformSettingsControllerCheckVersion**
@@ -343,7 +343,7 @@ Name | Type | Description  | Notes
 # **platformSettingsControllerUploadVehicleIcon**
 > ApiControllerRoot200Response platformSettingsControllerUploadVehicleIcon(vehicleType, file)
 
-Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)
+Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|minibus|tuk_tuk|quarter_truck|half_truck)
 
 ### Example
 ```dart

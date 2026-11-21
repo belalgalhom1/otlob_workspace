@@ -30,6 +30,7 @@ import {
 import { Role, VendorMemberRole, Prisma, DriverStatus } from '@prisma/client';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { DriverManagersService } from '../drivers/driver-managers.service';
+import { isValidRegisteredVehicleType } from '../../common/orders/vehicle-eligibility.helper';
 
 // Fields returned for both self-service and admin reads (no password)
 const USER_SELECT = {
@@ -494,8 +495,12 @@ export class UsersService {
         }
       }
       const driverUpdate: any = {};
-      if ((dto as any).vehicleType !== undefined)
+      if ((dto as any).vehicleType !== undefined) {
+        if (!isValidRegisteredVehicleType((dto as any).vehicleType)) {
+          throw new BadRequestException(CommonErrors.VALIDATION_ERROR);
+        }
         driverUpdate.vehicleType = (dto as any).vehicleType;
+      }
       if ((dto as any).vehiclePlate !== undefined)
         driverUpdate.vehiclePlate = (dto as any).vehiclePlate;
       if ((dto as any).licenseNumber !== undefined)

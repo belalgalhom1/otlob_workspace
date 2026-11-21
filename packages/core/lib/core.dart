@@ -23,6 +23,7 @@ export 'src/location/road_route_utils.dart';
 export 'src/utils/image_utils.dart';
 export 'src/utils/order_activity_helper.dart';
 export 'src/utils/order_type_helper.dart';
+export 'src/utils/vehicle_type_helper.dart';
 export 'src/utils/ios_alert_helper.dart';
 export 'src/utils/phone_utils.dart';
 

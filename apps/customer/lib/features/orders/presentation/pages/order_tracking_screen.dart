@@ -12,6 +12,7 @@ import 'package:core/core.dart'
         OrderTypeHelper,
         RoadRoutePoint,
         SocketEvent,
+        VehicleTypeHelper,
         orderRevisionOf,
         orderRevisionTrackerProvider,
         trimRouteToDriverPosition;
@@ -215,39 +216,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     return null;
   }
 
-  IconData _vehicleIconData(String type) {
-    switch (type.toUpperCase()) {
-      case 'CAR':
-        return Icons.directions_car_rounded;
-      case 'BICYCLE':
-        return Icons.pedal_bike_rounded;
-      case 'VAN':
-      case 'TRUCK':
-        return Icons.local_shipping_rounded;
-      case 'MOTOR_TRICYCLE':
-      case 'MOTORCYCLE':
-      default:
-        return Icons.two_wheeler_rounded;
-    }
-  }
+  IconData _vehicleIconData(String type) => VehicleTypeHelper.icon(type);
 
-  String _vehicleTypeLabel(String type, bool isArabic) {
-    switch (type.toUpperCase()) {
-      case 'CAR':
-        return isArabic ? 'سيارة' : 'Car';
-      case 'BICYCLE':
-        return isArabic ? 'دراجة هوائية' : 'Bicycle';
-      case 'VAN':
-        return isArabic ? 'فان بضائع' : 'Van';
-      case 'TRUCK':
-        return isArabic ? 'شاحنة' : 'Truck';
-      case 'MOTOR_TRICYCLE':
-        return isArabic ? 'تروسيكل' : 'Motor Tricycle';
-      case 'MOTORCYCLE':
-      default:
-        return isArabic ? 'دراجة نارية' : 'Motorcycle';
-    }
-  }
+  String _vehicleTypeLabel(String type, bool isArabic) =>
+      VehicleTypeHelper.label(type, isArabic: isArabic);
 
   final MapController _mapController = MapController();
   LatLng? _driverLocation;

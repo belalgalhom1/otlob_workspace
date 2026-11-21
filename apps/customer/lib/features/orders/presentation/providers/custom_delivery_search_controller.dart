@@ -42,7 +42,7 @@ class CustomDeliveryDraft {
   final LatLng? pickupLocation;
   final LatLng? dropoffLocation;
   final String
-  vehicleType; // lowercase: motorcycle, car, bicycle, van, truck, motor_tricycle
+  vehicleType; // lowercase: motorcycle, car, minibus, tuk_tuk, motor_tricycle, quarter_truck, half_truck
   final String? itemDetails;
   final String? specialRequest;
   final String paymentMethod;

@@ -388,8 +388,21 @@ class DriverMapDetailsCard extends StatelessWidget {
                                                 .clamp(40.0, double.infinity),
                                       ),
                                       child: Text(
-                                        '${driver.vehicleType ?? ""} ${driver.vehiclePlate ?? ""}'
-                                            .trim(),
+                                        [
+                                          if (driver.vehicleType != null &&
+                                              driver.vehicleType!
+                                                  .trim()
+                                                  .isNotEmpty)
+                                            VehicleTypeHelper.label(
+                                              driver.vehicleType,
+                                              isArabic: isArabic,
+                                            ),
+                                          if (driver.vehiclePlate != null &&
+                                              driver.vehiclePlate!
+                                                  .trim()
+                                                  .isNotEmpty)
+                                            driver.vehiclePlate!.trim(),
+                                        ].join(' • '),
                                         style: TextStyle(
                                           fontSize: 11.5,
                                           color: theme.colorScheme.onSurface

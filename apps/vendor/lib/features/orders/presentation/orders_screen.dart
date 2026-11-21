@@ -1360,18 +1360,34 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
-                                            orderType.isRide
-                                                ? LucideIcons.car
+                                            orderType.isRide ||
+                                                    orderType.isCustomDelivery
+                                                ? VehicleTypeHelper.icon(
+                                                    order['requestedVehicleType']
+                                                        ?.toString(),
+                                                  )
                                                 : LucideIcons.package,
                                             size: 13,
                                             color: AppColors.primary,
                                           ),
                                           const SizedBox(width: 5),
                                           Text(
-                                            OrderTypeHelper.requestTypeLabel(
-                                              orderType,
-                                              isArabic: isArabic,
-                                            ),
+                                            [
+                                              OrderTypeHelper.requestTypeLabel(
+                                                orderType,
+                                                isArabic: isArabic,
+                                              ),
+                                              if ((order['requestedVehicleType']
+                                                          ?.toString()
+                                                          .trim() ??
+                                                      '')
+                                                  .isNotEmpty)
+                                                VehicleTypeHelper.label(
+                                                  order['requestedVehicleType']
+                                                      .toString(),
+                                                  isArabic: isArabic,
+                                                ),
+                                            ].join(' • '),
                                             style: const TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
@@ -1589,7 +1605,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                     [
                                       '${isArabic ? 'السائق:' : 'Driver:'} $displayDriverName',
                                       if (vehicleType.isNotEmpty)
-                                        '(${vehicleType.toUpperCase()})',
+                                        '(${VehicleTypeHelper.label(vehicleType, isArabic: isArabic)})',
                                     ].join(' '),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -1781,7 +1797,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                         displayDriverName,
                                         if (vehicleType.isNotEmpty ||
                                             vehiclePlate.isNotEmpty)
-                                          '(${vehicleType.toUpperCase()}${vehiclePlate.isNotEmpty ? ' - $vehiclePlate' : ''})',
+                                          '(${[
+                                            if (vehicleType.isNotEmpty)
+                                              VehicleTypeHelper.label(
+                                                vehicleType,
+                                                isArabic: isArabic,
+                                              ),
+                                            if (vehiclePlate.isNotEmpty)
+                                              vehiclePlate,
+                                          ].join(' - ')})',
                                         if (driverPhone.isNotEmpty) driverPhone,
                                       ].join(' '),
                                       iconColor: statusColor,
@@ -1913,6 +1937,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                               orderCode: code,
                                               orderType:
                                                   order['type']?.toString(),
+                                              requestedVehicleType:
+                                                  order['requestedVehicleType']
+                                                      ?.toString(),
                                               deliveryGroups:
                                                   order['deliveryGroups']
                                                       as List<dynamic>?,
@@ -1970,19 +1997,36 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                 Row(
                                   children: [
                                     Icon(
-                                      orderType.isRide ? LucideIcons.car : LucideIcons.package,
+                                      VehicleTypeHelper.icon(
+                                        order['requestedVehicleType']
+                                            ?.toString(),
+                                      ),
                                       size: 16,
                                       color: AppColors.primary,
                                     ),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      OrderTypeHelper.requestTypeLabel(
-                                        orderType,
-                                        isArabic: isArabic,
-                                      ),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
+                                    Expanded(
+                                      child: Text(
+                                        [
+                                          OrderTypeHelper.requestTypeLabel(
+                                            orderType,
+                                            isArabic: isArabic,
+                                          ),
+                                          if ((order['requestedVehicleType']
+                                                      ?.toString()
+                                                      .trim() ??
+                                                  '')
+                                              .isNotEmpty)
+                                            VehicleTypeHelper.label(
+                                              order['requestedVehicleType']
+                                                  .toString(),
+                                              isArabic: isArabic,
+                                            ),
+                                        ].join(' • '),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
                                       ),
                                     ),
                                   ],

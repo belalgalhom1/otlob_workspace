@@ -1899,7 +1899,17 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
                     (driver.vehicleType != null && driver.vehicleType!.isNotEmpty))
                   _buildTagPill(
                     icon: driverVehicleIcon(driver.vehicleType),
-                    label: '${driver.vehicleType ?? ""} ${driver.vehiclePlate ?? ""}'.trim(),
+                    label: [
+                      if (driver.vehicleType != null &&
+                          driver.vehicleType!.trim().isNotEmpty)
+                        VehicleTypeHelper.label(
+                          driver.vehicleType,
+                          isArabic: isArabic,
+                        ),
+                      if (driver.vehiclePlate != null &&
+                          driver.vehiclePlate!.trim().isNotEmpty)
+                        driver.vehiclePlate!.trim(),
+                    ].join(' • '),
                     color: Colors.blueGrey,
                   ),
               ],
@@ -2151,12 +2161,16 @@ class _DriversScreenState extends ConsumerState<DriversScreen>
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],

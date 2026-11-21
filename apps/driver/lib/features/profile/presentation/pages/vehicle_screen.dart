@@ -1,3 +1,4 @@
+import 'package:core/core.dart' show VehicleTypeHelper;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
@@ -64,10 +65,11 @@ class VehicleScreen extends ConsumerWidget {
                         context,
                         l10n.vehicleType,
                         _getVehicleTypeTranslation(
+                          context,
                           l10n,
                           data['vehicleType']?.toString() ?? '',
                         ),
-                        LucideIcons.car,
+                        VehicleTypeHelper.icon(data['vehicleType']?.toString()),
                       ),
                       const SizedBox(height: 16),
                       _buildReadOnlyRow(
@@ -119,21 +121,15 @@ class VehicleScreen extends ConsumerWidget {
     );
   }
 
-  String _getVehicleTypeTranslation(AppLocalizations l10n, String type) {
-    switch (type) {
-      case 'BICYCLE':
-        return l10n.vehicleTypeBicycle;
-      case 'MOTORCYCLE':
-        return l10n.vehicleTypeMotorcycle;
-      case 'CAR':
-        return l10n.car;
-      case 'VAN':
-        return l10n.van;
-      case 'TRUCK':
-        return l10n.truck;
-      default:
-        return type.isNotEmpty ? type : l10n.notProvided;
-    }
+  String _getVehicleTypeTranslation(
+    BuildContext context,
+    AppLocalizations l10n,
+    String type,
+  ) {
+    final trimmed = type.trim();
+    if (trimmed.isEmpty) return l10n.notProvided;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    return VehicleTypeHelper.label(trimmed, isArabic: isAr);
   }
 
   Widget _buildReadOnlyRow(

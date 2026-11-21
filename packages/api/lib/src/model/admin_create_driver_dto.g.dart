@@ -16,14 +16,20 @@ const AdminCreateDriverDtoVehicleTypeEnum
 _$adminCreateDriverDtoVehicleTypeEnum_CAR =
     const AdminCreateDriverDtoVehicleTypeEnum._('CAR');
 const AdminCreateDriverDtoVehicleTypeEnum
-_$adminCreateDriverDtoVehicleTypeEnum_VAN =
-    const AdminCreateDriverDtoVehicleTypeEnum._('VAN');
+_$adminCreateDriverDtoVehicleTypeEnum_MINIBUS =
+    const AdminCreateDriverDtoVehicleTypeEnum._('MINIBUS');
 const AdminCreateDriverDtoVehicleTypeEnum
-_$adminCreateDriverDtoVehicleTypeEnum_TRUCK =
-    const AdminCreateDriverDtoVehicleTypeEnum._('TRUCK');
+_$adminCreateDriverDtoVehicleTypeEnum_TUK_TUK =
+    const AdminCreateDriverDtoVehicleTypeEnum._('TUK_TUK');
 const AdminCreateDriverDtoVehicleTypeEnum
 _$adminCreateDriverDtoVehicleTypeEnum_MOTOR_TRICYCLE =
     const AdminCreateDriverDtoVehicleTypeEnum._('MOTOR_TRICYCLE');
+const AdminCreateDriverDtoVehicleTypeEnum
+_$adminCreateDriverDtoVehicleTypeEnum_QUARTER_TRUCK =
+    const AdminCreateDriverDtoVehicleTypeEnum._('QUARTER_TRUCK');
+const AdminCreateDriverDtoVehicleTypeEnum
+_$adminCreateDriverDtoVehicleTypeEnum_HALF_TRUCK =
+    const AdminCreateDriverDtoVehicleTypeEnum._('HALF_TRUCK');
 
 AdminCreateDriverDtoVehicleTypeEnum
 _$adminCreateDriverDtoVehicleTypeEnumValueOf(String name) {
@@ -34,12 +40,16 @@ _$adminCreateDriverDtoVehicleTypeEnumValueOf(String name) {
       return _$adminCreateDriverDtoVehicleTypeEnum_MOTORCYCLE;
     case 'CAR':
       return _$adminCreateDriverDtoVehicleTypeEnum_CAR;
-    case 'VAN':
-      return _$adminCreateDriverDtoVehicleTypeEnum_VAN;
-    case 'TRUCK':
-      return _$adminCreateDriverDtoVehicleTypeEnum_TRUCK;
+    case 'MINIBUS':
+      return _$adminCreateDriverDtoVehicleTypeEnum_MINIBUS;
+    case 'TUK_TUK':
+      return _$adminCreateDriverDtoVehicleTypeEnum_TUK_TUK;
     case 'MOTOR_TRICYCLE':
       return _$adminCreateDriverDtoVehicleTypeEnum_MOTOR_TRICYCLE;
+    case 'QUARTER_TRUCK':
+      return _$adminCreateDriverDtoVehicleTypeEnum_QUARTER_TRUCK;
+    case 'HALF_TRUCK':
+      return _$adminCreateDriverDtoVehicleTypeEnum_HALF_TRUCK;
     default:
       throw ArgumentError(name);
   }
@@ -52,9 +62,11 @@ _$adminCreateDriverDtoVehicleTypeEnumValues =
         _$adminCreateDriverDtoVehicleTypeEnum_BICYCLE,
         _$adminCreateDriverDtoVehicleTypeEnum_MOTORCYCLE,
         _$adminCreateDriverDtoVehicleTypeEnum_CAR,
-        _$adminCreateDriverDtoVehicleTypeEnum_VAN,
-        _$adminCreateDriverDtoVehicleTypeEnum_TRUCK,
+        _$adminCreateDriverDtoVehicleTypeEnum_MINIBUS,
+        _$adminCreateDriverDtoVehicleTypeEnum_TUK_TUK,
         _$adminCreateDriverDtoVehicleTypeEnum_MOTOR_TRICYCLE,
+        _$adminCreateDriverDtoVehicleTypeEnum_QUARTER_TRUCK,
+        _$adminCreateDriverDtoVehicleTypeEnum_HALF_TRUCK,
       ],
     );
 
@@ -120,17 +132,21 @@ class _$AdminCreateDriverDtoVehicleTypeEnumSerializer
     'BICYCLE': 'BICYCLE',
     'MOTORCYCLE': 'MOTORCYCLE',
     'CAR': 'CAR',
-    'VAN': 'VAN',
-    'TRUCK': 'TRUCK',
+    'MINIBUS': 'MINIBUS',
+    'TUK_TUK': 'TUK_TUK',
     'MOTOR_TRICYCLE': 'MOTOR_TRICYCLE',
+    'QUARTER_TRUCK': 'QUARTER_TRUCK',
+    'HALF_TRUCK': 'HALF_TRUCK',
   };
   static const Map<Object, String> _fromWire = const <Object, String>{
     'BICYCLE': 'BICYCLE',
     'MOTORCYCLE': 'MOTORCYCLE',
     'CAR': 'CAR',
-    'VAN': 'VAN',
-    'TRUCK': 'TRUCK',
+    'MINIBUS': 'MINIBUS',
+    'TUK_TUK': 'TUK_TUK',
     'MOTOR_TRICYCLE': 'MOTOR_TRICYCLE',
+    'QUARTER_TRUCK': 'QUARTER_TRUCK',
+    'HALF_TRUCK': 'HALF_TRUCK',
   };
 
   @override

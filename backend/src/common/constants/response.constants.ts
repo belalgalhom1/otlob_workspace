@@ -349,6 +349,9 @@ export const OrderErrors = {
   DELIVERY_PHOTO_REQUIRED: 'order.error.delivery_photo_required',
   RIDES_MUST_USE_CAR: 'order.error.rides_must_use_car',
   VEHICLE_TYPE_DISABLED: 'order.error.vehicle_type_disabled',
+  VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE:
+    'order.error.vehicle_type_not_allowed_for_service',
+  DRIVER_VEHICLE_NOT_ELIGIBLE: 'order.error.driver_vehicle_not_eligible',
   STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE:
     'order.error.standard_order_vehicle_not_eligible',
   INVALID_TRANSITION: 'order.error.invalid_transition',

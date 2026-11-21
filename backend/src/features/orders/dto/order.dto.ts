@@ -2,6 +2,7 @@ import {
   IsUUID,
   IsNotEmpty,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   IsArray,
@@ -125,7 +126,7 @@ export class OrderFeeEstimateDto {
 
 export class PlaceCustomOrderDto {
   @ApiProperty({ enum: [OrderType.CUSTOM_DELIVERY, OrderType.RIDE] })
-  @IsEnum(OrderType)
+  @IsIn([OrderType.CUSTOM_DELIVERY, OrderType.RIDE])
   @IsNotEmpty()
   type!: OrderType;
 

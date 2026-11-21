@@ -32,15 +32,21 @@ function makeSettings(
     pricePerKmCar: 8,
     minDeliveryFeeCar: 30,
     maxDeliveryFeeCar: 120,
-    pricePerKmVan: 10,
-    minDeliveryFeeVan: 40,
-    maxDeliveryFeeVan: 150,
-    pricePerKmTruck: 14,
-    minDeliveryFeeTruck: 60,
-    maxDeliveryFeeTruck: 250,
+    pricePerKmMinibus: 9,
+    minDeliveryFeeMinibus: 35,
+    maxDeliveryFeeMinibus: 140,
+    pricePerKmTukTuk: 4,
+    minDeliveryFeeTukTuk: 15,
+    maxDeliveryFeeTukTuk: 65,
     pricePerKmMotorTricycle: 4.5,
     minDeliveryFeeMotorTricycle: 18,
     maxDeliveryFeeMotorTricycle: 70,
+    pricePerKmQuarterTruck: 10,
+    minDeliveryFeeQuarterTruck: 40,
+    maxDeliveryFeeQuarterTruck: 150,
+    pricePerKmHalfTruck: 14,
+    minDeliveryFeeHalfTruck: 60,
+    maxDeliveryFeeHalfTruck: 250,
     batchedDeliveryCommissionRate: 40,
     batchedDriverManagerCommissionRate: 10,
     stackedOrderDriverPercentage: 50,
@@ -128,7 +134,12 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
     it('looks up per-km vehicle rates data-driven and returns null for unknown vehicles', () => {
       const s = makeSettings();
       expect(calculator.getVehiclePerKm(s, 'motor_tricycle')).toBe(4.5);
-      expect(calculator.getVehiclePerKm(s, 'TRUCK')).toBe(14);
+      expect(calculator.getVehiclePerKm(s, 'MINIBUS')).toBe(9);
+      expect(calculator.getVehiclePerKm(s, 'TUK_TUK')).toBe(4);
+      expect(calculator.getVehiclePerKm(s, 'QUARTER_TRUCK')).toBe(10);
+      expect(calculator.getVehiclePerKm(s, 'HALF_TRUCK')).toBe(14);
+      expect(calculator.getVehiclePerKm(s, 'VAN')).toBeNull();
+      expect(calculator.getVehiclePerKm(s, 'TRUCK')).toBeNull();
       expect(calculator.getVehiclePerKm(s, 'helicopter')).toBeNull();
     });
 

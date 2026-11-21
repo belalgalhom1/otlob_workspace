@@ -107,7 +107,7 @@ export class PlatformSettingsController {
   @ApiFileUpload({ type: 'IMAGE', required: true })
   @ApiOperation({
     summary:
-      'Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)',
+      'Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|minibus|tuk_tuk|quarter_truck|half_truck)',
   })
   uploadVehicleIcon(
     @Param('vehicleType') vehicleType: string,

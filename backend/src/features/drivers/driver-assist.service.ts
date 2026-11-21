@@ -41,7 +41,10 @@ import {
   OrderType,
   Prisma,
 } from '@prisma/client';
-import { isDriverVehicleEligibleForOrder } from '../location/driver-geo-search.service';
+import {
+  buildVehicleAvailabilitySettings,
+  isDriverVehicleEligibleForOrder,
+} from '../location/driver-geo-search.service';
 
 export interface RequestAssistDto {
   reason: DriverAssistReason;
@@ -956,23 +959,19 @@ export class DriverAssistService {
     if (candidate.hasUnpaidCommission) {
       throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
     }
-    if (orderContext?.orderType === OrderType.STANDARD) {
+    if (
+      orderContext?.orderType === OrderType.STANDARD ||
+      orderContext?.orderType === OrderType.RIDE ||
+      orderContext?.orderType === OrderType.CUSTOM_DELIVERY
+    ) {
       const rawSettings =
         typeof this.platformSettings?.getSettings === 'function'
           ? await this.platformSettings.getSettings()
           : null;
-      const vehicleSettings = {
-        allowBicycle: rawSettings?.allowBicycle ?? true,
-        allowMotorcycle: rawSettings?.allowMotorcycle ?? true,
-        allowCar: rawSettings?.allowCar ?? true,
-        allowVan: rawSettings?.allowVan ?? true,
-        allowTruck: rawSettings?.allowTruck ?? true,
-        allowMotorTricycle: rawSettings?.allowMotorTricycle ?? true,
-        maxKmForBicycle: rawSettings?.maxKmForBicycle ?? 5.0,
-      };
+      const vehicleSettings = buildVehicleAvailabilitySettings(rawSettings);
       if (
         !isDriverVehicleEligibleForOrder({
-          orderType: OrderType.STANDARD,
+          orderType: orderContext.orderType,
           requestedVehicleType: orderContext.requestedVehicleType ?? null,
           driverVehicleType: candidate.vehicleType,
           orderDistanceKm: Number(orderContext.distanceKm ?? 0),
@@ -980,7 +979,9 @@ export class DriverAssistService {
         })
       ) {
         throw new BadRequestException(
-          OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE,
+          orderContext.orderType === OrderType.STANDARD
+            ? OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE
+            : OrderErrors.DRIVER_VEHICLE_NOT_ELIGIBLE,
         );
       }
     }

@@ -24,9 +24,11 @@ part 'update_platform_settings_dto.g.dart';
 /// * [pricePerKmBicycle] 
 /// * [pricePerKmMotorcycle] 
 /// * [pricePerKmCar] 
-/// * [pricePerKmVan] 
-/// * [pricePerKmTruck] 
+/// * [pricePerKmMinibus] 
+/// * [pricePerKmTukTuk] 
 /// * [pricePerKmMotorTricycle] 
+/// * [pricePerKmQuarterTruck] 
+/// * [pricePerKmHalfTruck] 
 /// * [maxDeliveryFee] - Max limit on delivery fee
 /// * [minDeliveryFee] - Absolute minimum customer delivery fee in EGP. Applied after the per-vehicle min/max matrix, so a vehicle override still wins. 0 disables the global floor.
 /// * [minDeliveryFeeBicycle] 
@@ -35,18 +37,24 @@ part 'update_platform_settings_dto.g.dart';
 /// * [maxDeliveryFeeMotorcycle] 
 /// * [minDeliveryFeeCar] 
 /// * [maxDeliveryFeeCar] 
-/// * [minDeliveryFeeVan] 
-/// * [maxDeliveryFeeVan] 
-/// * [minDeliveryFeeTruck] 
-/// * [maxDeliveryFeeTruck] 
+/// * [minDeliveryFeeMinibus] 
+/// * [maxDeliveryFeeMinibus] 
+/// * [minDeliveryFeeTukTuk] 
+/// * [maxDeliveryFeeTukTuk] 
 /// * [minDeliveryFeeMotorTricycle] 
 /// * [maxDeliveryFeeMotorTricycle] 
+/// * [minDeliveryFeeQuarterTruck] 
+/// * [maxDeliveryFeeQuarterTruck] 
+/// * [minDeliveryFeeHalfTruck] 
+/// * [maxDeliveryFeeHalfTruck] 
 /// * [allowBicycle] 
 /// * [allowMotorcycle] 
 /// * [allowCar] 
-/// * [allowVan] 
-/// * [allowTruck] 
+/// * [allowMinibus] 
+/// * [allowTukTuk] 
 /// * [allowMotorTricycle] 
+/// * [allowQuarterTruck] 
+/// * [allowHalfTruck] 
 /// * [minOrderKm] - Distance below which fixed price is applied
 /// * [minDistanceFixedPrice] - Fixed price applied if distance is below minOrderKm
 /// * [maxDeliveryRadiusKm] 
@@ -119,9 +127,9 @@ part 'update_platform_settings_dto.g.dart';
 /// * [highValueUpfrontRate] - Upfront percentage rate for high value cash orders (e.g. 20 = 20%)
 /// * [driverShiftsEnabled] - Master switch for driver shifts feature
 /// * [breaksEnabled] - Master switch for the driver break system. When off, drivers cannot request breaks and pending requests cannot be approved (admin grant still works as an override). Active breaks can always be ended.
-/// * [bronzeTierBonusPerKm] - Per-km bonus for Bronze tier drivers
-/// * [silverTierBonusPerKm] - Per-km bonus for Silver tier drivers
-/// * [goldTierBonusPerKm] - Per-km bonus for Gold tier drivers (Used at checkout)
+/// * [goldTierBonusPerOrder] - Fixed Gold surcharge (in EGP) added once to total delivery cost per eligible order across Standard, Ride, and Custom Delivery; allocated to Gold drivers or retained by platform for Silver (default)/Bronze drivers.
+/// * [bronzeTierDeductionAmount] - Fixed amount (in EGP) deducted from a Bronze driver’s eligible order earnings.
+/// * [bronzeSupervisorDeductionAmount] - Fixed amount (in EGP) deducted from the primary supervisor’s eligible earnings attributable to a Bronze driver.
 /// * [driverRankingAutoEvalEnabled] - Enable/disable the weekly Monday automatic driver ranking evaluation
 /// * [driverRankingEvalTime] - Monday evaluation wall-clock time (HH:mm in configured project timezone)
 /// * [driverRankingGoldThreshold] - Minimum performance percentage (1-100) for GOLD driver tier. Must be strictly greater than silver threshold. Default 95.
@@ -173,14 +181,20 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'pricePerKmCar')
   num? get pricePerKmCar;
 
-  @BuiltValueField(wireName: r'pricePerKmVan')
-  num? get pricePerKmVan;
+  @BuiltValueField(wireName: r'pricePerKmMinibus')
+  num? get pricePerKmMinibus;
 
-  @BuiltValueField(wireName: r'pricePerKmTruck')
-  num? get pricePerKmTruck;
+  @BuiltValueField(wireName: r'pricePerKmTukTuk')
+  num? get pricePerKmTukTuk;
 
   @BuiltValueField(wireName: r'pricePerKmMotorTricycle')
   num? get pricePerKmMotorTricycle;
+
+  @BuiltValueField(wireName: r'pricePerKmQuarterTruck')
+  num? get pricePerKmQuarterTruck;
+
+  @BuiltValueField(wireName: r'pricePerKmHalfTruck')
+  num? get pricePerKmHalfTruck;
 
   /// Max limit on delivery fee
   @BuiltValueField(wireName: r'maxDeliveryFee')
@@ -208,23 +222,35 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'maxDeliveryFeeCar')
   num? get maxDeliveryFeeCar;
 
-  @BuiltValueField(wireName: r'minDeliveryFeeVan')
-  num? get minDeliveryFeeVan;
+  @BuiltValueField(wireName: r'minDeliveryFeeMinibus')
+  num? get minDeliveryFeeMinibus;
 
-  @BuiltValueField(wireName: r'maxDeliveryFeeVan')
-  num? get maxDeliveryFeeVan;
+  @BuiltValueField(wireName: r'maxDeliveryFeeMinibus')
+  num? get maxDeliveryFeeMinibus;
 
-  @BuiltValueField(wireName: r'minDeliveryFeeTruck')
-  num? get minDeliveryFeeTruck;
+  @BuiltValueField(wireName: r'minDeliveryFeeTukTuk')
+  num? get minDeliveryFeeTukTuk;
 
-  @BuiltValueField(wireName: r'maxDeliveryFeeTruck')
-  num? get maxDeliveryFeeTruck;
+  @BuiltValueField(wireName: r'maxDeliveryFeeTukTuk')
+  num? get maxDeliveryFeeTukTuk;
 
   @BuiltValueField(wireName: r'minDeliveryFeeMotorTricycle')
   num? get minDeliveryFeeMotorTricycle;
 
   @BuiltValueField(wireName: r'maxDeliveryFeeMotorTricycle')
   num? get maxDeliveryFeeMotorTricycle;
+
+  @BuiltValueField(wireName: r'minDeliveryFeeQuarterTruck')
+  num? get minDeliveryFeeQuarterTruck;
+
+  @BuiltValueField(wireName: r'maxDeliveryFeeQuarterTruck')
+  num? get maxDeliveryFeeQuarterTruck;
+
+  @BuiltValueField(wireName: r'minDeliveryFeeHalfTruck')
+  num? get minDeliveryFeeHalfTruck;
+
+  @BuiltValueField(wireName: r'maxDeliveryFeeHalfTruck')
+  num? get maxDeliveryFeeHalfTruck;
 
   @BuiltValueField(wireName: r'allowBicycle')
   bool? get allowBicycle;
@@ -235,14 +261,20 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'allowCar')
   bool? get allowCar;
 
-  @BuiltValueField(wireName: r'allowVan')
-  bool? get allowVan;
+  @BuiltValueField(wireName: r'allowMinibus')
+  bool? get allowMinibus;
 
-  @BuiltValueField(wireName: r'allowTruck')
-  bool? get allowTruck;
+  @BuiltValueField(wireName: r'allowTukTuk')
+  bool? get allowTukTuk;
 
   @BuiltValueField(wireName: r'allowMotorTricycle')
   bool? get allowMotorTricycle;
+
+  @BuiltValueField(wireName: r'allowQuarterTruck')
+  bool? get allowQuarterTruck;
+
+  @BuiltValueField(wireName: r'allowHalfTruck')
+  bool? get allowHalfTruck;
 
   /// Distance below which fixed price is applied
   @BuiltValueField(wireName: r'minOrderKm')
@@ -506,17 +538,17 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
   @BuiltValueField(wireName: r'breaksEnabled')
   bool? get breaksEnabled;
 
-  /// Per-km bonus for Bronze tier drivers
-  @BuiltValueField(wireName: r'bronzeTierBonusPerKm')
-  num? get bronzeTierBonusPerKm;
+  /// Fixed Gold surcharge (in EGP) added once to total delivery cost per eligible order across Standard, Ride, and Custom Delivery; allocated to Gold drivers or retained by platform for Silver (default)/Bronze drivers.
+  @BuiltValueField(wireName: r'goldTierBonusPerOrder')
+  num? get goldTierBonusPerOrder;
 
-  /// Per-km bonus for Silver tier drivers
-  @BuiltValueField(wireName: r'silverTierBonusPerKm')
-  num? get silverTierBonusPerKm;
+  /// Fixed amount (in EGP) deducted from a Bronze driver’s eligible order earnings.
+  @BuiltValueField(wireName: r'bronzeTierDeductionAmount')
+  num? get bronzeTierDeductionAmount;
 
-  /// Per-km bonus for Gold tier drivers (Used at checkout)
-  @BuiltValueField(wireName: r'goldTierBonusPerKm')
-  num? get goldTierBonusPerKm;
+  /// Fixed amount (in EGP) deducted from the primary supervisor’s eligible earnings attributable to a Bronze driver.
+  @BuiltValueField(wireName: r'bronzeSupervisorDeductionAmount')
+  num? get bronzeSupervisorDeductionAmount;
 
   /// Enable/disable the weekly Monday automatic driver ranking evaluation
   @BuiltValueField(wireName: r'driverRankingAutoEvalEnabled')
@@ -668,17 +700,17 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(num),
       );
     }
-    if (object.pricePerKmVan != null) {
-      yield r'pricePerKmVan';
+    if (object.pricePerKmMinibus != null) {
+      yield r'pricePerKmMinibus';
       yield serializers.serialize(
-        object.pricePerKmVan,
+        object.pricePerKmMinibus,
         specifiedType: const FullType(num),
       );
     }
-    if (object.pricePerKmTruck != null) {
-      yield r'pricePerKmTruck';
+    if (object.pricePerKmTukTuk != null) {
+      yield r'pricePerKmTukTuk';
       yield serializers.serialize(
-        object.pricePerKmTruck,
+        object.pricePerKmTukTuk,
         specifiedType: const FullType(num),
       );
     }
@@ -686,6 +718,20 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'pricePerKmMotorTricycle';
       yield serializers.serialize(
         object.pricePerKmMotorTricycle,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.pricePerKmQuarterTruck != null) {
+      yield r'pricePerKmQuarterTruck';
+      yield serializers.serialize(
+        object.pricePerKmQuarterTruck,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.pricePerKmHalfTruck != null) {
+      yield r'pricePerKmHalfTruck';
+      yield serializers.serialize(
+        object.pricePerKmHalfTruck,
         specifiedType: const FullType(num),
       );
     }
@@ -745,31 +791,31 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(num),
       );
     }
-    if (object.minDeliveryFeeVan != null) {
-      yield r'minDeliveryFeeVan';
+    if (object.minDeliveryFeeMinibus != null) {
+      yield r'minDeliveryFeeMinibus';
       yield serializers.serialize(
-        object.minDeliveryFeeVan,
+        object.minDeliveryFeeMinibus,
         specifiedType: const FullType(num),
       );
     }
-    if (object.maxDeliveryFeeVan != null) {
-      yield r'maxDeliveryFeeVan';
+    if (object.maxDeliveryFeeMinibus != null) {
+      yield r'maxDeliveryFeeMinibus';
       yield serializers.serialize(
-        object.maxDeliveryFeeVan,
+        object.maxDeliveryFeeMinibus,
         specifiedType: const FullType(num),
       );
     }
-    if (object.minDeliveryFeeTruck != null) {
-      yield r'minDeliveryFeeTruck';
+    if (object.minDeliveryFeeTukTuk != null) {
+      yield r'minDeliveryFeeTukTuk';
       yield serializers.serialize(
-        object.minDeliveryFeeTruck,
+        object.minDeliveryFeeTukTuk,
         specifiedType: const FullType(num),
       );
     }
-    if (object.maxDeliveryFeeTruck != null) {
-      yield r'maxDeliveryFeeTruck';
+    if (object.maxDeliveryFeeTukTuk != null) {
+      yield r'maxDeliveryFeeTukTuk';
       yield serializers.serialize(
-        object.maxDeliveryFeeTruck,
+        object.maxDeliveryFeeTukTuk,
         specifiedType: const FullType(num),
       );
     }
@@ -784,6 +830,34 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'maxDeliveryFeeMotorTricycle';
       yield serializers.serialize(
         object.maxDeliveryFeeMotorTricycle,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.minDeliveryFeeQuarterTruck != null) {
+      yield r'minDeliveryFeeQuarterTruck';
+      yield serializers.serialize(
+        object.minDeliveryFeeQuarterTruck,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.maxDeliveryFeeQuarterTruck != null) {
+      yield r'maxDeliveryFeeQuarterTruck';
+      yield serializers.serialize(
+        object.maxDeliveryFeeQuarterTruck,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.minDeliveryFeeHalfTruck != null) {
+      yield r'minDeliveryFeeHalfTruck';
+      yield serializers.serialize(
+        object.minDeliveryFeeHalfTruck,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.maxDeliveryFeeHalfTruck != null) {
+      yield r'maxDeliveryFeeHalfTruck';
+      yield serializers.serialize(
+        object.maxDeliveryFeeHalfTruck,
         specifiedType: const FullType(num),
       );
     }
@@ -808,17 +882,17 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(bool),
       );
     }
-    if (object.allowVan != null) {
-      yield r'allowVan';
+    if (object.allowMinibus != null) {
+      yield r'allowMinibus';
       yield serializers.serialize(
-        object.allowVan,
+        object.allowMinibus,
         specifiedType: const FullType(bool),
       );
     }
-    if (object.allowTruck != null) {
-      yield r'allowTruck';
+    if (object.allowTukTuk != null) {
+      yield r'allowTukTuk';
       yield serializers.serialize(
-        object.allowTruck,
+        object.allowTukTuk,
         specifiedType: const FullType(bool),
       );
     }
@@ -826,6 +900,20 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'allowMotorTricycle';
       yield serializers.serialize(
         object.allowMotorTricycle,
+        specifiedType: const FullType(bool),
+      );
+    }
+    if (object.allowQuarterTruck != null) {
+      yield r'allowQuarterTruck';
+      yield serializers.serialize(
+        object.allowQuarterTruck,
+        specifiedType: const FullType(bool),
+      );
+    }
+    if (object.allowHalfTruck != null) {
+      yield r'allowHalfTruck';
+      yield serializers.serialize(
+        object.allowHalfTruck,
         specifiedType: const FullType(bool),
       );
     }
@@ -1333,24 +1421,24 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
         specifiedType: const FullType(bool),
       );
     }
-    if (object.bronzeTierBonusPerKm != null) {
-      yield r'bronzeTierBonusPerKm';
+    if (object.goldTierBonusPerOrder != null) {
+      yield r'goldTierBonusPerOrder';
       yield serializers.serialize(
-        object.bronzeTierBonusPerKm,
+        object.goldTierBonusPerOrder,
         specifiedType: const FullType(num),
       );
     }
-    if (object.silverTierBonusPerKm != null) {
-      yield r'silverTierBonusPerKm';
+    if (object.bronzeTierDeductionAmount != null) {
+      yield r'bronzeTierDeductionAmount';
       yield serializers.serialize(
-        object.silverTierBonusPerKm,
+        object.bronzeTierDeductionAmount,
         specifiedType: const FullType(num),
       );
     }
-    if (object.goldTierBonusPerKm != null) {
-      yield r'goldTierBonusPerKm';
+    if (object.bronzeSupervisorDeductionAmount != null) {
+      yield r'bronzeSupervisorDeductionAmount';
       yield serializers.serialize(
-        object.goldTierBonusPerKm,
+        object.bronzeSupervisorDeductionAmount,
         specifiedType: const FullType(num),
       );
     }
@@ -1531,19 +1619,19 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as num;
           result.pricePerKmCar = valueDes;
           break;
-        case r'pricePerKmVan':
+        case r'pricePerKmMinibus':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.pricePerKmVan = valueDes;
+          result.pricePerKmMinibus = valueDes;
           break;
-        case r'pricePerKmTruck':
+        case r'pricePerKmTukTuk':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.pricePerKmTruck = valueDes;
+          result.pricePerKmTukTuk = valueDes;
           break;
         case r'pricePerKmMotorTricycle':
           final valueDes = serializers.deserialize(
@@ -1551,6 +1639,20 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.pricePerKmMotorTricycle = valueDes;
+          break;
+        case r'pricePerKmQuarterTruck':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.pricePerKmQuarterTruck = valueDes;
+          break;
+        case r'pricePerKmHalfTruck':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.pricePerKmHalfTruck = valueDes;
           break;
         case r'maxDeliveryFee':
           final valueDes = serializers.deserialize(
@@ -1608,33 +1710,33 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as num;
           result.maxDeliveryFeeCar = valueDes;
           break;
-        case r'minDeliveryFeeVan':
+        case r'minDeliveryFeeMinibus':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.minDeliveryFeeVan = valueDes;
+          result.minDeliveryFeeMinibus = valueDes;
           break;
-        case r'maxDeliveryFeeVan':
+        case r'maxDeliveryFeeMinibus':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.maxDeliveryFeeVan = valueDes;
+          result.maxDeliveryFeeMinibus = valueDes;
           break;
-        case r'minDeliveryFeeTruck':
+        case r'minDeliveryFeeTukTuk':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.minDeliveryFeeTruck = valueDes;
+          result.minDeliveryFeeTukTuk = valueDes;
           break;
-        case r'maxDeliveryFeeTruck':
+        case r'maxDeliveryFeeTukTuk':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.maxDeliveryFeeTruck = valueDes;
+          result.maxDeliveryFeeTukTuk = valueDes;
           break;
         case r'minDeliveryFeeMotorTricycle':
           final valueDes = serializers.deserialize(
@@ -1649,6 +1751,34 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.maxDeliveryFeeMotorTricycle = valueDes;
+          break;
+        case r'minDeliveryFeeQuarterTruck':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.minDeliveryFeeQuarterTruck = valueDes;
+          break;
+        case r'maxDeliveryFeeQuarterTruck':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.maxDeliveryFeeQuarterTruck = valueDes;
+          break;
+        case r'minDeliveryFeeHalfTruck':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.minDeliveryFeeHalfTruck = valueDes;
+          break;
+        case r'maxDeliveryFeeHalfTruck':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.maxDeliveryFeeHalfTruck = valueDes;
           break;
         case r'allowBicycle':
           final valueDes = serializers.deserialize(
@@ -1671,19 +1801,19 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as bool;
           result.allowCar = valueDes;
           break;
-        case r'allowVan':
+        case r'allowMinibus':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(bool),
           ) as bool;
-          result.allowVan = valueDes;
+          result.allowMinibus = valueDes;
           break;
-        case r'allowTruck':
+        case r'allowTukTuk':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(bool),
           ) as bool;
-          result.allowTruck = valueDes;
+          result.allowTukTuk = valueDes;
           break;
         case r'allowMotorTricycle':
           final valueDes = serializers.deserialize(
@@ -1691,6 +1821,20 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(bool),
           ) as bool;
           result.allowMotorTricycle = valueDes;
+          break;
+        case r'allowQuarterTruck':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.allowQuarterTruck = valueDes;
+          break;
+        case r'allowHalfTruck':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.allowHalfTruck = valueDes;
           break;
         case r'minOrderKm':
           final valueDes = serializers.deserialize(
@@ -2196,26 +2340,26 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
           ) as bool;
           result.breaksEnabled = valueDes;
           break;
-        case r'bronzeTierBonusPerKm':
+        case r'goldTierBonusPerOrder':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.bronzeTierBonusPerKm = valueDes;
+          result.goldTierBonusPerOrder = valueDes;
           break;
-        case r'silverTierBonusPerKm':
+        case r'bronzeTierDeductionAmount':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.silverTierBonusPerKm = valueDes;
+          result.bronzeTierDeductionAmount = valueDes;
           break;
-        case r'goldTierBonusPerKm':
+        case r'bronzeSupervisorDeductionAmount':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(num),
           ) as num;
-          result.goldTierBonusPerKm = valueDes;
+          result.bronzeSupervisorDeductionAmount = valueDes;
           break;
         case r'driverRankingAutoEvalEnabled':
           final valueDes = serializers.deserialize(

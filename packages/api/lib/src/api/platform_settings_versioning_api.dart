@@ -777,7 +777,7 @@ class PlatformSettingsVersioningApi {
     );
   }
 
-  /// Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|van|truck)
+  /// Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|minibus|tuk_tuk|quarter_truck|half_truck)
   /// 
   ///
   /// Parameters:

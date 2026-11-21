@@ -11,6 +11,7 @@ import 'package:core/core.dart'
         OrderActivityHelper,
         OrderTypeHelper,
         SocketEvent,
+        VehicleTypeHelper,
         orderRevisionOf,
         orderRevisionTrackerProvider;
 import 'package:go_router/go_router.dart';
@@ -836,9 +837,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   size: 42,
                   borderRadius: orderType.isRide ? null : 10,
                   fallbackIcon: orderType.isRide
-                      ? Icons.directions_car_filled_rounded
+                      ? VehicleTypeHelper.icon(
+                          assignedDriver?['vehicleType']?.toString() ??
+                              order['requestedVehicleType']?.toString(),
+                        )
                       : (orderType.isCustomDelivery
-                          ? Icons.local_shipping_rounded
+                          ? VehicleTypeHelper.icon(
+                              assignedDriver?['vehicleType']?.toString() ??
+                                  order['requestedVehicleType']?.toString(),
+                            )
                           : Icons.storefront_rounded),
                   fallbackIconSize: 20,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
@@ -1060,7 +1067,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                       imageUrl: ImageUtils.formatImageUrl(driverAvatar),
                       size: 28,
                       fallbackIcon: orderType.isRide
-                          ? Icons.directions_car_filled_rounded
+                          ? VehicleTypeHelper.icon(
+                              assignedDriver['vehicleType']?.toString() ??
+                                  order['requestedVehicleType']?.toString(),
+                            )
                           : Icons.person_rounded,
                       fallbackIconSize: 15,
                     ),
@@ -1071,6 +1081,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                           if (assignedDriver['name']?.toString().trim().isNotEmpty ??
                               false)
                             assignedDriver['name'].toString().trim(),
+                          if (assignedDriver['vehicleType']
+                                  ?.toString()
+                                  .trim()
+                                  .isNotEmpty ??
+                              false)
+                            VehicleTypeHelper.label(
+                              assignedDriver['vehicleType'].toString(),
+                              isArabic: s.isArabic,
+                            ),
                           if (assignedDriver['vehiclePlate']
                                   ?.toString()
                                   .trim()

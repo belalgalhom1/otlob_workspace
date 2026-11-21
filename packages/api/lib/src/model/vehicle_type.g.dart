@@ -9,9 +9,11 @@ part of 'vehicle_type.dart';
 const VehicleType _$BICYCLE = const VehicleType._('BICYCLE');
 const VehicleType _$MOTORCYCLE = const VehicleType._('MOTORCYCLE');
 const VehicleType _$CAR = const VehicleType._('CAR');
-const VehicleType _$VAN = const VehicleType._('VAN');
-const VehicleType _$TRUCK = const VehicleType._('TRUCK');
+const VehicleType _$MINIBUS = const VehicleType._('MINIBUS');
+const VehicleType _$TUK_TUK = const VehicleType._('TUK_TUK');
 const VehicleType _$MOTOR_TRICYCLE = const VehicleType._('MOTOR_TRICYCLE');
+const VehicleType _$QUARTER_TRUCK = const VehicleType._('QUARTER_TRUCK');
+const VehicleType _$HALF_TRUCK = const VehicleType._('HALF_TRUCK');
 
 VehicleType _$valueOf(String name) {
   switch (name) {
@@ -21,36 +23,43 @@ VehicleType _$valueOf(String name) {
       return _$MOTORCYCLE;
     case 'CAR':
       return _$CAR;
-    case 'VAN':
-      return _$VAN;
-    case 'TRUCK':
-      return _$TRUCK;
+    case 'MINIBUS':
+      return _$MINIBUS;
+    case 'TUK_TUK':
+      return _$TUK_TUK;
     case 'MOTOR_TRICYCLE':
       return _$MOTOR_TRICYCLE;
+    case 'QUARTER_TRUCK':
+      return _$QUARTER_TRUCK;
+    case 'HALF_TRUCK':
+      return _$HALF_TRUCK;
     default:
       throw ArgumentError(name);
   }
 }
 
-final BuiltSet<VehicleType> _$values = BuiltSet<VehicleType>(
-  const <VehicleType>[
-    _$BICYCLE,
-    _$MOTORCYCLE,
-    _$CAR,
-    _$VAN,
-    _$TRUCK,
-    _$MOTOR_TRICYCLE,
-  ],
-);
+final BuiltSet<VehicleType> _$values =
+    BuiltSet<VehicleType>(const <VehicleType>[
+      _$BICYCLE,
+      _$MOTORCYCLE,
+      _$CAR,
+      _$MINIBUS,
+      _$TUK_TUK,
+      _$MOTOR_TRICYCLE,
+      _$QUARTER_TRUCK,
+      _$HALF_TRUCK,
+    ]);
 
 class _$VehicleTypeMeta {
   const _$VehicleTypeMeta();
   VehicleType get BICYCLE => _$BICYCLE;
   VehicleType get MOTORCYCLE => _$MOTORCYCLE;
   VehicleType get CAR => _$CAR;
-  VehicleType get VAN => _$VAN;
-  VehicleType get TRUCK => _$TRUCK;
+  VehicleType get MINIBUS => _$MINIBUS;
+  VehicleType get TUK_TUK => _$TUK_TUK;
   VehicleType get MOTOR_TRICYCLE => _$MOTOR_TRICYCLE;
+  VehicleType get QUARTER_TRUCK => _$QUARTER_TRUCK;
+  VehicleType get HALF_TRUCK => _$HALF_TRUCK;
   VehicleType valueOf(String name) => _$valueOf(name);
   BuiltSet<VehicleType> get values => _$values;
 }
@@ -67,17 +76,21 @@ class _$VehicleTypeSerializer implements PrimitiveSerializer<VehicleType> {
     'BICYCLE': 'BICYCLE',
     'MOTORCYCLE': 'MOTORCYCLE',
     'CAR': 'CAR',
-    'VAN': 'VAN',
-    'TRUCK': 'TRUCK',
+    'MINIBUS': 'MINIBUS',
+    'TUK_TUK': 'TUK_TUK',
     'MOTOR_TRICYCLE': 'MOTOR_TRICYCLE',
+    'QUARTER_TRUCK': 'QUARTER_TRUCK',
+    'HALF_TRUCK': 'HALF_TRUCK',
   };
   static const Map<Object, String> _fromWire = const <Object, String>{
     'BICYCLE': 'BICYCLE',
     'MOTORCYCLE': 'MOTORCYCLE',
     'CAR': 'CAR',
-    'VAN': 'VAN',
-    'TRUCK': 'TRUCK',
+    'MINIBUS': 'MINIBUS',
+    'TUK_TUK': 'TUK_TUK',
     'MOTOR_TRICYCLE': 'MOTOR_TRICYCLE',
+    'QUARTER_TRUCK': 'QUARTER_TRUCK',
+    'HALF_TRUCK': 'HALF_TRUCK',
   };
 
   @override

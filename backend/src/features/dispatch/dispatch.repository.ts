@@ -28,6 +28,7 @@ export interface DispatchBroadcastPayload {
   orderId: string;
   deliveryGroupId: string;
   type: OrderType;
+  requestedVehicleType?: string | null;
   candidates: DispatchCandidateOffer[];
   expiresAt: string;
   pickupLocationName?: string;

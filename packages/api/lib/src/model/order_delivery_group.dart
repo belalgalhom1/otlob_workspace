@@ -4,6 +4,7 @@
 
 // ignore_for_file: unused_element
 import 'package:built_collection/built_collection.dart';
+import 'package:api/src/model/driver_tier.dart';
 import 'package:api/src/model/driver.dart';
 import 'package:api/src/model/delivery_group_status.dart';
 import 'package:api/src/model/order_delivery_group_item.dart';
@@ -32,6 +33,13 @@ part 'order_delivery_group.g.dart';
 /// * [assignedAt] 
 /// * [distanceKm] 
 /// * [deliveryFee] 
+/// * [goldSurchargeAmount] 
+/// * [primaryDriverTierSnapshot] 
+/// * [settledGoldBonusAmount] 
+/// * [settledGoldPlatformRetainedAmount] 
+/// * [settledBronzeDriverDeduction] 
+/// * [settledBronzeSupervisorDeduction] 
+/// * [settledPrimaryManagerId] 
 /// * [estimatedPrepTime] 
 /// * [pickupImageUrl] 
 /// * [deliveryImageUrl] 
@@ -93,6 +101,28 @@ abstract class OrderDeliveryGroup implements Built<OrderDeliveryGroup, OrderDeli
 
   @BuiltValueField(wireName: r'deliveryFee')
   num get deliveryFee;
+
+  @BuiltValueField(wireName: r'goldSurchargeAmount')
+  num get goldSurchargeAmount;
+
+  @BuiltValueField(wireName: r'primaryDriverTierSnapshot')
+  DriverTier? get primaryDriverTierSnapshot;
+  // enum primaryDriverTierSnapshotEnum {  BRONZE,  SILVER,  GOLD,  };
+
+  @BuiltValueField(wireName: r'settledGoldBonusAmount')
+  num get settledGoldBonusAmount;
+
+  @BuiltValueField(wireName: r'settledGoldPlatformRetainedAmount')
+  num get settledGoldPlatformRetainedAmount;
+
+  @BuiltValueField(wireName: r'settledBronzeDriverDeduction')
+  num get settledBronzeDriverDeduction;
+
+  @BuiltValueField(wireName: r'settledBronzeSupervisorDeduction')
+  num get settledBronzeSupervisorDeduction;
+
+  @BuiltValueField(wireName: r'settledPrimaryManagerId')
+  String? get settledPrimaryManagerId;
 
   @BuiltValueField(wireName: r'estimatedPrepTime')
   num? get estimatedPrepTime;
@@ -246,6 +276,45 @@ class _$OrderDeliveryGroupSerializer implements PrimitiveSerializer<OrderDeliver
       object.deliveryFee,
       specifiedType: const FullType(num),
     );
+    yield r'goldSurchargeAmount';
+    yield serializers.serialize(
+      object.goldSurchargeAmount,
+      specifiedType: const FullType(num),
+    );
+    if (object.primaryDriverTierSnapshot != null) {
+      yield r'primaryDriverTierSnapshot';
+      yield serializers.serialize(
+        object.primaryDriverTierSnapshot,
+        specifiedType: const FullType(DriverTier),
+      );
+    }
+    yield r'settledGoldBonusAmount';
+    yield serializers.serialize(
+      object.settledGoldBonusAmount,
+      specifiedType: const FullType(num),
+    );
+    yield r'settledGoldPlatformRetainedAmount';
+    yield serializers.serialize(
+      object.settledGoldPlatformRetainedAmount,
+      specifiedType: const FullType(num),
+    );
+    yield r'settledBronzeDriverDeduction';
+    yield serializers.serialize(
+      object.settledBronzeDriverDeduction,
+      specifiedType: const FullType(num),
+    );
+    yield r'settledBronzeSupervisorDeduction';
+    yield serializers.serialize(
+      object.settledBronzeSupervisorDeduction,
+      specifiedType: const FullType(num),
+    );
+    if (object.settledPrimaryManagerId != null) {
+      yield r'settledPrimaryManagerId';
+      yield serializers.serialize(
+        object.settledPrimaryManagerId,
+        specifiedType: const FullType(String),
+      );
+    }
     if (object.estimatedPrepTime != null) {
       yield r'estimatedPrepTime';
       yield serializers.serialize(
@@ -443,6 +512,55 @@ class _$OrderDeliveryGroupSerializer implements PrimitiveSerializer<OrderDeliver
             specifiedType: const FullType(num),
           ) as num;
           result.deliveryFee = valueDes;
+          break;
+        case r'goldSurchargeAmount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.goldSurchargeAmount = valueDes;
+          break;
+        case r'primaryDriverTierSnapshot':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DriverTier),
+          ) as DriverTier;
+          result.primaryDriverTierSnapshot = valueDes;
+          break;
+        case r'settledGoldBonusAmount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledGoldBonusAmount = valueDes;
+          break;
+        case r'settledGoldPlatformRetainedAmount':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledGoldPlatformRetainedAmount = valueDes;
+          break;
+        case r'settledBronzeDriverDeduction':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledBronzeDriverDeduction = valueDes;
+          break;
+        case r'settledBronzeSupervisorDeduction':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.settledBronzeSupervisorDeduction = valueDes;
+          break;
+        case r'settledPrimaryManagerId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.settledPrimaryManagerId = valueDes;
           break;
         case r'estimatedPrepTime':
           final valueDes = serializers.deserialize(

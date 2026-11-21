@@ -369,12 +369,20 @@ class InDriveVehiclePainter extends CustomPainter {
       case 'CAR':
         _paintCar(canvas);
         break;
+      case 'MINIBUS':
+        _paintMinibus(canvas);
+        break;
+      case 'TUK_TUK':
+        _paintTukTuk(canvas);
+        break;
       case 'BICYCLE':
         _paintBicycle(canvas);
         break;
-      case 'VAN':
-      case 'TRUCK':
-        _paintVan(canvas);
+      case 'QUARTER_TRUCK':
+        _paintPickupTruck(canvas, isHalfTon: false);
+        break;
+      case 'HALF_TRUCK':
+        _paintPickupTruck(canvas, isHalfTon: true);
         break;
       case 'MOTOR_TRICYCLE':
         _paintMotorTricycle(canvas);
@@ -821,10 +829,10 @@ class InDriveVehiclePainter extends CustomPainter {
     canvas.drawCircle(const Offset(0, 16), 1.5, _taillightPaint);
   }
 
-  void _paintVan(Canvas canvas) {
+  void _paintMinibus(Canvas canvas) {
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        const Rect.fromLTWH(-15, -26, 30, 56),
+        const Rect.fromLTWH(-15.5, -27, 31, 58),
         const Radius.circular(8),
       ),
       _shadowInnerPaint,
@@ -848,42 +856,286 @@ class InDriveVehiclePainter extends CustomPainter {
       canvas.drawPath(_path, _headlightBeamPaint);
     }
 
-    canvas.drawRect(const Rect.fromLTWH(-17, -13, 4, 3), _mirrorPaint);
-    canvas.drawRect(const Rect.fromLTWH(13, -13, 4, 3), _mirrorPaint);
+    canvas.drawRect(const Rect.fromLTWH(-17.5, -14, 4, 3), _mirrorPaint);
+    canvas.drawRect(const Rect.fromLTWH(13.5, -14, 4, 3), _mirrorPaint);
 
     _path.reset();
-    _path.moveTo(-13, -24);
-    _path.quadraticBezierTo(0, -27, 13, -24);
-    _path.lineTo(13, 27);
-    _path.lineTo(-13, 27);
+    _path.moveTo(-13.5, -25);
+    _path.quadraticBezierTo(0, -28, 13.5, -25);
+    _path.lineTo(13.5, 28);
+    _path.quadraticBezierTo(0, 29.5, -13.5, 28);
     _path.close();
     canvas.drawPath(_path, _carBodyPaint);
     canvas.drawPath(_path, _carBodyStroke);
 
+    // Wide panoramic front windshield
     _path.reset();
-    _path.moveTo(-10.5, -15);
-    _path.lineTo(10.5, -15);
-    _path.lineTo(11.5, -7);
-    _path.lineTo(-11.5, -7);
+    _path.moveTo(-11, -18);
+    _path.lineTo(11, -18);
+    _path.lineTo(11.8, -10);
+    _path.lineTo(-11.8, -10);
     _path.close();
     canvas.drawPath(_path, _glassPaint);
-    canvas.drawLine(const Offset(-5, -13), const Offset(2, -8), _glassHighlightPaint);
+    canvas.drawLine(const Offset(-5, -16), const Offset(3, -11), _glassHighlightPaint);
 
-    final divPaint = Paint()
-      ..color = const Color(0xFFCBD5E1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawLine(const Offset(-13, -2), const Offset(13, -2), divPaint);
+    // Side passenger windows & roof AC hatch
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-12.5, -6, 2.2, 26),
+        const Radius.circular(1),
+      ),
+      _glassPaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(10.3, -6, 2.2, 26),
+        const Radius.circular(1),
+      ),
+      _glassPaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-6, -2, 12, 9),
+        const Radius.circular(2.5),
+      ),
+      _carBodyStroke,
+    );
 
     final stripe = Paint()
       ..color = primaryColor
       ..style = PaintingStyle.fill;
-    canvas.drawRect(const Rect.fromLTWH(-13, 10, 26, 4), stripe);
+    canvas.drawRect(const Rect.fromLTWH(-13.5, 13, 27, 4), stripe);
 
-    canvas.drawRect(const Rect.fromLTWH(-12, -26, 4, 2.5), _headlightPaint);
-    canvas.drawRect(const Rect.fromLTWH(8, -26, 4, 2.5), _headlightPaint);
-    canvas.drawRect(const Rect.fromLTWH(-12.5, 25.5, 3.5, 2), _taillightPaint);
-    canvas.drawRect(const Rect.fromLTWH(9, 25.5, 3.5, 2), _taillightPaint);
+    // Rear window
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-9.5, 22, 19, 3.5),
+        const Radius.circular(1),
+      ),
+      _glassPaint,
+    );
+
+    canvas.drawRect(const Rect.fromLTWH(-12, -26.5, 4, 2.5), _headlightPaint);
+    canvas.drawRect(const Rect.fromLTWH(8, -26.5, 4, 2.5), _headlightPaint);
+    canvas.drawRect(const Rect.fromLTWH(-12.5, 26.5, 3.5, 2), _taillightPaint);
+    canvas.drawRect(const Rect.fromLTWH(9, 26.5, 3.5, 2), _taillightPaint);
+  }
+
+  void _paintTukTuk(Canvas canvas) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-13, -21, 26, 44),
+        const Radius.circular(10),
+      ),
+      _shadowInnerPaint,
+    );
+
+    if (showHeadlightGlow) {
+      _path.reset();
+      _path.moveTo(-4, -22);
+      _path.lineTo(-11, -44);
+      _path.lineTo(11, -44);
+      _path.lineTo(4, -22);
+      _path.close();
+      canvas.drawPath(_path, _headlightBeamPaint);
+    }
+
+    // Single front wheel + two rear wheels
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-2.5, -22, 5, 9),
+        const Radius.circular(2),
+      ),
+      _tirePaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-13.5, 9, 3.5, 10),
+        const Radius.circular(1.5),
+      ),
+      _tirePaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(10, 9, 3.5, 10),
+        const Radius.circular(1.5),
+      ),
+      _tirePaint,
+    );
+
+    // Tapered 3-wheel canopy body
+    _path.reset();
+    _path.moveTo(-6, -18);
+    _path.quadraticBezierTo(0, -21, 6, -18);
+    _path.lineTo(11.5, -5);
+    _path.lineTo(11.5, 19);
+    _path.quadraticBezierTo(0, 21.5, -11.5, 19);
+    _path.lineTo(-11.5, -5);
+    _path.close();
+    final canopyPaint = Paint()
+      ..color = primaryColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(_path, canopyPaint);
+    canvas.drawPath(_path, _carBodyStroke);
+
+    // Curved front windshield
+    _path.reset();
+    _path.moveTo(-7.5, -11);
+    _path.quadraticBezierTo(0, -14, 7.5, -11);
+    _path.lineTo(9, -5.5);
+    _path.lineTo(-9, -5.5);
+    _path.close();
+    canvas.drawPath(_path, _glassPaint);
+
+    // Canopy roof panel accent
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-8.5, -2, 17, 17),
+        const Radius.circular(3),
+      ),
+      _carBodyPaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-8.5, -2, 17, 17),
+        const Radius.circular(3),
+      ),
+      _carBodyStroke,
+    );
+
+    // Central headlight + dual taillights
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-3, -20, 6, 2.5),
+        const Radius.circular(1),
+      ),
+      _headlightPaint,
+    );
+    canvas.drawRect(const Rect.fromLTWH(-9.5, 18.5, 3.5, 2), _taillightPaint);
+    canvas.drawRect(const Rect.fromLTWH(6, 18.5, 3.5, 2), _taillightPaint);
+  }
+
+  void _paintPickupTruck(Canvas canvas, {required bool isHalfTon}) {
+    final halfWidth = isHalfTon ? 15.0 : 13.5;
+    final bodyTop = isHalfTon ? -26.0 : -24.0;
+    final bodyBottom = isHalfTon ? 28.5 : 25.5;
+    final bedTop = isHalfTon ? -1.0 : 1.0;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(
+          -halfWidth - 2,
+          bodyTop - 1,
+          halfWidth + 2,
+          bodyBottom + 2,
+        ),
+        const Radius.circular(7),
+      ),
+      _shadowInnerPaint,
+    );
+
+    if (showHeadlightGlow) {
+      _path.reset();
+      _path.moveTo(-halfWidth + 2, bodyTop);
+      _path.lineTo(-halfWidth - 5, bodyTop - 24);
+      _path.lineTo(-4, bodyTop - 24);
+      _path.lineTo(-7, bodyTop);
+      _path.close();
+      canvas.drawPath(_path, _headlightBeamPaint);
+
+      _path.reset();
+      _path.moveTo(7, bodyTop);
+      _path.lineTo(4, bodyTop - 24);
+      _path.lineTo(halfWidth + 5, bodyTop - 24);
+      _path.lineTo(halfWidth - 2, bodyTop);
+      _path.close();
+      canvas.drawPath(_path, _headlightBeamPaint);
+    }
+
+    canvas.drawRect(Rect.fromLTWH(-halfWidth - 3.5, -13, 3.5, 3), _mirrorPaint);
+    canvas.drawRect(Rect.fromLTWH(halfWidth, -13, 3.5, 3), _mirrorPaint);
+
+    // Front cab
+    _path.reset();
+    _path.moveTo(-halfWidth, bodyTop + 2);
+    _path.quadraticBezierTo(0, bodyTop - 2, halfWidth, bodyTop + 2);
+    _path.lineTo(halfWidth, bedTop);
+    _path.lineTo(-halfWidth, bedTop);
+    _path.close();
+    canvas.drawPath(_path, _carBodyPaint);
+    canvas.drawPath(_path, _carBodyStroke);
+
+    // Windshield
+    _path.reset();
+    _path.moveTo(-halfWidth + 2.5, bodyTop + 8);
+    _path.lineTo(halfWidth - 2.5, bodyTop + 8);
+    _path.lineTo(halfWidth - 1.5, bodyTop + 15.5);
+    _path.lineTo(-halfWidth + 1.5, bodyTop + 15.5);
+    _path.close();
+    canvas.drawPath(_path, _glassPaint);
+    canvas.drawLine(
+      Offset(-4.5, bodyTop + 10),
+      Offset(2.5, bodyTop + 14.5),
+      _glassHighlightPaint,
+    );
+
+    // Open pickup cargo bed
+    final bedOuter = RRect.fromRectAndRadius(
+      Rect.fromLTRB(-halfWidth, bedTop, halfWidth, bodyBottom),
+      const Radius.circular(2.5),
+    );
+    final bedFill = Paint()
+      ..color = primaryColor
+      ..style = PaintingStyle.fill;
+    final bedBorder = Paint()
+      ..color = const Color(0xFF92400E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawRRect(bedOuter, bedFill);
+    canvas.drawRRect(bedOuter, bedBorder);
+
+    // Inner bed floor + structural ribs
+    final innerBed = Rect.fromLTRB(
+      -halfWidth + 2.5,
+      bedTop + 2.5,
+      halfWidth - 2.5,
+      bodyBottom - 2.5,
+    );
+    final innerFloorPaint = Paint()
+      ..color = const Color(0xFF1E293B).withValues(alpha: 0.25)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(innerBed, innerFloorPaint);
+
+    final ribPaint = Paint()
+      ..color = const Color(0xFF0F172A).withValues(alpha: 0.28)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    final ribCount = isHalfTon ? 3 : 2;
+    for (var i = 1; i <= ribCount; i++) {
+      final y = bedTop + ((bodyBottom - bedTop) * i / (ribCount + 1));
+      canvas.drawLine(
+        Offset(-halfWidth + 3, y),
+        Offset(halfWidth - 3, y),
+        ribPaint,
+      );
+    }
+
+    canvas.drawRect(
+      Rect.fromLTWH(-halfWidth + 1, bodyTop, 4, 2.5),
+      _headlightPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(halfWidth - 5, bodyTop, 4, 2.5),
+      _headlightPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(-halfWidth + 1, bodyBottom - 2, 3.5, 2),
+      _taillightPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(halfWidth - 4.5, bodyBottom - 2, 3.5, 2),
+      _taillightPaint,
+    );
   }
 
   void _paintMotorTricycle(Canvas canvas) {

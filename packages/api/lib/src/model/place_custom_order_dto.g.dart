@@ -68,14 +68,20 @@ const PlaceCustomOrderDtoVehicleTypeEnum
 _$placeCustomOrderDtoVehicleTypeEnum_CAR =
     const PlaceCustomOrderDtoVehicleTypeEnum._('CAR');
 const PlaceCustomOrderDtoVehicleTypeEnum
-_$placeCustomOrderDtoVehicleTypeEnum_VAN =
-    const PlaceCustomOrderDtoVehicleTypeEnum._('VAN');
+_$placeCustomOrderDtoVehicleTypeEnum_MINIBUS =
+    const PlaceCustomOrderDtoVehicleTypeEnum._('MINIBUS');
 const PlaceCustomOrderDtoVehicleTypeEnum
-_$placeCustomOrderDtoVehicleTypeEnum_TRUCK =
-    const PlaceCustomOrderDtoVehicleTypeEnum._('TRUCK');
+_$placeCustomOrderDtoVehicleTypeEnum_TUK_TUK =
+    const PlaceCustomOrderDtoVehicleTypeEnum._('TUK_TUK');
 const PlaceCustomOrderDtoVehicleTypeEnum
 _$placeCustomOrderDtoVehicleTypeEnum_MOTOR_TRICYCLE =
     const PlaceCustomOrderDtoVehicleTypeEnum._('MOTOR_TRICYCLE');
+const PlaceCustomOrderDtoVehicleTypeEnum
+_$placeCustomOrderDtoVehicleTypeEnum_QUARTER_TRUCK =
+    const PlaceCustomOrderDtoVehicleTypeEnum._('QUARTER_TRUCK');
+const PlaceCustomOrderDtoVehicleTypeEnum
+_$placeCustomOrderDtoVehicleTypeEnum_HALF_TRUCK =
+    const PlaceCustomOrderDtoVehicleTypeEnum._('HALF_TRUCK');
 
 PlaceCustomOrderDtoVehicleTypeEnum _$placeCustomOrderDtoVehicleTypeEnumValueOf(
   String name,
@@ -87,12 +93,16 @@ PlaceCustomOrderDtoVehicleTypeEnum _$placeCustomOrderDtoVehicleTypeEnumValueOf(
       return _$placeCustomOrderDtoVehicleTypeEnum_MOTORCYCLE;
     case 'CAR':
       return _$placeCustomOrderDtoVehicleTypeEnum_CAR;
-    case 'VAN':
-      return _$placeCustomOrderDtoVehicleTypeEnum_VAN;
-    case 'TRUCK':
-      return _$placeCustomOrderDtoVehicleTypeEnum_TRUCK;
+    case 'MINIBUS':
+      return _$placeCustomOrderDtoVehicleTypeEnum_MINIBUS;
+    case 'TUK_TUK':
+      return _$placeCustomOrderDtoVehicleTypeEnum_TUK_TUK;
     case 'MOTOR_TRICYCLE':
       return _$placeCustomOrderDtoVehicleTypeEnum_MOTOR_TRICYCLE;
+    case 'QUARTER_TRUCK':
+      return _$placeCustomOrderDtoVehicleTypeEnum_QUARTER_TRUCK;
+    case 'HALF_TRUCK':
+      return _$placeCustomOrderDtoVehicleTypeEnum_HALF_TRUCK;
     default:
       throw ArgumentError(name);
   }
@@ -105,9 +115,11 @@ _$placeCustomOrderDtoVehicleTypeEnumValues =
         _$placeCustomOrderDtoVehicleTypeEnum_BICYCLE,
         _$placeCustomOrderDtoVehicleTypeEnum_MOTORCYCLE,
         _$placeCustomOrderDtoVehicleTypeEnum_CAR,
-        _$placeCustomOrderDtoVehicleTypeEnum_VAN,
-        _$placeCustomOrderDtoVehicleTypeEnum_TRUCK,
+        _$placeCustomOrderDtoVehicleTypeEnum_MINIBUS,
+        _$placeCustomOrderDtoVehicleTypeEnum_TUK_TUK,
         _$placeCustomOrderDtoVehicleTypeEnum_MOTOR_TRICYCLE,
+        _$placeCustomOrderDtoVehicleTypeEnum_QUARTER_TRUCK,
+        _$placeCustomOrderDtoVehicleTypeEnum_HALF_TRUCK,
       ],
     );
 
@@ -195,17 +207,21 @@ class _$PlaceCustomOrderDtoVehicleTypeEnumSerializer
     'BICYCLE': 'BICYCLE',
     'MOTORCYCLE': 'MOTORCYCLE',
     'CAR': 'CAR',
-    'VAN': 'VAN',
-    'TRUCK': 'TRUCK',
+    'MINIBUS': 'MINIBUS',
+    'TUK_TUK': 'TUK_TUK',
     'MOTOR_TRICYCLE': 'MOTOR_TRICYCLE',
+    'QUARTER_TRUCK': 'QUARTER_TRUCK',
+    'HALF_TRUCK': 'HALF_TRUCK',
   };
   static const Map<Object, String> _fromWire = const <Object, String>{
     'BICYCLE': 'BICYCLE',
     'MOTORCYCLE': 'MOTORCYCLE',
     'CAR': 'CAR',
-    'VAN': 'VAN',
-    'TRUCK': 'TRUCK',
+    'MINIBUS': 'MINIBUS',
+    'TUK_TUK': 'TUK_TUK',
     'MOTOR_TRICYCLE': 'MOTOR_TRICYCLE',
+    'QUARTER_TRUCK': 'QUARTER_TRUCK',
+    'HALF_TRUCK': 'HALF_TRUCK',
   };
 
   @override

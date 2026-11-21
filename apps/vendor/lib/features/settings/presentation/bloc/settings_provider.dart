@@ -124,9 +124,11 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('pricePerKmBicycle')) b.pricePerKmBicycle = parseNum(settings['pricePerKmBicycle']);
       if (settings.containsKey('pricePerKmMotorcycle')) b.pricePerKmMotorcycle = parseNum(settings['pricePerKmMotorcycle']);
       if (settings.containsKey('pricePerKmCar')) b.pricePerKmCar = parseNum(settings['pricePerKmCar']);
-      if (settings.containsKey('pricePerKmVan')) b.pricePerKmVan = parseNum(settings['pricePerKmVan']);
-      if (settings.containsKey('pricePerKmTruck')) b.pricePerKmTruck = parseNum(settings['pricePerKmTruck']);
+      if (settings.containsKey('pricePerKmMinibus')) b.pricePerKmMinibus = parseNum(settings['pricePerKmMinibus']);
+      if (settings.containsKey('pricePerKmTukTuk')) b.pricePerKmTukTuk = parseNum(settings['pricePerKmTukTuk']);
       if (settings.containsKey('pricePerKmMotorTricycle')) b.pricePerKmMotorTricycle = parseNum(settings['pricePerKmMotorTricycle']);
+      if (settings.containsKey('pricePerKmQuarterTruck')) b.pricePerKmQuarterTruck = parseNum(settings['pricePerKmQuarterTruck']);
+      if (settings.containsKey('pricePerKmHalfTruck')) b.pricePerKmHalfTruck = parseNum(settings['pricePerKmHalfTruck']);
       if (settings.containsKey('maxDeliveryFee')) b.maxDeliveryFee = parseNum(settings['maxDeliveryFee']);
       if (settings.containsKey('minDeliveryFee')) b.minDeliveryFee = parseNum(settings['minDeliveryFee']);
       if (settings.containsKey('minDeliveryFeeBicycle')) b.minDeliveryFeeBicycle = parseNum(settings['minDeliveryFeeBicycle']);
@@ -135,12 +137,16 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('maxDeliveryFeeMotorcycle')) b.maxDeliveryFeeMotorcycle = parseNum(settings['maxDeliveryFeeMotorcycle']);
       if (settings.containsKey('minDeliveryFeeCar')) b.minDeliveryFeeCar = parseNum(settings['minDeliveryFeeCar']);
       if (settings.containsKey('maxDeliveryFeeCar')) b.maxDeliveryFeeCar = parseNum(settings['maxDeliveryFeeCar']);
-      if (settings.containsKey('minDeliveryFeeVan')) b.minDeliveryFeeVan = parseNum(settings['minDeliveryFeeVan']);
-      if (settings.containsKey('maxDeliveryFeeVan')) b.maxDeliveryFeeVan = parseNum(settings['maxDeliveryFeeVan']);
-      if (settings.containsKey('minDeliveryFeeTruck')) b.minDeliveryFeeTruck = parseNum(settings['minDeliveryFeeTruck']);
-      if (settings.containsKey('maxDeliveryFeeTruck')) b.maxDeliveryFeeTruck = parseNum(settings['maxDeliveryFeeTruck']);
+      if (settings.containsKey('minDeliveryFeeMinibus')) b.minDeliveryFeeMinibus = parseNum(settings['minDeliveryFeeMinibus']);
+      if (settings.containsKey('maxDeliveryFeeMinibus')) b.maxDeliveryFeeMinibus = parseNum(settings['maxDeliveryFeeMinibus']);
+      if (settings.containsKey('minDeliveryFeeTukTuk')) b.minDeliveryFeeTukTuk = parseNum(settings['minDeliveryFeeTukTuk']);
+      if (settings.containsKey('maxDeliveryFeeTukTuk')) b.maxDeliveryFeeTukTuk = parseNum(settings['maxDeliveryFeeTukTuk']);
       if (settings.containsKey('minDeliveryFeeMotorTricycle')) b.minDeliveryFeeMotorTricycle = parseNum(settings['minDeliveryFeeMotorTricycle']);
       if (settings.containsKey('maxDeliveryFeeMotorTricycle')) b.maxDeliveryFeeMotorTricycle = parseNum(settings['maxDeliveryFeeMotorTricycle']);
+      if (settings.containsKey('minDeliveryFeeQuarterTruck')) b.minDeliveryFeeQuarterTruck = parseNum(settings['minDeliveryFeeQuarterTruck']);
+      if (settings.containsKey('maxDeliveryFeeQuarterTruck')) b.maxDeliveryFeeQuarterTruck = parseNum(settings['maxDeliveryFeeQuarterTruck']);
+      if (settings.containsKey('minDeliveryFeeHalfTruck')) b.minDeliveryFeeHalfTruck = parseNum(settings['minDeliveryFeeHalfTruck']);
+      if (settings.containsKey('maxDeliveryFeeHalfTruck')) b.maxDeliveryFeeHalfTruck = parseNum(settings['maxDeliveryFeeHalfTruck']);
       if (settings.containsKey('minOrderKm')) b.minOrderKm = parseNum(settings['minOrderKm']);
       if (settings.containsKey('minDistanceFixedPrice')) b.minDistanceFixedPrice = parseNum(settings['minDistanceFixedPrice']);
       if (settings.containsKey('maxDeliveryRadiusKm')) b.maxDeliveryRadiusKm = parseNum(settings['maxDeliveryRadiusKm']);
@@ -208,18 +214,20 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('highValueOrderThreshold')) b.highValueOrderThreshold = parseNum(settings['highValueOrderThreshold']);
       if (settings.containsKey('highValueUpfrontRate')) b.highValueUpfrontRate = parseNum(settings['highValueUpfrontRate']);
       if (settings.containsKey('driverShiftsEnabled')) b.driverShiftsEnabled = parseBool(settings['driverShiftsEnabled']);
-      if (settings.containsKey('bronzeTierBonusPerKm')) b.bronzeTierBonusPerKm = parseNum(settings['bronzeTierBonusPerKm']);
-      if (settings.containsKey('silverTierBonusPerKm')) b.silverTierBonusPerKm = parseNum(settings['silverTierBonusPerKm']);
-      if (settings.containsKey('goldTierBonusPerKm')) b.goldTierBonusPerKm = parseNum(settings['goldTierBonusPerKm']);
+      if (settings.containsKey('goldTierBonusPerOrder')) b.goldTierBonusPerOrder = parseNum(settings['goldTierBonusPerOrder']);
+      if (settings.containsKey('bronzeTierDeductionAmount')) b.bronzeTierDeductionAmount = parseNum(settings['bronzeTierDeductionAmount']);
+      if (settings.containsKey('bronzeSupervisorDeductionAmount')) b.bronzeSupervisorDeductionAmount = parseNum(settings['bronzeSupervisorDeductionAmount']);
       if (settings.containsKey('driverSettlementOrderThreshold')) b.driverSettlementOrderThreshold = parseNum(settings['driverSettlementOrderThreshold']);
       if (settings.containsKey('driverRankingAutoEvalEnabled')) b.driverRankingAutoEvalEnabled = parseBool(settings['driverRankingAutoEvalEnabled']);
       if (settings.containsKey('driverRankingEvalTime')) b.driverRankingEvalTime = settings['driverRankingEvalTime']?.toString().trim();
       if (settings.containsKey('allowBicycle')) b.allowBicycle = parseBool(settings['allowBicycle']);
       if (settings.containsKey('allowMotorcycle')) b.allowMotorcycle = parseBool(settings['allowMotorcycle']);
       if (settings.containsKey('allowCar')) b.allowCar = parseBool(settings['allowCar']);
-      if (settings.containsKey('allowVan')) b.allowVan = parseBool(settings['allowVan']);
-      if (settings.containsKey('allowTruck')) b.allowTruck = parseBool(settings['allowTruck']);
+      if (settings.containsKey('allowMinibus')) b.allowMinibus = parseBool(settings['allowMinibus']);
+      if (settings.containsKey('allowTukTuk')) b.allowTukTuk = parseBool(settings['allowTukTuk']);
       if (settings.containsKey('allowMotorTricycle')) b.allowMotorTricycle = parseBool(settings['allowMotorTricycle']);
+      if (settings.containsKey('allowQuarterTruck')) b.allowQuarterTruck = parseBool(settings['allowQuarterTruck']);
+      if (settings.containsKey('allowHalfTruck')) b.allowHalfTruck = parseBool(settings['allowHalfTruck']);
       if (settings.containsKey('maxActiveOrdersPerCustomer')) b.maxActiveOrdersPerCustomer = parseNum(settings['maxActiveOrdersPerCustomer']);
       if (settings.containsKey('requirePriorDeliveryForMultipleOrders')) b.requirePriorDeliveryForMultipleOrders = parseBool(settings['requirePriorDeliveryForMultipleOrders']);
       if (settings.containsKey('maxOtpAttempts')) b.maxOtpAttempts = parseNum(settings['maxOtpAttempts']);
@@ -245,8 +253,10 @@ class SettingsNotifier extends _$SettingsNotifier {
       await repository.platformSettingsUploadDeliveryBannerIcon(file: file);
     } else if (type == 'bicycle' ||
         type == 'motor_tricycle' ||
-        type == 'van' ||
-        type == 'truck') {
+        type == 'minibus' ||
+        type == 'tuk_tuk' ||
+        type == 'quarter_truck' ||
+        type == 'half_truck') {
       await repository.platformSettingsUploadVehicleIcon(
         vehicleType: type,
         file: file,

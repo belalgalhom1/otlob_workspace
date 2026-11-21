@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:api/api.dart';
-import 'package:core/core.dart' show OrderActivityHelper;
+import 'package:core/core.dart' show OrderActivityHelper, VehicleTypeHelper;
 import 'package:data/providers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -1154,29 +1154,10 @@ _resolvePhaseDisplay(BuildContext context, DriverSearchPhase phase) {
   );
 }
 
-IconData _vehicleIcon(String vehicle) {
-  return switch (vehicle.toUpperCase()) {
-    'BICYCLE' => Icons.pedal_bike_rounded,
-    'MOTORCYCLE' => Icons.two_wheeler_rounded,
-    'CAR' => Icons.directions_car_filled_rounded,
-    'VAN' => Icons.airport_shuttle_rounded,
-    'TRUCK' => Icons.local_shipping_rounded,
-    'MOTOR_TRICYCLE' => Icons.electric_rickshaw_rounded,
-    _ => Icons.local_shipping_outlined,
-  };
-}
+IconData _vehicleIcon(String vehicle) => VehicleTypeHelper.icon(vehicle);
 
-String _localizedVehicleLabel(String vehicle, {required bool isArabic}) {
-  return switch (vehicle.toUpperCase()) {
-    'BICYCLE' => isArabic ? 'دراجة' : 'Bicycle',
-    'MOTORCYCLE' => isArabic ? 'موتوسيكل' : 'Motorcycle',
-    'CAR' => isArabic ? 'سيارة' : 'Car',
-    'VAN' => isArabic ? 'فان' : 'Van',
-    'TRUCK' => isArabic ? 'نقل' : 'Truck',
-    'MOTOR_TRICYCLE' => isArabic ? 'تروسيكل' : 'Tricycle',
-    _ => vehicle,
-  };
-}
+String _localizedVehicleLabel(String vehicle, {required bool isArabic}) =>
+    VehicleTypeHelper.label(vehicle, isArabic: isArabic);
 
 String _localizedPaymentLabel(String method, {required bool isArabic}) {
   return switch (method.toUpperCase()) {

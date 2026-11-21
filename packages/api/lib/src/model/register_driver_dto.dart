@@ -30,7 +30,7 @@ abstract class RegisterDriverDto implements Built<RegisterDriverDto, RegisterDri
 
   @BuiltValueField(wireName: r'vehicleType')
   RegisterDriverDtoVehicleTypeEnum get vehicleType;
-  // enum vehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  VAN,  TRUCK,  MOTOR_TRICYCLE,  };
+  // enum vehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  MINIBUS,  TUK_TUK,  MOTOR_TRICYCLE,  QUARTER_TRUCK,  HALF_TRUCK,  };
 
   @BuiltValueField(wireName: r'vehiclePlate')
   String? get vehiclePlate;
@@ -185,12 +185,16 @@ class RegisterDriverDtoVehicleTypeEnum extends EnumClass {
   static const RegisterDriverDtoVehicleTypeEnum MOTORCYCLE = _$registerDriverDtoVehicleTypeEnum_MOTORCYCLE;
   @BuiltValueEnumConst(wireName: r'CAR')
   static const RegisterDriverDtoVehicleTypeEnum CAR = _$registerDriverDtoVehicleTypeEnum_CAR;
-  @BuiltValueEnumConst(wireName: r'VAN')
-  static const RegisterDriverDtoVehicleTypeEnum VAN = _$registerDriverDtoVehicleTypeEnum_VAN;
-  @BuiltValueEnumConst(wireName: r'TRUCK')
-  static const RegisterDriverDtoVehicleTypeEnum TRUCK = _$registerDriverDtoVehicleTypeEnum_TRUCK;
+  @BuiltValueEnumConst(wireName: r'MINIBUS')
+  static const RegisterDriverDtoVehicleTypeEnum MINIBUS = _$registerDriverDtoVehicleTypeEnum_MINIBUS;
+  @BuiltValueEnumConst(wireName: r'TUK_TUK')
+  static const RegisterDriverDtoVehicleTypeEnum TUK_TUK = _$registerDriverDtoVehicleTypeEnum_TUK_TUK;
   @BuiltValueEnumConst(wireName: r'MOTOR_TRICYCLE')
   static const RegisterDriverDtoVehicleTypeEnum MOTOR_TRICYCLE = _$registerDriverDtoVehicleTypeEnum_MOTOR_TRICYCLE;
+  @BuiltValueEnumConst(wireName: r'QUARTER_TRUCK')
+  static const RegisterDriverDtoVehicleTypeEnum QUARTER_TRUCK = _$registerDriverDtoVehicleTypeEnum_QUARTER_TRUCK;
+  @BuiltValueEnumConst(wireName: r'HALF_TRUCK')
+  static const RegisterDriverDtoVehicleTypeEnum HALF_TRUCK = _$registerDriverDtoVehicleTypeEnum_HALF_TRUCK;
 
   static Serializer<RegisterDriverDtoVehicleTypeEnum> get serializer => _$registerDriverDtoVehicleTypeEnumSerializer;
 

@@ -25,6 +25,13 @@ Name | Type | Description | Notes
 **assignedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **distanceKm** | **num** |  | [optional] 
 **deliveryFee** | **num** |  | 
+**goldSurchargeAmount** | **num** |  | 
+**primaryDriverTierSnapshot** | [**DriverTier**](DriverTier.md) |  | [optional] 
+**settledGoldBonusAmount** | **num** |  | 
+**settledGoldPlatformRetainedAmount** | **num** |  | 
+**settledBronzeDriverDeduction** | **num** |  | 
+**settledBronzeSupervisorDeduction** | **num** |  | 
+**settledPrimaryManagerId** | **String** |  | [optional] 
 **estimatedPrepTime** | **num** |  | [optional] 
 **pickupImageUrl** | **String** |  | [optional] 
 **deliveryImageUrl** | **String** |  | [optional] 

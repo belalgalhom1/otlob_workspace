@@ -1,3 +1,4 @@
+import 'package:core/core.dart' show VehicleTypeHelper;
 import 'package:data/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,15 +30,8 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
   final _passwordController = TextEditingController();
   final _nationalIdController = TextEditingController();
   final _licenseNumberController = TextEditingController();
-  String _selectedVehicleType = 'MOTORCYCLE';
-  static const List<String> _vehicleTypes = [
-    'BICYCLE',
-    'MOTORCYCLE',
-    'CAR',
-    'VAN',
-    'TRUCK',
-    'MOTOR_TRICYCLE',
-  ];
+  String _selectedVehicleType = VehicleTypeHelper.motorcycle;
+  static const List<String> _vehicleTypes = VehicleTypeHelper.allVehicleTypes;
   final _vehiclePlateController = TextEditingController();
   final _tierOverrideReasonController = TextEditingController();
   String _selectedTier = 'BRONZE';
@@ -307,20 +301,11 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
     );
   }
 
-  String _getVehicleTypeTranslation(AppLocalizations l10n, String type) {
-    switch (type) {
-      case 'BICYCLE': return l10n.vehicleTypeBicycle;
-      case 'MOTORCYCLE': return l10n.vehicleTypeMotorcycle;
-      case 'CAR': return l10n.vehicleTypeCar;
-      case 'VAN': return l10n.vehicleTypeVan;
-      case 'TRUCK': return l10n.vehicleTypeTruck;
-      case 'MOTOR_TRICYCLE': return l10n.vehicleTypeMotorTricycle;
-      default: return type;
-    }
-  }
+  String _getVehicleTypeTranslation(String type, {required bool isArabic}) =>
+      VehicleTypeHelper.label(type, isArabic: isArabic);
 
   Widget _buildVehicleTypeDropdown(String label, IconData icon) {
-    final l10n = AppLocalizations.of(context)!;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -342,10 +327,19 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
               icon: icon,
             ),
             items: _vehicleTypes.map((type) {
-              final displayType = _getVehicleTypeTranslation(l10n, type);
+              final displayType =
+                  _getVehicleTypeTranslation(type, isArabic: isAr);
               return DropdownMenuItem(
                 value: type,
-                child: Text(displayType, overflow: TextOverflow.ellipsis),
+                child: Row(
+                  children: [
+                    Icon(driverVehicleIcon(type), size: 17),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(displayType, overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
               );
             }).toList(),
             onChanged: (widget.readOnly || _isLoading)

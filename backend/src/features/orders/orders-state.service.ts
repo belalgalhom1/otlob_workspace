@@ -54,6 +54,8 @@ import {
 import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
 import {
+  buildVehicleAvailabilitySettings,
+  isDriverVehicleEligibleForOrder,
   isValidRegisteredVehicleType,
   isVehicleTypeActiveInSettings,
   STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES,
@@ -527,6 +529,19 @@ export class OrdersStateService {
             OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE,
           );
         }
+        if (
+          (error as Error).message === OrderErrors.DRIVER_VEHICLE_NOT_ELIGIBLE
+        ) {
+          throw new BadRequestException(OrderErrors.DRIVER_VEHICLE_NOT_ELIGIBLE);
+        }
+        if (
+          (error as Error).message ===
+          OrderErrors.VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE
+        ) {
+          throw new BadRequestException(
+            OrderErrors.VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE,
+          );
+        }
         throw error;
       }
     } else {
@@ -598,23 +613,19 @@ export class OrdersStateService {
         allowBicycle: true,
         allowMotorcycle: true,
         allowCar: true,
-        allowVan: true,
-        allowTruck: true,
+        allowMinibus: true,
+        allowTukTuk: true,
         allowMotorTricycle: true,
+        allowQuarterTruck: true,
+        allowHalfTruck: true,
         maxKmForBicycle: true,
       },
     });
 
+    const effectiveSettings = buildVehicleAvailabilitySettings(settings);
+    const orderDistanceKm = Number((order as any).distanceKm ?? 0);
+
     if (order.type === OrderType.STANDARD) {
-      const effectiveSettings = {
-        allowBicycle: settings?.allowBicycle ?? true,
-        allowMotorcycle: settings?.allowMotorcycle ?? true,
-        allowCar: settings?.allowCar ?? true,
-        allowVan: settings?.allowVan ?? true,
-        allowTruck: settings?.allowTruck ?? true,
-        allowMotorTricycle: settings?.allowMotorTricycle ?? true,
-        maxKmForBicycle: settings?.maxKmForBicycle ?? 5.0,
-      };
       if (
         !isValidRegisteredVehicleType(driver.vehicleType) ||
         !STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES.includes(driver.vehicleType) ||
@@ -625,11 +636,25 @@ export class OrdersStateService {
         );
       }
       if (driver.vehicleType === VehicleType.BICYCLE) {
-        const orderDistanceKm = Number((order as any).distanceKm ?? 0);
         const maxBicycleKm = Number(effectiveSettings.maxKmForBicycle ?? 5.0);
         if (orderDistanceKm > maxBicycleKm) {
           throw new BadRequestException(OrderErrors.BICYCLE_DISTANCE_EXCEEDED);
         }
+      }
+    } else if (
+      order.type === OrderType.RIDE ||
+      order.type === OrderType.CUSTOM_DELIVERY
+    ) {
+      if (
+        !isDriverVehicleEligibleForOrder({
+          orderType: order.type,
+          requestedVehicleType: (order as any).requestedVehicleType ?? null,
+          driverVehicleType: driver.vehicleType,
+          orderDistanceKm,
+          settings: effectiveSettings,
+        })
+      ) {
+        throw new BadRequestException(OrderErrors.DRIVER_VEHICLE_NOT_ELIGIBLE);
       }
     }
 

@@ -35,15 +35,17 @@ const BASE_SETTINGS = {
   allowBicycle: true,
   allowMotorcycle: true,
   allowCar: true,
-  allowVan: false,
-  allowTruck: false,
+  allowMinibus: true,
+  allowTukTuk: true,
   allowMotorTricycle: false,
+  allowQuarterTruck: false,
+  allowHalfTruck: false,
   maxKmForBicycle: 5,
   maxActiveOrdersPerCustomer: 3,
 };
 
 describe('OrderSearchService & Custom Delivery Matching Architecture', () => {
-  it('getNearbyDriversPreview forces CAR for RIDE and strips driver PII', async () => {
+  it('getNearbyDriversPreview uses all active RIDE vehicle types when unspecified and strips driver PII', async () => {
     const geoSearch = {
       findNearbyDrivers: jest.fn().mockResolvedValue([
         {
@@ -96,7 +98,7 @@ describe('OrderSearchService & Custom Delivery Matching Architecture', () => {
       30.044,
       3,
       [],
-      ['CAR'],
+      ['MOTORCYCLE', 'CAR', 'MINIBUS', 'TUK_TUK'],
       false,
       null,
     );

@@ -30,9 +30,11 @@ import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface'
 import {
   DeliveryGroupStatus,
   OrderStatus,
+  OrderType,
   OrderVendorFulfillmentStatus,
   PaymentMethod,
   Role,
+  VehicleType,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
@@ -41,6 +43,11 @@ import {
 } from '../../common/constants/response.constants';
 import { DispatchSearchTracker } from '../dispatch/dispatch-search-tracker.service';
 import { DriverSearchPhase } from '../dispatch/dispatch-search.types';
+import {
+  buildVehicleAvailabilitySettings,
+  isVehicleTypeActiveInSettings,
+  isVehicleTypeAllowedForOrderType,
+} from '../../common/orders/vehicle-eligibility.helper';
 
 @Injectable()
 export class OrdersCheckoutService {
@@ -514,8 +521,19 @@ export class OrdersCheckoutService {
     dto: PlaceCustomOrderDto,
     coinBalance: number,
   ) {
-    if (dto.type === 'RIDE' && dto.vehicleType !== 'CAR') {
-      throw new BadRequestException(OrderErrors.RIDES_MUST_USE_CAR);
+    if (
+      dto.type !== OrderType.RIDE &&
+      dto.type !== OrderType.CUSTOM_DELIVERY
+    ) {
+      throw new BadRequestException(
+        OrderErrors.VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE,
+      );
+    }
+
+    if (!isVehicleTypeAllowedForOrderType(dto.type, dto.vehicleType)) {
+      throw new BadRequestException(
+        OrderErrors.VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE,
+      );
     }
 
     const [pickupLng, pickupLat] = dto.pickupLocation;
@@ -534,45 +552,38 @@ export class OrdersCheckoutService {
       throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
     }
 
-    if (dto.vehicleType === 'BICYCLE') {
-      const maxBicycleKm = Number(settings.maxKmForBicycle ?? 5.0);
-      if (distanceKm > maxBicycleKm) {
-        throw new BadRequestException(OrderErrors.BICYCLE_DISTANCE_EXCEEDED);
-      }
+    const vehicleSettings = buildVehicleAvailabilitySettings(settings);
+    if (!isVehicleTypeActiveInSettings(dto.vehicleType, vehicleSettings)) {
+      throw new BadRequestException(OrderErrors.VEHICLE_TYPE_DISABLED);
     }
 
     let perKm = 0;
     switch (dto.vehicleType) {
-      case 'BICYCLE':
-        if (!settings.allowBicycle)
-          throw new BadRequestException(OrderErrors.VEHICLE_TYPE_DISABLED);
-        perKm = Number(settings.pricePerKmBicycle);
-        break;
-      case 'MOTORCYCLE':
-        if (!settings.allowMotorcycle)
-          throw new BadRequestException(OrderErrors.VEHICLE_TYPE_DISABLED);
+      case VehicleType.MOTORCYCLE:
         perKm = Number(settings.pricePerKmMotorcycle);
         break;
-      case 'CAR':
-        if (!settings.allowCar)
-          throw new BadRequestException(OrderErrors.VEHICLE_TYPE_DISABLED);
+      case VehicleType.CAR:
         perKm = Number(settings.pricePerKmCar);
         break;
-      case 'VAN':
-        if (!settings.allowVan)
-          throw new BadRequestException(OrderErrors.VEHICLE_TYPE_DISABLED);
-        perKm = Number(settings.pricePerKmVan);
+      case VehicleType.MINIBUS:
+        perKm = Number(settings.pricePerKmMinibus);
         break;
-      case 'TRUCK':
-        if (!settings.allowTruck)
-          throw new BadRequestException(OrderErrors.VEHICLE_TYPE_DISABLED);
-        perKm = Number(settings.pricePerKmTruck);
+      case VehicleType.TUK_TUK:
+        perKm = Number(settings.pricePerKmTukTuk);
         break;
-      case 'MOTOR_TRICYCLE':
-        if (!settings.allowMotorTricycle)
-          throw new BadRequestException(OrderErrors.VEHICLE_TYPE_DISABLED);
+      case VehicleType.MOTOR_TRICYCLE:
         perKm = Number(settings.pricePerKmMotorTricycle);
         break;
+      case VehicleType.QUARTER_TRUCK:
+        perKm = Number(settings.pricePerKmQuarterTruck);
+        break;
+      case VehicleType.HALF_TRUCK:
+        perKm = Number(settings.pricePerKmHalfTruck);
+        break;
+      default:
+        throw new BadRequestException(
+          OrderErrors.VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE,
+        );
     }
 
     let deliveryFee: number;

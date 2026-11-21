@@ -1,3 +1,4 @@
+import 'package:core/core.dart' show VehicleTypeHelper;
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../network/network_providers.dart';
@@ -8,10 +9,12 @@ class PlatformSettingsData {
   final String? homeCoverUrl;
   final String? motorcycleIconUrl;
   final String? carIconUrl;
+  final String? minibusIconUrl;
+  final String? tukTukIconUrl;
   final String? bicycleIconUrl;
   final String? motorTricycleIconUrl;
-  final String? vanIconUrl;
-  final String? truckIconUrl;
+  final String? quarterTruckIconUrl;
+  final String? halfTruckIconUrl;
   final bool isMaintenanceMode;
   final String? supportEmail;
   final String? supportPhone;
@@ -28,15 +31,20 @@ class PlatformSettingsData {
   final double pricePerKmBicycle;
   final double pricePerKmMotorcycle;
   final double pricePerKmCar;
-  final double pricePerKmVan;
-  final double pricePerKmTruck;
+  final double pricePerKmMinibus;
+  final double pricePerKmTukTuk;
   final double pricePerKmMotorTricycle;
+  final double pricePerKmQuarterTruck;
+  final double pricePerKmHalfTruck;
   final bool allowBicycle;
   final bool allowMotorcycle;
   final bool allowCar;
-  final bool allowVan;
-  final bool allowTruck;
+  final bool allowMinibus;
+  final bool allowTukTuk;
   final bool allowMotorTricycle;
+  final bool allowQuarterTruck;
+  final bool allowHalfTruck;
+  final Map<String, List<String>> serviceEligibleVehicles;
   final double maxKmForBicycle;
   final double maxDeliveryRadiusKm;
   final double minOrderKm;
@@ -48,12 +56,16 @@ class PlatformSettingsData {
   final double maxDeliveryFeeMotorcycle;
   final double minDeliveryFeeCar;
   final double maxDeliveryFeeCar;
-  final double minDeliveryFeeVan;
-  final double maxDeliveryFeeVan;
-  final double minDeliveryFeeTruck;
-  final double maxDeliveryFeeTruck;
+  final double minDeliveryFeeMinibus;
+  final double maxDeliveryFeeMinibus;
+  final double minDeliveryFeeTukTuk;
+  final double maxDeliveryFeeTukTuk;
   final double minDeliveryFeeMotorTricycle;
   final double maxDeliveryFeeMotorTricycle;
+  final double minDeliveryFeeQuarterTruck;
+  final double maxDeliveryFeeQuarterTruck;
+  final double minDeliveryFeeHalfTruck;
+  final double maxDeliveryFeeHalfTruck;
   final bool driverBonusActive;
   final double driverBonusAmount;
   final DateTime? driverBonusStartDate;
@@ -73,10 +85,12 @@ class PlatformSettingsData {
     this.homeCoverUrl,
     this.motorcycleIconUrl,
     this.carIconUrl,
+    this.minibusIconUrl,
+    this.tukTukIconUrl,
     this.bicycleIconUrl,
     this.motorTricycleIconUrl,
-    this.vanIconUrl,
-    this.truckIconUrl,
+    this.quarterTruckIconUrl,
+    this.halfTruckIconUrl,
     this.isMaintenanceMode = false,
     this.supportEmail,
     this.supportPhone,
@@ -93,15 +107,20 @@ class PlatformSettingsData {
     this.pricePerKmBicycle = 2,
     this.pricePerKmMotorcycle = 3,
     this.pricePerKmCar = 5,
-    this.pricePerKmVan = 8,
-    this.pricePerKmTruck = 12,
+    this.pricePerKmMinibus = 8,
+    this.pricePerKmTukTuk = 4,
     this.pricePerKmMotorTricycle = 4,
+    this.pricePerKmQuarterTruck = 8,
+    this.pricePerKmHalfTruck = 12,
     this.allowBicycle = true,
     this.allowMotorcycle = true,
     this.allowCar = true,
-    this.allowVan = true,
-    this.allowTruck = true,
+    this.allowMinibus = true,
+    this.allowTukTuk = true,
     this.allowMotorTricycle = true,
+    this.allowQuarterTruck = true,
+    this.allowHalfTruck = true,
+    this.serviceEligibleVehicles = const {},
     this.maxKmForBicycle = 5.0,
     this.maxDeliveryRadiusKm = 1500,
     this.minOrderKm = 0,
@@ -113,12 +132,16 @@ class PlatformSettingsData {
     this.maxDeliveryFeeMotorcycle = 0,
     this.minDeliveryFeeCar = 0,
     this.maxDeliveryFeeCar = 0,
-    this.minDeliveryFeeVan = 0,
-    this.maxDeliveryFeeVan = 0,
-    this.minDeliveryFeeTruck = 0,
-    this.maxDeliveryFeeTruck = 0,
+    this.minDeliveryFeeMinibus = 0,
+    this.maxDeliveryFeeMinibus = 0,
+    this.minDeliveryFeeTukTuk = 0,
+    this.maxDeliveryFeeTukTuk = 0,
     this.minDeliveryFeeMotorTricycle = 0,
     this.maxDeliveryFeeMotorTricycle = 0,
+    this.minDeliveryFeeQuarterTruck = 0,
+    this.maxDeliveryFeeQuarterTruck = 0,
+    this.minDeliveryFeeHalfTruck = 0,
+    this.maxDeliveryFeeHalfTruck = 0,
     this.driverBonusActive = false,
     this.driverBonusAmount = 0,
     this.driverBonusStartDate,
@@ -135,6 +158,120 @@ class PlatformSettingsData {
     this.driverAcceptTimeoutSecs = 30,
   });
 
+  bool isVehicleAllowed(String? rawVehicleType) {
+    switch (VehicleTypeHelper.normalize(rawVehicleType)) {
+      case VehicleTypeHelper.bicycle:
+        return allowBicycle;
+      case VehicleTypeHelper.motorcycle:
+        return allowMotorcycle;
+      case VehicleTypeHelper.car:
+        return allowCar;
+      case VehicleTypeHelper.minibus:
+        return allowMinibus;
+      case VehicleTypeHelper.tukTuk:
+        return allowTukTuk;
+      case VehicleTypeHelper.motorTricycle:
+        return allowMotorTricycle;
+      case VehicleTypeHelper.quarterTruck:
+        return allowQuarterTruck;
+      case VehicleTypeHelper.halfTruck:
+        return allowHalfTruck;
+      default:
+        return false;
+    }
+  }
+
+  String? iconUrlForVehicle(String? rawVehicleType) {
+    switch (VehicleTypeHelper.normalize(rawVehicleType)) {
+      case VehicleTypeHelper.bicycle:
+        return bicycleIconUrl;
+      case VehicleTypeHelper.motorcycle:
+        return motorcycleIconUrl;
+      case VehicleTypeHelper.car:
+        return carIconUrl;
+      case VehicleTypeHelper.minibus:
+        return minibusIconUrl;
+      case VehicleTypeHelper.tukTuk:
+        return tukTukIconUrl;
+      case VehicleTypeHelper.motorTricycle:
+        return motorTricycleIconUrl;
+      case VehicleTypeHelper.quarterTruck:
+        return quarterTruckIconUrl;
+      case VehicleTypeHelper.halfTruck:
+        return halfTruckIconUrl;
+      default:
+        return null;
+    }
+  }
+
+  ({double perKm, double minFee, double maxFee}) pricingForVehicle(
+    String? rawVehicleType,
+  ) {
+    switch (VehicleTypeHelper.normalize(rawVehicleType)) {
+      case VehicleTypeHelper.bicycle:
+        return (
+          perKm: pricePerKmBicycle,
+          minFee: minDeliveryFeeBicycle,
+          maxFee: maxDeliveryFeeBicycle,
+        );
+      case VehicleTypeHelper.motorcycle:
+        return (
+          perKm: pricePerKmMotorcycle,
+          minFee: minDeliveryFeeMotorcycle,
+          maxFee: maxDeliveryFeeMotorcycle,
+        );
+      case VehicleTypeHelper.car:
+        return (
+          perKm: pricePerKmCar,
+          minFee: minDeliveryFeeCar,
+          maxFee: maxDeliveryFeeCar,
+        );
+      case VehicleTypeHelper.minibus:
+        return (
+          perKm: pricePerKmMinibus,
+          minFee: minDeliveryFeeMinibus,
+          maxFee: maxDeliveryFeeMinibus,
+        );
+      case VehicleTypeHelper.tukTuk:
+        return (
+          perKm: pricePerKmTukTuk,
+          minFee: minDeliveryFeeTukTuk,
+          maxFee: maxDeliveryFeeTukTuk,
+        );
+      case VehicleTypeHelper.motorTricycle:
+        return (
+          perKm: pricePerKmMotorTricycle,
+          minFee: minDeliveryFeeMotorTricycle,
+          maxFee: maxDeliveryFeeMotorTricycle,
+        );
+      case VehicleTypeHelper.quarterTruck:
+        return (
+          perKm: pricePerKmQuarterTruck,
+          minFee: minDeliveryFeeQuarterTruck,
+          maxFee: maxDeliveryFeeQuarterTruck,
+        );
+      case VehicleTypeHelper.halfTruck:
+        return (
+          perKm: pricePerKmHalfTruck,
+          minFee: minDeliveryFeeHalfTruck,
+          maxFee: maxDeliveryFeeHalfTruck,
+        );
+      default:
+        return (
+          perKm: pricePerKmMotorcycle,
+          minFee: minDeliveryFeeMotorcycle,
+          maxFee: maxDeliveryFeeMotorcycle,
+        );
+    }
+  }
+
+  List<String> enabledVehiclesForService(String serviceType) {
+    return VehicleTypeHelper.eligibleForOrderType(
+      serviceType,
+      backendMatrix: serviceEligibleVehicles,
+    ).where(isVehicleAllowed).toList(growable: false);
+  }
+
   factory PlatformSettingsData.fromJson(Map<String, dynamic> json) {
     DateTime? parseDate(dynamic value) {
       if (value == null) return null;
@@ -144,14 +281,32 @@ class PlatformSettingsData {
     final parsedMaxMultiVendor =
         int.tryParse(json['maxMultiVendorVendors']?.toString() ?? '') ?? 5;
 
+    final rawMatrix = json['serviceEligibleVehicles'];
+    final parsedMatrix = <String, List<String>>{};
+    if (rawMatrix is Map) {
+      for (final entry in rawMatrix.entries) {
+        if (entry.value is List) {
+          final items = (entry.value as List)
+              .map((e) => VehicleTypeHelper.normalize(e?.toString()))
+              .whereType<String>()
+              .toList(growable: false);
+          if (items.isNotEmpty) {
+            parsedMatrix[entry.key.toString().toUpperCase()] = items;
+          }
+        }
+      }
+    }
+
     return PlatformSettingsData(
       homeCoverUrl: json['homeCoverUrl'],
       motorcycleIconUrl: json['motorcycleIconUrl'],
       carIconUrl: json['carIconUrl'],
+      minibusIconUrl: json['minibusIconUrl'],
+      tukTukIconUrl: json['tukTukIconUrl'],
       bicycleIconUrl: json['bicycleIconUrl'],
       motorTricycleIconUrl: json['motorTricycleIconUrl'],
-      vanIconUrl: json['vanIconUrl'],
-      truckIconUrl: json['truckIconUrl'],
+      quarterTruckIconUrl: json['quarterTruckIconUrl'],
+      halfTruckIconUrl: json['halfTruckIconUrl'],
       isMaintenanceMode: json['isMaintenanceMode'] ?? false,
       supportEmail: json['support']?['email'] ?? json['supportEmail'],
       supportPhone: json['support']?['phone'] ?? json['supportPhone'],
@@ -168,15 +323,20 @@ class PlatformSettingsData {
       pricePerKmBicycle: double.tryParse(json['pricePerKmBicycle']?.toString() ?? '2') ?? 2,
       pricePerKmMotorcycle: double.tryParse(json['pricePerKmMotorcycle']?.toString() ?? '3') ?? 3,
       pricePerKmCar: double.tryParse(json['pricePerKmCar']?.toString() ?? '5') ?? 5,
-      pricePerKmVan: double.tryParse(json['pricePerKmVan']?.toString() ?? '8') ?? 8,
-      pricePerKmTruck: double.tryParse(json['pricePerKmTruck']?.toString() ?? '12') ?? 12,
+      pricePerKmMinibus: double.tryParse(json['pricePerKmMinibus']?.toString() ?? '8') ?? 8,
+      pricePerKmTukTuk: double.tryParse(json['pricePerKmTukTuk']?.toString() ?? '4') ?? 4,
       pricePerKmMotorTricycle: double.tryParse(json['pricePerKmMotorTricycle']?.toString() ?? '4') ?? 4,
+      pricePerKmQuarterTruck: double.tryParse(json['pricePerKmQuarterTruck']?.toString() ?? '8') ?? 8,
+      pricePerKmHalfTruck: double.tryParse(json['pricePerKmHalfTruck']?.toString() ?? '12') ?? 12,
       allowBicycle: json['allowBicycle'] ?? true,
       allowMotorcycle: json['allowMotorcycle'] ?? true,
       allowCar: json['allowCar'] ?? true,
-      allowVan: json['allowVan'] ?? true,
-      allowTruck: json['allowTruck'] ?? true,
+      allowMinibus: json['allowMinibus'] ?? true,
+      allowTukTuk: json['allowTukTuk'] ?? true,
       allowMotorTricycle: json['allowMotorTricycle'] ?? true,
+      allowQuarterTruck: json['allowQuarterTruck'] ?? true,
+      allowHalfTruck: json['allowHalfTruck'] ?? true,
+      serviceEligibleVehicles: parsedMatrix,
       maxKmForBicycle: double.tryParse(json['maxKmForBicycle']?.toString() ?? '5.0') ?? 5.0,
       maxDeliveryRadiusKm: double.tryParse(json['maxDeliveryRadiusKm']?.toString() ?? '1500') ?? 1500,
       minOrderKm: double.tryParse(json['minOrderKm']?.toString() ?? '0') ?? 0,
@@ -188,12 +348,16 @@ class PlatformSettingsData {
       maxDeliveryFeeMotorcycle: double.tryParse(json['maxDeliveryFeeMotorcycle']?.toString() ?? '0') ?? 0,
       minDeliveryFeeCar: double.tryParse(json['minDeliveryFeeCar']?.toString() ?? '0') ?? 0,
       maxDeliveryFeeCar: double.tryParse(json['maxDeliveryFeeCar']?.toString() ?? '0') ?? 0,
-      minDeliveryFeeVan: double.tryParse(json['minDeliveryFeeVan']?.toString() ?? '0') ?? 0,
-      maxDeliveryFeeVan: double.tryParse(json['maxDeliveryFeeVan']?.toString() ?? '0') ?? 0,
-      minDeliveryFeeTruck: double.tryParse(json['minDeliveryFeeTruck']?.toString() ?? '0') ?? 0,
-      maxDeliveryFeeTruck: double.tryParse(json['maxDeliveryFeeTruck']?.toString() ?? '0') ?? 0,
+      minDeliveryFeeMinibus: double.tryParse(json['minDeliveryFeeMinibus']?.toString() ?? '0') ?? 0,
+      maxDeliveryFeeMinibus: double.tryParse(json['maxDeliveryFeeMinibus']?.toString() ?? '0') ?? 0,
+      minDeliveryFeeTukTuk: double.tryParse(json['minDeliveryFeeTukTuk']?.toString() ?? '0') ?? 0,
+      maxDeliveryFeeTukTuk: double.tryParse(json['maxDeliveryFeeTukTuk']?.toString() ?? '0') ?? 0,
       minDeliveryFeeMotorTricycle: double.tryParse(json['minDeliveryFeeMotorTricycle']?.toString() ?? '0') ?? 0,
       maxDeliveryFeeMotorTricycle: double.tryParse(json['maxDeliveryFeeMotorTricycle']?.toString() ?? '0') ?? 0,
+      minDeliveryFeeQuarterTruck: double.tryParse(json['minDeliveryFeeQuarterTruck']?.toString() ?? '0') ?? 0,
+      maxDeliveryFeeQuarterTruck: double.tryParse(json['maxDeliveryFeeQuarterTruck']?.toString() ?? '0') ?? 0,
+      minDeliveryFeeHalfTruck: double.tryParse(json['minDeliveryFeeHalfTruck']?.toString() ?? '0') ?? 0,
+      maxDeliveryFeeHalfTruck: double.tryParse(json['maxDeliveryFeeHalfTruck']?.toString() ?? '0') ?? 0,
       driverBonusActive: json['driverBonusActive'] ?? false,
       driverBonusAmount: double.tryParse(json['driverBonusAmount']?.toString() ?? '0') ?? 0,
       driverBonusStartDate: parseDate(json['driverBonusStartDate']),

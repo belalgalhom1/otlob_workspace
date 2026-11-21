@@ -48,7 +48,7 @@ abstract class PlaceCustomOrderDto implements Built<PlaceCustomOrderDto, PlaceCu
 
   @BuiltValueField(wireName: r'vehicleType')
   PlaceCustomOrderDtoVehicleTypeEnum get vehicleType;
-  // enum vehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  VAN,  TRUCK,  MOTOR_TRICYCLE,  };
+  // enum vehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  MINIBUS,  TUK_TUK,  MOTOR_TRICYCLE,  QUARTER_TRUCK,  HALF_TRUCK,  };
 
   @BuiltValueField(wireName: r'itemDetails')
   String? get itemDetails;
@@ -299,12 +299,16 @@ class PlaceCustomOrderDtoVehicleTypeEnum extends EnumClass {
   static const PlaceCustomOrderDtoVehicleTypeEnum MOTORCYCLE = _$placeCustomOrderDtoVehicleTypeEnum_MOTORCYCLE;
   @BuiltValueEnumConst(wireName: r'CAR')
   static const PlaceCustomOrderDtoVehicleTypeEnum CAR = _$placeCustomOrderDtoVehicleTypeEnum_CAR;
-  @BuiltValueEnumConst(wireName: r'VAN')
-  static const PlaceCustomOrderDtoVehicleTypeEnum VAN = _$placeCustomOrderDtoVehicleTypeEnum_VAN;
-  @BuiltValueEnumConst(wireName: r'TRUCK')
-  static const PlaceCustomOrderDtoVehicleTypeEnum TRUCK = _$placeCustomOrderDtoVehicleTypeEnum_TRUCK;
+  @BuiltValueEnumConst(wireName: r'MINIBUS')
+  static const PlaceCustomOrderDtoVehicleTypeEnum MINIBUS = _$placeCustomOrderDtoVehicleTypeEnum_MINIBUS;
+  @BuiltValueEnumConst(wireName: r'TUK_TUK')
+  static const PlaceCustomOrderDtoVehicleTypeEnum TUK_TUK = _$placeCustomOrderDtoVehicleTypeEnum_TUK_TUK;
   @BuiltValueEnumConst(wireName: r'MOTOR_TRICYCLE')
   static const PlaceCustomOrderDtoVehicleTypeEnum MOTOR_TRICYCLE = _$placeCustomOrderDtoVehicleTypeEnum_MOTOR_TRICYCLE;
+  @BuiltValueEnumConst(wireName: r'QUARTER_TRUCK')
+  static const PlaceCustomOrderDtoVehicleTypeEnum QUARTER_TRUCK = _$placeCustomOrderDtoVehicleTypeEnum_QUARTER_TRUCK;
+  @BuiltValueEnumConst(wireName: r'HALF_TRUCK')
+  static const PlaceCustomOrderDtoVehicleTypeEnum HALF_TRUCK = _$placeCustomOrderDtoVehicleTypeEnum_HALF_TRUCK;
 
   static Serializer<PlaceCustomOrderDtoVehicleTypeEnum> get serializer => _$placeCustomOrderDtoVehicleTypeEnumSerializer;
 

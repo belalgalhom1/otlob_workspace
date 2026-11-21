@@ -155,6 +155,9 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
         widget.dispatchData['dropoffCustomerAvatar']?.toString();
     final isStacked = widget.dispatchData['isStacked'] == true ||
         widget.dispatchData['isStacked'] == 'true';
+    final requestedVehicleType = VehicleTypeHelper.normalize(
+      widget.dispatchData['requestedVehicleType']?.toString(),
+    );
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -169,21 +172,41 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
       maxWidth: 460,
       canPop: false,
       header: AppDialogHeader(
-        icon: orderType.isRide ? LucideIcons.car : LucideIcons.zap,
+        icon: orderType.isRide
+            ? (requestedVehicleType != null &&
+                    requestedVehicleType != VehicleTypeHelper.car
+                ? VehicleTypeHelper.icon(requestedVehicleType)
+                : LucideIcons.car)
+            : (orderType.isCustomDelivery && requestedVehicleType != null
+                ? VehicleTypeHelper.icon(requestedVehicleType)
+                : LucideIcons.zap),
         title: OrderTypeHelper.dispatchModalTitle(orderType, isArabic: isAr),
         showCloseButton: false,
-        subtitleWidget: isStacked
+        subtitleWidget: (isStacked || requestedVehicleType != null)
             ? Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: AppBadgePill(
-                    text: isAr
-                        ? 'طلب مجمع إضافي في خط سيرك'
-                        : 'Batch Corridor Order',
-                    icon: LucideIcons.route,
-                    accentColor: accentTextColor,
-                  ),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (requestedVehicleType != null)
+                      AppBadgePill(
+                        text: VehicleTypeHelper.label(
+                          requestedVehicleType,
+                          isArabic: isAr,
+                        ),
+                        icon: VehicleTypeHelper.icon(requestedVehicleType),
+                        accentColor: accentTextColor,
+                      ),
+                    if (isStacked)
+                      AppBadgePill(
+                        text: isAr
+                            ? 'طلب مجمع إضافي في خط سيرك'
+                            : 'Batch Corridor Order',
+                        icon: LucideIcons.route,
+                        accentColor: accentTextColor,
+                      ),
+                  ],
                 ),
               )
             : null,

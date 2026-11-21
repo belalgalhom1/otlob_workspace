@@ -17,12 +17,16 @@ class VehicleType extends EnumClass {
   static const VehicleType MOTORCYCLE = _$MOTORCYCLE;
   @BuiltValueEnumConst(wireName: r'CAR')
   static const VehicleType CAR = _$CAR;
-  @BuiltValueEnumConst(wireName: r'VAN')
-  static const VehicleType VAN = _$VAN;
-  @BuiltValueEnumConst(wireName: r'TRUCK')
-  static const VehicleType TRUCK = _$TRUCK;
+  @BuiltValueEnumConst(wireName: r'MINIBUS')
+  static const VehicleType MINIBUS = _$MINIBUS;
+  @BuiltValueEnumConst(wireName: r'TUK_TUK')
+  static const VehicleType TUK_TUK = _$TUK_TUK;
   @BuiltValueEnumConst(wireName: r'MOTOR_TRICYCLE')
   static const VehicleType MOTOR_TRICYCLE = _$MOTOR_TRICYCLE;
+  @BuiltValueEnumConst(wireName: r'QUARTER_TRUCK')
+  static const VehicleType QUARTER_TRUCK = _$QUARTER_TRUCK;
+  @BuiltValueEnumConst(wireName: r'HALF_TRUCK')
+  static const VehicleType HALF_TRUCK = _$HALF_TRUCK;
 
   static Serializer<VehicleType> get serializer => _$vehicleTypeSerializer;
 

@@ -22,6 +22,7 @@ import { LocationRepository } from '../location/location.repository';
 import {
   DriverGeoSearchService,
   isDriverVehicleEligibleForOrder,
+  isVehicleTypeAllowedForOrderType,
   resolveAllowedVehicleTypes,
 } from '../location/driver-geo-search.service';
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
@@ -145,9 +146,19 @@ export class DispatchService implements DispatchPort {
     );
     if (allowedVehicleTypes.length === 0) {
       this.logger.warn(
-        `No allowed vehicle types for order ${orderNumber} (type=${order.type}, distanceKm=${orderDistanceKm}).`,
+        `No allowed vehicle types for order ${orderNumber} (type=${order.type}, requestedVehicleType=${dispatchContext.requestedVehicleType ?? 'none'}, distanceKm=${orderDistanceKm}).`,
       );
-      return order.type === OrderType.STANDARD ? 'no_drivers' : 'invalid';
+      if (
+        order.type !== OrderType.STANDARD &&
+        dispatchContext.requestedVehicleType &&
+        !isVehicleTypeAllowedForOrderType(
+          order.type,
+          dispatchContext.requestedVehicleType,
+        )
+      ) {
+        return 'invalid';
+      }
+      return 'no_drivers';
     }
 
     await this.searchTracker?.publishPhase({
@@ -225,6 +236,7 @@ export class DispatchService implements DispatchPort {
       orderId,
       orderNumber,
       orderType: order.type,
+      requestedVehicleType: dispatchContext.requestedVehicleType ?? null,
       group,
       candidates,
       attempt,
@@ -670,6 +682,7 @@ export class DispatchService implements DispatchPort {
     orderId: string;
     orderNumber: string;
     orderType: OrderType;
+    requestedVehicleType?: string | null;
     group: { id: string };
     candidates: DispatchCandidateOffer[];
     attempt: number;
@@ -683,6 +696,7 @@ export class DispatchService implements DispatchPort {
       orderId,
       orderNumber,
       orderType,
+      requestedVehicleType = null,
       group,
       candidates,
       attempt,
@@ -700,6 +714,7 @@ export class DispatchService implements DispatchPort {
       orderId,
       deliveryGroupId: group.id,
       type: orderType,
+      requestedVehicleType,
       candidates,
       expiresAt: expiresAt.toISOString(),
       pickupLocationName: candidates[0]?.pickupLocationName,

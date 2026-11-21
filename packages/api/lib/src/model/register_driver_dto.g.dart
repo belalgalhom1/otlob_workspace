@@ -14,14 +14,21 @@ _$registerDriverDtoVehicleTypeEnum_MOTORCYCLE =
     const RegisterDriverDtoVehicleTypeEnum._('MOTORCYCLE');
 const RegisterDriverDtoVehicleTypeEnum _$registerDriverDtoVehicleTypeEnum_CAR =
     const RegisterDriverDtoVehicleTypeEnum._('CAR');
-const RegisterDriverDtoVehicleTypeEnum _$registerDriverDtoVehicleTypeEnum_VAN =
-    const RegisterDriverDtoVehicleTypeEnum._('VAN');
 const RegisterDriverDtoVehicleTypeEnum
-_$registerDriverDtoVehicleTypeEnum_TRUCK =
-    const RegisterDriverDtoVehicleTypeEnum._('TRUCK');
+_$registerDriverDtoVehicleTypeEnum_MINIBUS =
+    const RegisterDriverDtoVehicleTypeEnum._('MINIBUS');
+const RegisterDriverDtoVehicleTypeEnum
+_$registerDriverDtoVehicleTypeEnum_TUK_TUK =
+    const RegisterDriverDtoVehicleTypeEnum._('TUK_TUK');
 const RegisterDriverDtoVehicleTypeEnum
 _$registerDriverDtoVehicleTypeEnum_MOTOR_TRICYCLE =
     const RegisterDriverDtoVehicleTypeEnum._('MOTOR_TRICYCLE');
+const RegisterDriverDtoVehicleTypeEnum
+_$registerDriverDtoVehicleTypeEnum_QUARTER_TRUCK =
+    const RegisterDriverDtoVehicleTypeEnum._('QUARTER_TRUCK');
+const RegisterDriverDtoVehicleTypeEnum
+_$registerDriverDtoVehicleTypeEnum_HALF_TRUCK =
+    const RegisterDriverDtoVehicleTypeEnum._('HALF_TRUCK');
 
 RegisterDriverDtoVehicleTypeEnum _$registerDriverDtoVehicleTypeEnumValueOf(
   String name,
@@ -33,12 +40,16 @@ RegisterDriverDtoVehicleTypeEnum _$registerDriverDtoVehicleTypeEnumValueOf(
       return _$registerDriverDtoVehicleTypeEnum_MOTORCYCLE;
     case 'CAR':
       return _$registerDriverDtoVehicleTypeEnum_CAR;
-    case 'VAN':
-      return _$registerDriverDtoVehicleTypeEnum_VAN;
-    case 'TRUCK':
-      return _$registerDriverDtoVehicleTypeEnum_TRUCK;
+    case 'MINIBUS':
+      return _$registerDriverDtoVehicleTypeEnum_MINIBUS;
+    case 'TUK_TUK':
+      return _$registerDriverDtoVehicleTypeEnum_TUK_TUK;
     case 'MOTOR_TRICYCLE':
       return _$registerDriverDtoVehicleTypeEnum_MOTOR_TRICYCLE;
+    case 'QUARTER_TRUCK':
+      return _$registerDriverDtoVehicleTypeEnum_QUARTER_TRUCK;
+    case 'HALF_TRUCK':
+      return _$registerDriverDtoVehicleTypeEnum_HALF_TRUCK;
     default:
       throw ArgumentError(name);
   }
@@ -51,9 +62,11 @@ _$registerDriverDtoVehicleTypeEnumValues =
         _$registerDriverDtoVehicleTypeEnum_BICYCLE,
         _$registerDriverDtoVehicleTypeEnum_MOTORCYCLE,
         _$registerDriverDtoVehicleTypeEnum_CAR,
-        _$registerDriverDtoVehicleTypeEnum_VAN,
-        _$registerDriverDtoVehicleTypeEnum_TRUCK,
+        _$registerDriverDtoVehicleTypeEnum_MINIBUS,
+        _$registerDriverDtoVehicleTypeEnum_TUK_TUK,
         _$registerDriverDtoVehicleTypeEnum_MOTOR_TRICYCLE,
+        _$registerDriverDtoVehicleTypeEnum_QUARTER_TRUCK,
+        _$registerDriverDtoVehicleTypeEnum_HALF_TRUCK,
       ],
     );
 
@@ -67,17 +80,21 @@ class _$RegisterDriverDtoVehicleTypeEnumSerializer
     'BICYCLE': 'BICYCLE',
     'MOTORCYCLE': 'MOTORCYCLE',
     'CAR': 'CAR',
-    'VAN': 'VAN',
-    'TRUCK': 'TRUCK',
+    'MINIBUS': 'MINIBUS',
+    'TUK_TUK': 'TUK_TUK',
     'MOTOR_TRICYCLE': 'MOTOR_TRICYCLE',
+    'QUARTER_TRUCK': 'QUARTER_TRUCK',
+    'HALF_TRUCK': 'HALF_TRUCK',
   };
   static const Map<Object, String> _fromWire = const <Object, String>{
     'BICYCLE': 'BICYCLE',
     'MOTORCYCLE': 'MOTORCYCLE',
     'CAR': 'CAR',
-    'VAN': 'VAN',
-    'TRUCK': 'TRUCK',
+    'MINIBUS': 'MINIBUS',
+    'TUK_TUK': 'TUK_TUK',
     'MOTOR_TRICYCLE': 'MOTOR_TRICYCLE',
+    'QUARTER_TRUCK': 'QUARTER_TRUCK',
+    'HALF_TRUCK': 'HALF_TRUCK',
   };
 
   @override

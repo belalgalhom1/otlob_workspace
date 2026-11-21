@@ -234,7 +234,7 @@ void main() {
   );
 
   testWidgets(
-    'AssignDriverSheet filters online drivers to MOTORCYCLE & BICYCLE for STANDARD orders while keeping CAR/VAN for CUSTOM_DELIVERY',
+    'AssignDriverSheet enforces service-specific & requested vehicle eligibility for STANDARD, RIDE, and CUSTOM_DELIVERY orders',
     (tester) async {
       final drivers = [
         {
@@ -253,18 +253,43 @@ void main() {
         },
         {
           'id': 'd-car',
-          'name': 'Car Driver',
+          'name': 'Private Car Driver',
           'vehicleType': 'CAR',
           'phone': '0103',
         },
         {
-          'id': 'd-van',
-          'name': 'Van Driver',
-          'vehicleType': 'VAN',
+          'id': 'd-minibus',
+          'name': 'Minibus Driver',
+          'vehicleType': 'MINIBUS',
           'phone': '0104',
+        },
+        {
+          'id': 'd-tuktuk',
+          'name': 'Tuk-tuk Driver',
+          'vehicleType': 'TUK_TUK',
+          'phone': '0105',
+        },
+        {
+          'id': 'd-tri',
+          'name': 'Tricycle Driver',
+          'vehicleType': 'MOTOR_TRICYCLE',
+          'phone': '0106',
+        },
+        {
+          'id': 'd-quarter',
+          'name': 'Quarter Pickup Driver',
+          'vehicleType': 'QUARTER_TRUCK',
+          'phone': '0107',
+        },
+        {
+          'id': 'd-half',
+          'name': 'Half Pickup Driver',
+          'vehicleType': 'HALF_TRUCK',
+          'phone': '0108',
         },
       ];
 
+      // 1) STANDARD -> ONLY Motorcycle & Bicycle
       await tester.pumpWidget(
         ProviderScope(
           key: const ValueKey('std_assign_sheet'),
@@ -291,13 +316,47 @@ void main() {
 
       expect(find.text('Moto Rider'), findsOneWidget);
       expect(find.text('Bike Rider'), findsOneWidget);
-      expect(find.text('Car Driver'), findsNothing);
-      expect(find.text('Van Driver'), findsNothing);
+      expect(find.text('Private Car Driver'), findsNothing);
+      expect(find.text('Minibus Driver'), findsNothing);
+      expect(find.text('Tuk-tuk Driver'), findsNothing);
+      expect(find.text('Quarter Pickup Driver'), findsNothing);
+      expect(find.text('Half Pickup Driver'), findsNothing);
 
-      // CUSTOM_DELIVERY retains CAR & VAN drivers
+      // 2) RIDE with TUK_TUK -> ONLY Tuk-tuk driver
       await tester.pumpWidget(
         ProviderScope(
-          key: const ValueKey('custom_assign_sheet'),
+          key: const ValueKey('ride_tuktuk_assign_sheet'),
+          overrides: [
+            adminDriversRepositoryProvider
+                .overrideWithValue(_FakeAdminDriversRepo(drivers)),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('en'),
+            home: Scaffold(
+              body: AssignDriverSheet(
+                orderId: 'ord-ride',
+                orderCode: 'RIDE-100',
+                orderType: 'RIDE',
+                requestedVehicleType: 'TUK_TUK',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Tuk-tuk Driver'), findsOneWidget);
+      expect(find.text('Private Car Driver'), findsNothing);
+      expect(find.text('Moto Rider'), findsNothing);
+      expect(find.text('Quarter Pickup Driver'), findsNothing);
+
+      // 3) CUSTOM_DELIVERY with QUARTER_TRUCK -> ONLY Quarter-ton Pickup Truck driver
+      await tester.pumpWidget(
+        ProviderScope(
+          key: const ValueKey('custom_quarter_assign_sheet'),
           overrides: [
             adminDriversRepositoryProvider
                 .overrideWithValue(_FakeAdminDriversRepo(drivers)),
@@ -311,6 +370,7 @@ void main() {
                 orderId: 'ord-cd',
                 orderCode: 'CD-200',
                 orderType: 'CUSTOM_DELIVERY',
+                requestedVehicleType: 'QUARTER_TRUCK',
               ),
             ),
           ),
@@ -319,9 +379,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Moto Rider'), findsOneWidget);
-      expect(find.text('Car Driver'), findsOneWidget);
-      expect(find.text('Van Driver'), findsOneWidget);
+      expect(find.text('Quarter Pickup Driver'), findsOneWidget);
+      expect(find.text('Half Pickup Driver'), findsNothing);
+      expect(find.text('Tricycle Driver'), findsNothing);
+      expect(find.text('Private Car Driver'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

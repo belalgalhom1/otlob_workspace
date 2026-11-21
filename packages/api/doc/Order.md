@@ -27,6 +27,7 @@ Name | Type | Description | Notes
 **requestedVehicleType** | [**VehicleType**](VehicleType.md) |  | [optional] 
 **subtotal** | **num** |  | 
 **deliveryFee** | **num** |  | 
+**goldSurchargeAmount** | **num** |  | 
 **driverBonusFee** | **num** |  | 
 **serviceFee** | **num** |  | 
 **tax** | **num** |  | 
@@ -43,6 +44,12 @@ Name | Type | Description | Notes
 **paymentReceiptUrl** | **String** |  | [optional] 
 **actualDeliveryTime** | [**DateTime**](DateTime.md) |  | [optional] 
 **settledAt** | [**DateTime**](DateTime.md) |  | [optional] 
+**settledGoldBonusAmount** | **num** |  | 
+**settledGoldPlatformRetainedAmount** | **num** |  | 
+**settledBronzeDriverDeduction** | **num** |  | 
+**settledBronzeSupervisorDeduction** | **num** |  | 
+**settledBronzeDriverDeductionRate** | **num** |  | [optional] 
+**settledBronzeSupervisorDeductionRate** | **num** |  | [optional] 
 **cancelledByUserId** | **String** |  | [optional] 
 **cancelledByRole** | [**Role**](Role.md) |  | [optional] 
 **cancelledByName** | **String** |  | [optional] 

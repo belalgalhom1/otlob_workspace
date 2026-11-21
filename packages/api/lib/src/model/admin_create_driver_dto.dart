@@ -48,7 +48,7 @@ abstract class AdminCreateDriverDto implements Built<AdminCreateDriverDto, Admin
 
   @BuiltValueField(wireName: r'vehicleType')
   AdminCreateDriverDtoVehicleTypeEnum get vehicleType;
-  // enum vehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  VAN,  TRUCK,  MOTOR_TRICYCLE,  };
+  // enum vehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  MINIBUS,  TUK_TUK,  MOTOR_TRICYCLE,  QUARTER_TRUCK,  HALF_TRUCK,  };
 
   @BuiltValueField(wireName: r'vehiclePlate')
   String? get vehiclePlate;
@@ -312,12 +312,16 @@ class AdminCreateDriverDtoVehicleTypeEnum extends EnumClass {
   static const AdminCreateDriverDtoVehicleTypeEnum MOTORCYCLE = _$adminCreateDriverDtoVehicleTypeEnum_MOTORCYCLE;
   @BuiltValueEnumConst(wireName: r'CAR')
   static const AdminCreateDriverDtoVehicleTypeEnum CAR = _$adminCreateDriverDtoVehicleTypeEnum_CAR;
-  @BuiltValueEnumConst(wireName: r'VAN')
-  static const AdminCreateDriverDtoVehicleTypeEnum VAN = _$adminCreateDriverDtoVehicleTypeEnum_VAN;
-  @BuiltValueEnumConst(wireName: r'TRUCK')
-  static const AdminCreateDriverDtoVehicleTypeEnum TRUCK = _$adminCreateDriverDtoVehicleTypeEnum_TRUCK;
+  @BuiltValueEnumConst(wireName: r'MINIBUS')
+  static const AdminCreateDriverDtoVehicleTypeEnum MINIBUS = _$adminCreateDriverDtoVehicleTypeEnum_MINIBUS;
+  @BuiltValueEnumConst(wireName: r'TUK_TUK')
+  static const AdminCreateDriverDtoVehicleTypeEnum TUK_TUK = _$adminCreateDriverDtoVehicleTypeEnum_TUK_TUK;
   @BuiltValueEnumConst(wireName: r'MOTOR_TRICYCLE')
   static const AdminCreateDriverDtoVehicleTypeEnum MOTOR_TRICYCLE = _$adminCreateDriverDtoVehicleTypeEnum_MOTOR_TRICYCLE;
+  @BuiltValueEnumConst(wireName: r'QUARTER_TRUCK')
+  static const AdminCreateDriverDtoVehicleTypeEnum QUARTER_TRUCK = _$adminCreateDriverDtoVehicleTypeEnum_QUARTER_TRUCK;
+  @BuiltValueEnumConst(wireName: r'HALF_TRUCK')
+  static const AdminCreateDriverDtoVehicleTypeEnum HALF_TRUCK = _$adminCreateDriverDtoVehicleTypeEnum_HALF_TRUCK;
 
   static Serializer<AdminCreateDriverDtoVehicleTypeEnum> get serializer => _$adminCreateDriverDtoVehicleTypeEnumSerializer;
 

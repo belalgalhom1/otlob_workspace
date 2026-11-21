@@ -1,4 +1,4 @@
-import 'package:core/core.dart' show ApiErrorMapper;
+import 'package:core/core.dart' show ApiErrorMapper, VehicleTypeHelper;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -68,11 +68,47 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     }
   }
 
+  List<String> _enabledVehicles(
+    String serviceType,
+    PlatformSettingsData? settings,
+  ) {
+    final codes = settings != null
+        ? settings.enabledVehiclesForService(serviceType)
+        : VehicleTypeHelper.eligibleForOrderType(serviceType);
+    return codes.map((c) => c.toLowerCase()).toList(growable: false);
+  }
+
+  String? _reconciledVehicle(
+    String serviceType,
+    PlatformSettingsData? settings,
+  ) {
+    final enabled = _enabledVehicles(serviceType, settings);
+    if (enabled.isEmpty) return null;
+    final current = _selectedVehicle.trim().toLowerCase();
+    if (enabled.contains(current)) return current;
+    return enabled.first;
+  }
+
   Future<void> _fetchEstimate() async {
     if (_isEstimating) return;
     if (_pickupLocation == null || _dropoffLocation == null) {
       _estimate = null;
       return;
+    }
+
+    final settings = ref.read(platformSettingsProvider).value;
+    final activeVehicle = _reconciledVehicle(_serviceType, settings);
+    if (activeVehicle == null) {
+      if (_estimate != null && mounted) {
+        setState(() {
+          _estimate = null;
+          _lastEstimateKey = null;
+        });
+      }
+      return;
+    }
+    if (activeVehicle != _selectedVehicle) {
+      _selectedVehicle = activeVehicle;
     }
 
     final detailsText = _detailsController.text.trim();
@@ -82,7 +118,6 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     int? coinsToUse;
     if (_useCoins) {
       final coinState = ref.read(coinHistoryProvider);
-      final settings = ref.read(platformSettingsProvider).value;
       if (settings != null &&
           coinState.currentBalance >= settings.minCoinsToUse) {
         // Coins cover the whole bill; the backend caps the discount at the
@@ -139,46 +174,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       final base = settings.minDistanceFixedPrice;
       return base + serviceFee + tax;
     }
-    
-    double perKm = 0;
-    double minFee = 0;
-    double maxFee = 0;
-    switch (_selectedVehicle) {
-      case 'bicycle':
-        perKm = settings.pricePerKmBicycle.toDouble();
-        minFee = settings.minDeliveryFeeBicycle.toDouble();
-        maxFee = settings.maxDeliveryFeeBicycle.toDouble();
-        break;
-      case 'motorcycle':
-        perKm = settings.pricePerKmMotorcycle.toDouble();
-        minFee = settings.minDeliveryFeeMotorcycle.toDouble();
-        maxFee = settings.maxDeliveryFeeMotorcycle.toDouble();
-        break;
-      case 'car':
-        perKm = settings.pricePerKmCar.toDouble();
-        minFee = settings.minDeliveryFeeCar.toDouble();
-        maxFee = settings.maxDeliveryFeeCar.toDouble();
-        break;
-      case 'van':
-        perKm = settings.pricePerKmVan.toDouble();
-        minFee = settings.minDeliveryFeeVan.toDouble();
-        maxFee = settings.maxDeliveryFeeVan.toDouble();
-        break;
-      case 'truck':
-        perKm = settings.pricePerKmTruck.toDouble();
-        minFee = settings.minDeliveryFeeTruck.toDouble();
-        maxFee = settings.maxDeliveryFeeTruck.toDouble();
-        break;
-      case 'motor_tricycle':
-        perKm = settings.pricePerKmMotorTricycle.toDouble();
-        minFee = settings.minDeliveryFeeMotorTricycle.toDouble();
-        maxFee = settings.maxDeliveryFeeMotorTricycle.toDouble();
-        break;
-      default:
-        perKm = settings.pricePerKmMotorcycle.toDouble();
-        minFee = settings.minDeliveryFeeMotorcycle.toDouble();
-        maxFee = settings.maxDeliveryFeeMotorcycle.toDouble();
-    }
+
+    final vehiclePricing = settings.pricingForVehicle(_selectedVehicle);
+    final perKm = vehiclePricing.perKm;
+    final minFee = vehiclePricing.minFee;
+    final maxFee = vehiclePricing.maxFee;
 
     double deliveryFee = (settings.minOrderKm > 0 && distanceKm < settings.minOrderKm)
         ? settings.minDistanceFixedPrice.toDouble()
@@ -242,20 +242,21 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
 
         final coinState = ref.read(coinHistoryProvider);
         final settings = ref.read(platformSettingsProvider).value;
-
-        final distanceKm = _calculateDistance();
-        if (_selectedVehicle == 'bicycle' && settings != null) {
-          final maxBicycle = settings.maxKmForBicycle;
-          if (distanceKm > maxBicycle) {
-            final s = AppStrings.of(context);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(s.isArabic
-                  ? 'المسافة (${distanceKm.toStringAsFixed(1)} كم) تتجاوز الحد الأقصى للدراجة (${maxBicycle.toStringAsFixed(1)} كم)'
-                  : 'Distance (${distanceKm.toStringAsFixed(1)} km) exceeds bicycle maximum (${maxBicycle.toStringAsFixed(1)} km)'),
-            ));
-            return;
-          }
+        final activeVehicle = _reconciledVehicle(_serviceType, settings);
+        if (activeVehicle == null) {
+          final s = AppStrings.of(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                s.isArabic
+                    ? 'لا توجد مركبات متاحة لهذه الخدمة حالياً'
+                    : 'No vehicles are currently available for this service',
+              ),
+            ),
+          );
+          return;
         }
+        _selectedVehicle = activeVehicle;
 
         int? coinsToUse;
         if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
@@ -591,7 +592,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                       _isEstimating ||
                       _estimate == null ||
                       _pickupLocation == null ||
-                      _dropoffLocation == null)
+                      _dropoffLocation == null ||
+                      _enabledVehicles(
+                        _serviceType,
+                        ref.watch(platformSettingsProvider).value,
+                      ).isEmpty)
                   ? null
                   : _submitOrder,
               style: ElevatedButton.styleFrom(
@@ -650,11 +655,16 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     return Expanded(
       child: GestureDetector(
         onTap: () {
+          if (_serviceType == value) return;
+          final settings = ref.read(platformSettingsProvider).value;
+          final nextVehicle = _reconciledVehicle(value, settings);
           setState(() {
             _serviceType = value;
-            if (value == 'ride') {
-              _selectedVehicle = 'car';
+            if (nextVehicle != null) {
+              _selectedVehicle = nextVehicle;
             }
+            _estimate = null;
+            _lastEstimateKey = null;
             _invalidateOrderIntent();
           });
         },
@@ -683,106 +693,257 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
 
   Widget _buildVehicleSelector(AppStrings s, bool isDark) {
     final platformSettings = ref.watch(platformSettingsProvider).value;
+    final enabledVehicles = _enabledVehicles(_serviceType, platformSettings);
 
-    if (_serviceType == 'ride') {
-      return Center(
-        child: _vehicleOption(s.car, Icons.directions_car_filled_rounded, 'car', isDark, platformSettings?.carIconUrl),
-      );
-    }
-
-    final vehicleOptions = <Widget>[];
-
-    void addOption(Widget option) {
-      if (vehicleOptions.isNotEmpty) {
-        vehicleOptions.add(const SizedBox(width: 12));
-      }
-      vehicleOptions.add(option);
-    }
-
-    if (platformSettings?.allowBicycle ?? true) {
-      addOption(_vehicleOption(s.isArabic ? 'دراجة' : 'Bicycle', Icons.pedal_bike_rounded, 'bicycle', isDark, platformSettings?.bicycleIconUrl));
-    }
-    if (platformSettings?.allowMotorcycle ?? true) {
-      addOption(_vehicleOption(s.motorcycle, Icons.moped_rounded, 'motorcycle', isDark, platformSettings?.motorcycleIconUrl));
-    }
-    if (platformSettings?.allowMotorTricycle ?? true) {
-      addOption(_vehicleOption(s.isArabic ? 'تروسيكل' : 'Tricycle', Icons.electric_rickshaw_rounded, 'motor_tricycle', isDark, platformSettings?.motorTricycleIconUrl));
-    }
-    if (platformSettings?.allowCar ?? true) {
-      addOption(_vehicleOption(s.car, Icons.directions_car_filled_rounded, 'car', isDark, platformSettings?.carIconUrl));
-    }
-    if (platformSettings?.allowVan ?? true) {
-      addOption(_vehicleOption(s.isArabic ? 'فان' : 'Van', Icons.airport_shuttle_rounded, 'van', isDark, platformSettings?.vanIconUrl));
-    }
-    if (platformSettings?.allowTruck ?? true) {
-      addOption(_vehicleOption(s.isArabic ? 'نقل' : 'Truck', Icons.local_shipping_rounded, 'truck', isDark, platformSettings?.truckIconUrl));
-    }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: vehicleOptions,
-      ),
-    );
-  }
-
-  Widget _vehicleOption(String label, IconData fallbackIcon, String type, bool isDark, String? customIconUrl) {
-    final isSelected = _selectedVehicle == type;
-
-    return GestureDetector(
-      onTap: () => setState(() {
-        _selectedVehicle = type;
-        _invalidateOrderIntent();
-      }),
-      child: SizedBox(
-        width: 86,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    if (enabledVehicles.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark ? Colors.white10 : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: 86,
-              height: 86,
-              decoration: BoxDecoration(
-                color: isSelected 
-                    ? AppColors.primary 
-                    : (isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100),
-                shape: BoxShape.circle,
-                boxShadow: isSelected 
-                    ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8))] 
-                    : [],
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : (isDark ? Colors.white10 : Colors.grey.shade200),
-                  width: 2,
-                ),
-              ),
-              child: Center(
-                child: customIconUrl != null && customIconUrl.isNotEmpty
-                    ? ClipOval(
-                        child: CachedNetworkImage(
-                          imageUrl: ImageUtils.formatImageUrl(customIconUrl),
-                          width: 72,
-                          height: 72,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Icon(fallbackIcon, size: 44, color: isSelected ? Colors.black : Colors.grey),
-                          errorWidget: (context, url, error) => Icon(fallbackIcon, size: 44, color: isSelected ? Colors.black : Colors.grey),
-                        ),
-                      )
-                    : Icon(fallbackIcon, size: 52, color: isSelected ? Colors.black : Colors.grey),
-              ),
+            Icon(
+              Icons.info_outline_rounded,
+              color: isDark ? Colors.white54 : Colors.grey.shade600,
+              size: 20,
             ),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                color: isSelected ? AppColors.primary : (isDark ? Colors.white70 : Colors.black87),
-                fontSize: 15,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                s.isArabic
+                    ? 'لا توجد مركبات متاحة لهذه الخدمة حالياً'
+                    : 'No vehicles are currently available for this service',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white70 : Colors.grey.shade700,
+                ),
               ),
             ),
           ],
+        ),
+      );
+    }
+
+    if (!enabledVehicles.contains(_selectedVehicle)) {
+      final fallback = enabledVehicles.first;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _selectedVehicle == fallback) return;
+        setState(() {
+          _selectedVehicle = fallback;
+          _estimate = null;
+          _lastEstimateKey = null;
+          _invalidateOrderIntent();
+        });
+      });
+    }
+
+    final activeSelection = enabledVehicles.contains(_selectedVehicle)
+        ? _selectedVehicle
+        : enabledVehicles.first;
+
+    final rows = <Widget>[];
+    for (var i = 0; i < enabledVehicles.length; i += 2) {
+      final firstCode = enabledVehicles[i];
+      final secondCode =
+          (i + 1 < enabledVehicles.length) ? enabledVehicles[i + 1] : null;
+      if (rows.isNotEmpty) {
+        rows.add(const SizedBox(height: 12));
+      }
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _vehicleOption(
+                  label: VehicleTypeHelper.label(
+                    firstCode,
+                    isArabic: s.isArabic,
+                  ),
+                  fallbackIcon: VehicleTypeHelper.icon(firstCode),
+                  type: firstCode,
+                  isSelected: activeSelection == firstCode,
+                  isDark: isDark,
+                  customIconUrl: platformSettings?.iconUrlForVehicle(firstCode),
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (secondCode != null)
+                Expanded(
+                  child: _vehicleOption(
+                    label: VehicleTypeHelper.label(
+                      secondCode,
+                      isArabic: s.isArabic,
+                    ),
+                    fallbackIcon: VehicleTypeHelper.icon(secondCode),
+                    type: secondCode,
+                    isSelected: activeSelection == secondCode,
+                    isDark: isDark,
+                    customIconUrl:
+                        platformSettings?.iconUrlForVehicle(secondCode),
+                  ),
+                )
+              else
+                const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: rows,
+    );
+  }
+
+  Widget _vehicleOption({
+    required String label,
+    required IconData fallbackIcon,
+    required String type,
+    required bool isSelected,
+    required bool isDark,
+    required String? customIconUrl,
+  }) {
+    final surfaceColor = isSelected
+        ? AppColors.primary.withValues(alpha: isDark ? 0.16 : 0.12)
+        : (isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50);
+    final borderColor = isSelected
+        ? AppColors.primary
+        : (isDark ? Colors.white12 : Colors.grey.shade200);
+    final iconCircleBg = isSelected
+        ? AppColors.primary
+        : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white);
+    final iconColor =
+        isSelected ? Colors.black : (isDark ? Colors.white70 : Colors.grey.shade700);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('vehicle_option_${_serviceType}_$type'),
+        onTap: () {
+          if (_selectedVehicle == type) return;
+          setState(() {
+            _selectedVehicle = type;
+            _estimate = null;
+            _lastEstimateKey = null;
+            _invalidateOrderIntent();
+          });
+        },
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: borderColor,
+              width: isSelected ? 2 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Stack(
+            children: [
+              if (isSelected)
+                PositionedDirectional(
+                  top: 0,
+                  end: 0,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      size: 13,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: iconCircleBg,
+                        shape: BoxShape.circle,
+                        border: isSelected
+                            ? null
+                            : Border.all(
+                                color: isDark
+                                    ? Colors.white12
+                                    : Colors.grey.shade200,
+                              ),
+                      ),
+                      child: Center(
+                        child: customIconUrl != null && customIconUrl.isNotEmpty
+                            ? ClipOval(
+                                child: CachedNetworkImage(
+                                  imageUrl:
+                                      ImageUtils.formatImageUrl(customIconUrl),
+                                  width: 46,
+                                  height: 46,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Icon(
+                                    fallbackIcon,
+                                    size: 28,
+                                    color: iconColor,
+                                  ),
+                                  errorWidget: (context, url, error) => Icon(
+                                    fallbackIcon,
+                                    size: 28,
+                                    color: iconColor,
+                                  ),
+                                ),
+                              )
+                            : Icon(fallbackIcon, size: 28, color: iconColor),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight:
+                            isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color: isSelected
+                            ? (isDark ? AppColors.primary : Colors.black)
+                            : (isDark ? Colors.white : Colors.black87),
+                        fontSize: 13,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

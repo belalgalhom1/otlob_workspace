@@ -120,14 +120,14 @@ export class UpdatePlatformSettingsDto {
   @IsPositive()
   @IsOptional()
   @Type(() => Number)
-  pricePerKmVan?: number;
+  pricePerKmMinibus?: number;
 
-  @ApiProperty({ example: 12, required: false })
+  @ApiProperty({ example: 4, required: false })
   @IsInt()
   @IsPositive()
   @IsOptional()
   @Type(() => Number)
-  pricePerKmTruck?: number;
+  pricePerKmTukTuk?: number;
 
   @ApiProperty({ example: 4, required: false })
   @IsInt()
@@ -135,6 +135,20 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @Type(() => Number)
   pricePerKmMotorTricycle?: number;
+
+  @ApiProperty({ example: 8, required: false })
+  @IsInt()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  pricePerKmQuarterTruck?: number;
+
+  @ApiProperty({ example: 12, required: false })
+  @IsInt()
+  @IsPositive()
+  @IsOptional()
+  @Type(() => Number)
+  pricePerKmHalfTruck?: number;
 
   @ApiProperty({
     example: 0,
@@ -206,28 +220,28 @@ export class UpdatePlatformSettingsDto {
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  minDeliveryFeeVan?: number;
+  minDeliveryFeeMinibus?: number;
 
   @ApiProperty({ example: 0, required: false })
   @IsInt()
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  maxDeliveryFeeVan?: number;
+  maxDeliveryFeeMinibus?: number;
 
   @ApiProperty({ example: 15, required: false })
   @IsInt()
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  minDeliveryFeeTruck?: number;
+  minDeliveryFeeTukTuk?: number;
 
   @ApiProperty({ example: 0, required: false })
   @IsInt()
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  maxDeliveryFeeTruck?: number;
+  maxDeliveryFeeTukTuk?: number;
 
   @ApiProperty({ example: 15, required: false })
   @IsInt()
@@ -242,6 +256,34 @@ export class UpdatePlatformSettingsDto {
   @IsOptional()
   @Type(() => Number)
   maxDeliveryFeeMotorTricycle?: number;
+
+  @ApiProperty({ example: 15, required: false })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  minDeliveryFeeQuarterTruck?: number;
+
+  @ApiProperty({ example: 0, required: false })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  maxDeliveryFeeQuarterTruck?: number;
+
+  @ApiProperty({ example: 15, required: false })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  minDeliveryFeeHalfTruck?: number;
+
+  @ApiProperty({ example: 0, required: false })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  maxDeliveryFeeHalfTruck?: number;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
@@ -261,17 +303,27 @@ export class UpdatePlatformSettingsDto {
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
   @IsOptional()
-  allowVan?: boolean;
+  allowMinibus?: boolean;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
   @IsOptional()
-  allowTruck?: boolean;
+  allowTukTuk?: boolean;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
   @IsOptional()
   allowMotorTricycle?: boolean;
+
+  @ApiProperty({ example: true, required: false })
+  @IsBoolean()
+  @IsOptional()
+  allowQuarterTruck?: boolean;
+
+  @ApiProperty({ example: true, required: false })
+  @IsBoolean()
+  @IsOptional()
+  allowHalfTruck?: boolean;
 
   @ApiProperty({
     example: 0,
@@ -1166,13 +1218,19 @@ export class PublicPlatformSettingsDto {
   pricePerKmCar: number;
 
   @ApiProperty({ example: 8 })
-  pricePerKmVan: number;
+  pricePerKmMinibus: number;
 
-  @ApiProperty({ example: 12 })
-  pricePerKmTruck: number;
+  @ApiProperty({ example: 4 })
+  pricePerKmTukTuk: number;
 
   @ApiProperty({ example: 4 })
   pricePerKmMotorTricycle: number;
+
+  @ApiProperty({ example: 8 })
+  pricePerKmQuarterTruck: number;
+
+  @ApiProperty({ example: 12 })
+  pricePerKmHalfTruck: number;
 
   @ApiProperty({ example: true })
   allowBicycle: boolean;
@@ -1184,13 +1242,19 @@ export class PublicPlatformSettingsDto {
   allowCar: boolean;
 
   @ApiProperty({ example: true })
-  allowVan: boolean;
+  allowMinibus: boolean;
 
   @ApiProperty({ example: true })
-  allowTruck: boolean;
+  allowTukTuk: boolean;
 
   @ApiProperty({ example: true })
   allowMotorTricycle: boolean;
+
+  @ApiProperty({ example: true })
+  allowQuarterTruck: boolean;
+
+  @ApiProperty({ example: true })
+  allowHalfTruck: boolean;
 
   @ApiProperty({ example: 1 })
   coinValue: number;
@@ -1211,16 +1275,22 @@ export class PublicPlatformSettingsDto {
   carIconUrl?: string;
 
   @ApiProperty({ required: false })
+  minibusIconUrl?: string;
+
+  @ApiProperty({ required: false })
+  tukTukIconUrl?: string;
+
+  @ApiProperty({ required: false })
   bicycleIconUrl?: string;
 
   @ApiProperty({ required: false })
   motorTricycleIconUrl?: string;
 
   @ApiProperty({ required: false })
-  vanIconUrl?: string;
+  quarterTruckIconUrl?: string;
 
   @ApiProperty({ required: false })
-  truckIconUrl?: string;
+  halfTruckIconUrl?: string;
 
   @ApiProperty({ required: false })
   deliveryBannerIconUrl?: string;

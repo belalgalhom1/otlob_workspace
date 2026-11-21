@@ -27,9 +27,10 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { LocationRepository } from '../location/location.repository';
 import {
+  buildVehicleAvailabilitySettings,
   isDriverVehicleEligibleForOrder,
-  STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES,
   isValidRegisteredVehicleType,
+  isVehicleTypeAllowedForOrderType,
 } from '../location/driver-geo-search.service';
 import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
@@ -546,13 +547,15 @@ export class DispatchLifecycleService {
           driver.status === DriverStatus.BUSY ||
           (maxActiveOrders > 1 && driver.status === DriverStatus.ON_DELIVERY));
       const vehicleEligible =
-        dispatchData.type !== OrderType.STANDARD ||
-        (driver != null &&
-          (driver.vehicleType === undefined ||
-            (isValidRegisteredVehicleType(driver.vehicleType) &&
-              STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES.includes(
-                driver.vehicleType,
-              ))));
+        driver != null &&
+        (driver.vehicleType === undefined ||
+          (isValidRegisteredVehicleType(driver.vehicleType) &&
+            isVehicleTypeAllowedForOrderType(
+              dispatchData.type,
+              driver.vehicleType,
+            ) &&
+            (!dispatchData.requestedVehicleType ||
+              driver.vehicleType === dispatchData.requestedVehicleType)));
       const underCapacity =
         (activeUnitsByDriver.get(candidate.driverId) ?? 0) < maxActiveOrders;
       const shiftEligible =
@@ -977,31 +980,29 @@ export class DispatchLifecycleService {
           }
 
           const effectiveOrderType = order.type ?? dispatchData.type;
-          if (effectiveOrderType === OrderType.STANDARD) {
-            const vehicleSettings = {
-              allowBicycle: settings.allowBicycle ?? true,
-              allowMotorcycle: settings.allowMotorcycle ?? true,
-              allowCar: settings.allowCar ?? true,
-              allowVan: settings.allowVan ?? true,
-              allowTruck: settings.allowTruck ?? true,
-              allowMotorTricycle: settings.allowMotorTricycle ?? true,
-              maxKmForBicycle: settings.maxKmForBicycle ?? 5.0,
-            };
-            const effectiveDistanceKm =
-              orderDistanceKm > 0
-                ? orderDistanceKm
-                : Number(order.distanceKm ?? 0);
-            if (
-              !isDriverVehicleEligibleForOrder({
-                orderType: OrderType.STANDARD,
-                requestedVehicleType: order.requestedVehicleType ?? null,
-                driverVehicleType: assignedDriver.vehicleType,
-                orderDistanceKm: effectiveDistanceKm,
-                settings: vehicleSettings,
-              })
-            ) {
-              throw new Error(OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE);
-            }
+          const effectiveRequestedVehicleType =
+            order.requestedVehicleType ??
+            dispatchData.requestedVehicleType ??
+            null;
+          const vehicleSettings = buildVehicleAvailabilitySettings(settings);
+          const effectiveDistanceKm =
+            orderDistanceKm > 0
+              ? orderDistanceKm
+              : Number(order.distanceKm ?? 0);
+          if (
+            !isDriverVehicleEligibleForOrder({
+              orderType: effectiveOrderType,
+              requestedVehicleType: effectiveRequestedVehicleType,
+              driverVehicleType: assignedDriver.vehicleType,
+              orderDistanceKm: effectiveDistanceKm,
+              settings: vehicleSettings,
+            })
+          ) {
+            throw new Error(
+              effectiveOrderType === OrderType.STANDARD
+                ? OrderErrors.STANDARD_ORDER_VEHICLE_NOT_ELIGIBLE
+                : OrderErrors.DRIVER_VEHICLE_NOT_ELIGIBLE,
+            );
           }
         }
 

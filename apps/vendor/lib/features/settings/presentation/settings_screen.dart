@@ -680,18 +680,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: buildTile('motorTricycleIconUrl')),
-              const SizedBox(width: AppSpacing.md),
               Expanded(child: buildTile('carIconUrl')),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: buildTile('minibusIconUrl')),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: buildTile('vanIconUrl')),
+              Expanded(child: buildTile('tukTukIconUrl')),
               const SizedBox(width: AppSpacing.md),
-              Expanded(child: buildTile('truckIconUrl')),
+              Expanded(child: buildTile('motorTricycleIconUrl')),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: buildTile('quarterTruckIconUrl')),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: buildTile('halfTruckIconUrl')),
             ],
           ),
           const Divider(height: 36),
@@ -702,10 +711,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       'homeCoverUrl',
                       'bicycleIconUrl',
                       'motorcycleIconUrl',
-                      'motorTricycleIconUrl',
                       'carIconUrl',
-                      'vanIconUrl',
-                      'truckIconUrl',
+                      'minibusIconUrl',
+                      'tukTukIconUrl',
+                      'motorTricycleIconUrl',
+                      'quarterTruckIconUrl',
+                      'halfTruckIconUrl',
                       'deliveryBannerIconUrl',
                     ].contains(f.key))
                 .map((f) => SettingsFieldTile(

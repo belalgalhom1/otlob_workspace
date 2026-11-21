@@ -28,20 +28,30 @@ const VEHICLE_FEE_FIELDS: Record<string, VehicleFeeFieldKeys> = {
     minFeeKey: 'minDeliveryFeeCar',
     maxFeeKey: 'maxDeliveryFeeCar',
   },
-  VAN: {
-    perKmKey: 'pricePerKmVan',
-    minFeeKey: 'minDeliveryFeeVan',
-    maxFeeKey: 'maxDeliveryFeeVan',
+  MINIBUS: {
+    perKmKey: 'pricePerKmMinibus',
+    minFeeKey: 'minDeliveryFeeMinibus',
+    maxFeeKey: 'maxDeliveryFeeMinibus',
   },
-  TRUCK: {
-    perKmKey: 'pricePerKmTruck',
-    minFeeKey: 'minDeliveryFeeTruck',
-    maxFeeKey: 'maxDeliveryFeeTruck',
+  TUK_TUK: {
+    perKmKey: 'pricePerKmTukTuk',
+    minFeeKey: 'minDeliveryFeeTukTuk',
+    maxFeeKey: 'maxDeliveryFeeTukTuk',
   },
   MOTOR_TRICYCLE: {
     perKmKey: 'pricePerKmMotorTricycle',
     minFeeKey: 'minDeliveryFeeMotorTricycle',
     maxFeeKey: 'maxDeliveryFeeMotorTricycle',
+  },
+  QUARTER_TRUCK: {
+    perKmKey: 'pricePerKmQuarterTruck',
+    minFeeKey: 'minDeliveryFeeQuarterTruck',
+    maxFeeKey: 'maxDeliveryFeeQuarterTruck',
+  },
+  HALF_TRUCK: {
+    perKmKey: 'pricePerKmHalfTruck',
+    minFeeKey: 'minDeliveryFeeHalfTruck',
+    maxFeeKey: 'maxDeliveryFeeHalfTruck',
   },
 };
 

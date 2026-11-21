@@ -60,7 +60,7 @@ abstract class Driver implements Built<Driver, DriverBuilder> {
 
   @BuiltValueField(wireName: r'vehicleType')
   VehicleType get vehicleType;
-  // enum vehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  VAN,  TRUCK,  MOTOR_TRICYCLE,  };
+  // enum vehicleTypeEnum {  BICYCLE,  MOTORCYCLE,  CAR,  MINIBUS,  TUK_TUK,  MOTOR_TRICYCLE,  QUARTER_TRUCK,  HALF_TRUCK,  };
 
   @BuiltValueField(wireName: r'vehiclePlate')
   String? get vehiclePlate;

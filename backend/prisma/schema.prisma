@@ -22,9 +22,11 @@ model PlatformSetting {
   pricePerKmBicycle           Int     @default(2)
   pricePerKmMotorcycle        Int     @default(3)
   pricePerKmCar               Int     @default(5)
-  pricePerKmVan               Int     @default(8)
-  pricePerKmTruck             Int     @default(12)
+  pricePerKmMinibus           Int     @default(8)
+  pricePerKmTukTuk            Int     @default(4)
   pricePerKmMotorTricycle     Int     @default(4)
+  pricePerKmQuarterTruck      Int     @default(8)
+  pricePerKmHalfTruck         Int     @default(12)
   maxDeliveryFee              Int     @default(0)
   // Absolute customer-facing delivery-fee floor (EGP, whole pounds). Applied
   // after the per-vehicle min/max matrix, so a vehicle override still wins.
@@ -35,19 +37,25 @@ model PlatformSetting {
   maxDeliveryFeeMotorcycle    Int     @default(0)
   minDeliveryFeeCar           Int     @default(15)
   maxDeliveryFeeCar           Int     @default(0)
-  minDeliveryFeeVan           Int     @default(15)
-  maxDeliveryFeeVan           Int     @default(0)
-  minDeliveryFeeTruck         Int     @default(15)
-  maxDeliveryFeeTruck         Int     @default(0)
+  minDeliveryFeeMinibus       Int     @default(15)
+  maxDeliveryFeeMinibus       Int     @default(0)
+  minDeliveryFeeTukTuk        Int     @default(15)
+  maxDeliveryFeeTukTuk        Int     @default(0)
   minDeliveryFeeMotorTricycle Int     @default(15)
   maxDeliveryFeeMotorTricycle Int     @default(0)
+  minDeliveryFeeQuarterTruck  Int     @default(15)
+  maxDeliveryFeeQuarterTruck  Int     @default(0)
+  minDeliveryFeeHalfTruck     Int     @default(15)
+  maxDeliveryFeeHalfTruck     Int     @default(0)
 
   allowBicycle       Boolean @default(true)
   allowMotorcycle    Boolean @default(true)
   allowCar           Boolean @default(true)
-  allowVan           Boolean @default(true)
-  allowTruck         Boolean @default(true)
+  allowMinibus       Boolean @default(true)
+  allowTukTuk        Boolean @default(true)
   allowMotorTricycle Boolean @default(true)
+  allowQuarterTruck  Boolean @default(true)
+  allowHalfTruck     Boolean @default(true)
 
   minOrderKm                            Int       @default(0)
   minDistanceFixedPrice                 Int       @default(0)
@@ -77,10 +85,12 @@ model PlatformSetting {
   homeCoverUrl                          String?
   motorcycleIconUrl                     String?
   carIconUrl                            String?
+  minibusIconUrl                        String?
+  tukTukIconUrl                         String?
   bicycleIconUrl                        String?
   motorTricycleIconUrl                  String?
-  vanIconUrl                            String?
-  truckIconUrl                          String?
+  quarterTruckIconUrl                   String?
+  halfTruckIconUrl                      String?
   deliveryBannerIconUrl                 String?
   retentionOrdersDays                   Int       @default(90)
   retentionArchivedChatsDays            Int       @default(60)
@@ -1611,9 +1621,11 @@ enum VehicleType {
   BICYCLE
   MOTORCYCLE
   CAR
-  VAN
-  TRUCK
+  MINIBUS
+  TUK_TUK
   MOTOR_TRICYCLE
+  QUARTER_TRUCK
+  HALF_TRUCK
 }
 
 enum DriverStatus {

@@ -381,13 +381,17 @@ class Orders extends _$Orders {
     String paymentMethod = 'CASH_ON_DELIVERY',
     int? coinsToUse,
   }) {
-    final vType = switch (vehicleType) {
-      'motorcycle' => PlaceCustomOrderDtoVehicleTypeEnum.MOTORCYCLE,
-      'car' => PlaceCustomOrderDtoVehicleTypeEnum.CAR,
-      'van' => PlaceCustomOrderDtoVehicleTypeEnum.VAN,
-      'truck' => PlaceCustomOrderDtoVehicleTypeEnum.TRUCK,
-      'motor_tricycle' => PlaceCustomOrderDtoVehicleTypeEnum.MOTOR_TRICYCLE,
-      _ => PlaceCustomOrderDtoVehicleTypeEnum.BICYCLE,
+    final normalizedVehicle = vehicleType?.trim().toUpperCase();
+    final vType = switch (normalizedVehicle) {
+      'MOTORCYCLE' => PlaceCustomOrderDtoVehicleTypeEnum.MOTORCYCLE,
+      'CAR' => PlaceCustomOrderDtoVehicleTypeEnum.CAR,
+      'MINIBUS' => PlaceCustomOrderDtoVehicleTypeEnum.MINIBUS,
+      'TUK_TUK' => PlaceCustomOrderDtoVehicleTypeEnum.TUK_TUK,
+      'MOTOR_TRICYCLE' => PlaceCustomOrderDtoVehicleTypeEnum.MOTOR_TRICYCLE,
+      'QUARTER_TRUCK' => PlaceCustomOrderDtoVehicleTypeEnum.QUARTER_TRUCK,
+      'HALF_TRUCK' => PlaceCustomOrderDtoVehicleTypeEnum.HALF_TRUCK,
+      'BICYCLE' => PlaceCustomOrderDtoVehicleTypeEnum.BICYCLE,
+      _ => PlaceCustomOrderDtoVehicleTypeEnum.MOTORCYCLE,
     };
 
     final pMethod = paymentMethod.startsWith('MOBILE_WALLET')

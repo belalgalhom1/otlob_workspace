@@ -21,6 +21,11 @@ import {
   PlatformSettingErrors,
 } from '../../common/constants/response.constants';
 import { DeliveryFeeCalculator } from './delivery-fee.calculator';
+import {
+  CUSTOM_DELIVERY_ELIGIBLE_VEHICLE_TYPES,
+  RIDE_ELIGIBLE_VEHICLE_TYPES,
+  STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES,
+} from '../../common/orders/vehicle-eligibility.helper';
 
 const UPLOAD_MANAGED_SETTING_FIELDS = new Set<string>([
   'id',
@@ -28,10 +33,12 @@ const UPLOAD_MANAGED_SETTING_FIELDS = new Set<string>([
   'homeCoverUrl',
   'motorcycleIconUrl',
   'carIconUrl',
+  'minibusIconUrl',
+  'tukTukIconUrl',
   'bicycleIconUrl',
   'motorTricycleIconUrl',
-  'vanIconUrl',
-  'truckIconUrl',
+  'quarterTruckIconUrl',
+  'halfTruckIconUrl',
   'deliveryBannerIconUrl',
 ]);
 
@@ -44,8 +51,10 @@ const VEHICLE_ICON_COLUMNS: Record<string, string> = {
   motorcycle: 'motorcycleIconUrl',
   motor_tricycle: 'motorTricycleIconUrl',
   car: 'carIconUrl',
-  van: 'vanIconUrl',
-  truck: 'truckIconUrl',
+  minibus: 'minibusIconUrl',
+  tuk_tuk: 'tukTukIconUrl',
+  quarter_truck: 'quarterTruckIconUrl',
+  half_truck: 'halfTruckIconUrl',
 };
 
 // Semantic version compare: returns true if `current` satisfies `minimum`
@@ -88,8 +97,23 @@ export class PlatformSettingsService {
   // Seeds a default row if it has never been written (first boot).
 
   async getSettings() {
-    const cached = await this.cacheManager.get('platform_settings');
-    if (cached) return cached as PlatformSetting;
+    const cached = (await this.cacheManager.get('platform_settings')) as
+      | PlatformSetting
+      | undefined
+      | null;
+    if (
+      cached &&
+      typeof (cached as unknown as Record<string, unknown>).allowMinibus ===
+        'boolean' &&
+      typeof (cached as unknown as Record<string, unknown>).allowTukTuk ===
+        'boolean' &&
+      typeof (cached as unknown as Record<string, unknown>)
+        .allowQuarterTruck === 'boolean' &&
+      typeof (cached as unknown as Record<string, unknown>).allowHalfTruck ===
+        'boolean'
+    ) {
+      return cached;
+    }
 
     let settings = await this.prisma.platformSetting.findUnique({
       where: { id: 'default' },
@@ -160,9 +184,11 @@ export class PlatformSettingsService {
       pricePerKmBicycle: s.pricePerKmBicycle,
       pricePerKmMotorcycle: s.pricePerKmMotorcycle,
       pricePerKmCar: s.pricePerKmCar,
-      pricePerKmVan: s.pricePerKmVan,
-      pricePerKmTruck: s.pricePerKmTruck,
+      pricePerKmMinibus: s.pricePerKmMinibus,
+      pricePerKmTukTuk: s.pricePerKmTukTuk,
       pricePerKmMotorTricycle: s.pricePerKmMotorTricycle,
+      pricePerKmQuarterTruck: s.pricePerKmQuarterTruck,
+      pricePerKmHalfTruck: s.pricePerKmHalfTruck,
       maxDeliveryFee: s.maxDeliveryFee,
       minDeliveryFeeBicycle: s.minDeliveryFeeBicycle,
       maxDeliveryFeeBicycle: s.maxDeliveryFeeBicycle,
@@ -170,21 +196,32 @@ export class PlatformSettingsService {
       maxDeliveryFeeMotorcycle: s.maxDeliveryFeeMotorcycle,
       minDeliveryFeeCar: s.minDeliveryFeeCar,
       maxDeliveryFeeCar: s.maxDeliveryFeeCar,
-      minDeliveryFeeVan: s.minDeliveryFeeVan,
-      maxDeliveryFeeVan: s.maxDeliveryFeeVan,
-      minDeliveryFeeTruck: s.minDeliveryFeeTruck,
-      maxDeliveryFeeTruck: s.maxDeliveryFeeTruck,
+      minDeliveryFeeMinibus: s.minDeliveryFeeMinibus,
+      maxDeliveryFeeMinibus: s.maxDeliveryFeeMinibus,
+      minDeliveryFeeTukTuk: s.minDeliveryFeeTukTuk,
+      maxDeliveryFeeTukTuk: s.maxDeliveryFeeTukTuk,
       minDeliveryFeeMotorTricycle: s.minDeliveryFeeMotorTricycle,
       maxDeliveryFeeMotorTricycle: s.maxDeliveryFeeMotorTricycle,
+      minDeliveryFeeQuarterTruck: s.minDeliveryFeeQuarterTruck,
+      maxDeliveryFeeQuarterTruck: s.maxDeliveryFeeQuarterTruck,
+      minDeliveryFeeHalfTruck: s.minDeliveryFeeHalfTruck,
+      maxDeliveryFeeHalfTruck: s.maxDeliveryFeeHalfTruck,
       coinValue: s.coinValue,
       amountSpentPerCoin: s.amountSpentPerCoin,
       minCoinsToUse: s.minCoinsToUse,
       allowBicycle: s.allowBicycle,
       allowMotorcycle: s.allowMotorcycle,
       allowCar: s.allowCar,
-      allowVan: s.allowVan,
-      allowTruck: s.allowTruck,
+      allowMinibus: s.allowMinibus,
+      allowTukTuk: s.allowTukTuk,
       allowMotorTricycle: s.allowMotorTricycle,
+      allowQuarterTruck: s.allowQuarterTruck,
+      allowHalfTruck: s.allowHalfTruck,
+      serviceEligibleVehicles: {
+        STANDARD: [...STANDARD_ORDER_ELIGIBLE_VEHICLE_TYPES],
+        RIDE: [...RIDE_ELIGIBLE_VEHICLE_TYPES],
+        CUSTOM_DELIVERY: [...CUSTOM_DELIVERY_ELIGIBLE_VEHICLE_TYPES],
+      },
       maxKmForBicycle: s.maxKmForBicycle,
       maxDeliveryRadiusKm: s.maxDeliveryRadiusKm,
       minOrderKm: s.minOrderKm,
@@ -192,10 +229,12 @@ export class PlatformSettingsService {
       homeCoverUrl: s.homeCoverUrl,
       motorcycleIconUrl: s.motorcycleIconUrl,
       carIconUrl: s.carIconUrl,
+      minibusIconUrl: s.minibusIconUrl,
+      tukTukIconUrl: s.tukTukIconUrl,
       bicycleIconUrl: s.bicycleIconUrl,
       motorTricycleIconUrl: s.motorTricycleIconUrl,
-      vanIconUrl: s.vanIconUrl,
-      truckIconUrl: s.truckIconUrl,
+      quarterTruckIconUrl: s.quarterTruckIconUrl,
+      halfTruckIconUrl: s.halfTruckIconUrl,
       deliveryBannerIconUrl: s.deliveryBannerIconUrl,
       driverBonusActive: s.driverBonusActive,
       driverBonusAmount: s.driverBonusAmount,

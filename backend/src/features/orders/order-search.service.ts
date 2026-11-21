@@ -112,17 +112,13 @@ export class OrderSearchService {
   ): Promise<NearbyDriversResponseDto> {
     const settings = await this.platformSettings.getSettings();
     const radiusKm = Number(settings.driverSearchRadiusKm ?? 5);
-    const effectiveVehicleType =
-      query.type === OrderType.RIDE && !query.vehicleType
-        ? VehicleType.CAR
-        : query.vehicleType;
 
     const drivers = await this.fetchAnonymizedNearbyDrivers({
       lng: query.lng,
       lat: query.lat,
       radiusKm,
       orderType: query.type ?? null,
-      requestedVehicleType: effectiveVehicleType ?? null,
+      requestedVehicleType: query.vehicleType ?? null,
       orderDistanceKm: 0,
       requireActiveShift: false,
       settings,
