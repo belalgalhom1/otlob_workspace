@@ -59,7 +59,7 @@ class _HangingPushService extends Fake implements PushNotificationService {
   Future<void> subscribeToRoleTopics(String role) async {}
 }
 
-class _TestActiveVendor extends ActiveVendor {
+class _TestActiveVendor extends ActiveVendorNotifier {
   @override
   String? build() => null;
 
@@ -251,6 +251,7 @@ void main() {
       await container
           .read(authProvider.notifier)
           .login('vendor@example.com', 'password123');
+      await Future<void>.delayed(Duration.zero);
 
       final authState = container.read(authProvider);
       expect(authState.isLoading, isFalse);

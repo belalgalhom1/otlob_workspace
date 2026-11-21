@@ -147,7 +147,9 @@ void main() {
           final logoImage = tester.widget<Image>(logoFinder);
           expect(
             (logoImage.image as AssetImage).assetName,
-            'assets/logo_without_background.png',
+            themeMode == ThemeMode.dark
+                ? 'assets/logo_delivery_dark.png'
+                : 'assets/logo_delivery.png',
           );
 
           final signRect = tester.getRect(

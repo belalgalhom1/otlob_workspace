@@ -76,6 +76,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       const AssetImage('assets/logo_without_background.png'),
       context,
     ).catchError((_) {});
+    precacheImage(
+      const AssetImage('assets/logo_dark.png'),
+      context,
+    ).catchError((_) {});
   }
 
   Future<void> _waitForSpinCompleted() async {
@@ -200,6 +204,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     ref.listen<AsyncValue<bool>>(authProvider, (previous, state) {
       _onAuthStateChanged(context, state);
     });
@@ -231,7 +236,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 onInitialSpinCompleted: () => _spinLogoKey.currentState
                     ?.continueSpinningWhileWaiting(),
                 child: Image.asset(
-                  'assets/logo_without_background.png',
+                  isDark
+                      ? 'assets/logo_dark.png'
+                      : 'assets/logo_without_background.png',
                   width: 150,
                   fit: BoxFit.contain,
                   gaplessPlayback: true,

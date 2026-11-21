@@ -88,6 +88,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (_precached) return;
     _precached = true;
     precacheImage(
+      const AssetImage('assets/logo_delivery.png'),
+      context,
+    ).catchError((_) {});
+    precacheImage(
+      const AssetImage('assets/logo_delivery_dark.png'),
+      context,
+    ).catchError((_) {});
+    precacheImage(
       const AssetImage('assets/logo_without_background.png'),
       context,
     ).catchError((_) {});
@@ -240,12 +248,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 onInitialSpinCompleted: () => _spinLogoKey.currentState
                     ?.continueSpinningWhileWaiting(),
                 child: Image.asset(
-                  'assets/logo_without_background.png',
+                  isDark
+                      ? 'assets/logo_delivery_dark.png'
+                      : 'assets/logo_delivery.png',
                   width: 140,
                   fit: BoxFit.contain,
                   gaplessPlayback: true,
-                  color: isDark ? Theme.of(context).colorScheme.primary : null,
-                  colorBlendMode: isDark ? BlendMode.srcIn : null,
                 ),
               ),
               const SizedBox(height: 28),

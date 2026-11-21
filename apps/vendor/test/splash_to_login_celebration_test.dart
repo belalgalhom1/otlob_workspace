@@ -1,4 +1,3 @@
-import 'package:core/core.dart';
 import 'package:data/data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -141,7 +140,9 @@ void main() {
           final logoImage = tester.widget<Image>(logoFinder);
           expect(
             (logoImage.image as AssetImage).assetName,
-            'assets/logo_without_background.png',
+            themeMode == ThemeMode.dark
+                ? 'assets/logo_dark.png'
+                : 'assets/logo_without_background.png',
           );
 
           final signRect = tester.getRect(

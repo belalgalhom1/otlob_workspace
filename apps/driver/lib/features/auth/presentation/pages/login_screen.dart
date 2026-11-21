@@ -120,13 +120,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Center(
                       child: OtlobBrandHeroLogo(
                         child: Image.asset(
-                          'assets/logo_without_background.png',
+                          isDark
+                              ? 'assets/logo_delivery_dark.png'
+                              : 'assets/logo_delivery.png',
                           height: 124,
                           fit: BoxFit.contain,
-                          color: isDark
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
-                          colorBlendMode: isDark ? BlendMode.srcIn : null,
                         ),
                       ),
                     ),
