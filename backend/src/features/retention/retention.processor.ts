@@ -32,6 +32,42 @@ const RETENTION_SCHEDULE: ReadonlyArray<{ type: string; pattern: string }> = [
 const retentionJobId = (type: string) =>
   `cron.data_retention.${type.replace(/-/g, '_')}`;
 
+type OrderMediaTargetKey =
+  | 'orderPaymentReceipt'
+  | 'groupPickupPhoto'
+  | 'fulfillmentPickupPhoto'
+  | 'groupDeliveryPhoto';
+
+interface OrderMediaTargetConfig {
+  readonly tableSql: string;
+  readonly columnSql: string;
+  readonly joinedOrder: boolean;
+}
+
+const ORDER_MEDIA_TARGETS: Record<OrderMediaTargetKey, OrderMediaTargetConfig> =
+  {
+    orderPaymentReceipt: {
+      tableSql: '"orders"',
+      columnSql: '"paymentReceiptUrl"',
+      joinedOrder: false,
+    },
+    groupPickupPhoto: {
+      tableSql: '"order_delivery_groups"',
+      columnSql: '"pickupImageUrl"',
+      joinedOrder: true,
+    },
+    fulfillmentPickupPhoto: {
+      tableSql: '"order_vendor_fulfillments"',
+      columnSql: '"pickupImageUrl"',
+      joinedOrder: true,
+    },
+    groupDeliveryPhoto: {
+      tableSql: '"order_delivery_groups"',
+      columnSql: '"deliveryImageUrl"',
+      joinedOrder: true,
+    },
+  };
+
 @Processor(QUEUES.RETENTION, { concurrency: 5 })
 export class RetentionProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(RetentionProcessor.name);
@@ -58,7 +94,7 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
     }
   }
 
-  async process(job: Job): Promise<any> {
+  async process(job: Job<{ type?: string }>): Promise<unknown> {
     this.logger.debug(`Processing retention job [${job.name}] id=${job.id}`);
 
     if (job.name !== CRON_JOBS.DATA_RETENTION) {
@@ -66,7 +102,7 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
       return { ignored: true, reason: 'unknown_job_name' };
     }
 
-    switch (job.data.type) {
+    switch (job.data?.type) {
       case 'orders':
         return this.handleOrdersCleanup();
       case 'chats':
@@ -406,10 +442,9 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
       // Privacy-first file hygiene, not row deletion: the order row (and its
       // wallet/coin ledger) survives for accounting — only the sensitive
       // transfer screenshot leaves disk. Only settled orders qualify, so a
-      // live PENDING_PAYMENT dispute never loses its evidence. updatedAt
-      // (not createdAt) gates it: an order still moving keeps its receipt.
-      const cleared = await this.clearOrderMediaUrls(
-        'paymentReceiptUrl',
+      // live PENDING_PAYMENT dispute never loses its evidence.
+      const cleared = await this.clearMediaColumn(
+        'orderPaymentReceipt',
         cutoff,
       );
 
@@ -453,21 +488,30 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
       );
 
       // Pickup/delivery proof photos are dispute evidence, so only settled
-      // orders qualify and a live order never loses its proof. As with
-      // receipts, the order row and its money ledger are kept — only the image
-      // leaves disk, and updatedAt keeps a still-moving order's photos.
-      const pickup = await this.clearOrderMediaUrls(
-        'pickupImageUrl',
+      // orders qualify and a live order never loses its proof. Pickup URLs can
+      // live on both `order_delivery_groups` and `order_vendor_fulfillments`,
+      // while delivery proof lives on `order_delivery_groups`.
+      const deletedUrls = new Set<string>();
+      const groupPickups = await this.clearMediaColumn(
+        'groupPickupPhoto',
         pickupCutoff,
+        deletedUrls,
       );
-      const delivery = await this.clearOrderMediaUrls(
-        'deliveryImageUrl',
+      const fulfillmentPickups = await this.clearMediaColumn(
+        'fulfillmentPickupPhoto',
+        pickupCutoff,
+        deletedUrls,
+      );
+      const delivery = await this.clearMediaColumn(
+        'groupDeliveryPhoto',
         deliveryCutoff,
+        deletedUrls,
       );
+      const pickup = groupPickups + fulfillmentPickups;
 
       if (pickup + delivery > 0) {
         this.logger.log(
-          `🗑️  Cleared ${pickup} pickup and ${delivery} delivery photos`,
+          `🗑️  Cleared ${pickup} pickup and ${delivery} delivery photo refs (${deletedUrls.size} files deleted)`,
         );
       }
     } catch (error) {
@@ -533,55 +577,108 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
   }
 
   /**
-   * Batch-clear a nullable order image column once the order is settled and
-   * stale. The URL is cleared conditionally (a concurrent re-upload swaps it,
-   * and must never be wiped), then the file is deleted from disk. The order
-   * row itself is always kept.
+   * Batch-clear a nullable media column on orders or their child execution
+   * tables (`order_delivery_groups`, `order_vendor_fulfillments`) once the
+   * parent order is settled and stale.
    *
-   * Deliberately reads with `$queryRaw`: Prisma's soft-delete extension
-   * rewrites every Order `findMany` to `deletedAt: null`, and the orders
-   * retention job soft-deletes old settled orders (which also bumps their
-   * `updatedAt`) before these media jobs run — so an ORM read would hide
-   * exactly the rows we are meant to scrub. `createdAt` is the only monotonic
-   * clock that survives both the rewrite and the soft-delete; the settled
-   * status filter still guarantees a live order never loses its evidence.
-   * Covered by the orders (status, createdAt) index.
+   * Uses `$queryRaw` because Prisma's soft-delete extension rewrites `Order`
+   * reads to `deletedAt: null`, and old settled orders are soft-deleted by
+   * the orders retention job before media cleanup runs. Joins parent `orders`
+   * when clearing child tables so `status` and `createdAt` remain the sole
+   * source of truth, and conditionally `updateMany`s before unlinking disk
+   * files so concurrent re-uploads are never deleted.
    */
-  private async clearOrderMediaUrls(
-    field: 'paymentReceiptUrl' | 'pickupImageUrl' | 'deliveryImageUrl',
+  private async clearMediaColumn(
+    targetKey: OrderMediaTargetKey,
     cutoff: Date,
+    deletedUrls: Set<string> = new Set<string>(),
   ): Promise<number> {
-    // Identifier is a fixed union member, never user input — safe to inline.
-    const column = Prisma.raw(`"${field}"`);
+    const target = ORDER_MEDIA_TARGETS[targetKey];
+    const table = Prisma.raw(target.tableSql);
+    const column = Prisma.raw(target.columnSql);
     let cleared = 0;
+
     for (;;) {
-      const batch = await this.prisma.$queryRaw<
-        Array<{ id: string; url: string | null }>
-      >`
-        SELECT "id", ${column} AS "url"
-        FROM "orders"
-        WHERE ${column} IS NOT NULL
-          AND "status" IN ('DELIVERED', 'CANCELLED')
-          AND "createdAt" < ${cutoff}
-        ORDER BY "createdAt" ASC
-        LIMIT 200
-      `;
+      const batch = target.joinedOrder
+        ? await this.prisma.$queryRaw<
+            Array<{ id: string; url: string | null }>
+          >`
+            SELECT t."id", t.${column} AS "url"
+            FROM ${table} t
+            JOIN "orders" o ON o."id" = t."orderId"
+            WHERE t.${column} IS NOT NULL
+              AND t.${column} <> ''
+              AND o."status" IN ('DELIVERED', 'CANCELLED')
+              AND o."createdAt" < ${cutoff}
+            ORDER BY o."createdAt" ASC
+            LIMIT 200
+          `
+        : await this.prisma.$queryRaw<
+            Array<{ id: string; url: string | null }>
+          >`
+            SELECT "id", ${column} AS "url"
+            FROM ${table}
+            WHERE ${column} IS NOT NULL
+              AND ${column} <> ''
+              AND "status" IN ('DELIVERED', 'CANCELLED')
+              AND "createdAt" < ${cutoff}
+            ORDER BY "createdAt" ASC
+            LIMIT 200
+          `;
       if (batch.length === 0) break;
 
-      for (const order of batch) {
-        const url = order.url;
+      let clearedInBatch = 0;
+      for (const row of batch) {
+        const url = row.url;
         if (typeof url !== 'string' || url.length === 0) continue;
-        const clearedRow = await this.prisma.order.updateMany({
-          where: { id: order.id, [field]: url } as any,
-          data: { [field]: null } as any,
-        });
+
+        const clearedRow = await this.clearConditionalMediaRef(
+          targetKey,
+          row.id,
+          url,
+        );
         if (clearedRow.count === 0) continue;
-        await this.storage.delete(url);
+
+        clearedInBatch += 1;
         cleared += 1;
+        if (!deletedUrls.has(url)) {
+          deletedUrls.add(url);
+          await this.storage.delete(url);
+        }
       }
 
-      if (batch.length < 200) break;
+      if (batch.length < 200 || clearedInBatch === 0) break;
     }
+
     return cleared;
+  }
+
+  private clearConditionalMediaRef(
+    targetKey: OrderMediaTargetKey,
+    id: string,
+    url: string,
+  ): Promise<{ count: number }> {
+    switch (targetKey) {
+      case 'orderPaymentReceipt':
+        return this.prisma.order.updateMany({
+          where: { id, paymentReceiptUrl: url },
+          data: { paymentReceiptUrl: null },
+        });
+      case 'groupPickupPhoto':
+        return this.prisma.orderDeliveryGroup.updateMany({
+          where: { id, pickupImageUrl: url },
+          data: { pickupImageUrl: null },
+        });
+      case 'fulfillmentPickupPhoto':
+        return this.prisma.orderVendorFulfillment.updateMany({
+          where: { id, pickupImageUrl: url },
+          data: { pickupImageUrl: null },
+        });
+      case 'groupDeliveryPhoto':
+        return this.prisma.orderDeliveryGroup.updateMany({
+          where: { id, deliveryImageUrl: url },
+          data: { deliveryImageUrl: null },
+        });
+    }
   }
 }
