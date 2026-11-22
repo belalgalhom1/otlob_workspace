@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:api/api.dart';
 import 'package:core/core.dart'
     show OrderActivityHelper, OrderTypeHelper, VehicleTypeHelper;
@@ -6,13 +7,20 @@ import 'package:data/providers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:ui_kit/ui_kit.dart'
-    show AppNetworkAvatar, ExternalActionLauncher, RouteEndpointsCard;
+    show
+        AppNetworkAvatar,
+        ExternalActionLauncher,
+        MediaPermissionHelper,
+        RouteEndpointsCard;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../providers/custom_delivery_search_controller.dart';
+import '../providers/orders_provider.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 
 /// Main draggable bottom sheet content for [CustomDeliverySearchScreen].
@@ -27,6 +35,7 @@ class CustomDeliverySearchSheetBody extends ConsumerWidget {
     required this.onCancelConfirmed,
     required this.onRetrySearch,
     required this.onEditRequest,
+    this.onPaymentSubmitted,
     this.currency = 'EGP',
   });
 
@@ -37,6 +46,7 @@ class CustomDeliverySearchSheetBody extends ConsumerWidget {
   final VoidCallback onCancelConfirmed;
   final VoidCallback onRetrySearch;
   final VoidCallback onEditRequest;
+  final VoidCallback? onPaymentSubmitted;
   final String currency;
 
   @override
@@ -47,6 +57,7 @@ class CustomDeliverySearchSheetBody extends ConsumerWidget {
         key: const ValueKey('driver_found_sheet'),
         state: state,
         driverLocationListenable: driverLocationListenable,
+        onPaymentSubmitted: onPaymentSubmitted,
         currency: currency,
       ),
       _ when state.isTerminal => _TerminalSearchSheetView(
@@ -396,11 +407,13 @@ class _DriverFoundSheetView extends ConsumerStatefulWidget {
     super.key,
     required this.state,
     required this.driverLocationListenable,
+    this.onPaymentSubmitted,
     required this.currency,
   });
 
   final CustomDeliverySearchState state;
   final ValueListenable<DriverLiveMarkerState?> driverLocationListenable;
+  final VoidCallback? onPaymentSubmitted;
   final String currency;
 
   @override
@@ -410,6 +423,8 @@ class _DriverFoundSheetView extends ConsumerStatefulWidget {
 
 class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
   bool _openingChat = false;
+  XFile? _receiptFile;
+  bool _submittingPayment = false;
 
   Future<void> _openOrderChat() async {
     if (_openingChat) return;
@@ -449,6 +464,363 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
     } finally {
       if (mounted) setState(() => _openingChat = false);
     }
+  }
+
+  List<Map<String, dynamic>> _visibleDriverWallets(
+    Map<String, dynamic> driver,
+  ) {
+    final raw = driver['mobileWallets'];
+    if (raw is! List || raw.isEmpty) return const [];
+    final wallets = raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .where((w) => w['isActive'] != false)
+        .toList();
+    bool isInstaPay(Map<String, dynamic> w) =>
+        (w['type'] ?? w['provider'] ?? '')
+            .toString()
+            .toUpperCase()
+            .contains('INSTAPAY');
+    final mobile = wallets.where((w) => !isInstaPay(w)).toList();
+    return mobile.isNotEmpty ? mobile : wallets;
+  }
+
+  Future<void> _pickPaymentReceipt() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        imageQuality: 80,
+      );
+      if (file != null && mounted) {
+        setState(() => _receiptFile = file);
+      }
+    } catch (e) {
+      if (mounted) {
+        MediaPermissionHelper.handlePickerError(e, context: context);
+      }
+    }
+  }
+
+  Future<void> _submitPaymentProof({required bool isAr}) async {
+    if (_submittingPayment) return;
+    if (_receiptFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isAr
+                ? 'يرجى إرفاق لقطة شاشة للتحويل أولاً'
+                : 'Please attach the transfer screenshot first',
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() => _submittingPayment = true);
+    try {
+      final success = await ref
+          .read(ordersProvider.notifier)
+          .markPaymentPaid(
+            widget.state.orderId,
+            receiptPath: _receiptFile!.path,
+          );
+      if (!mounted) return;
+      if (success) {
+        setState(() => _receiptFile = null);
+        widget.onPaymentSubmitted?.call();
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? (isAr
+                      ? 'تم إرسال تأكيد التحويل بنجاح!'
+                      : 'Transfer confirmation sent!')
+                : (isAr
+                      ? 'فشل إرسال التأكيد. حاول مرة أخرى.'
+                      : 'Confirmation failed. Please try again.'),
+          ),
+          backgroundColor: success ? AppColors.success : AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submittingPayment = false);
+    }
+  }
+
+  Widget _buildInlinePendingPaymentCard(
+    BuildContext context, {
+    required Map<String, dynamic> order,
+    required Map<String, dynamic> driver,
+    required String currency,
+    required bool isAr,
+    required bool isDark,
+  }) {
+    final theme = Theme.of(context);
+    final upfront =
+        double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
+    final total =
+        double.tryParse(
+          (order['grandTotal'] ?? order['total'])?.toString() ?? '0',
+        ) ??
+        0.0;
+    final isUpfront =
+        (order['paymentMethod']?.toString() ?? '') == 'CASH_ON_DELIVERY' &&
+        upfront > 0;
+    final amountDue = isUpfront ? upfront : total;
+    final paidClaimed =
+        (order['paymentStatus']?.toString().toUpperCase() ?? '') == 'PAID';
+    final wallets = _visibleDriverWallets(driver);
+
+    const accent = Color(0xFFD97706);
+
+    return Container(
+      key: const ValueKey('inline_pending_payment_card'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: isDark ? 0.14 : 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: accent.withValues(alpha: isDark ? 0.45 : 0.35),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: accent,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isUpfront
+                          ? (isAr
+                                ? 'المبلغ المقدم المطلوب أولاً'
+                                : 'Upfront deposit required')
+                          : (isAr
+                                ? 'المبلغ المطلوب تحويله'
+                                : 'Wallet transfer required'),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${amountDue.toStringAsFixed(0)} $currency',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            isAr
+                ? 'حوّل المبلغ إلى محفظة الكابتن ثم أرفق لقطة شاشة للإيصال لبدء الرحلة.'
+                : "Transfer the amount to your driver's mobile wallet and upload the receipt screenshot to proceed.",
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+          if (wallets.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...wallets.map((w) {
+              final number =
+                  (w['number'] ?? w['walletNumber'] ?? '').toString().trim();
+              final isInsta = (w['type'] ?? w['provider'] ?? '')
+                  .toString()
+                  .toUpperCase()
+                  .contains('INSTAPAY');
+              final providerLabel = isInsta
+                  ? (isAr ? 'إنستا باي' : 'InstaPay')
+                  : (isAr ? 'محفظة إلكترونية' : 'Mobile Wallet');
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            providerLabel,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            number,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (number.isNotEmpty)
+                      IconButton(
+                        tooltip: isAr ? 'نسخ الرقم' : 'Copy number',
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: number));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                isAr ? 'تم نسخ رقم المحفظة' : 'Wallet copied',
+                              ),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: 12),
+          if (paidClaimed)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.hourglass_top_rounded,
+                    color: accent,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isAr
+                          ? 'تم إرسال تأكيدك. بانتظار تأكيد الكابتن استلام المبلغ.'
+                          : 'Confirmation sent. Waiting for your driver to verify receipt.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            OutlinedButton.icon(
+              onPressed: _submittingPayment ? null : _pickPaymentReceipt,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.receipt_long_rounded, size: 19),
+              label: Text(
+                _receiptFile != null
+                    ? (_receiptFile!.name.isNotEmpty
+                          ? _receiptFile!.name
+                          : (isAr ? 'تم إرفاق الإيصال' : 'Receipt attached'))
+                    : (isAr
+                          ? 'إرفاق لقطة شاشة التحويل (مطلوب)'
+                          : 'Attach transfer screenshot (required)'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (_receiptFile != null) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.file(
+                  File(_receiptFile!.path),
+                  height: 120,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: ElevatedButton.icon(
+                onPressed: _submittingPayment
+                    ? null
+                    : () => _submitPaymentProof(isAr: isAr),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: _submittingPayment
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_outline_rounded, size: 20),
+                label: Text(
+                  isUpfront
+                      ? (isAr
+                            ? 'لقد دفعت المبلغ المقدم'
+                            : 'I have paid the upfront amount')
+                      : (isAr
+                            ? 'لقد حوّلت المبلغ'
+                            : 'I have transferred the amount'),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   ({
@@ -829,28 +1201,13 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
         ),
         if (isPendingPayment) ...[
           const SizedBox(height: 12),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 50),
-            child: ElevatedButton.icon(
-              onPressed: () => context.push('/order-tracking/${state.orderId}'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-              icon: const Icon(Icons.account_balance_wallet_rounded),
-              label: Text(
-                'app.completeWalletPaymentNow'.tr(context: context),
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
+          _buildInlinePendingPaymentCard(
+            context,
+            order: order,
+            driver: driver,
+            currency: widget.currency,
+            isAr: isAr,
+            isDark: isDark,
           ),
         ],
         const SizedBox(height: 14),

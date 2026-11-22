@@ -85,38 +85,42 @@ export class DriverAssistListener {
 
   @OnEvent(EVENTS.DRIVER_ASSIST_OFFERED, { async: true })
   async handleAssistOffered(event: DriverAssistOfferedEvent): Promise<void> {
-    for (const userId of event.targetUserIds) {
-      await this.emitSocket(userId, WS_EVENTS.ASSIST_OFFER, {
-        id: event.requestId,
-        requestId: event.requestId,
-        orderId: event.orderId,
-        orderNumber: event.orderNumber ?? '',
-        deliveryGroupId: event.deliveryGroupId ?? null,
-        reason: event.reason ?? '',
-        proposedAssistFee: event.proposedAssistFee ?? 0,
-        expiresAt: event.expiresAt,
-        order: {
-          id: event.orderId,
-          orderNumber: event.orderNumber ?? '',
-        },
-      });
-      await this.enqueueNotification({
-        userId,
-        title: 'Assist offer',
-        titleAr: 'عرض مساعدة',
-        body: 'A driver needs help with a delivery. Accept to assist.',
-        bodyAr: 'سائق يحتاج مساعدة في توصيل. اقبل للمساعدة.',
-        data: {
-          requestId: event.requestId,
-          orderId: event.orderId,
-          orderNumber: event.orderNumber ?? '',
-          deliveryGroupId: event.deliveryGroupId ?? null,
-          reason: event.reason ?? '',
-          proposedAssistFee: event.proposedAssistFee ?? 0,
-          action: 'assist_offer',
-        },
-      });
-    }
+    await Promise.all(
+      event.targetUserIds.map(async (userId) => {
+        await Promise.all([
+          this.emitSocket(userId, WS_EVENTS.ASSIST_OFFER, {
+            id: event.requestId,
+            requestId: event.requestId,
+            orderId: event.orderId,
+            orderNumber: event.orderNumber ?? '',
+            deliveryGroupId: event.deliveryGroupId ?? null,
+            reason: event.reason ?? '',
+            proposedAssistFee: event.proposedAssistFee ?? 0,
+            expiresAt: event.expiresAt,
+            order: {
+              id: event.orderId,
+              orderNumber: event.orderNumber ?? '',
+            },
+          }),
+          this.enqueueNotification({
+            userId,
+            title: 'Assist offer',
+            titleAr: 'عرض مساعدة',
+            body: 'A driver needs help with a delivery. Accept to assist.',
+            bodyAr: 'سائق يحتاج مساعدة في توصيل. اقبل للمساعدة.',
+            data: {
+              requestId: event.requestId,
+              orderId: event.orderId,
+              orderNumber: event.orderNumber ?? '',
+              deliveryGroupId: event.deliveryGroupId ?? null,
+              reason: event.reason ?? '',
+              proposedAssistFee: event.proposedAssistFee ?? 0,
+              action: 'assist_offer',
+            },
+          }),
+        ]);
+      }),
+    );
   }
 
   @OnEvent(EVENTS.DRIVER_ASSIST_ASSIGNED, { async: true })
@@ -230,15 +234,17 @@ export class DriverAssistListener {
           },
         };
 
-    for (const userId of recipients) {
-      await this.enqueueNotification({ userId, ...copy });
-      await this.emitSocket(userId, WS_EVENTS.ORDER_ASSIST_DECIDED, {
-        orderId: event.orderId,
-        ...groupFields,
-        approved: event.approved,
-        assistFee: event.assistFee,
-      });
-    }
+    await Promise.all(
+      Array.from(recipients).flatMap((userId) => [
+        this.enqueueNotification({ userId, ...copy }),
+        this.emitSocket(userId, WS_EVENTS.ORDER_ASSIST_DECIDED, {
+          orderId: event.orderId,
+          ...groupFields,
+          approved: event.approved,
+          assistFee: event.assistFee,
+        }),
+      ]),
+    );
   }
 
   @OnEvent(EVENTS.DRIVER_ASSIST_TIMED_OUT, { async: true })
@@ -276,18 +282,23 @@ export class DriverAssistListener {
       },
     ];
 
-    for (const msg of messages) {
-      if (!msg.userId) continue;
-      await this.enqueueNotification({
-        userId: msg.userId,
-        title: 'Assisted delivery timed out',
-        titleAr: 'انتهت مهلة التوصيل بمساعدة',
-        body: msg.body,
-        bodyAr: msg.bodyAr,
-        data,
-      });
-      await this.emitSocket(msg.userId, WS_EVENTS.ORDER_ASSIST_TIMED_OUT, data);
-    }
+    await Promise.all(
+      messages
+        .filter((msg): msg is { userId: string; body: string; bodyAr: string } =>
+          Boolean(msg.userId),
+        )
+        .flatMap((msg) => [
+          this.enqueueNotification({
+            userId: msg.userId,
+            title: 'Assisted delivery timed out',
+            titleAr: 'انتهت مهلة التوصيل بمساعدة',
+            body: msg.body,
+            bodyAr: msg.bodyAr,
+            data,
+          }),
+          this.emitSocket(msg.userId, WS_EVENTS.ORDER_ASSIST_TIMED_OUT, data),
+        ]),
+    );
   }
 
   private async enqueueNotification(dto: {

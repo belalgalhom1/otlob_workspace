@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { LegalDocumentType, Role } from '@prisma/client';
+import { LegalDocumentType } from '@prisma/client';
 import { CreateLegalDocumentDto } from './dto/create-legal-document.dto';
 import { UpdateLegalDocumentDto } from './dto/update-legal-document.dto';
 import { AcceptLegalDocumentDto } from './dto/accept-legal-document.dto';

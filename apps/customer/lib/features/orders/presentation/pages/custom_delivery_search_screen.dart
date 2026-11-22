@@ -623,6 +623,7 @@ class _CustomDeliverySearchScreenState
                               controller.nearbyVehiclesNotifier,
                           onCancelConfirmed: () => controller.cancelSearch(),
                           onRetrySearch: () => controller.retrySearch(),
+                          onPaymentSubmitted: () => controller.resync(),
                           onEditRequest: () {
                             final draft = CustomDeliveryDraft.fromOrder(
                               state.order,

@@ -1079,7 +1079,16 @@ void main() {
         expect(find.textContaining('Est.'), findsNothing);
         expect(find.text('Call'), findsOneWidget);
         expect(find.text('Chat'), findsOneWidget);
-        expect(find.text('Complete Wallet Payment'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('inline_pending_payment_card')),
+          findsOneWidget,
+        );
+        expect(find.text('Wallet transfer required'), findsOneWidget);
+        expect(
+          find.text('Attach transfer screenshot (required)'),
+          findsOneWidget,
+        );
+        expect(find.text('I have transferred the amount'), findsOneWidget);
 
         // Live driver distance updates via ValueNotifier without recreating state.
         stub.driverLocationNotifier.value = const DriverLiveMarkerState(

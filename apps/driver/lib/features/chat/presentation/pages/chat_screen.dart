@@ -133,11 +133,32 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   }
 
   Future<void> _loadOrderDetails() async {
+    final repo = ref.read(driverOrdersRepositoryProvider);
     try {
-      final repo = ref.read(driverOrdersRepositoryProvider);
       final res = await repo.getOrderById(widget.orderId);
       if (mounted && res is Map<String, dynamic>) {
         setState(() => _orderData = res);
+        return;
+      }
+    } catch (_) {
+      // `widget.orderId` may be a `conversationId` when opened from the Inbox.
+    }
+    try {
+      final chatRepo = ref.read(sharedChatRepositoryProvider);
+      final conv = await chatRepo.getConversation(widget.orderId);
+      final convData = (conv is Map && conv.containsKey('data'))
+          ? conv['data']
+          : conv;
+      final actualOrderId = (convData is Map
+              ? (convData['orderId'] ?? convData['order']?['id'])
+              : null)
+          ?.toString()
+          .trim();
+      if (actualOrderId != null && actualOrderId.isNotEmpty) {
+        final res = await repo.getOrderById(actualOrderId);
+        if (mounted && res is Map<String, dynamic>) {
+          setState(() => _orderData = res);
+        }
       }
     } catch (e) {
       debugPrint('Failed to load order for chat header: $e');
@@ -666,7 +687,9 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
                           _orderData!['requestedVehicleType']?.toString(),
                         )
                       : LucideIcons.packageCheck,
-                  totalAmount: rawTotal != null ? '$rawTotal EGP' : null,
+                  totalAmount: rawTotal != null
+                      ? '$rawTotal ${l10n.localeName == 'ar' ? 'ج.م' : 'EGP'}'
+                      : null,
                   onTap: () {
                     if (context.canPop()) {
                       context.pop();
@@ -771,7 +794,7 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
               },
             ),
           ),
-          if (!chatState.hasError && !_isRecording)
+          if (_isOrderChat && !chatState.hasError && !_isRecording)
             QuickReplyChips(
               chips: _getDriverQuickReplies(Localizations.localeOf(context).languageCode == 'ar'),
               onSelected: _onQuickReplySelected,

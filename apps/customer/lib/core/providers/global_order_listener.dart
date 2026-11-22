@@ -8,6 +8,7 @@ import '../services/token_service.dart';
 import 'platform_settings_provider.dart';
 import '../../features/auth/presentation/providers/auth_controller.dart';
 import '../../features/orders/presentation/providers/orders_provider.dart';
+import '../../features/profile/presentation/providers/coin_history_provider.dart';
 
 part 'global_order_listener.g.dart';
 
@@ -38,6 +39,7 @@ class GlobalOrderListener extends _$GlobalOrderListener {
   StreamSubscription<dynamic>? _fulfillmentSub;
   StreamSubscription<dynamic>? _assistProposedSub;
   StreamSubscription<dynamic>? _settingsSub;
+  StreamSubscription<void>? _socketConnectSub;
   StreamSubscription<dynamic>? _connectivitySub;
   _OrdersLifecycleObserver? _lifecycleObserver;
 
@@ -77,6 +79,8 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     _assistProposedSub = null;
     _settingsSub?.cancel();
     _settingsSub = null;
+    _socketConnectSub?.cancel();
+    _socketConnectSub = null;
     _connectivitySub?.cancel();
     _connectivitySub = null;
     _lifecycleObserver?.dispose();
@@ -114,13 +118,21 @@ class GlobalOrderListener extends _$GlobalOrderListener {
           .listen((_) {
         ref.invalidate(platformSettingsProvider);
       });
+
+      _socketConnectSub?.cancel();
+      _socketConnectSub = socket.onConnect.listen((_) {
+        ref.read(ordersProvider.notifier).refresh();
+        ref.invalidate(coinHistoryProvider);
+      });
     }
 
     // --- Foreground FCM ---
     final push = ref.read(pushNotificationServiceProvider);
     _pushSub?.cancel();
     _pushSub = push.onMessage.listen((message) {
-      if (message.data['orderId'] != null) {
+      final hasConvo =
+          (message.data['conversationId']?.toString().trim() ?? '').isNotEmpty;
+      if (!hasConvo && message.data['orderId'] != null) {
         _handleOrderStatusUpdate(message.data);
       }
     });
@@ -153,6 +165,7 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     await ref.read(socketServiceProvider).ensureConnected();
 
     ref.invalidate(platformSettingsProvider);
+    ref.invalidate(coinHistoryProvider);
     final orders = ref.read(ordersProvider.notifier);
     await orders.refresh();
   }
@@ -161,23 +174,54 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     final data = message is Map ? message : (message?.data as Map?);
     if (data == null) return;
 
+    // Chat pushes for order conversations include BOTH `conversationId` and
+    // `orderId` (see ChatListener.handleMessageSent), so check `conversationId`
+    // first so tapping a chat message opens the conversation instead of order tracking.
+    final conversationId = data['conversationId']?.toString().trim();
     final orderId = data['orderId']?.toString().trim();
-    if (orderId != null && orderId.isNotEmpty) {
-      // Update the list instantly, then navigate to tracking.
-      _handleOrderStatusUpdate(data);
-      ref.read(navigationServiceProvider).go('/order-tracking/$orderId');
+    if (conversationId != null && conversationId.isNotEmpty) {
+      final rawChatType = (data['chatType'] ?? data['type'] ?? 'support')
+          .toString()
+          .toLowerCase();
+      final chatType = (rawChatType == 'order' ||
+              rawChatType == 'direct' ||
+              rawChatType == 'support')
+          ? rawChatType
+          : ((orderId != null && orderId.isNotEmpty) ? 'order' : 'support');
+      ref.read(navigationServiceProvider).push(
+        '/chat/$chatType/$conversationId',
+        extra: <String, dynamic>{
+          if (data['title'] != null) 'title': data['title'].toString(),
+          if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
+        },
+      );
       return;
     }
 
-    final conversationId = data['conversationId']?.toString().trim();
-    if (conversationId != null && conversationId.isNotEmpty) {
-      final type = (data['chatType'] ?? data['type'] ?? 'support').toString();
-      ref.read(navigationServiceProvider).push(
-        '/chat/$type/$conversationId',
-        extra: <String, dynamic>{
-          if (data['title'] != null) 'title': data['title'].toString(),
-        },
-      );
+    if (orderId != null && orderId.isNotEmpty) {
+      // Update the list instantly, then navigate to the order-type-appropriate screen.
+      _handleOrderStatusUpdate(data);
+      final ordersState = ref.read(ordersProvider);
+      Map<String, dynamic>? matchedOrder;
+      for (final o in [...ordersState.activeOrders, ...ordersState.pastOrders]) {
+        if (o['id']?.toString() == orderId) {
+          matchedOrder = o;
+          break;
+        }
+      }
+      final rawType =
+          (data['orderType'] ?? matchedOrder?['type'])?.toString().trim();
+      final isNonStandard =
+          OrderTypeHelper.resolve(rawType).isNonStandard;
+      if (isNonStandard) {
+        ref.read(navigationServiceProvider).go(
+              '/order-search/$orderId',
+              extra: matchedOrder,
+            );
+      } else {
+        ref.read(navigationServiceProvider).go('/order-tracking/$orderId');
+      }
+      return;
     }
   }
 
@@ -216,6 +260,15 @@ class GlobalOrderListener extends _$GlobalOrderListener {
     final orders = ref.read(ordersProvider.notifier);
     if (status != null) {
       orders.updateOrderStatusFast(orderId, status);
+    }
+    final fulfillmentStatus = data['fulfillmentStatus']?.toString().toUpperCase();
+    final upperStatus = status?.toUpperCase();
+    if (upperStatus == 'DELIVERED' ||
+        upperStatus == 'CANCELLED' ||
+        upperStatus == 'REJECTED' ||
+        fulfillmentStatus == 'REJECTED' ||
+        fulfillmentStatus == 'CANCELLED') {
+      ref.invalidate(coinHistoryProvider);
     }
     // Coalesce event bursts into at most one refresh per second.
     final now = DateTime.now();

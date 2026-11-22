@@ -20,7 +20,7 @@ final class CoinHistoryProvider
         argument: null,
         retry: null,
         name: r'coinHistoryProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );

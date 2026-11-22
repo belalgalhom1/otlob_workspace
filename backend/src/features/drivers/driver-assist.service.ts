@@ -6,11 +6,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { DriverAssistMatchingService } from './driver-assist-matching.service';
+import { ConversationsService } from '../chat/conversations.service';
+import { DriverTrackingService } from '../location/driver-tracking.service';
 import {
   CustomerErrors,
   DriverErrors,
@@ -91,6 +94,8 @@ export class DriverAssistService {
     private readonly matchingService: DriverAssistMatchingService,
     @Inject(ORDER_ASSIST_CANCELLATION_PORT)
     private readonly ordersState: OrderAssistCancellationPort,
+    @Optional() private readonly conversationsService?: ConversationsService,
+    @Optional() private readonly driverTracking?: DriverTrackingService,
   ) {}
 
   // ─── Driver workflow ───────────────────────────────────────────────────────
@@ -469,6 +474,10 @@ export class DriverAssistService {
     );
 
     await this.matchingService.clearOffer(requestId);
+    await this.syncAssistOrderParticipantsAndTracking(request.orderId, [
+      assigned.primaryDriverId,
+      candidate.id,
+    ]);
 
     this.eventEmitter.emit(
       EVENTS.DRIVER_ASSIST_ASSIGNED,
@@ -774,7 +783,93 @@ export class DriverAssistService {
       this.logWarn(e);
     }
 
+    await this.syncAssistOrderParticipantsAndTracking(params.orderId, [
+      params.primaryDriverId,
+      params.assistDriverId,
+    ]);
+
     return true;
+  }
+
+  private async syncAssistOrderParticipantsAndTracking(
+    orderId: string,
+    driverIds: Array<string | null | undefined>,
+  ): Promise<void> {
+    try {
+      if (
+        typeof this.conversationsService?.createSystemOrderConversation ===
+        'function'
+      ) {
+        await this.conversationsService.createSystemOrderConversation(orderId);
+      }
+      if (
+        typeof this.conversationsService?.syncOrderDriverParticipants ===
+        'function'
+      ) {
+        await this.conversationsService.syncOrderDriverParticipants(orderId);
+      }
+    } catch (e) {
+      this.logWarn(e);
+    }
+
+    if (
+      typeof this.driverTracking?.syncDriverActiveOrders !== 'function' ||
+      typeof this.prisma.orderDeliveryGroup?.findMany !== 'function'
+    ) {
+      return;
+    }
+
+    const uniqueDriverIds = Array.from(
+      new Set(driverIds.filter((id): id is string => Boolean(id))),
+    );
+    await Promise.all(
+      uniqueDriverIds.map(async (driverId) => {
+        try {
+          const activeGroups = await this.prisma.orderDeliveryGroup.findMany({
+            where: {
+              status: {
+                notIn: [
+                  DeliveryGroupStatus.CANCELLED,
+                  DeliveryGroupStatus.DELIVERED,
+                ],
+              },
+              order: {
+                status: {
+                  notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+                },
+              },
+              OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
+            },
+            select: {
+              orderId: true,
+              order: {
+                select: {
+                  customerId: true,
+                  customer: { select: { userId: true } },
+                },
+              },
+            },
+            orderBy: { createdAt: 'asc' },
+          });
+          const byOrderId = new Map<
+            string,
+            { orderId: string; customerUserId: string }
+          >();
+          for (const g of activeGroups) {
+            byOrderId.set(g.orderId, {
+              orderId: g.orderId,
+              customerUserId: g.order.customer?.userId ?? g.order.customerId,
+            });
+          }
+          await this.driverTracking!.syncDriverActiveOrders(
+            driverId,
+            Array.from(byOrderId.values()),
+          );
+        } catch (e) {
+          this.logWarn(e);
+        }
+      }),
+    );
   }
 
   async autoAssignAssistDriver(requestId: string, actor: JwtAccessPayload) {

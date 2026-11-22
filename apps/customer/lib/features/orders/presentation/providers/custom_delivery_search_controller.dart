@@ -366,7 +366,6 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
   StreamSubscription<dynamic>? _searchProgressSub;
   StreamSubscription<dynamic>? _orderStatusSub;
   StreamSubscription<dynamic>? _orderAssignedSub;
-  StreamSubscription<dynamic>? _orderCancelledSub;
   StreamSubscription<dynamic>? _driverLocSub;
   StreamSubscription<void>? _socketConnectSub;
   StreamSubscription<bool>? _connectivitySub;
@@ -410,7 +409,6 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
       _searchProgressSub?.cancel();
       _orderStatusSub?.cancel();
       _orderAssignedSub?.cancel();
-      _orderCancelledSub?.cancel();
       _driverLocSub?.cancel();
       _socketConnectSub?.cancel();
       _connectivitySub?.cancel();
@@ -890,13 +888,6 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
 
       _orderAssignedSub = socket
           .onEvent(SocketEvent.orderAssigned.eventName)
-          .listen((raw) {
-            if (_disposed || raw is! Map || raw['orderId'] != orderId) return;
-            unawaited(resync());
-          });
-
-      _orderCancelledSub = socket
-          .onEvent(SocketEvent.orderCancelled.eventName)
           .listen((raw) {
             if (_disposed || raw is! Map || raw['orderId'] != orderId) return;
             unawaited(resync());

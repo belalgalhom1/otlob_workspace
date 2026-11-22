@@ -191,7 +191,9 @@ export class MessagesService {
       return msg;
     });
 
-    const participantIds = conversation.participants.map((p) => p.userId);
+    const participantIds = Array.from(
+      new Set([...conversation.participants.map((p) => p.userId), actor.sub]),
+    );
 
     const senderRoleToEmit =
       message.sender.vendorMemberships &&
@@ -323,7 +325,9 @@ export class MessagesService {
       data: { updatedAt: new Date() },
     });
 
-    const participantIds = conversation.participants.map((p) => p.userId);
+    const participantIds = Array.from(
+      new Set([...conversation.participants.map((p) => p.userId), senderId]),
+    );
 
     const senderRoleToEmit =
       message.sender.vendorMemberships &&
@@ -486,7 +490,7 @@ export class MessagesService {
       throw new ForbiddenException(ChatErrors.NOT_A_PARTICIPANT);
     }
 
-    if ((isAdmin || isVendorMember) && !participant) {
+    if (isAdmin && !isVendorMember && !participant) {
       return { lastReadAt: new Date() };
     }
 
@@ -503,13 +507,27 @@ export class MessagesService {
       readAt = msg.createdAt;
     }
 
-    await this.prisma.conversationParticipant.update({
-      where: { conversationId_userId: { conversationId, userId: actor.sub } },
-      data: { lastReadAt: readAt },
-    });
+    if (participant) {
+      await this.prisma.conversationParticipant.update({
+        where: { conversationId_userId: { conversationId, userId: actor.sub } },
+        data: { lastReadAt: readAt },
+      });
+    } else {
+      await this.prisma.conversationParticipant.create({
+        data: {
+          conversationId,
+          userId: actor.sub,
+          lastReadAt: readAt,
+        },
+      });
+    }
 
-    const participantIds =
-      conversation?.participants.map((p) => p.userId) ?? [];
+    const participantIds = Array.from(
+      new Set([
+        ...(conversation?.participants.map((p) => p.userId) ?? []),
+        actor.sub,
+      ]),
+    );
 
     this.eventEmitter.emit(
       EVENTS.CHAT_MESSAGE_READ,

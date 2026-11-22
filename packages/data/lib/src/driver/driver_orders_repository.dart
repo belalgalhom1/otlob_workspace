@@ -70,6 +70,40 @@ class DriverOrdersRepository {
     return ResponseParser.parse(response);
   }
 
+  Future<dynamic> confirmPickupWithPhoto({
+    required String orderId,
+    MultipartFile? file,
+    String? fulfillmentId,
+  }) async {
+    final trimmedFulfillmentId = fulfillmentId?.trim();
+    final response =
+        (trimmedFulfillmentId != null && trimmedFulfillmentId.isNotEmpty)
+            ? await _api.ordersControllerDriverConfirmFulfillmentPickup(
+                orderId: orderId,
+                fulfillmentId: trimmedFulfillmentId,
+                file: file,
+              )
+            : await _api.ordersControllerDriverConfirmPickup(
+                orderId: orderId,
+                fulfillmentId: '',
+                file: file,
+              );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> confirmDeliveryWithPhoto({
+    required String orderId,
+    MultipartFile? file,
+    String? deliveryGroupId,
+  }) async {
+    final response = await _api.ordersControllerDriverConfirmDelivery(
+      orderId: orderId,
+      deliveryGroupId: deliveryGroupId?.trim() ?? '',
+      file: file,
+    );
+    return ResponseParser.parse(response);
+  }
+
   Future<dynamic> updateOrderStatus(
     String orderId,
     String status, {

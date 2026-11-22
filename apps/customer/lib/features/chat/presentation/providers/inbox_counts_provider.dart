@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
+import 'package:data/providers.dart' show sharedChatRepositoryProvider;
 import '../../../../core/services/socket_service.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 import 'package:flutter/foundation.dart';
@@ -39,15 +40,19 @@ class InboxCounts extends _$InboxCounts {
     // bindings die with the old socket instance).
     final socket = ref.read(socketServiceProvider);
     final chatSub =
-        socket.onEvent('chat.message').listen(_onRealtimeEvent);
+        socket.onEvent(SocketEvent.chatMessage.eventName).listen(_onRealtimeEvent);
     final readSub =
-        socket.onEvent('chat.read').listen(_onRealtimeEvent);
-    final createdSub =
-        socket.onEvent('conversation.created').listen(_onRealtimeEvent);
-    final closedSub =
-        socket.onEvent('conversation.closed').listen(_onRealtimeEvent);
-    final notifSub =
-        socket.onEvent('notification.new').listen(_onRealtimeEvent);
+        socket.onEvent(SocketEvent.chatRead.eventName).listen(_onRealtimeEvent);
+    final createdSub = socket
+        .onEvent(SocketEvent.conversationCreated.eventName)
+        .listen(_onRealtimeEvent);
+    final closedSub = socket
+        .onEvent(SocketEvent.conversationClosed.eventName)
+        .listen(_onRealtimeEvent);
+    final notifSub = socket
+        .onEvent(SocketEvent.notificationNew.eventName)
+        .listen(_onRealtimeEvent);
+    final connectSub = socket.onConnect.listen(_onRealtimeEvent);
 
     ref.onDispose(() {
       chatSub.cancel();
@@ -55,6 +60,7 @@ class InboxCounts extends _$InboxCounts {
       createdSub.cancel();
       closedSub.cancel();
       notifSub.cancel();
+      connectSub.cancel();
     });
 
     return InboxCountsState();
@@ -71,14 +77,12 @@ class InboxCounts extends _$InboxCounts {
       return;
     }
     try {
-      final dio = ref.read(dioProvider);
-      final response = await dio.get('/inbox/counts');
-      if (response.data != null && response.data['data'] != null) {
-        final data = response.data['data'];
+      final result = await ref.read(sharedChatRepositoryProvider).getInboxCounts();
+      if (result is Map) {
         state = InboxCountsState(
-          chatUnread: data['chat'] ?? 0,
-          notificationsUnread: data['notifications'] ?? 0,
-          totalUnread: data['total'] ?? 0,
+          chatUnread: (result['chat'] as num?)?.toInt() ?? 0,
+          notificationsUnread: (result['notifications'] as num?)?.toInt() ?? 0,
+          totalUnread: (result['total'] as num?)?.toInt() ?? 0,
         );
       }
     } catch (e) {

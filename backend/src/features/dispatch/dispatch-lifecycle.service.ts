@@ -53,14 +53,6 @@ const DRIVER_ASSIGNABLE_STATUSES: DriverStatus[] = [
   DriverStatus.BUSY,
 ];
 
-const DISPATCHABLE_ORDER_STATUSES: OrderStatus[] = [
-  OrderStatus.LOOKING_FOR_DRIVER,
-  OrderStatus.ACCEPTED,
-  OrderStatus.PREPARING,
-  OrderStatus.READY_FOR_PICKUP,
-  OrderStatus.PARTIALLY_PICKED_UP,
-];
-
 /**
  * Owns dispatch lifecycle resolution after broadcast:
  * driver acceptance, driver rejection & early retry, offer expiry, and active
@@ -532,11 +524,43 @@ export class DispatchLifecycleService {
       activeShifts.map((s) => s.driverId),
     );
 
+    const isRideDispatch = dispatchData.type === OrderType.RIDE;
+    const allowsStacking = maxActiveOrders > 1 && !isRideDispatch;
+
+    const driversWithActiveRide = new Set<string>();
+    if (
+      allowsStacking &&
+      typeof this.prisma.orderDeliveryGroup?.findMany === 'function'
+    ) {
+      const activeRideGroups = await this.prisma.orderDeliveryGroup.findMany({
+        where: {
+          OR: [
+            { primaryDriverId: { in: candidateIds } },
+            { assistDriverId: { in: candidateIds } },
+          ],
+          status: {
+            notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+          },
+          order: { type: OrderType.RIDE },
+        },
+        select: { primaryDriverId: true, assistDriverId: true },
+      });
+      for (const rg of activeRideGroups) {
+        if (rg.primaryDriverId) driversWithActiveRide.add(rg.primaryDriverId);
+        if (rg.assistDriverId) driversWithActiveRide.add(rg.assistDriverId);
+      }
+    }
+
     const expired: DispatchCandidateOffer[] = [];
     const ineligible: DispatchCandidateOffer[] = [];
 
     for (const candidate of unresponded) {
       const driver = driverById.get(candidate.driverId);
+      const activeUnits = activeUnitsByDriver.get(candidate.driverId) ?? 0;
+      const canTakeAnotherOrder = allowsStacking
+        ? activeUnits < maxActiveOrders &&
+          !driversWithActiveRide.has(candidate.driverId)
+        : activeUnits === 0;
       const statusEligible =
         driver != null &&
         driver.deletedAt == null &&
@@ -544,7 +568,7 @@ export class DispatchLifecycleService {
         driver.hasUnpaidCommission === false &&
         (driver.status === DriverStatus.ONLINE ||
           driver.status === DriverStatus.BUSY ||
-          (maxActiveOrders > 1 && driver.status === DriverStatus.ON_DELIVERY));
+          (allowsStacking && driver.status === DriverStatus.ON_DELIVERY));
       const vehicleEligible =
         driver != null &&
         (driver.vehicleType === undefined ||
@@ -555,13 +579,11 @@ export class DispatchLifecycleService {
             ) &&
             (!dispatchData.requestedVehicleType ||
               driver.vehicleType === dispatchData.requestedVehicleType)));
-      const underCapacity =
-        (activeUnitsByDriver.get(candidate.driverId) ?? 0) < maxActiveOrders;
       const shiftEligible =
         (!candidate.driverShiftId || activeShiftIds.has(candidate.driverShiftId)) &&
         (!requireActiveShift || driversWithActiveShift.has(candidate.driverId));
 
-      if (statusEligible && vehicleEligible && underCapacity && shiftEligible) {
+      if (statusEligible && vehicleEligible && canTakeAnotherOrder && shiftEligible) {
         expired.push(candidate);
       } else {
         ineligible.push(candidate);
@@ -1258,6 +1280,7 @@ export class DispatchLifecycleService {
     try {
       await Promise.all([
         this.eventsQueue.add(EVENT_JOBS.ORDER_STATUS_CHANGED, statusEvent, {
+          jobId: `order_status_${order.id}_${assignedRevision}`,
           attempts: 3,
           backoff: { type: 'exponential', delay: 2_000 },
         }),

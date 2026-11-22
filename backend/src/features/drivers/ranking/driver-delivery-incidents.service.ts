@@ -1,14 +1,7 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma, Role } from '@prisma/client';
-import {
-  CommonErrors,
-  DriverErrors,
-} from '../../../common/constants/response.constants';
+import { DriverErrors } from '../../../common/constants/response.constants';
 import { AuditLogCreatedEvent } from '../../../common/events';
 import { EVENTS } from '../../../common/events/event-names';
 import type { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interface';

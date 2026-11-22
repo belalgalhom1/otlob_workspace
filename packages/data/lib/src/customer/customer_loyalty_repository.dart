@@ -10,6 +10,6 @@ class CustomerLoyaltyRepository {
       limit: limit.toString(),
       page: page.toString(),
     );
-    return ResponseParser.parseList(response);
+    return ResponseParser.parse(response);
   }
 }

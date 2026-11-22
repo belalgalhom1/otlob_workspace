@@ -11,7 +11,13 @@ import 'socket_events.dart';
 
 class CoreSocketService with WidgetsBindingObserver {
   io.Socket? _socket;
-  final String _baseUrl = (dotenv.isInitialized ? dotenv.env['WS_URL'] : null)?.replaceAll('/events', '') ?? 'https://ws.otlob-egy.online';
+  String? _connectedToken;
+  final String _baseUrl = ((dotenv.isInitialized
+              ? (dotenv.env['WS_URL'] ?? dotenv.env['SOCKET_URL'])
+              : null)
+          ?.replaceAll('/events', '') ??
+      'https://ws.otlob-egy.online')
+      .replaceAll(RegExp(r'/$'), '');
   
   final Future<bool> Function() isTokenExpired;
   final Future<void> Function() refreshToken;
@@ -20,6 +26,7 @@ class CoreSocketService with WidgetsBindingObserver {
   
   // Stream Controllers for strictly typed events
   final Map<SocketEvent, StreamController<dynamic>> _controllers = {};
+  final Map<String, StreamController<dynamic>> _rawControllers = {};
   final StreamController<void> _connectController = StreamController<void>.broadcast();
 
   Stream<void> get onConnect => _connectController.stream;
@@ -62,6 +69,23 @@ class CoreSocketService with WidgetsBindingObserver {
     return _controllers[event]!.stream;
   }
 
+  /// Get a stream by raw event name (reuses typed controller if one matches).
+  Stream<dynamic> onEventName(String eventName) {
+    for (final ev in SocketEvent.values) {
+      if (ev.eventName == eventName) {
+        return _controllers[ev]!.stream;
+      }
+    }
+    final existing = _rawControllers[eventName];
+    if (existing != null) return existing.stream;
+    final ctrl = StreamController<dynamic>.broadcast();
+    _rawControllers[eventName] = ctrl;
+    _socket?.on(eventName, (dynamic data) {
+      if (!ctrl.isClosed) ctrl.add(data);
+    });
+    return ctrl.stream;
+  }
+
   Future<void> init({String? forceToken, bool autoConnect = true}) async {
     // Check if token is expired or about to expire (5 min buffer)
     bool needsRefresh = await isTokenExpired();
@@ -88,11 +112,12 @@ class CoreSocketService with WidgetsBindingObserver {
     if (token == null) return;
 
     // If already connected with the same token, don't re-init
-    if (_socket != null && _socket!.connected) {
+    if (_socket != null && _socket!.connected && token == _connectedToken) {
       return;
     }
 
     _socket?.dispose(); // Clean up old socket if any
+    _connectedToken = token;
     
     _socket = io.io(
       '$_baseUrl/events',
@@ -129,6 +154,11 @@ class CoreSocketService with WidgetsBindingObserver {
         if (!_controllers[event]!.isClosed) {
           _controllers[event]!.add(data);
         }
+      });
+    }
+    for (final entry in _rawControllers.entries) {
+      _socket?.on(entry.key, (dynamic data) {
+        if (!entry.value.isClosed) entry.value.add(data);
       });
     }
 
@@ -175,6 +205,14 @@ class CoreSocketService with WidgetsBindingObserver {
     _socket?.emit(eventName, data);
   }
 
+  void onRaw(String eventName, void Function(dynamic) callback) {
+    _socket?.on(eventName, callback);
+  }
+
+  void offRaw(String eventName, [void Function(dynamic)? callback]) {
+    _socket?.off(eventName, callback);
+  }
+
   void connect() {
     if (_socket == null) {
       unawaited(init(autoConnect: true));
@@ -184,6 +222,7 @@ class CoreSocketService with WidgetsBindingObserver {
   }
 
   void disconnect() {
+    _connectedToken = null;
     _socket?.disconnect();
   }
 
@@ -199,5 +238,9 @@ class CoreSocketService with WidgetsBindingObserver {
       controller.close();
     }
     _controllers.clear();
+    for (var controller in _rawControllers.values) {
+      controller.close();
+    }
+    _rawControllers.clear();
   }
 }

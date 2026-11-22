@@ -35,10 +35,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   Map<String, dynamic>? _pinnedOrder;
   bool _pinnedLoading = false;
 
-  /// Server-side status filter (null = all). Text / payment / date filters
-  /// below are client-side over the loaded orders.
+  /// Server-side status filter (null = all). Text / payment / type / date
+  /// filters below are client-side over the loaded orders.
   String? _statusFilter;
   String? _paymentFilter;
+  String? _typeFilter;
   String _query = '';
   int? _dateDays;
   DateTimeRange? _customRange;
@@ -114,6 +115,32 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         _dateDays = days;
         _customRange = null;
       }),
+      selectedColor: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.22),
+      checkmarkColor: selectedAccent,
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: selected
+            ? selectedAccent
+            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      side: BorderSide(
+        color: selected
+            ? AppColors.primary
+            : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15),
+      ),
+    );
+  }
+
+  Widget _buildTypeChip(BuildContext context, String? type, String label) {
+    final selected = _typeFilter == type;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedAccent = isDark ? AppColors.primary : const Color(0xFFB45309);
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => setState(() => _typeFilter = type),
       selectedColor: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.22),
       checkmarkColor: selectedAccent,
       labelStyle: TextStyle(
@@ -231,6 +258,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       if (_paymentFilter != null &&
           (order['paymentMethod']?.toString() ?? '') != _paymentFilter) {
         return false;
+      }
+      if (_typeFilter != null) {
+        final resolvedType = OrderTypeHelper.resolve(order);
+        final matchesType = switch (_typeFilter) {
+          'STANDARD' => resolvedType.isStandard,
+          'CUSTOM_DELIVERY' => resolvedType.isCustomDelivery,
+          'RIDE' => resolvedType.isRide,
+          _ => true,
+        };
+        if (!matchesType) return false;
       }
       if (q.isNotEmpty) {
         final customer = order['customer'];
@@ -581,6 +618,38 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                if (_userRole == 'ADMIN' || _userRole == 'SUPER_ADMIN') ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildTypeChip(
+                          context,
+                          null,
+                          isArabic ? 'كل الخدمات' : 'All Services',
+                        ),
+                        _buildTypeChip(
+                          context,
+                          'STANDARD',
+                          isArabic ? 'طلبات المتاجر' : 'Store Orders',
+                        ),
+                        _buildTypeChip(
+                          context,
+                          'CUSTOM_DELIVERY',
+                          isArabic ? 'توصيل خاص' : 'Custom Delivery',
+                        ),
+                        _buildTypeChip(
+                          context,
+                          'RIDE',
+                          isArabic ? 'رحلات' : 'Rides',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: Wrap(
@@ -4479,12 +4548,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         break;
       case 'READY_FOR_PICKUP':
         color = AppColors.success;
-        if (orderType.isRide) {
-          label = isArabic ? 'في طريقه لنقطة الركوب' : 'Heading to Pickup';
-          icon = LucideIcons.navigation;
-        } else if (orderType.isCustomDelivery) {
-          label = isArabic ? 'في طريقه للاستلام' : 'Heading to Pickup';
-          icon = LucideIcons.navigation;
+        if (orderType.isNonStandard) {
+          label = OrderTypeHelper.customerStatusLabel(
+            orderType,
+            status,
+            isArabic: isArabic,
+          );
+          icon = LucideIcons.mapPin;
         } else {
           label = isArabic ? 'جاهز' : 'Ready';
           icon = LucideIcons.package;

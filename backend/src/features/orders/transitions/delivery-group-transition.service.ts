@@ -105,8 +105,9 @@ export class DeliveryGroupTransitionService {
     }
 
     if (
-      dto.status === OrderStatus.PICKED_UP ||
-      dto.status === OrderStatus.DELIVERED
+      order.type === OrderType.STANDARD &&
+      (dto.status === OrderStatus.PICKED_UP ||
+        dto.status === OrderStatus.DELIVERED)
     ) {
       const groupItems = await this.prisma.orderDeliveryGroupItem.findMany({
         where: { deliveryGroupId: group.id },
@@ -849,6 +850,7 @@ export class DeliveryGroupTransitionService {
           order: {
             select: {
               orderNumber: true,
+              type: true,
               status: true,
               customerId: true,
               customer: { select: { userId: true } },
@@ -901,6 +903,9 @@ export class DeliveryGroupTransitionService {
         data: { status: 'CANCELLED' },
       });
 
+      const isNonStandard =
+        group.order.type === OrderType.RIDE ||
+        group.order.type === OrderType.CUSTOM_DELIVERY;
       const wasPaymentCollector = Boolean(group.isPaymentCollector);
       const cancelled = await tx.orderDeliveryGroup.updateMany({
         where: {
@@ -915,21 +920,32 @@ export class DeliveryGroupTransitionService {
           },
           ...(requireDriverless ? { primaryDriverId: null } : {}),
         },
-        data: {
-          status: DeliveryGroupStatus.CANCELLED,
-          deliveryFee: 0,
-          goldSurchargeAmount: 0,
-          ...(wasPaymentCollector ? { isPaymentCollector: false } : {}),
-        },
+        data: isNonStandard
+          ? {
+              // Preserve the quoted fare, gold surcharge, and collector flag on
+              // RIDE / CUSTOM_DELIVERY so a customer retry resumes with intact billing.
+              status: DeliveryGroupStatus.CANCELLED,
+            }
+          : {
+              status: DeliveryGroupStatus.CANCELLED,
+              deliveryFee: 0,
+              goldSurchargeAmount: 0,
+              ...(wasPaymentCollector ? { isPaymentCollector: false } : {}),
+            },
       });
       if (cancelled.count === 0) return null;
 
-      const carriedGold = Math.max(
-        0,
-        Math.round(Number((group as { goldSurchargeAmount?: number }).goldSurchargeAmount ?? 0)),
-      );
+      const carriedGold = isNonStandard
+        ? 0
+        : Math.max(
+            0,
+            Math.round(
+              Number((group as { goldSurchargeAmount?: number }).goldSurchargeAmount ?? 0),
+            ),
+          );
       let transferredGold = 0;
       if (
+        !isNonStandard &&
         (carriedGold > 0 || wasPaymentCollector) &&
         typeof tx.orderDeliveryGroup.findFirst === 'function'
       ) {
@@ -1050,6 +1066,7 @@ export class DeliveryGroupTransitionService {
       return {
         orderNumber: group.order.orderNumber,
         orderStatus: group.order.status,
+        isNonStandard,
         customerId: group.order.customerId,
         customerUserId: group.order.customer?.userId ?? group.order.customerId,
         cancelledFulfillments: liveFulfillments.map((f) => ({
@@ -1077,7 +1094,7 @@ export class DeliveryGroupTransitionService {
       return { groupCancelled: false, orderCancelled: false };
     }
 
-    if (this.recomputor) {
+    if (this.recomputor && !txResult.isNonStandard) {
       await this.recomputor.recomputeTotalsAfterRejection(
         orderId,
         txResult.refundAmount,

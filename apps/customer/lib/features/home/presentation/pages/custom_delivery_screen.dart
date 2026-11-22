@@ -36,6 +36,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   bool _useCoins = false;
   bool _isEstimating = false;
   bool _estimateFailed = false;
+  String? _estimateErrorKey;
   bool _isSubmitting = false;
   Map<String, dynamic>? _estimate;
   String? _lastEstimateKey;
@@ -146,12 +147,14 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       setState(() {
         _isEstimating = true;
         _estimateFailed = false;
+        _estimateErrorKey = null;
       });
     }
 
     Map<String, dynamic>? result;
+    final ordersNotifier = ref.read(ordersProvider.notifier);
     try {
-      result = await ref.read(ordersProvider.notifier).estimateCustomOrder(
+      result = await ordersNotifier.estimateCustomOrder(
         type: _serviceType,
         pickup: _pickupController.text.trim().isEmpty
             ? 'Pickup'
@@ -174,6 +177,8 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         setState(() {
           _estimate = result;
           _estimateFailed = result == null;
+          _estimateErrorKey =
+              result == null ? ordersNotifier.lastCustomEstimateErrorKey : null;
           if (result == null) {
             _lastEstimateKey = null;
           }
@@ -327,7 +332,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
             color: isDark ? Colors.white : Colors.black87,
             fontWeight: FontWeight.w900,
             fontSize: 18,
-            letterSpacing: -0.5,
+            letterSpacing: isAr ? 0 : -0.3,
           ),
         ),
         centerTitle: true,
@@ -368,9 +373,13 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     final estDiscount = hasEstimate
         ? ((est['discount'] as num?)?.toDouble() ?? 0.0)
         : 0.0;
+    final estUpfrontAmount = hasEstimate
+        ? ((est['upfrontAmount'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
     final estGrandTotal = hasEstimate
         ? (est['grandTotal'] as num?)?.toDouble()
         : null;
+    final isWalletPayment = _paymentMethod == 'MOBILE_WALLET';
     final isRide = _serviceType == 'ride';
     final canUseCoins =
         coinState.currentBalance > 0 &&
@@ -664,9 +673,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                isAr
-                                    ? 'تعذر حساب الأجرة. اضغط لإعادة المحاولة'
-                                    : 'Could not calculate fare. Tap to retry',
+                                _estimateErrorKey != null
+                                    ? '${ApiErrorMapper.translate(_estimateErrorKey!, context: context)} • ${isAr ? 'اضغط لإعادة المحاولة' : 'Tap to retry'}'
+                                    : (isAr
+                                        ? 'تعذر حساب الأجرة. اضغط لإعادة المحاولة'
+                                        : 'Could not calculate fare. Tap to retry'),
                                 style: const TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
@@ -801,11 +812,68 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                     ],
                   ),
                   if (hasEstimate) ...[
+                    if (!isWalletPayment && estUpfrontAmount > 0) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706).withValues(
+                            alpha: isDark ? 0.16 : 0.10,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFD97706).withValues(
+                              alpha: 0.35,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 1),
+                              child: Icon(
+                                Icons.account_balance_wallet_rounded,
+                                size: 17,
+                                color: Color(0xFFD97706),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                isAr
+                                    ? 'مطلوب تحويل مقدم بقيمة ${_formatMoney(estUpfrontAmount, s.egp)} إلى محفظة الكابتن بعد قبول الطلب، والباقي نقداً.'
+                                    : 'An upfront deposit of ${_formatMoney(estUpfrontAmount, s.egp)} is transferred to your driver\'s wallet after acceptance; pay the rest in cash.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.4,
+                                  color: isDark
+                                      ? Colors.amber.shade200
+                                      : const Color(0xFF92400E),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Text(
-                      isAr
-                          ? 'الأجرة النهائية شاملة جميع الرسوم والضرائب ومؤكدة مباشرة دون خطوة دفع إضافية.'
-                          : 'Final fare includes all fees and taxes — confirmed directly with no extra checkout step.',
+                      isWalletPayment
+                          ? (isAr
+                              ? 'الأجرة النهائية شاملة جميع الرسوم والضرائب. ستحوّل المبلغ إلى محفظة الكابتن مباشرة بعد قبول الطلب.'
+                              : 'Final fare includes all fees and taxes. You will transfer to your driver\'s wallet once accepted.')
+                          : (estUpfrontAmount > 0
+                              ? (isAr
+                                  ? 'الأجرة النهائية شاملة جميع الرسوم والضرائب.'
+                                  : 'Final fare includes all fees and taxes.')
+                              : (isAr
+                                  ? 'الأجرة النهائية شاملة جميع الرسوم والضرائب ومؤكدة مباشرة دون خطوة دفع إضافية.'
+                                  : 'Final fare includes all fees and taxes — confirmed directly with no extra checkout step.')),
                       style: TextStyle(
                         fontSize: 11.5,
                         color: Colors.grey.shade500,
@@ -825,7 +893,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                       _dropoffLocation == null ||
                       _enabledVehicles(
                         _serviceType,
-                        ref.watch(platformSettingsProvider).value,
+                        settings,
                       ).isEmpty)
                   ? null
                   : _submitOrder,
@@ -1274,6 +1342,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     String? Function(String?)? validator,
     bool readOnly = false,
     VoidCallback? onTap,
+    Widget? suffixIcon,
   }) {
     return TextFormField(
       controller: controller,
@@ -1286,6 +1355,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.normal),
         prefixIcon: Icon(icon, color: AppColors.primary.withValues(alpha: 0.7), size: 22),
+        suffixIcon: suffixIcon,
         filled: true,
         fillColor: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F2F5),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -1311,37 +1381,54 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     required bool isPickup,
     String? Function(String?)? validator,
   }) {
+    final s = AppStrings.of(context);
+    final hasCoord = isPickup ? _pickupLocation != null : _dropoffLocation != null;
+
+    Future<void> openMapPicker() async {
+      final result = await Navigator.push<LatLng>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LocationPickerMap(
+            initialLocation: isPickup ? _pickupLocation : _dropoffLocation,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      if (result != null) {
+        final strings = AppStrings.of(context);
+        final defaultLabel =
+            strings.isArabic ? 'تم تحديد الموقع' : 'Location selected';
+        setState(() {
+          _invalidateOrderIntent();
+          if (isPickup) {
+            _pickupLocation = result;
+          } else {
+            _dropoffLocation = result;
+          }
+          if (controller.text.trim().isEmpty) {
+            controller.text = defaultLabel;
+          }
+        });
+      }
+    }
+
     return _buildTextField(
       controller: controller,
       hint: hint,
       icon: icon,
       isDark: isDark,
       validator: validator,
-      readOnly: true,
-      onTap: () async {
-        final result = await Navigator.push<LatLng>(
-          context,
-          MaterialPageRoute(
-            builder: (context) => LocationPickerMap(
-              initialLocation: isPickup ? _pickupLocation : _dropoffLocation,
-            ),
-          ),
-        );
-        if (!mounted) return;
-        if (result != null) {
-          final s = AppStrings.of(context);
-          setState(() {
-            _invalidateOrderIntent();
-            if (isPickup) {
-              _pickupLocation = result;
-              controller.text = s.isArabic ? 'تم تحديد الموقع' : 'Location selected';
-            } else {
-              _dropoffLocation = result;
-              controller.text = s.isArabic ? 'تم تحديد الموقع' : 'Location selected';
-            }
-          });
-        }
-      },
+      readOnly: !hasCoord,
+      onTap: hasCoord ? null : openMapPicker,
+      suffixIcon: IconButton(
+        tooltip: s.isArabic ? 'تحديد على الخريطة' : 'Pick on map',
+        onPressed: openMapPicker,
+        icon: Icon(
+          hasCoord ? Icons.edit_location_alt_rounded : Icons.map_outlined,
+          color: hasCoord ? AppColors.success : AppColors.primary,
+          size: 22,
+        ),
+      ),
     );
   }
 

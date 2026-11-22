@@ -28,6 +28,7 @@ import {
 import { OrderEarningsCalculator } from '../../common/orders/order-earnings.calculator';
 import { requiresActiveShiftForOrderType } from '../../common/orders/money.helper';
 import { DispatchPort } from '../../common/orders/order-dispatch.ports';
+import { computeSearchWaveRadiusKm } from '../orders/helpers/order-pricing.helper';
 import {
   DispatchBroadcastPayload,
   DispatchCandidateOffer,
@@ -120,10 +121,11 @@ export class DispatchService implements DispatchPort {
     } = target;
     const settings = await this.platformSettings.getSettings();
 
-    const radiusKm = Math.min(
-      settings.driverSearchRadiusKm +
-        settings.driverSearchRadiusStepKm * (attempt - 1),
+    const radiusKm = computeSearchWaveRadiusKm(
+      settings.driverSearchRadiusKm,
+      settings.driverSearchRadiusStepKm,
       settings.driverSearchRadiusMaxKm,
+      attempt,
     );
     const timeoutSecs = settings.driverAcceptTimeoutSecs;
     const batchSize = Math.min(
@@ -452,6 +454,7 @@ export class DispatchService implements DispatchPort {
           status: true,
           type: true,
           pickupAddress: true,
+          deliveryAddress: true,
           deliveryFee: true,
           customer: {
             select: { userId: true, user: { select: { name: true, avatar: true } } },
@@ -555,6 +558,7 @@ export class DispatchService implements DispatchPort {
     order: {
       type: string;
       pickupAddress: string | null;
+      deliveryAddress?: string | null;
       customer: {
         user: { name: string; avatar?: string | null } | null;
       } | null;
@@ -665,6 +669,14 @@ export class DispatchService implements DispatchPort {
               )
             : estimatedEarnings;
 
+        const resolvedDropoffName =
+          order.type === OrderType.RIDE ||
+          order.type === OrderType.CUSTOM_DELIVERY
+            ? order.deliveryAddress?.trim() ||
+              order.customer?.user?.name ||
+              'Customer'
+            : (order.customer?.user?.name ?? 'Customer');
+
         return {
           driverId: candidate.id,
           userId: candidate.userId,
@@ -673,7 +685,7 @@ export class DispatchService implements DispatchPort {
           distanceKm: candidate.distanceKm,
           estimatedEarnings: advertisedEarnings,
           pickupLocationName: resolvedPickupName,
-          dropoffLocationName: order.customer?.user?.name ?? 'Customer',
+          dropoffLocationName: resolvedDropoffName,
           pickupLocationLogo: resolvedPickupLogo,
           dropoffCustomerAvatar: resolvedCustomerAvatar,
           isStacked: isCandidateStacked,

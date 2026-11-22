@@ -1977,8 +1977,6 @@
   "app.driverEtaApprox": "الوصول خلال {minutes} د تقريباً",
   "app.callDriver": "اتصال",
   "app.chatWithDriver": "محادثة",
-  "app.openLiveTracking": "التتبع المباشر",
-  "app.completeWalletPaymentNow": "إكمال الدفع بالمحفظة",
   "app.driverRatingsCount": "({count})",
   "app.searchRaceAlreadyAssigned": "بشرى سارة! وافق سائق على طلبك للتو.",
   "app.searchAlreadyCancelledSync": "تم تحديث حالة البحث.",

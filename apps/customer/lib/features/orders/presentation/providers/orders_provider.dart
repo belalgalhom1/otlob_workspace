@@ -6,6 +6,7 @@ import 'package:built_collection/built_collection.dart';
 import 'package:core/core.dart';
 import '../../../cart/presentation/providers/cart_controller.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
+import '../../../profile/presentation/providers/coin_history_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:math';
 
@@ -311,36 +312,21 @@ class Orders extends _$Orders {
   }
 
   Future<Map<String, dynamic>?> fetchOrderDetails(String orderId) async {
-    final dio = ref.read(dioProvider);
+    final repo = ref.read(customerOrderRepositoryProvider);
     try {
-      final response = await dio.get('/orders/$orderId');
-      if (response.data != null) {
-        var updatedOrder = response.data;
-        if (updatedOrder is Map && updatedOrder['data'] != null) {
-          updatedOrder = updatedOrder['data'];
+      final result = await repo.getOrderById(orderId);
+      if (result is Map) {
+        final updatedOrder = Map<String, dynamic>.from(result);
+        // Detail is authoritative: keep the revision guard above any event
+        // that may still be queued behind this response.
+        ref.read(orderRevisionTrackerProvider).observeOrder(updatedOrder);
+        final existsInLists =
+            state.activeOrders.any((o) => o['id']?.toString() == orderId) ||
+            state.pastOrders.any((o) => o['id']?.toString() == orderId);
+        if (existsInLists) {
+          upsertOrder(updatedOrder);
         }
-        if (updatedOrder is Map<String, dynamic>) {
-          // Detail is authoritative: keep the revision guard above any event
-          // that may still be queued behind this response.
-          ref.read(orderRevisionTrackerProvider).observeOrder(updatedOrder);
-          final index = state.activeOrders.indexWhere((o) => o['id'] == orderId);
-          final pastIndex = state.pastOrders.indexWhere((o) => o['id'] == orderId);
-          if (index != -1 || pastIndex != -1) {
-            final newActive = index != -1
-                ? (List<Map<String, dynamic>>.from(state.activeOrders)
-                  ..[index] = updatedOrder)
-                : state.activeOrders;
-            final newPast = pastIndex != -1
-                ? (List<Map<String, dynamic>>.from(state.pastOrders)
-                  ..[pastIndex] = updatedOrder)
-                : state.pastOrders;
-            state = state.copyWith(
-              activeOrders: newActive,
-              pastOrders: newPast,
-            );
-          }
-          return updatedOrder;
-        }
+        return updatedOrder;
       }
     } catch (e) {
       debugPrint('Error fetching order details: $e');
@@ -441,7 +427,11 @@ class Orders extends _$Orders {
       ..coinsToUse = coinsToUse);
   }
 
-  Future<Map<String, dynamic>?> estimateCustomOrder({
+  String? _lastCustomEstimateErrorKey;
+  String? get lastCustomEstimateErrorKey => _lastCustomEstimateErrorKey;
+
+  Future<({Map<String, dynamic>? estimate, String? errorKey})>
+      estimateCustomOrderDetailed({
     required String type,
     required String pickup,
     required List<double> pickupLocation,
@@ -453,6 +443,7 @@ class Orders extends _$Orders {
     String paymentMethod = 'CASH_ON_DELIVERY',
     int? coinsToUse,
   }) async {
+    _lastCustomEstimateErrorKey = null;
     final repo = ref.read(customerOrderRepositoryProvider);
     try {
       final dto = _buildCustomOrderDto(
@@ -470,13 +461,42 @@ class Orders extends _$Orders {
 
       final result = await repo.estimateCustomOrder(dto);
       if (result is Map) {
-        return Map<String, dynamic>.from(result);
+        return (estimate: Map<String, dynamic>.from(result), errorKey: null);
       }
-      return null;
+      return (estimate: null, errorKey: null);
     } catch (e) {
       debugPrint('Estimate custom order error: $e');
-      return null;
+      final key = _extractDioErrorKey(e);
+      _lastCustomEstimateErrorKey = key;
+      return (estimate: null, errorKey: key);
     }
+  }
+
+  Future<Map<String, dynamic>?> estimateCustomOrder({
+    required String type,
+    required String pickup,
+    required List<double> pickupLocation,
+    required String dropoff,
+    required List<double> deliveryLocation,
+    String? vehicleType,
+    String? details,
+    String? specialRequest,
+    String paymentMethod = 'CASH_ON_DELIVERY',
+    int? coinsToUse,
+  }) async {
+    final outcome = await estimateCustomOrderDetailed(
+      type: type,
+      pickup: pickup,
+      pickupLocation: pickupLocation,
+      dropoff: dropoff,
+      deliveryLocation: deliveryLocation,
+      vehicleType: vehicleType,
+      details: details,
+      specialRequest: specialRequest,
+      paymentMethod: paymentMethod,
+      coinsToUse: coinsToUse,
+    );
+    return outcome.estimate;
   }
 
   Future<(String?, String?)> placeOrder({
@@ -522,6 +542,7 @@ class Orders extends _$Orders {
       final result = await repository.placeOrder(builder.build(),
           idempotencyKey: idempotencyKey);
       ref.invalidateSelf();
+      ref.invalidate(coinHistoryProvider);
       
       String? orderId;
       if (result is Map) {
@@ -591,6 +612,7 @@ class Orders extends _$Orders {
       } else {
         ref.invalidateSelf();
       }
+      ref.invalidate(coinHistoryProvider);
       return PlaceCustomOrderOutcome(
         orderId: (orderId != null && orderId.isNotEmpty) ? orderId : 'SUCCESS',
         order: orderMap,
@@ -642,6 +664,7 @@ class Orders extends _$Orders {
       } else {
         ref.invalidateSelf();
       }
+      ref.invalidate(coinHistoryProvider);
       return (success: true, errorKey: null);
     } catch (e) {
       debugPrint('Cancel order error: $e');
@@ -660,14 +683,17 @@ class Orders extends _$Orders {
     if (result.order.isNotEmpty) {
       upsertOrder(result.order);
     }
+    ref.invalidate(coinHistoryProvider);
     return result;
   }
 
   void upsertOrder(Map<String, dynamic> order) {
     final id = order['id']?.toString();
     if (id == null || id.isEmpty) return;
+    ref.read(orderRevisionTrackerProvider).observeOrder(order);
     final status = order['status']?.toString() ?? '';
-    final isTerminal = status == 'DELIVERED' || status == 'CANCELLED';
+    final isTerminal =
+        status == 'DELIVERED' || status == 'CANCELLED' || status == 'REJECTED';
 
     final nextActive =
         state.activeOrders.where((o) => o['id']?.toString() != id).toList();
@@ -696,8 +722,12 @@ class Orders extends _$Orders {
       if (receiptPath != null && receiptPath.isNotEmpty) {
         receipt = await MultipartFile.fromFile(receiptPath);
       }
-      await repo.markPaid(orderId, receipt: receipt);
-      ref.invalidateSelf();
+      final updated = await repo.markPaid(orderId, receipt: receipt);
+      if (updated is Map) {
+        upsertOrder(Map<String, dynamic>.from(updated));
+      } else {
+        ref.invalidateSelf();
+      }
       return true;
     } catch (e) {
       debugPrint('Mark payment paid error: $e');
@@ -802,6 +832,7 @@ class Orders extends _$Orders {
       );
       final result = await repository.placeMultiVendorOrder(dto, idempotencyKey: idempotencyKey);
       ref.invalidateSelf();
+      ref.invalidate(coinHistoryProvider);
       String? orderId;
       if (result is Map) {
         if (result['id'] != null) {

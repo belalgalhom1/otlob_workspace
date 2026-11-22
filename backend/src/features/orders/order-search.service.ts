@@ -34,6 +34,10 @@ import {
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
+import {
+  DEFAULT_DRIVER_SEARCH_RADIUS_KM,
+  computeSearchWaveRadiusKm,
+} from './helpers/order-pricing.helper';
 import { OrderActivePolicyHelper } from './helpers/order-active-policy.helper';
 import { requiresActiveShiftForOrderType } from '../../common/orders/money.helper';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
@@ -114,7 +118,9 @@ export class OrderSearchService {
     query: QueryNearbyDriversDto,
   ): Promise<NearbyDriversResponseDto> {
     const settings = await this.platformSettings.getSettings();
-    const radiusKm = Number(settings.driverSearchRadiusKm ?? 5);
+    const radiusKm = Number(
+      settings.driverSearchRadiusKm ?? DEFAULT_DRIVER_SEARCH_RADIUS_KM,
+    );
 
     const drivers = await this.fetchAnonymizedNearbyDrivers({
       lng: query.lng,
@@ -210,11 +216,11 @@ export class OrderSearchService {
     let waveExpiresAt = snapshot?.waveExpiresAt ?? null;
     let radiusKm =
       snapshot?.radiusKm ??
-      Math.min(
-        Number(settings.driverSearchRadiusKm ?? 3) +
-          Number(settings.driverSearchRadiusStepKm ?? 3) *
-            Math.max(0, attempt - 1),
+      computeSearchWaveRadiusKm(
+        settings.driverSearchRadiusKm,
+        settings.driverSearchRadiusStepKm,
         maxRadiusKm,
+        attempt,
       );
 
     // Reconstruct stats from DB + live Redis broadcast if the search snapshot
@@ -229,11 +235,11 @@ export class OrderSearchService {
         }),
       ]);
       attempt = Math.max(attempt, dispatchState.attempt);
-      radiusKm = Math.min(
-        Number(settings.driverSearchRadiusKm ?? 3) +
-          Number(settings.driverSearchRadiusStepKm ?? 3) *
-            Math.max(0, attempt - 1),
+      radiusKm = computeSearchWaveRadiusKm(
+        settings.driverSearchRadiusKm,
+        settings.driverSearchRadiusStepKm,
         maxRadiusKm,
+        attempt,
       );
       const uniqueContacted = new Set(dispatchRows.map((r) => r.driverId));
       const uniqueRejected = new Set(
@@ -449,6 +455,7 @@ export class OrderSearchService {
       alreadyAssigned: boolean;
       orderNumber: string;
       orderType: OrderType;
+      customerId: string;
       customerUserId: string;
       newRevision: number;
       scopes: string[];
@@ -500,6 +507,7 @@ export class OrderSearchService {
           alreadyAssigned: false,
           orderNumber: order.orderNumber,
           orderType: order.type,
+          customerId: order.customerId,
           customerUserId: order.customer.userId,
           newRevision: order.revision,
           scopes: [order.id, ...order.deliveryGroups.map((g) => g.id)],
@@ -517,6 +525,7 @@ export class OrderSearchService {
           alreadyAssigned: true,
           orderNumber: order.orderNumber,
           orderType: order.type,
+          customerId: order.customerId,
           customerUserId: order.customer.userId,
           newRevision: order.revision,
           scopes: [order.id, ...order.deliveryGroups.map((g) => g.id)],
@@ -531,8 +540,12 @@ export class OrderSearchService {
         throw new BadRequestException(OrderErrors.CANNOT_RETRY_ORDER);
       }
 
-      // Lock customer row before checking active order limit and re-deducting
-      // any refunded coins so concurrent placeOrder/retry calls serialize cleanly.
+      // Use the same per-customer advisory lock as checkout (OrdersRepository.createOrder
+      // & OrdersMultiVendorService) so concurrent placeOrder + retry serialize cleanly.
+      if (typeof tx.$executeRaw === 'function') {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-place:' || ${order.customerId}::text))`;
+      }
+
       const lockedCustomers = await tx.$queryRaw<
         Array<{ id: string; coinBalance: number }>
       >`SELECT id, "coinBalance" FROM customers WHERE id = ${order.customerId} FOR UPDATE`;
@@ -552,6 +565,18 @@ export class OrderSearchService {
       });
       if (activeCount >= policy.maxActive) {
         throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
+      }
+      if (policy.requirePriorDelivery && activeCount > 0) {
+        const hasCompletedOrder = await tx.order.findFirst({
+          where: {
+            customerId: order.customerId,
+            status: OrderStatus.DELIVERED,
+          },
+          select: { id: true },
+        });
+        if (!hasCompletedOrder) {
+          throw new BadRequestException(OrderErrors.MAX_ACTIVE_ORDERS_REACHED);
+        }
       }
 
       // If previous cancellation refunded coinsUsed into the single unique
@@ -581,7 +606,10 @@ export class OrderSearchService {
 
       await tx.orderDeliveryGroup.updateMany({
         where: { orderId, primaryDriverId: null },
-        data: { status: DeliveryGroupStatus.LOOKING_FOR_DRIVER },
+        data: {
+          status: DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+          isPaymentCollector: true,
+        },
       });
 
       const updatedOrder = await tx.order.update({
@@ -642,6 +670,7 @@ export class OrderSearchService {
         alreadyAssigned: false,
         orderNumber: order.orderNumber,
         orderType: order.type,
+        customerId: order.customerId,
         customerUserId: order.customer.userId,
         newRevision: updatedOrder.revision,
         scopes: [order.id, ...order.deliveryGroups.map((g) => g.id)],
@@ -673,7 +702,7 @@ export class OrderSearchService {
           meta.orderNumber,
           OrderStatus.CANCELLED,
           OrderStatus.LOOKING_FOR_DRIVER,
-          meta.customerUserId,
+          meta.customerId,
           meta.customerUserId,
           null,
           [],

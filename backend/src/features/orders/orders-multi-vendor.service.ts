@@ -18,6 +18,10 @@ import { PlaceOrderDto } from './dto/order.dto';
 import { OrdersRepository, OrderItemData } from './orders.repository';
 import { StockService } from './helpers/stock.service';
 import { OrderActivePolicyHelper } from './helpers/order-active-policy.helper';
+import {
+  applyOrderCoinsAndUpfront,
+  resolveActiveDriverBonusFee,
+} from './helpers/order-pricing.helper';
 import { BranchAllocatorHelper } from './helpers/branch-allocator.helper';
 import {
   OrderGroupingService,
@@ -834,19 +838,7 @@ export class OrdersMultiVendorService {
 
     const serviceFee = this.serviceFeeFor(portions);
 
-    let driverBonusFee = 0;
-    if (settings.driverBonusActive) {
-      const now = new Date();
-      const start = settings.driverBonusStartDate;
-      const end = settings.driverBonusEndDate;
-      if (
-        (!start || now >= start) &&
-        (!end || now <= end) &&
-        Number(settings.driverBonusAmount ?? 0) > 0
-      ) {
-        driverBonusFee = Number(settings.driverBonusAmount ?? 0);
-      }
-    }
+    const driverBonusFee = resolveActiveDriverBonusFee(settings);
     const customerBonusFee = settings.driverBonusPaidByCustomer
       ? driverBonusFee
       : 0;
@@ -855,52 +847,16 @@ export class OrdersMultiVendorService {
       (subtotal + serviceFee) * (Number(settings.defaultTaxRate) / 100),
     );
 
-    let discount = 0;
-    let coinsUsed = 0;
-    const coinsToUse = dto.coinsToUse ?? 0;
-    if (coinsToUse > 0) {
-      const balance = Number(customer.coinBalance ?? 0);
-      const minCoins = Number(settings.minCoinsToUse ?? 1);
-      if (!balance || balance < minCoins) {
-        throw new BadRequestException(CustomerErrors.MINIMUM_COINS_REQUIRED);
-      }
-      if (balance < coinsToUse) {
-        throw new BadRequestException(CustomerErrors.INSUFFICIENT_COIN_BALANCE);
-      }
-      coinsUsed = coinsToUse;
-      discount = coinsToUse * (Number(settings.coinValue) || 1);
-    }
-
-    // Coins apply to the whole bill (products + delivery + fees + tax), not
-    // just the products. When the requested coins exceed the bill, cap the
-    // discount at the total and only consume the coins actually needed —
-    // mirroring the single-vendor/custom checkout rule.
     const preDiscount =
       subtotal + deliveryFee + serviceFee + tax + customerBonusFee;
-    if (discount > preDiscount) {
-      discount = preDiscount;
-      const coinValue = Number(settings.coinValue) || 1;
-      coinsUsed = Math.ceil(discount / coinValue);
-    }
-    const grandTotal = Math.max(0, preDiscount - discount);
-    const coinsEarned =
-      Number(settings.amountSpentPerCoin) > 0
-        ? Math.floor(grandTotal / Number(settings.amountSpentPerCoin))
-        : 0;
-
-    // High-value cash-on-delivery orders require the same upfront deposit as
-    // the single-vendor path. It was hardcoded to 0 here, so multi-vendor
-    // high-value orders silently skipped the deposit.
-    let upfrontAmount = 0;
-    if (
-      dto.paymentMethod === 'CASH_ON_DELIVERY' &&
-      Number(settings.highValueOrderThreshold ?? 0) > 0 &&
-      grandTotal >= Number(settings.highValueOrderThreshold)
-    ) {
-      upfrontAmount = Math.round(
-        grandTotal * (Number(settings.highValueUpfrontRate ?? 0) / 100),
-      );
-    }
+    const { coinsUsed, discount, grandTotal, coinsEarned, upfrontAmount } =
+      applyOrderCoinsAndUpfront({
+        preDiscountTotal: preDiscount,
+        coinsToUse: dto.coinsToUse,
+        coinBalance: Number(customer.coinBalance ?? 0),
+        paymentMethod: dto.paymentMethod,
+        settings,
+      });
 
     return {
       customerId: customer.id,

@@ -506,7 +506,7 @@ class SharedChat extends _$SharedChat {
 
     try {
       final chatRepo = ref.read(sharedChatRepositoryProvider);
-      await chatRepo.sendMessage(
+      final response = await chatRepo.sendMessage(
         _conversationId!,
         content.isEmpty ? '' : content,
         type: type.name.toUpperCase(),
@@ -514,9 +514,20 @@ class SharedChat extends _$SharedChat {
         metadata: metadata,
         replyToId: replyToId,
       );
-      // Socket echo from backend will update state via _onSocketMessage.
-      // We only replace the temp message with the real one when the socket
-      // event comes back, so no full re-fetch is needed here.
+      final rawMsg = (response is Map && response['data'] is Map)
+          ? response['data']
+          : response;
+      if (rawMsg is Map) {
+        final mapData = Map<String, dynamic>.from(rawMsg);
+        if (mapData['mediaUrl'] != null &&
+            mapData['mediaUrl'].toString().isNotEmpty) {
+          mapData['mediaUrl'] = _getFullUrl(mapData['mediaUrl'].toString());
+        }
+        final confirmed = Message.fromJson(mapData, _currentUserId);
+        if (confirmed.id.isNotEmpty) {
+          _addRealtimeMessage(confirmed);
+        }
+      }
     } catch (e) {
       // On failure, remove the optimistic message so the user knows it failed.
       state.whenData((messages) {

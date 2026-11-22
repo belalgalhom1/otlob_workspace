@@ -9,6 +9,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ConversationStatus,
   ConversationType,
+  DeliveryGroupStatus,
+  OrderVendorFulfillmentStatus,
   Role,
   Permission,
   Prisma,
@@ -71,7 +73,15 @@ export class ConversationsService {
    */
   private async resolveOrderVendorUserIds(orderId: string): Promise<string[]> {
     const portions = await this.prisma.orderVendorFulfillment.findMany({
-      where: { orderId },
+      where: {
+        orderId,
+        status: {
+          notIn: [
+            OrderVendorFulfillmentStatus.REJECTED,
+            OrderVendorFulfillmentStatus.CANCELLED,
+          ],
+        },
+      },
       select: { vendorId: true, vendorBranchId: true },
     });
     if (portions.length === 0) return [];
@@ -99,7 +109,15 @@ export class ConversationsService {
     orderId: string,
   ): Promise<string | null> {
     const portions = await this.prisma.orderVendorFulfillment.findMany({
-      where: { orderId },
+      where: {
+        orderId,
+        status: {
+          notIn: [
+            OrderVendorFulfillmentStatus.REJECTED,
+            OrderVendorFulfillmentStatus.CANCELLED,
+          ],
+        },
+      },
       select: { vendorId: true },
     });
     const uniqueVendorIds = Array.from(
@@ -114,7 +132,10 @@ export class ConversationsService {
    */
   private async resolveOrderDriverUserIds(orderId: string): Promise<string[]> {
     const groups = await this.prisma.orderDeliveryGroup.findMany({
-      where: { orderId },
+      where: {
+        orderId,
+        status: { not: DeliveryGroupStatus.CANCELLED },
+      },
       select: { primaryDriverId: true, assistDriverId: true },
     });
     const driverIds = Array.from(
@@ -212,6 +233,7 @@ export class ConversationsService {
       where: {
         orderId,
         type: ConversationType.ORDER,
+        status: ConversationStatus.OPEN,
       },
       include: {
         participants: {
@@ -227,9 +249,9 @@ export class ConversationsService {
       (p) =>
         p.user.role === Role.DRIVER && !currentDriverUserIds.includes(p.userId),
     );
+    const staleUserIds = staleDriverParticipants.map((p) => p.userId);
 
-    if (staleDriverParticipants.length > 0) {
-      const staleUserIds = staleDriverParticipants.map((p) => p.userId);
+    if (staleUserIds.length > 0) {
       await this.prisma.conversationParticipant.deleteMany({
         where: {
           conversationId: conversation.id,
@@ -257,6 +279,24 @@ export class ConversationsService {
       });
       this.logger.log(
         `Added missing driver participants [${missingDriverUserIds.join(', ')}] to order conversation ${conversation.id}`,
+      );
+
+      const updatedParticipantIds = Array.from(
+        new Set([
+          ...existingParticipantUserIds.filter(
+            (id) => !staleUserIds.includes(id),
+          ),
+          ...missingDriverUserIds,
+        ]),
+      );
+      this.eventEmitter.emit(
+        EVENTS.CHAT_CONVERSATION_CREATED,
+        new ChatConversationCreatedEvent(
+          conversation.id,
+          updatedParticipantIds,
+          ConversationType.ORDER,
+          orderId,
+        ),
       );
     }
   }

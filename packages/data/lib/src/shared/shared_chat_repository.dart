@@ -161,4 +161,10 @@ class SharedChatRepository {
     );
     return ResponseParser.parse(response);
   }
+
+  Future<dynamic> getInboxCounts() async {
+    final inboxApi = InboxSummaryCountsApi(_dio, standardSerializers);
+    final response = await inboxApi.inboxControllerGetCounts();
+    return ResponseParser.parse(response);
+  }
 }

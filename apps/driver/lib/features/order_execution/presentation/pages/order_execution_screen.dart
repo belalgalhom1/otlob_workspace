@@ -655,7 +655,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         (customerMap['avatar'] ?? customerMap['user']?['avatar'])?.toString();
     final pickupLoc = order['pickupLocation'];
     final isAr = l10n.localeName == 'ar';
-    final currency = 'EGP';
+    final currency = isAr ? 'ج.م' : 'EGP';
     
     double vendorLat = 0.0;
     double vendorLng = 0.0;
@@ -1746,8 +1746,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     if (!OrderTypeHelper.requiresOrderPhotos(order)) {
       return const SizedBox.shrink();
     }
-    final isCustomOrRide =
-        order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
+    final isCustomOrRide = OrderTypeHelper.resolve(order).isNonStandard;
     final currentStopStatus = (pickupStops.isNotEmpty && !isCustomOrRide)
         ? (pickupStops[_currentStopIndex]['status']?.toString() ?? status)
         : status;
@@ -1757,7 +1756,10 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
             status == 'PREPARING' ||
             status == 'READY_FOR_PICKUP' ||
             status == 'PARTIALLY_PICKED_UP') &&
-        (isCustomOrRide || (!currentStopPickedUp && currentStopStatus == 'READY_FOR_PICKUP'));
+        ((isCustomOrRide && status == 'READY_FOR_PICKUP') ||
+            (!isCustomOrRide &&
+                !currentStopPickedUp &&
+                currentStopStatus == 'READY_FOR_PICKUP'));
     String? remoteUrl = (pickupStops.isNotEmpty && !isCustomOrRide)
         ? pickupStops[_currentStopIndex]['pickupImageUrl']?.toString()
         : order['pickupImageUrl']?.toString();
@@ -2069,8 +2071,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         status == 'DRIVER_ASSIGNED' ||
         status == 'READY_FOR_PICKUP' ||
         status == 'PARTIALLY_PICKED_UP') {
-      final isCustomOrRide =
-          order['type'] == 'CUSTOM_DELIVERY' || order['type'] == 'RIDE';
+      final isCustomOrRide = OrderTypeHelper.resolve(order).isNonStandard;
       final currentStopStatus = (pickupStops.isNotEmpty && !isCustomOrRide)
           ? (pickupStops[_currentStopIndex]['status']?.toString() ?? status)
           : status;

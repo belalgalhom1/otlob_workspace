@@ -15,6 +15,7 @@ import { OrderStatusChangedEvent } from '../../common/events';
 import { OrderSearchService } from './order-search.service';
 import { OrdersStateService } from './orders-state.service';
 import { OrderRoleProjector } from './projections/order-role.projector';
+import { DeliveryGroupTransitionService } from './transitions/delivery-group-transition.service';
 
 describe('OrderType Request Workflows (RIDE vs CUSTOM_DELIVERY vs STANDARD)', () => {
   let stateService: OrdersStateService;
@@ -588,6 +589,126 @@ describe('OrderType Request Workflows (RIDE vs CUSTOM_DELIVERY vs STANDARD)', ()
       ]);
       expect(status.driverDistanceKm).toBe(2.4);
       expect(status.driverEtaMinutes).toBe(6);
+    });
+
+    it('cancelDeliveryGroupAndRecompute preserves quoted fare & skips OrderRejectionRecomputor on RIDE/CUSTOM_DELIVERY exhaustion so retry keeps intact billing', async () => {
+      const updateGroupMany = jest.fn().mockResolvedValue({ count: 1 });
+      const recomputor = { recomputeTotalsAfterRejection: jest.fn() };
+      const cancellationService = { cancelOrder: jest.fn().mockResolvedValue({}) };
+      const tx: any = {
+        orderDeliveryGroup: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'grp-ride-1',
+            sequence: 1,
+            status: DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+            deliveryFee: 45,
+            goldSurchargeAmount: 5,
+            isPaymentCollector: true,
+            primaryDriverId: null,
+            assistDriverId: null,
+            order: {
+              orderNumber: 'OTL-R99',
+              type: OrderType.RIDE,
+              status: OrderStatus.LOOKING_FOR_DRIVER,
+              customerId: 'cust-1',
+              customer: { userId: 'user-cust-1' },
+            },
+            items: [],
+          }),
+          updateMany: updateGroupMany,
+          count: jest.fn().mockResolvedValue(0),
+        },
+        orderDispatch: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+        orderStatusEvent: { create: jest.fn().mockResolvedValue({}) },
+      };
+      const prismaMock: any = {
+        $transaction: jest.fn((cb: any) => cb(tx)),
+      };
+      const svc = new DeliveryGroupTransitionService(
+        prismaMock,
+        {} as any,
+        { emit: jest.fn() } as any,
+        undefined,
+        recomputor as any,
+        cancellationService as any,
+      );
+
+      const res = await svc.cancelDeliveryGroupAndRecompute({
+        orderId: 'ord-ride-99',
+        deliveryGroupId: 'grp-ride-1',
+        reason: 'No drivers accepted within maximum attempts',
+        requireDriverless: true,
+      });
+
+      expect(res).toEqual({ groupCancelled: true, orderCancelled: true });
+      // Must NOT zero deliveryFee / goldSurchargeAmount / isPaymentCollector
+      expect(updateGroupMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { status: DeliveryGroupStatus.CANCELLED },
+        }),
+      );
+      // Must NOT invoke store-rejection recomputor
+      expect(recomputor.recomputeTotalsAfterRejection).not.toHaveBeenCalled();
+      expect(cancellationService.cancelOrder).toHaveBeenCalledWith(
+        null,
+        'ord-ride-99',
+        'No drivers accepted within maximum attempts',
+      );
+    });
+
+    it('OrderEventsHandler syncs chat participants on RIDE driver reassignment', async () => {
+      const conversations = {
+        createSystemOrderConversation: jest.fn().mockResolvedValue({}),
+        addParticipantToOrderConversation: jest.fn().mockResolvedValue({}),
+        syncOrderDriverParticipants: jest.fn().mockResolvedValue({}),
+      };
+      const prismaMock: any = {
+        order: {
+          findUnique: jest.fn().mockResolvedValue({
+            type: OrderType.RIDE,
+            customer: { userId: 'user-cust-1' },
+            vendorFulfillments: [],
+            deliveryGroups: [],
+          }),
+        },
+        orderDeliveryGroup: { findMany: jest.fn().mockResolvedValue([]) },
+      };
+      const handler = new OrderEventsHandler(
+        { emitToUser: jest.fn().mockResolvedValue(undefined), emitToDriversRoom: jest.fn() } as any,
+        { create: jest.fn().mockResolvedValue({}) } as any,
+        {} as any,
+        conversations as any,
+        prismaMock,
+        { syncDriverActiveOrders: jest.fn().mockResolvedValue(undefined) } as any,
+      );
+
+      await handler.handleOrderStatusChanged(
+        new OrderStatusChangedEvent(
+          'ord-ride-chat',
+          'OTL-RC1',
+          OrderStatus.DRIVER_ASSIGNED,
+          OrderStatus.DRIVER_ASSIGNED,
+          'cust-1',
+          'user-cust-1',
+          null,
+          [],
+          'driver-2',
+          'user-driver-2',
+          'admin-1',
+          'Driver reassigned',
+          4,
+        ),
+      );
+
+      expect(conversations.createSystemOrderConversation).toHaveBeenCalledWith(
+        'ord-ride-chat',
+      );
+      expect(
+        conversations.addParticipantToOrderConversation,
+      ).toHaveBeenCalledWith('ord-ride-chat', 'user-driver-2');
+      expect(conversations.syncOrderDriverParticipants).toHaveBeenCalledWith(
+        'ord-ride-chat',
+      );
     });
   });
 });

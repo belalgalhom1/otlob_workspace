@@ -1977,8 +1977,6 @@
   "app.driverEtaApprox": "Est. {minutes} min",
   "app.callDriver": "Call",
   "app.chatWithDriver": "Chat",
-  "app.openLiveTracking": "Track Live",
-  "app.completeWalletPaymentNow": "Complete Wallet Payment",
   "app.driverRatingsCount": "({count})",
   "app.searchRaceAlreadyAssigned": "Great news! A driver accepted your request just in time.",
   "app.searchAlreadyCancelledSync": "Search status has been updated.",

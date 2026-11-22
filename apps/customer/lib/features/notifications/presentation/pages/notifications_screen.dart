@@ -1,3 +1,4 @@
+import 'package:core/core.dart' show OrderTypeHelper;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../providers/notifications_provider.dart';
 import '../../../chat/presentation/providers/inbox_counts_provider.dart';
+import '../../../orders/presentation/providers/orders_provider.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -192,7 +194,22 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           }
           // Deep link based on type if possible
           if (type == 'ORDER_UPDATE' && n['data'] != null && n['data']['orderId'] != null) {
-            context.push('/order-tracking/${n['data']['orderId']}');
+            final orderId = n['data']['orderId'].toString();
+            final ordersState = ref.read(ordersProvider);
+            Map<String, dynamic>? matchedOrder;
+            for (final o in [...ordersState.activeOrders, ...ordersState.pastOrders]) {
+              if (o['id']?.toString() == orderId) {
+                matchedOrder = o;
+                break;
+              }
+            }
+            final rawType =
+                (n['data']['orderType'] ?? matchedOrder?['type'])?.toString();
+            if (OrderTypeHelper.resolve(rawType).isNonStandard) {
+              context.push('/order-search/$orderId', extra: matchedOrder);
+            } else {
+              context.push('/order-tracking/$orderId');
+            }
           } else if (type == 'CHAT_MESSAGE' && n['data'] != null) {
             final convoId = n['data']['conversationId'] ?? n['data']['conversation_id'];
             if (convoId != null) {

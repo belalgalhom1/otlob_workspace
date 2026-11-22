@@ -112,7 +112,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           builder: (_) => AdminChatScreen(
             conversationId: pending.id,
             title: l10n.inbox,
-            type: 'SUPPORT',
+            type: pending.chatType ?? 'SUPPORT',
           ),
         ),
       );

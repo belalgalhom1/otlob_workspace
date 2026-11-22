@@ -157,14 +157,16 @@ class OrderExecution extends _$OrderExecution {
     if (orderId == null) return;
     try {
       state = const AsyncValue.loading();
-      final dio = ref.read(dioProvider);
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(photo.path, filename: photo.name),
-      });
-      final path = fulfillmentId != null && fulfillmentId.isNotEmpty
-          ? '/orders/driver/$orderId/fulfillment/$fulfillmentId/pickup'
-          : '/orders/driver/$orderId/pickup';
-      await dio.post(path, data: formData);
+      final repository = ref.read(driverOrdersRepositoryProvider);
+      final file = await MultipartFile.fromFile(
+        photo.path,
+        filename: photo.name,
+      );
+      await repository.confirmPickupWithPhoto(
+        orderId: orderId,
+        file: file,
+        fulfillmentId: fulfillmentId,
+      );
       await _fetchActiveOrder();
     } catch (e, st) {
       if (prev.hasValue) {
@@ -188,14 +190,16 @@ class OrderExecution extends _$OrderExecution {
         : _activeDeliveryGroupId(prev);
     try {
       state = const AsyncValue.loading();
-      final dio = ref.read(dioProvider);
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(photo.path, filename: photo.name),
-      });
-      final query = resolvedGroupId != null && resolvedGroupId.isNotEmpty
-          ? '?deliveryGroupId=$resolvedGroupId'
-          : '';
-      await dio.post('/orders/driver/$orderId/delivery$query', data: formData);
+      final repository = ref.read(driverOrdersRepositoryProvider);
+      final file = await MultipartFile.fromFile(
+        photo.path,
+        filename: photo.name,
+      );
+      await repository.confirmDeliveryWithPhoto(
+        orderId: orderId,
+        file: file,
+        deliveryGroupId: resolvedGroupId,
+      );
       _selectedOrderId = null;
       await _fetchActiveOrder();
       if (ref.mounted) {

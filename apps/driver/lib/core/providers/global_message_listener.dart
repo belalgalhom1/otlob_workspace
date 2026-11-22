@@ -12,6 +12,7 @@ import 'package:driver/features/order_execution/presentation/order_execution_pro
 import 'package:driver/core/providers/driver_breaks_provider.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/ranking/presentation/driver_ranking_provider.dart';
+import 'package:driver/core/router/app_router.dart';
 
 class _DispatchLifecycleObserver with WidgetsBindingObserver {
   final Future<void> Function() onResume;
@@ -179,28 +180,62 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     },
   );
 
+  void handlePushData(Map<String, dynamic> data, {bool navigate = false}) {
+    if (data['type'] == 'DISPATCH' || data.containsKey('dispatchId')) {
+      coordinator.checkPendingDispatches(checkOnline: false);
+      return;
+    }
+    if (data['action'] == 'assist_offer' || data.containsKey('requestId')) {
+      ref.invalidate(pendingAssistOffersProvider);
+      return;
+    }
+    final conversationId = data['conversationId']?.toString().trim() ?? '';
+    final orderId = data['orderId']?.toString().trim() ?? '';
+    if (conversationId.isNotEmpty) {
+      if (navigate) {
+        final rawChatType = (data['chatType'] ?? data['type'] ?? '')
+            .toString()
+            .toLowerCase();
+        final chatType = (rawChatType == 'order' || rawChatType == 'support')
+            ? rawChatType
+            : (orderId.isNotEmpty ? 'order' : 'support');
+        ref.read(appRouterProvider).push(
+          '/chat/$conversationId',
+          extra: <String, dynamic>{
+            'type': chatType,
+            if (data['title'] != null) 'title': data['title'].toString(),
+          },
+        );
+      }
+      return;
+    }
+    if (orderId.isNotEmpty) {
+      ref.read(orderExecutionProvider.notifier).refresh();
+      if (navigate) {
+        ref.read(orderExecutionProvider.notifier).selectOrder(orderId);
+        ref.read(appRouterProvider).go('/order-execution');
+      }
+    }
+  }
+
   // 4. Background Push Notification Clicks & Cold Start Check
   subscriptions.add(pushService.onMessage.listen((message) {
     if (!ref.mounted || !isAuthenticatedSession()) return;
     debugPrint('Global listener: FCM foreground message -> ${message.data}');
-    if (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId')) {
-      coordinator.checkPendingDispatches(checkOnline: false);
-    }
+    handlePushData(message.data);
   }));
 
   subscriptions.add(pushService.onMessageOpenedApp.listen((message) {
     if (!ref.mounted || !isAuthenticatedSession()) return;
     debugPrint('Global listener: FCM opened app -> ${message.data}');
-    if (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId')) {
-      coordinator.checkPendingDispatches(checkOnline: false);
-    }
+    handlePushData(message.data, navigate: true);
   }));
 
   pushService.getInitialMessage().then((message) {
     if (!ref.mounted || !isAuthenticatedSession()) return;
-    if (message != null && (message.data['type'] == 'DISPATCH' || message.data.containsKey('dispatchId'))) {
+    if (message != null) {
       debugPrint('Global listener: FCM cold start message -> ${message.data}');
-      coordinator.checkPendingDispatches(checkOnline: false);
+      handlePushData(message.data, navigate: true);
     }
   });
 

@@ -35,16 +35,10 @@ class CustomerOrderRepository {
   }
 
   Future<dynamic> markPaid(String orderId, {MultipartFile? receipt}) async {
-    final client = dio;
-    if (client != null && receipt != null) {
-      final formData = FormData.fromMap({'file': receipt});
-      final response = await client.post(
-        '/orders/customer/$orderId/payment/mark-paid',
-        data: formData,
-      );
-      return ResponseParser.parse(response);
-    }
-    final response = await _api.ordersControllerCustomerMarkPaid(orderId: orderId);
+    final response = await _api.ordersControllerCustomerMarkPaid(
+      orderId: orderId,
+      file: receipt,
+    );
     return ResponseParser.parse(response);
   }
 
@@ -63,6 +57,18 @@ class CustomerOrderRepository {
       placeCustomOrderDto: placeCustomOrderDto
     );
     return ResponseParser.parse(response);
+  }
+
+  Future<OrderFeeEstimateDto> estimateCustomOrderTyped(
+    PlaceCustomOrderDto placeCustomOrderDto,
+  ) async {
+    final response = await _api.ordersControllerEstimateCustomOrder(
+      placeCustomOrderDto: placeCustomOrderDto,
+    );
+    return ResponseParser.parseTyped(
+      response,
+      OrderFeeEstimateDto.serializer,
+    );
   }
 
   Future<dynamic> placeOrder(PlaceOrderDto dto, {String? idempotencyKey}) async {

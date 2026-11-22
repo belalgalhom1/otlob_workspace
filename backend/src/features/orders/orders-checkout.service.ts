@@ -14,8 +14,14 @@ import {
 } from './orders.repository';
 import { CartService } from '../cart/cart.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
+import { DeliveryFeeCalculator } from '../platform-settings/delivery-fee.calculator';
 import { OrdersMultiVendorService } from './orders-multi-vendor.service';
 import { OrderActivePolicyHelper } from './helpers/order-active-policy.helper';
+import {
+  applyOrderCoinsAndUpfront,
+  resolveActiveDriverBonusFee,
+  resolveCustomerDeliveryBreakdown,
+} from './helpers/order-pricing.helper';
 import {
   PlaceOrderDto,
   PlaceCustomOrderDto,
@@ -34,7 +40,6 @@ import {
   OrderVendorFulfillmentStatus,
   PaymentMethod,
   Role,
-  VehicleType,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
@@ -52,6 +57,7 @@ import {
 @Injectable()
 export class OrdersCheckoutService {
   private readonly logger = new Logger(OrdersCheckoutService.name);
+  private readonly feeCalculator = new DeliveryFeeCalculator();
 
   constructor(
     private readonly ordersRepository: OrdersRepository,
@@ -392,33 +398,14 @@ export class OrdersCheckoutService {
       throw new BadRequestException(CustomerErrors.OUT_OF_DELIVERY_ZONES);
     }
 
-    let deliveryFee: number;
-    let goldSurchargeAmount = 0;
-    const settingsSvc = this.platformSettings as any;
-    if (typeof settingsSvc.calculateCustomerDeliveryBreakdown === 'function') {
-      const breakdown = await settingsSvc.calculateCustomerDeliveryBreakdown(
+    const { deliveryFee, goldSurchargeAmount } =
+      await resolveCustomerDeliveryBreakdown(this.platformSettings, {
         distanceKm,
-        zone?.baseDeliveryFeeOverride ?? null,
-        null,
-        true,
+        zoneBaseDeliveryFeeOverride: zone?.baseDeliveryFeeOverride ?? null,
+        perKmOverride: null,
+        isStandardOrder: true,
         settings,
-      );
-      deliveryFee = Number(breakdown.totalFee ?? 0);
-      goldSurchargeAmount = Math.max(0, Math.round(Number(breakdown.goldSurcharge ?? 0)));
-    } else {
-      const baseFee = await this.platformSettings.calculateDeliveryFee(
-        distanceKm,
-        zone?.baseDeliveryFeeOverride ?? null,
-        null,
-        true,
-        settings,
-      );
-      goldSurchargeAmount = Math.max(
-        0,
-        Math.round(Number((settings as any).goldTierBonusPerOrder ?? 0)),
-      );
-      deliveryFee = Math.round(baseFee) + goldSurchargeAmount;
-    }
+      });
 
     const branchCommission =
       typeof branch !== 'undefined' && branch?.commissionRate != null
@@ -443,59 +430,21 @@ export class OrdersCheckoutService {
     const taxRate = Number(settings.defaultTaxRate) / 100;
     const tax = Math.round((subtotal + serviceFee) * taxRate);
 
-    let driverBonusFee = 0;
-    const now = new Date();
-    if (
-      settings.driverBonusActive &&
-      settings.driverBonusAmount &&
-      settings.driverBonusAmount > 0 &&
-      settings.driverBonusStartDate &&
-      settings.driverBonusEndDate &&
-      now >= settings.driverBonusStartDate &&
-      now <= settings.driverBonusEndDate
-    ) {
-      driverBonusFee = Number(settings.driverBonusAmount);
-    }
+    const driverBonusFee = resolveActiveDriverBonusFee(settings);
 
     let preDiscountTotal = subtotal + deliveryFee + serviceFee + tax;
     if (settings.driverBonusPaidByCustomer && driverBonusFee > 0) {
       preDiscountTotal += driverBonusFee;
     }
 
-    let coinsUsed = 0;
-    let discount = 0;
-    if (coinsToUse && coinsToUse > 0) {
-      if (!coinBalance || coinBalance < Number(settings.minCoinsToUse)) {
-        throw new BadRequestException(CustomerErrors.MINIMUM_COINS_REQUIRED);
-      }
-      if (coinBalance < coinsToUse) {
-        throw new BadRequestException(CustomerErrors.INSUFFICIENT_COIN_BALANCE);
-      }
-      coinsUsed = coinsToUse;
-      const coinValue = Number(settings.coinValue) || 0;
-      discount = coinsUsed * coinValue;
-      if (discount > preDiscountTotal) {
-        discount = preDiscountTotal;
-        coinsUsed = coinValue > 0 ? Math.ceil(discount / coinValue) : 0;
-      }
-    }
-
-    const grandTotal = preDiscountTotal - discount;
-    const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
-    const coinsEarned =
-      amountSpentPerCoin > 0 ? Math.floor(grandTotal / amountSpentPerCoin) : 0;
-
-    let upfrontAmount = 0;
-    if (
-      paymentMethod === 'CASH_ON_DELIVERY' &&
-      settings.highValueOrderThreshold &&
-      settings.highValueOrderThreshold > 0 &&
-      grandTotal >= settings.highValueOrderThreshold
-    ) {
-      upfrontAmount = Math.round(
-        grandTotal * (Number(settings.highValueUpfrontRate ?? 0) / 100),
-      );
-    }
+    const { coinsUsed, discount, grandTotal, coinsEarned, upfrontAmount } =
+      applyOrderCoinsAndUpfront({
+        preDiscountTotal,
+        coinsToUse,
+        coinBalance: Number(coinBalance ?? 0),
+        paymentMethod,
+        settings,
+      });
 
     return {
       requiresMultiBranch: false as const,
@@ -557,121 +506,42 @@ export class OrdersCheckoutService {
       throw new BadRequestException(OrderErrors.VEHICLE_TYPE_DISABLED);
     }
 
-    let perKm = 0;
-    switch (dto.vehicleType) {
-      case VehicleType.MOTORCYCLE:
-        perKm = Number(settings.pricePerKmMotorcycle);
-        break;
-      case VehicleType.CAR:
-        perKm = Number(settings.pricePerKmCar);
-        break;
-      case VehicleType.MINIBUS:
-        perKm = Number(settings.pricePerKmMinibus);
-        break;
-      case VehicleType.TUK_TUK:
-        perKm = Number(settings.pricePerKmTukTuk);
-        break;
-      case VehicleType.MOTOR_TRICYCLE:
-        perKm = Number(settings.pricePerKmMotorTricycle);
-        break;
-      case VehicleType.QUARTER_TRUCK:
-        perKm = Number(settings.pricePerKmQuarterTruck);
-        break;
-      case VehicleType.HALF_TRUCK:
-        perKm = Number(settings.pricePerKmHalfTruck);
-        break;
-      default:
-        throw new BadRequestException(
-          OrderErrors.VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE,
-        );
+    const perKm = this.feeCalculator.getVehiclePerKm(settings, dto.vehicleType);
+    if (perKm == null) {
+      throw new BadRequestException(
+        OrderErrors.VEHICLE_TYPE_NOT_ALLOWED_FOR_SERVICE,
+      );
     }
 
-    let deliveryFee: number;
-    let goldSurchargeAmount = 0;
-    const settingsSvc = this.platformSettings as any;
-    if (typeof settingsSvc.calculateCustomerDeliveryBreakdown === 'function') {
-      const breakdown = await settingsSvc.calculateCustomerDeliveryBreakdown(
+    const { deliveryFee, goldSurchargeAmount } =
+      await resolveCustomerDeliveryBreakdown(this.platformSettings, {
         distanceKm,
-        null, // no zone override
-        perKm,
-        false, // isStandardOrder
+        zoneBaseDeliveryFeeOverride: null,
+        perKmOverride: perKm,
+        isStandardOrder: false,
         settings,
-        dto.vehicleType,
-      );
-      deliveryFee = Number(breakdown.totalFee ?? 0);
-      goldSurchargeAmount = Math.max(0, Math.round(Number(breakdown.goldSurcharge ?? 0)));
-    } else {
-      const baseFee = await this.platformSettings.calculateDeliveryFee(
-        distanceKm,
-        null, // no zone override
-        perKm,
-        false, // isStandardOrder
-        settings,
-        dto.vehicleType,
-      );
-      goldSurchargeAmount = Math.max(
-        0,
-        Math.round(Number((settings as any).goldTierBonusPerOrder ?? 0)),
-      );
-      deliveryFee = Math.round(baseFee) + goldSurchargeAmount;
-    }
+        vehicleType: dto.vehicleType,
+      });
+
     const serviceFee = Number(settings.customOrderPlatformFee) || 0;
     const taxRate = Number(settings.defaultTaxRate) / 100;
     const tax = Math.round(serviceFee * taxRate);
 
-    let driverBonusFee = 0;
-    const now = new Date();
-    if (
-      settings.driverBonusActive &&
-      settings.driverBonusAmount &&
-      settings.driverBonusAmount > 0 &&
-      settings.driverBonusStartDate &&
-      settings.driverBonusEndDate &&
-      now >= settings.driverBonusStartDate &&
-      now <= settings.driverBonusEndDate
-    ) {
-      driverBonusFee = Number(settings.driverBonusAmount);
-    }
+    const driverBonusFee = resolveActiveDriverBonusFee(settings);
 
     let preDiscountTotal = deliveryFee + serviceFee + tax;
     if (settings.driverBonusPaidByCustomer && driverBonusFee > 0) {
       preDiscountTotal += driverBonusFee;
     }
 
-    let coinsUsed = 0;
-    let discount = 0;
-    if (dto.coinsToUse && dto.coinsToUse > 0) {
-      if (coinBalance < Number(settings.minCoinsToUse)) {
-        throw new BadRequestException(CustomerErrors.MINIMUM_COINS_REQUIRED);
-      }
-      if (coinBalance < dto.coinsToUse) {
-        throw new BadRequestException(CustomerErrors.INSUFFICIENT_COIN_BALANCE);
-      }
-      coinsUsed = dto.coinsToUse;
-      const coinValue = Number(settings.coinValue) || 0;
-      discount = coinsUsed * coinValue;
-      if (discount > preDiscountTotal) {
-        discount = preDiscountTotal;
-        coinsUsed = coinValue > 0 ? Math.ceil(discount / coinValue) : 0;
-      }
-    }
-
-    const grandTotal = preDiscountTotal - discount;
-    const amountSpentPerCoin = Number(settings.amountSpentPerCoin) || 0;
-    const coinsEarned =
-      amountSpentPerCoin > 0 ? Math.floor(grandTotal / amountSpentPerCoin) : 0;
-
-    let upfrontAmount = 0;
-    if (
-      dto.paymentMethod === 'CASH_ON_DELIVERY' &&
-      settings.highValueOrderThreshold &&
-      settings.highValueOrderThreshold > 0 &&
-      grandTotal >= settings.highValueOrderThreshold
-    ) {
-      upfrontAmount = Math.round(
-        grandTotal * (Number(settings.highValueUpfrontRate ?? 0) / 100),
-      );
-    }
+    const { coinsUsed, discount, grandTotal, coinsEarned, upfrontAmount } =
+      applyOrderCoinsAndUpfront({
+        preDiscountTotal,
+        coinsToUse: dto.coinsToUse,
+        coinBalance,
+        paymentMethod: dto.paymentMethod,
+        settings,
+      });
 
     return {
       pickupLng,
@@ -742,6 +612,9 @@ export class OrdersCheckoutService {
     } = money;
 
     const orderNumber = await this.ordersRepository.generateOrderNumber();
+    // Custom Delivery & Ride orders have no vendor to accept them: create them
+    // atomically in LOOKING_FOR_DRIVER (order + delivery group + outbox v0) so
+    // a single ORDER_CREATED event triggers dispatch with zero crash window.
     const created = await this.ordersRepository.createOrder(
       {
         orderNumber,
@@ -773,35 +646,20 @@ export class OrdersCheckoutService {
         pickupLat,
         itemDetails: dto.itemDetails ?? null,
         requestedVehicleType: dto.vehicleType,
+        initialStatus: OrderStatus.LOOKING_FOR_DRIVER,
         activeOrderPolicy,
       },
       [], // No items
       actor.sub,
     );
 
-    // Custom Orders (CUSTOM_DELIVERY / RIDE) have no vendor to accept them:
-    // Always advance immediately to LOOKING_FOR_DRIVER so dispatch assigns a driver;
-    // when a driver accepts, DispatchService.handleAcceptance moves it to PENDING_PAYMENT
-    // if MOBILE_WALLET or upfrontAmount > 0 is required.
     if (created.created) {
-      await this.prisma.orderDeliveryGroup.updateMany({
-        where: { orderId: created.id, status: DeliveryGroupStatus.PENDING },
-        data: { status: DeliveryGroupStatus.LOOKING_FOR_DRIVER },
-      });
-
-      const advanced = await this.ordersRepository.updateStatus(
-        created.id,
-        'LOOKING_FOR_DRIVER',
-        'system',
-        'Auto-dispatched custom order',
-      );
-
       await this.searchTracker?.publishPhase({
         orderId: created.id,
         orderNumber: created.orderNumber,
         orderType: dto.type,
         orderStatus: OrderStatus.LOOKING_FOR_DRIVER,
-        revision: advanced.revision,
+        revision: 0,
         customerUserId: actor.sub,
         phase: DriverSearchPhase.QUEUED,
         attempt: 1,
@@ -809,25 +667,6 @@ export class OrdersCheckoutService {
         waveExpiresAt: null,
         resetHistory: true,
       });
-
-      this.eventEmitter.emit(
-        EVENTS.ORDER_STATUS_CHANGED,
-        new OrderStatusChangedEvent(
-          created.id,
-          created.orderNumber,
-          OrderStatus.PENDING,
-          OrderStatus.LOOKING_FOR_DRIVER,
-          customerId,
-          actor.sub,
-          null,
-          [],
-          null,
-          null,
-          'system',
-          'Auto-dispatched custom order',
-          advanced.revision,
-        ),
-      );
 
       this.eventEmitter.emit(
         EVENTS.ORDER_CREATED,
@@ -841,7 +680,7 @@ export class OrdersCheckoutService {
           grandTotal,
           dto.paymentMethod,
           dto.type,
-          0, // revision of the created row (v0); must match outbox row at orders.repository.ts:1037
+          0, // revision of the created row (v0); matches outbox row in createOrder
         ),
       );
 

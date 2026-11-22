@@ -1,3 +1,4 @@
+import 'package:core/core.dart' show OrderTypeHelper;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:data/providers.dart' hide inboxCountsProvider;
 import 'package:ui_kit/ui_kit.dart' show AppAdaptiveChevron, AppDialog, AppNetworkAvatar;
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/network/network_providers.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../providers/inbox_counts_provider.dart';
 import '../providers/support_ticket_provider.dart';
@@ -138,18 +138,18 @@ class _SupportMenuScreenState extends ConsumerState<SupportMenuScreen> {
   Future<void> _loadOrders() async {
     setState(() => _loadingOrders = true);
     try {
-      final dio = ref.read(dioProvider);
-      final response = await dio.get('/orders/my');
+      final repo = ref.read(customerOrderRepositoryProvider);
+      final raw = await repo.getMyOrders(limit: 20, page: 1);
       if (!mounted) return;
-      final raw = response.data['data'];
-      final list = (raw is Map ? raw['orders'] : raw) as List? ?? [];
+      final list = (raw is Map
+              ? (raw['orders'] ?? raw['data'] ?? raw['items'])
+              : raw) as List? ??
+          [];
       setState(() {
         _orders = list
-            .whereType<Map<String, dynamic>>()
-            .where((o) {
-              final t = o['type']?.toString().toUpperCase();
-              return t != 'CUSTOM_DELIVERY' && t != 'RIDE';
-            })
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .where((o) => OrderTypeHelper.resolve(o).isStandard)
             .toList();
       });
     } catch (_) {

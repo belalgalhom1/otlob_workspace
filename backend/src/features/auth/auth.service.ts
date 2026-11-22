@@ -20,7 +20,6 @@ import {
   DriverStatus,
   Role,
   VendorMemberRole,
-  OrderStatus,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';

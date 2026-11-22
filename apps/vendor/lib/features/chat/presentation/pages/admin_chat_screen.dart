@@ -60,6 +60,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
   Map<String, dynamic>? _orderDetails;
   bool _isOrderExpanded = false;
+  bool _isConversationClosed = false;
 
   bool _hasMore = true;
   String? _nextCursor;
@@ -188,6 +189,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
   StreamSubscription<dynamic>? _messageSubscription;
   StreamSubscription<dynamic>? _readSubscription;
+  StreamSubscription<dynamic>? _closedSubscription;
 
   void _setupSocket() async {
     await ref.read(socketServiceProvider).init();
@@ -261,6 +263,18 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
             }
           }
         });
+
+    _closedSubscription?.cancel();
+    _closedSubscription = ref
+        .read(socketServiceProvider)
+        .onEvent(SocketEvent.conversationClosed)
+        .listen((data) {
+          if (mounted &&
+              data is Map &&
+              data['conversationId']?.toString() == widget.conversationId) {
+            setState(() => _isConversationClosed = true);
+          }
+        });
   }
 
   @override
@@ -270,6 +284,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     _recorder = null;
     _messageSubscription?.cancel();
     _readSubscription?.cancel();
+    _closedSubscription?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     _focusNode.removeListener(_onFocusChange);
@@ -3027,6 +3042,25 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   Widget _buildInput() {
     final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
     final bottomPadding = viewInsetsBottom > 0 ? 8.0 : (MediaQuery.of(context).padding.bottom + 8.0);
+    if (_isConversationClosed) {
+      final isAr = Localizations.localeOf(context).languageCode == 'ar';
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPadding),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppColors.surfaceDark
+            : AppColors.surface,
+        child: Text(
+          isAr ? 'تم إغلاق هذه المحادثة' : 'This conversation is closed',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      );
+    }
 
     return Container(
       padding: EdgeInsetsDirectional.only(

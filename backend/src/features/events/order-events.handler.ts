@@ -118,7 +118,11 @@ export class OrderEventsHandler {
         body: `Order ${event.orderNumber} — ${amount} EGP`,
         bodyAr: `طلب ${event.orderNumber} — ${amount} جنيه`,
         type: NotificationType.ORDER_UPDATE,
-        data: { orderId: event.orderId, orderNumber: event.orderNumber },
+        data: {
+          orderId: event.orderId,
+          orderNumber: event.orderNumber,
+          eventType: 'ORDER_NEW',
+        },
       };
     });
 
@@ -238,7 +242,7 @@ export class OrderEventsHandler {
       });
     }
 
-    await this.syncOrderConversationLifecycle(event);
+    await this.syncOrderConversationLifecycle(event, orderType);
     await this.syncLiveTrackingForDrivers(
       event,
       groupDriverRows,
@@ -405,7 +409,10 @@ export class OrderEventsHandler {
     return { skipped: true };
   }
 
-  private async syncOrderConversationLifecycle(event: OrderStatusChangedEvent) {
+  private async syncOrderConversationLifecycle(
+    event: OrderStatusChangedEvent,
+    resolvedOrderType?: OrderType,
+  ) {
     const activeChatSyncStatuses: OrderStatus[] = [
       OrderStatus.DRIVER_ASSIGNED,
       OrderStatus.PENDING_PAYMENT,
@@ -415,20 +422,36 @@ export class OrderEventsHandler {
       OrderStatus.PICKED_UP,
     ];
 
+    let orderType = resolvedOrderType;
+    const resolveType = async (): Promise<OrderType> => {
+      if (orderType) return orderType;
+      const row = await this.prisma.order.findUnique({
+        where: { id: event.orderId },
+        select: { type: true },
+      });
+      orderType = row?.type ?? OrderType.STANDARD;
+      return orderType;
+    };
+
     if (
       event.newStatus === OrderStatus.ACCEPTED ||
       event.newStatus === OrderStatus.LOOKING_FOR_DRIVER
     ) {
-      const order = await this.prisma.order.findUnique({
-        where: { id: event.orderId },
-        select: { type: true },
-      });
-
-      if (order?.type === 'STANDARD') {
-        await this.conversationsService.createSystemOrderConversation(
-          event.orderId,
-        );
-        if (event.newStatus === OrderStatus.LOOKING_FOR_DRIVER) {
+      const type = await resolveType();
+      if (type === OrderType.STANDARD) {
+        if (
+          typeof this.conversationsService?.createSystemOrderConversation ===
+          'function'
+        ) {
+          await this.conversationsService.createSystemOrderConversation(
+            event.orderId,
+          );
+        }
+        if (
+          event.newStatus === OrderStatus.LOOKING_FOR_DRIVER &&
+          typeof this.conversationsService?.syncOrderDriverParticipants ===
+            'function'
+        ) {
           await this.conversationsService.syncOrderDriverParticipants(
             event.orderId,
           );
@@ -437,29 +460,59 @@ export class OrderEventsHandler {
     }
 
     if (activeChatSyncStatuses.includes(event.newStatus)) {
-      const order = await this.prisma.order.findUnique({
-        where: { id: event.orderId },
-        select: { type: true },
-      });
-
-      if (order?.type === 'STANDARD') {
-        if (event.driverUserId) {
+      const type = await resolveType();
+      if (type === OrderType.STANDARD) {
+        if (
+          event.driverUserId &&
+          typeof this.conversationsService?.addParticipantToOrderConversation ===
+            'function'
+        ) {
           await this.conversationsService.addParticipantToOrderConversation(
             event.orderId,
             event.driverUserId,
           );
         }
-        await this.conversationsService.syncOrderDriverParticipants(
-          event.orderId,
-        );
+        if (
+          typeof this.conversationsService?.syncOrderDriverParticipants ===
+          'function'
+        ) {
+          await this.conversationsService.syncOrderDriverParticipants(
+            event.orderId,
+          );
+        }
       } else if (
-        (order?.type === 'RIDE' || order?.type === 'CUSTOM_DELIVERY') &&
-        (event.newStatus === OrderStatus.DRIVER_ASSIGNED ||
-          event.newStatus === OrderStatus.PENDING_PAYMENT)
+        type === OrderType.RIDE ||
+        type === OrderType.CUSTOM_DELIVERY
       ) {
-        await this.conversationsService.createSystemOrderConversation(
-          event.orderId,
-        );
+        // Ensure conversation exists once a driver is assigned (or active) AND
+        // keep participants synced so admin driver reassignments add the new
+        // driver and prune the previous driver identically to STANDARD orders.
+        if (
+          typeof this.conversationsService?.createSystemOrderConversation ===
+          'function'
+        ) {
+          await this.conversationsService.createSystemOrderConversation(
+            event.orderId,
+          );
+        }
+        if (
+          event.driverUserId &&
+          typeof this.conversationsService?.addParticipantToOrderConversation ===
+            'function'
+        ) {
+          await this.conversationsService.addParticipantToOrderConversation(
+            event.orderId,
+            event.driverUserId,
+          );
+        }
+        if (
+          typeof this.conversationsService?.syncOrderDriverParticipants ===
+          'function'
+        ) {
+          await this.conversationsService.syncOrderDriverParticipants(
+            event.orderId,
+          );
+        }
       }
     }
 

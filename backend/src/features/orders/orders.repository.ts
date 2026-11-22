@@ -19,6 +19,7 @@ import {
   DispatchStatus,
   DriverStatus,
   OrderStatus,
+  OrderType,
   OrderVendorFulfillmentStatus,
   Prisma,
 } from '@prisma/client';
@@ -75,6 +76,12 @@ export interface CreateOrderData {
   requestedVehicleType: string | null;
   isContracted?: boolean;
   commissionRate?: number;
+  /**
+   * Optional initial order & delivery group status (defaults to `PENDING`).
+   * Used by Custom Delivery & Ride creation to enter `LOOKING_FOR_DRIVER`
+   * atomically inside the creation transaction without a post-commit update.
+   */
+  initialStatus?: OrderStatus;
   /**
    * Authoritative per-customer concurrency gate, enforced inside the create
    * transaction (the pre-tx check in checkout-service is only a fast path).
@@ -291,6 +298,11 @@ export class OrdersRepository {
       // without a second round-trip (the old flow re-read the row via
       // findFirst just to learn the id the database had generated).
       const orderId = randomUUID();
+      const initialOrderStatus = data.initialStatus ?? OrderStatus.PENDING;
+      const initialGroupStatus =
+        initialOrderStatus === OrderStatus.LOOKING_FOR_DRIVER
+          ? DeliveryGroupStatus.LOOKING_FOR_DRIVER
+          : DeliveryGroupStatus.PENDING;
 
       // Raw SQL required for geometry field. ON CONFLICT (clientOrderKey) makes
       // creation idempotent: a re-submitted Idempotency-Key inserts 0 rows and
@@ -311,7 +323,7 @@ export class OrdersRepository {
           ${data.type}::"OrderType",
           ${data.customerId},
           ${data.zoneId ?? null},
-          ${Prisma.sql`'PENDING'::"OrderStatus"`},
+          ${initialOrderStatus}::"OrderStatus",
           ${data.paymentMethod}::"PaymentMethod",
           ${data.grandTotal <= 0 ? Prisma.sql`'COMPLETED'::"PaymentStatus"` : Prisma.sql`'PENDING'::"PaymentStatus"`},
           ${data.pickupAddress ?? null},
@@ -423,7 +435,7 @@ export class OrdersRepository {
           id: groupId,
           orderId: created.id,
           sequence: 1,
-          status: DeliveryGroupStatus.PENDING,
+          status: initialGroupStatus,
           distanceKm: data.distanceKm,
           deliveryFee: Math.round(data.deliveryFee),
           goldSurchargeAmount: Math.round(data.goldSurchargeAmount ?? 0),
@@ -500,7 +512,11 @@ export class OrdersRepository {
       await recordOrderStatusEventIdempotent(tx, {
         orderId: created.id,
         eventKey: `order_created:${created.id}`,
-        status: OrderStatus.PENDING,
+        status: initialOrderStatus,
+        note:
+          initialOrderStatus === OrderStatus.LOOKING_FOR_DRIVER
+            ? 'Searching for a driver'
+            : undefined,
         createdBy: actorUserId,
         actor: actorSnapshot,
       });
@@ -972,6 +988,7 @@ export class OrdersRepository {
         where: { id: orderId },
         select: {
           status: true,
+          type: true,
           orderNumber: true,
           customerId: true,
           customer: { select: { userId: true } },
@@ -1035,6 +1052,30 @@ export class OrdersRepository {
       );
       if (activeCount >= maxActiveOrders) {
         throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+      }
+      if (activeCount > 0) {
+        if (currentOrder.type === OrderType.RIDE) {
+          throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+        }
+        if (typeof tx.orderDeliveryGroup?.findFirst === 'function') {
+          const activeRideGroup = await tx.orderDeliveryGroup.findFirst({
+            where: {
+              orderId: { not: orderId },
+              OR: [{ primaryDriverId: driverId }, { assistDriverId: driverId }],
+              status: {
+                notIn: [
+                  DeliveryGroupStatus.CANCELLED,
+                  DeliveryGroupStatus.DELIVERED,
+                ],
+              },
+              order: { type: OrderType.RIDE },
+            },
+            select: { id: true },
+          });
+          if (activeRideGroup) {
+            throw new Error(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+          }
+        }
       }
 
       // If there's an existing driver on this group that is different, release

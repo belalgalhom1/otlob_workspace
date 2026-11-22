@@ -795,6 +795,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
     final isCustomSearchScreen = isNonStandard &&
         (isActivelySearching ||
+            status == 'PENDING_PAYMENT' ||
             status == 'DRIVER_ASSIGNED' ||
             status == 'READY_FOR_PICKUP' ||
             status == 'PICKED_UP' ||

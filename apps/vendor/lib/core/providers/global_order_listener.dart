@@ -135,13 +135,15 @@ final globalOrderListenerProvider = Provider<void>((ref) {
       .onEvent(SocketEvent.orderFulfillmentUpdated)
       .listen(handleOrderEvent);
 
-  final orderCancelledSub = socketService
-      .onEvent(SocketEvent.orderCancelled)
-      .listen(handleOrderEvent);
-
   final pushSub = pushService.onMessage.listen((message) {
+    final hasConvo =
+        (message.data['conversationId']?.toString().trim() ?? '').isNotEmpty;
+    if (hasConvo) return;
     if (message.data['orderId'] != null) {
-      final eventType = message.data['type']?.toString().toUpperCase();
+      final eventType =
+          (message.data['eventType'] ?? message.data['type'])
+              ?.toString()
+              .toUpperCase();
       if (eventType == 'NEW_ORDER' || eventType == 'ORDER_NEW') {
         IosAlertHelper.playAlert();
         showOrderToast(
@@ -151,6 +153,10 @@ final globalOrderListenerProvider = Provider<void>((ref) {
       }
       handleOrderEvent(message.data);
     }
+  });
+
+  final socketConnectSub = socketService.onConnect.listen((_) {
+    fetchOrders(immediate: true);
   });
 
   final lifecycleObserver = _OrdersLifecycleObserver(
@@ -172,8 +178,8 @@ final globalOrderListenerProvider = Provider<void>((ref) {
     orderNewSub.cancel();
     orderStatusSub.cancel();
     orderFulfillmentSub.cancel();
-    orderCancelledSub.cancel();
     pushSub.cancel();
+    socketConnectSub.cancel();
     connectivitySub.cancel();
     lifecycleObserver.dispose();
   });

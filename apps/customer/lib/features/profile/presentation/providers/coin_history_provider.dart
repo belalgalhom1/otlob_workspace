@@ -1,5 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:core/core.dart';
+import 'package:data/providers.dart' show customerLoyaltyRepositoryProvider;
 import '../../../auth/presentation/providers/auth_controller.dart';
 
 part 'coin_history_provider.g.dart';
@@ -33,7 +33,7 @@ class CoinHistoryState {
   }
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 class CoinHistory extends _$CoinHistory {
   @override
   CoinHistoryState build() {
@@ -63,15 +63,20 @@ class CoinHistory extends _$CoinHistory {
 
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final dio = ref.read(dioProvider);
-      final response = await dio.get('/customers/me/coins/history?page=1&limit=100');
+      final repo = ref.read(customerLoyaltyRepositoryProvider);
+      final data = await repo.getCoinHistory(page: 1, limit: 100);
       if (!ref.mounted) return;
-      
-      if (response.data != null && response.data['data'] != null) {
-        final data = response.data['data'];
+
+      if (data is Map) {
+        final rawTxs = data['transactions'];
         state = state.copyWith(
-          transactions: List<Map<String, dynamic>>.from(data['transactions'] ?? []),
-          currentBalance: data['currentBalance'] ?? 0,
+          transactions: rawTxs is List
+              ? rawTxs
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList()
+              : const [],
+          currentBalance: (data['currentBalance'] as num?)?.toInt() ?? 0,
           isLoading: false,
         );
       } else {

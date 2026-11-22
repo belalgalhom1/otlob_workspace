@@ -42,7 +42,6 @@ import {
 } from '../../common/constants/response.constants';
 import { OrderAuthorizationHelper } from './helpers/order-authorization.helper';
 import {
-  DRIVER_ALLOWED_TRANSITIONS,
   VENDOR_ALLOWED_TRANSITIONS,
   requiresOrderProofPhotos,
 } from './transitions/order-state.constants';
@@ -676,6 +675,28 @@ export class OrdersStateService {
     );
     if (activeOrdersCount >= maxActive) {
       throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+    }
+    if (activeOrdersCount > 0) {
+      if (order.type === OrderType.RIDE) {
+        throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+      }
+      const activeRideGroup = await this.prisma.orderDeliveryGroup.findFirst({
+        where: {
+          orderId: { not: orderId },
+          OR: [{ primaryDriverId: driver.id }, { assistDriverId: driver.id }],
+          status: {
+            notIn: [
+              DeliveryGroupStatus.CANCELLED,
+              DeliveryGroupStatus.DELIVERED,
+            ],
+          },
+          order: { type: OrderType.RIDE },
+        },
+        select: { id: true },
+      });
+      if (activeRideGroup) {
+        throw new BadRequestException(OrderErrors.DRIVER_ALREADY_ON_ORDER);
+      }
     }
 
     const activeShift = await this.prisma.driverShift.findFirst({

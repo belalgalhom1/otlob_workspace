@@ -22,6 +22,7 @@ import { JwtConfigModule } from './infrastructure/jwt/jwt-config.module';
 
 import { PlatformSettingsModule } from './features/platform-settings/platform-settings.module';
 import { NotificationsModule } from './features/notifications/notifications.module';
+import { ChatModule } from './features/chat/chat.module';
 import { CartModule } from './features/cart/cart.module';
 import { DispatchModule } from './features/dispatch/dispatch.module';
 import { StatisticsModule } from './features/statistics/statistics.module';
@@ -70,6 +71,7 @@ import { PromotionsProcessor } from './features/promotions/promotions.processor'
     PushModule.register({ enableWorker: true }),
 
     PlatformSettingsModule,
+    ChatModule,
     CartModule,
     DispatchModule,
     StatisticsModule,

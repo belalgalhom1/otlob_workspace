@@ -141,7 +141,6 @@ export class OrderRoleProjector {
       };
     });
 
-    const subtotal = Number(order.subtotal ?? 0);
     let isStorePrepaid =
       computedBaselineFulfillments.length > 0
         ? computedBaselineFulfillments.every((f: any) => f.isContracted)
