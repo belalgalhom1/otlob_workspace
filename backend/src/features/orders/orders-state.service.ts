@@ -286,6 +286,15 @@ export class OrdersStateService {
       return this.cancelOrder(actor, orderId, dto.note?.trim() || '');
     }
 
+    // Ride & Custom Delivery orders have no store fulfillment or preparation
+    // lifecycle; reject vendor production transitions (ACCEPTED/PREPARING/READY_FOR_PICKUP).
+    if (
+      order.type === OrderType.RIDE ||
+      order.type === OrderType.CUSTOM_DELIVERY
+    ) {
+      throw new BadRequestException(OrderErrors.INVALID_TRANSITION);
+    }
+
     const allowed = VENDOR_ALLOWED_TRANSITIONS[order.status];
     if (!allowed || !allowed.includes(dto.status)) {
       throw new BadRequestException(OrderErrors.INVALID_TRANSITION);

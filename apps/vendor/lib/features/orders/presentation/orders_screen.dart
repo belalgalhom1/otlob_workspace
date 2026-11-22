@@ -393,10 +393,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             if (state.hasValue) {
               for (var order in state.value!.orders) {
                 final status = order['status']?.toString();
+                final isStandard = OrderTypeHelper.isStandard(order);
                 if (status == 'PENDING') newOrders++;
-                if (status == 'ACCEPTED' || status == 'PREPARING') preparing++;
-                if (status == 'READY_FOR_PICKUP' ||
-                    status == 'PARTIALLY_PICKED_UP') {
+                if (isStandard &&
+                    (status == 'ACCEPTED' || status == 'PREPARING')) {
+                  preparing++;
+                }
+                if (isStandard &&
+                    (status == 'READY_FOR_PICKUP' ||
+                        status == 'PARTIALLY_PICKED_UP')) {
                   ready++;
                 }
                 if (status == 'CANCELLED') cancelled++;
@@ -1174,13 +1179,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final areFeesFinalized = !isCancelled;
     final orderNumber = order['orderNumber']?.toString() ?? 'N/A';
     
+    final orderType = OrderTypeHelper.resolve(order);
     final grandTotal = double.tryParse(
-      order['grandTotal']?.toString() ?? 
-      order['totalFee']?.toString() ?? 
-      order['total']?.toString() ?? '0'
+      order['grandTotal']?.toString() ??
+          order['totalFee']?.toString() ??
+          order['total']?.toString() ??
+          '0',
     );
     final subtotal = double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
-    final total = areFeesFinalized ? (grandTotal ?? subtotal) : subtotal;
+    final total = orderType.isNonStandard
+        ? (grandTotal ?? 0.0)
+        : (areFeesFinalized ? (grandTotal ?? subtotal) : subtotal);
 
     // Formatting date
     String dateStr = '';
@@ -1210,7 +1219,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final vehicleType = driver['vehicleType']?.toString() ?? '';
     final vehiclePlate = driver['vehiclePlate']?.toString() ?? '';
 
-    final orderType = OrderTypeHelper.resolve(order);
     final items = (order['items'] as List<dynamic>?) ?? [];
     final isExpanded = _expandedOrders[orderId] ?? false;
 
@@ -1332,6 +1340,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                     context,
                                     status,
                                     isArabic,
+                                    orderType: orderType,
                                   ),
                                   if (orderType.isNonStandard)
                                     Container(
@@ -1361,27 +1370,31 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                             color: AppColors.primary,
                                           ),
                                           const SizedBox(width: 5),
-                                          Text(
-                                            [
-                                              OrderTypeHelper.requestTypeLabel(
-                                                orderType,
-                                                isArabic: isArabic,
-                                              ),
-                                              if ((order['requestedVehicleType']
-                                                          ?.toString()
-                                                          .trim() ??
-                                                      '')
-                                                  .isNotEmpty)
-                                                VehicleTypeHelper.label(
-                                                  order['requestedVehicleType']
-                                                      .toString(),
+                                          Flexible(
+                                            child: Text(
+                                              [
+                                                OrderTypeHelper.requestTypeLabel(
+                                                  orderType,
                                                   isArabic: isArabic,
                                                 ),
-                                            ].join(' • '),
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primary,
+                                                if ((order['requestedVehicleType']
+                                                            ?.toString()
+                                                            .trim() ??
+                                                        '')
+                                                    .isNotEmpty)
+                                                  VehicleTypeHelper.label(
+                                                    order['requestedVehicleType']
+                                                        .toString(),
+                                                    isArabic: isArabic,
+                                                  ),
+                                              ].join(' • '),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.primary,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -1627,8 +1640,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Status Step Progress Timeline (Customer App parity!)
-                        _buildStatusTimeline(status, isArabic),
+                        // Status Step Progress Timeline (service-aware)
+                        _buildStatusTimeline(status, orderType, isArabic),
                         const SizedBox(height: 16),
 
                         // Info rows (Delivery details, payment method, etc.)
@@ -1676,15 +1689,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
-                                  _buildPremiumDetailRow(
-                                    icon: LucideIcons.mapPin,
-                                    title: isArabic
-                                        ? 'عنوان التوصيل'
-                                        : 'Delivery Address',
-                                    value: address,
-                                    iconColor: statusColor,
-                                  ),
+                                  if (orderType.isStandard) ...[
+                                    const SizedBox(height: 12),
+                                    _buildPremiumDetailRow(
+                                      icon: LucideIcons.mapPin,
+                                      title: isArabic
+                                          ? 'عنوان التوصيل'
+                                          : 'Delivery Address',
+                                      value: address,
+                                      iconColor: statusColor,
+                                    ),
+                                  ],
                                   if (customerPhone.isNotEmpty) ...[
                                     const SizedBox(height: 12),
                                     _buildPremiumDetailRow(
@@ -1877,7 +1892,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       titleAr: 'إيصال التحويل (العميل)',
                                     ),
                                   ],
-                                  if (_resolveOrderProofUrl(order, 'pickupImageUrl').isNotEmpty) ...[
+                                  if (orderType.requiresOrderPhotos &&
+                                      _resolveOrderProofUrl(
+                                        order,
+                                        'pickupImageUrl',
+                                      ).isNotEmpty) ...[
                                     const SizedBox(height: 12),
                                     _buildProofPhotoRow(
                                       context,
@@ -1888,7 +1907,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       titleAr: 'صورة الاستلام',
                                     ),
                                   ],
-                                  if (_resolveOrderProofUrl(order, 'deliveryImageUrl').isNotEmpty) ...[
+                                  if (orderType.requiresOrderPhotos &&
+                                      _resolveOrderProofUrl(
+                                        order,
+                                        'deliveryImageUrl',
+                                      ).isNotEmpty) ...[
                                     const SizedBox(height: 12),
                                     _buildProofPhotoRow(
                                       context,
@@ -1952,7 +1975,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       onPressed: () => _openOrderChat(context, order, isArabic),
                                       icon: const Icon(LucideIcons.messageSquare, size: 16, color: AppColors.primary),
                                       label: Text(
-                                        isArabic ? 'محادثة الطلب (العميل والسائق)' : 'Order Chat (Customer & Driver)',
+                                        orderType.isRide
+                                            ? (isArabic
+                                                  ? 'محادثة الرحلة (الراكب والكابتن)'
+                                                  : 'Ride Chat (Passenger & Driver)')
+                                            : (isArabic
+                                                  ? 'محادثة الطلب (العميل والسائق)'
+                                                  : 'Order Chat (Customer & Driver)'),
                                         style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
                                       ),
                                       style: OutlinedButton.styleFrom(
@@ -2111,9 +2140,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    isArabic
-                                        ? 'تم التوصيل بنجاح بواسطة السائق: $displayDriverName'
-                                        : 'Successfully delivered by driver: $displayDriverName',
+                                    orderType.isRide
+                                        ? (isArabic
+                                              ? 'اكتملت الرحلة بنجاح بواسطة الكابتن: $displayDriverName'
+                                              : 'Ride completed successfully by driver: $displayDriverName')
+                                        : (isArabic
+                                              ? 'تم التوصيل بنجاح بواسطة السائق: $displayDriverName'
+                                              : 'Successfully delivered by driver: $displayDriverName'),
                                     style: const TextStyle(
                                       color: AppColors.success,
                                       fontWeight: FontWeight.bold,
@@ -2315,21 +2348,58 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
-  Widget _buildStatusTimeline(String status, bool isArabic) {
+  Widget _buildStatusTimeline(
+    String status,
+    AppOrderType orderType,
+    bool isArabic,
+  ) {
     if (status == 'CANCELLED') return const SizedBox.shrink();
 
     int currentStep = 0;
-    if (status == 'PREPARING' || status == 'COOKING' || status == 'ACCEPTED' || status == 'LOOKING_FOR_DRIVER' || status == 'DRIVER_ASSIGNED' || status == 'PENDING_PAYMENT') {
-      currentStep = 1;
-    } else if (status == 'READY_FOR_PICKUP' || status == 'PICKED_UP' || status == 'PARTIALLY_PICKED_UP') {
-      currentStep = 2;
-    } else if (status == 'DELIVERED') {
-      currentStep = 3;
+    if (orderType.isNonStandard) {
+      if (status == 'DRIVER_ASSIGNED' ||
+          status == 'PENDING_PAYMENT' ||
+          status == 'READY_FOR_PICKUP') {
+        currentStep = 1;
+      } else if (status == 'PICKED_UP' ||
+          status == 'PARTIALLY_PICKED_UP' ||
+          status == 'IN_TRANSIT' ||
+          status == 'ARRIVING') {
+        currentStep = 2;
+      } else if (status == 'DELIVERED') {
+        currentStep = 3;
+      }
+    } else {
+      if (status == 'PREPARING' ||
+          status == 'COOKING' ||
+          status == 'ACCEPTED' ||
+          status == 'LOOKING_FOR_DRIVER' ||
+          status == 'DRIVER_ASSIGNED' ||
+          status == 'PENDING_PAYMENT') {
+        currentStep = 1;
+      } else if (status == 'READY_FOR_PICKUP' ||
+          status == 'PICKED_UP' ||
+          status == 'PARTIALLY_PICKED_UP') {
+        currentStep = 2;
+      } else if (status == 'DELIVERED') {
+        currentStep = 3;
+      }
     }
 
-    final steps = isArabic
-        ? ['تم الطلب', 'التحضير', 'في الطريق', 'تم التوصيل']
-        : ['Placed', 'Preparing', 'On Way', 'Delivered'];
+    final List<String> steps;
+    if (orderType.isRide) {
+      steps = isArabic
+          ? ['تم الطلب', 'تعيين الكابتن', 'قيد التنفيذ', 'مكتملة']
+          : ['Requested', 'Driver Assigned', 'In Progress', 'Completed'];
+    } else if (orderType.isCustomDelivery) {
+      steps = isArabic
+          ? ['تم الطلب', 'تعيين السائق', 'تم الاستلام', 'تم التوصيل']
+          : ['Requested', 'Driver Assigned', 'Picked Up', 'Delivered'];
+    } else {
+      steps = isArabic
+          ? ['تم الطلب', 'التحضير', 'في الطريق', 'تم التوصيل']
+          : ['Placed', 'Preparing', 'On Way', 'Delivered'];
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
@@ -3386,12 +3456,249 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 
   Widget _buildPricingBreakdown(dynamic order, bool isArabic) {
+    final orderType = OrderTypeHelper.resolve(order);
+    final financials =
+        order['financials'] is Map ? order['financials'] as Map : null;
+
+    if (orderType.isNonStandard) {
+      final deliveryFee =
+          double.tryParse(order['deliveryFee']?.toString() ?? '0') ?? 0.0;
+      final serviceFee =
+          double.tryParse(order['serviceFee']?.toString() ?? '0') ?? 0.0;
+      final tax = double.tryParse(order['tax']?.toString() ?? '0') ?? 0.0;
+      final driverBonusFee =
+          double.tryParse(order['driverBonusFee']?.toString() ?? '0') ?? 0.0;
+      final discount =
+          double.tryParse(order['discount']?.toString() ?? '0') ?? 0.0;
+      final upfrontAmount =
+          double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0;
+      final distanceKm =
+          double.tryParse(order['distanceKm']?.toString() ?? '0') ?? 0.0;
+      final grandTotal =
+          double.tryParse(
+            order['grandTotal']?.toString() ??
+                order['totalFee']?.toString() ??
+                order['total']?.toString() ??
+                '0',
+          ) ??
+          deliveryFee;
+      final driverEarnings =
+          double.tryParse(
+            financials?['driverEarnings']?.toString() ??
+                order['driverEarnings']?.toString() ??
+                '0',
+          ) ??
+          0.0;
+      final paymentMethod =
+          (order['paymentMethod']?.toString() ?? '').toUpperCase();
+      final isPrepaid =
+          financials?['isPrepaid'] == true ||
+          paymentMethod.contains('WALLET') ||
+          paymentMethod.contains('INSTAPAY') ||
+          paymentMethod == 'CARD';
+      final currency = isArabic ? 'ج.م' : 'EGP';
+
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.015),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.06),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  VehicleTypeHelper.icon(
+                    order['requestedVehicleType']?.toString(),
+                  ),
+                  size: 14,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    orderType.isRide
+                        ? (isArabic ? 'تفاصيل أجرة الرحلة' : 'Ride Fare Breakdown')
+                        : (isArabic
+                              ? 'تفاصيل أجرة التوصيل الخاص'
+                              : 'Custom Delivery Fare Breakdown'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                if (distanceKm > 0)
+                  Text(
+                    '${distanceKm.toStringAsFixed(1)} ${isArabic ? 'كم' : 'km'}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.65),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildPriceRow(
+              orderType.isRide
+                  ? (isArabic ? 'أجرة الرحلة' : 'Ride Fare')
+                  : (isArabic ? 'رسوم التوصيل' : 'Delivery Fee'),
+              deliveryFee,
+            ),
+            if (driverBonusFee > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(
+                isArabic ? 'إكرامية / أولوية التوصيل' : 'Driver Priority Bonus',
+                driverBonusFee,
+              ),
+            ],
+            if (serviceFee > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(
+                isArabic ? 'رسوم الخدمة' : 'Service Fee',
+                serviceFee,
+              ),
+            ],
+            if (tax > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(isArabic ? 'الضريبة' : 'Tax', tax),
+            ],
+            if (discount > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(
+                isArabic ? 'الخصم' : 'Discount',
+                -discount,
+                isDiscount: true,
+              ),
+            ],
+            if (upfrontAmount > 0) ...[
+              const SizedBox(height: 4),
+              _buildPriceRow(
+                isArabic ? 'المبلغ المدفوع مقدماً' : 'Upfront Deposit',
+                upfrontAmount,
+              ),
+            ],
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1),
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Expanded(
+                  child: Text(
+                    orderType.isRide
+                        ? (isArabic ? 'إجمالي أجرة الرحلة' : 'Total Ride Fare')
+                        : (isArabic ? 'إجمالي التوصيل' : 'Total Delivery Fare'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${grandTotal.toStringAsFixed(2)} $currency',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppColors.primary,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+            if (driverEarnings > 0) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Expanded(
+                    child: Text(
+                      isArabic ? 'أرباح السائق' : 'Driver Earnings',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${driverEarnings.toStringAsFixed(2)} $currency',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.success,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: (isPrepaid ? AppColors.primary : AppColors.success)
+                    .withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPrepaid ? LucideIcons.wallet : LucideIcons.banknote,
+                    size: 14,
+                    color: isPrepaid ? AppColors.primary : AppColors.success,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      isPrepaid
+                          ? (isArabic
+                                ? 'الدفع عبر المحفظة الإلكترونية'
+                                : 'Paid via Mobile Wallet')
+                          : (orderType.isRide
+                                ? (isArabic
+                                      ? 'تحصيل الأجرة نقداً من الراكب'
+                                      : 'Driver collects fare from passenger')
+                                : (isArabic
+                                      ? 'تحصيل رسوم التوصيل نقداً من العميل'
+                                      : 'Driver collects fee from customer')),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color:
+                            isPrepaid ? AppColors.primary : AppColors.success,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final fulfillments = (order['vendorFulfillments'] as List<dynamic>?) ?? [];
     final bool isMultiVendor = order['isMultiVendor'] == true ||
         fulfillments.length > 1 ||
         (order['vendor'] == null && fulfillments.isNotEmpty);
 
-    final financials = order['financials'] is Map ? order['financials'] as Map : null;
     final storePayments = (financials?['storePayments'] as List<dynamic>?) ?? [];
 
     if (_userRole != 'VENDOR_MEMBER' &&
@@ -4126,7 +4433,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
-  Widget _buildStatusChip(BuildContext context, String status, bool isArabic) {
+  Widget _buildStatusChip(
+    BuildContext context,
+    String status,
+    bool isArabic, {
+    AppOrderType orderType = AppOrderType.standard,
+  }) {
     Color color;
     String label;
     IconData icon;
@@ -4159,13 +4471,37 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         break;
       case 'READY_FOR_PICKUP':
         color = AppColors.success;
-        label = isArabic ? 'جاهز' : 'Ready';
-        icon = LucideIcons.package;
+        if (orderType.isRide) {
+          label = isArabic ? 'في طريقه لنقطة الركوب' : 'Heading to Pickup';
+          icon = LucideIcons.navigation;
+        } else if (orderType.isCustomDelivery) {
+          label = isArabic ? 'في طريقه للاستلام' : 'Heading to Pickup';
+          icon = LucideIcons.navigation;
+        } else {
+          label = isArabic ? 'جاهز' : 'Ready';
+          icon = LucideIcons.package;
+        }
+        break;
+      case 'PICKED_UP':
+        if (orderType.isRide) {
+          color = Colors.indigo;
+          label = isArabic ? 'الرحلة قيد التنفيذ' : 'Ride in Progress';
+          icon = LucideIcons.navigation;
+        } else if (orderType.isCustomDelivery) {
+          color = Colors.indigo;
+          label = isArabic ? 'تم الاستلام وفي الطريق' : 'Picked Up';
+          icon = LucideIcons.truck;
+        } else {
+          color = Colors.green;
+          label = isArabic ? 'تم الاستلام' : 'Picked Up';
+          icon = LucideIcons.checkCircle2;
+        }
         break;
       case 'DELIVERED':
-      case 'PICKED_UP':
         color = Colors.green;
-        label = isArabic ? 'مكتمل' : 'Completed';
+        label = orderType.isRide
+            ? (isArabic ? 'اكتملت الرحلة' : 'Ride Completed')
+            : (isArabic ? 'مكتمل' : 'Completed');
         icon = LucideIcons.checkCircle2;
         break;
       case 'CANCELLED':
@@ -4237,6 +4573,40 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     if (status == 'DELIVERED' || status == 'CANCELLED') {
       return const SizedBox();
     }
+
+    // Ride & Custom Delivery requests have no store fulfillment or kitchen
+    // preparation lifecycle; never display vendor Accept/Prepare/Ready actions.
+    final orderType = OrderTypeHelper.resolve(order);
+    if (orderType.isNonStandard) {
+      if (!_canManageOrders) {
+        return const SizedBox();
+      }
+      final cancelLabel = orderType.isRide
+          ? (isArabic ? 'إلغاء الرحلة' : 'Cancel Ride')
+          : (isArabic ? 'إلغاء التوصيل' : 'Cancel Delivery');
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => _showCancelDialog(
+            context,
+            order['id'].toString(),
+            isArabic,
+            orderType: orderType,
+          ),
+          icon: const Icon(LucideIcons.xCircle, size: 16),
+          label: Text(cancelLabel, maxLines: 1, overflow: TextOverflow.ellipsis),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.error,
+            side: const BorderSide(color: AppColors.error),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
+    }
+
     final fulfillments = (order['vendorFulfillments'] as List?) ?? [];
     if (_userRole == 'VENDOR_MEMBER' && fulfillments.length > 1) {
       // Multi-branch vendor orders manage accept/prepare/ready/cancel per branch
@@ -4576,12 +4946,39 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     String orderId,
     bool isArabic, {
     String? fulfillmentId,
+    AppOrderType orderType = AppOrderType.standard,
   }) {
     final reasonController = TextEditingController();
     DeliveryIncidentResponsibility? selectedResponsibility;
     final showResponsibility =
         _userRole != 'VENDOR_MEMBER' &&
         (fulfillmentId == null || fulfillmentId.isEmpty);
+    final responsibilityOptions = <DeliveryIncidentResponsibility>[
+      DeliveryIncidentResponsibility.DRIVER_AT_FAULT,
+      DeliveryIncidentResponsibility.CUSTOMER,
+      if (orderType.isStandard) DeliveryIncidentResponsibility.VENDOR,
+      DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM,
+      DeliveryIncidentResponsibility.UNDER_REVIEW,
+    ];
+    final dialogTitle = orderType.isRide
+        ? (isArabic ? 'إلغاء الرحلة' : 'Cancel Ride')
+        : (orderType.isCustomDelivery
+              ? (isArabic ? 'إلغاء التوصيل' : 'Cancel Delivery')
+              : (isArabic ? 'إلغاء الطلب' : 'Cancel Order'));
+    final dialogSubtitle = orderType.isRide
+        ? (isArabic
+              ? 'برجاء كتابة سبب إلغاء هذه الرحلة:'
+              : 'Please specify the reason for cancelling this ride:')
+        : (orderType.isCustomDelivery
+              ? (isArabic
+                    ? 'برجاء كتابة سبب إلغاء طلب التوصيل:'
+                    : 'Please specify the reason for cancelling this delivery:')
+              : (isArabic
+                    ? 'برجاء كتابة سبب إلغاء هذا الطلب:'
+                    : 'Please specify the reason for cancelling this order:'));
+    final reasonHint = orderType.isNonStandard
+        ? (isArabic ? 'مثال: طلب العميل الإلغاء' : 'e.g., Customer requested cancellation')
+        : (isArabic ? 'مثال: المنتج غير متوفر' : 'e.g., Out of stock');
 
     String responsibilityLabel(DeliveryIncidentResponsibility r) {
       if (r == DeliveryIncidentResponsibility.DRIVER_AT_FAULT) {
@@ -4613,10 +5010,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 icon: LucideIcons.xCircle,
                 accentColor: AppColors.error,
                 titleColor: AppColors.error,
-                title: isArabic ? 'إلغاء الطلب' : 'Cancel Order',
-                subtitle: isArabic
-                    ? 'برجاء كتابة سبب إلغاء هذا الطلب:'
-                    : 'Please specify the reason for cancelling this order:',
+                title: dialogTitle,
+                subtitle: dialogSubtitle,
                 onClose: () => Navigator.pop(dialogCtx),
               ),
               body: Column(
@@ -4635,9 +5030,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     ),
                     decoration: AppDialogStyles.inputDecoration(
                       ctx,
-                      hintText: isArabic
-                          ? 'مثال: المنتج غير متوفر'
-                          : 'e.g., Out of stock',
+                      hintText: reasonHint,
                       icon: LucideIcons.messageSquare,
                       isMultiline: true,
                     ),
@@ -4666,13 +5059,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        for (final r in [
-                          DeliveryIncidentResponsibility.DRIVER_AT_FAULT,
-                          DeliveryIncidentResponsibility.CUSTOMER,
-                          DeliveryIncidentResponsibility.VENDOR,
-                          DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM,
-                          DeliveryIncidentResponsibility.UNDER_REVIEW,
-                        ])
+                        for (final r in responsibilityOptions)
                           DropdownMenuItem<DeliveryIncidentResponsibility?>(
                             value: r,
                             child: Text(
@@ -4690,7 +5077,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               footer: AppDialogFooter(
                 cancelLabel: isArabic ? 'تراجع' : 'Back',
                 onCancel: () => Navigator.pop(dialogCtx),
-                confirmLabel: isArabic ? 'إلغاء الطلب' : 'Cancel Order',
+                confirmLabel: dialogTitle,
                 confirmIcon: LucideIcons.xCircle,
                 isDestructive: true,
                 onConfirm: () {

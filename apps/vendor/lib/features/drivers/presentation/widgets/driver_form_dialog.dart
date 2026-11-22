@@ -326,6 +326,17 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
               hintText: label,
               icon: icon,
             ),
+            selectedItemBuilder: (ctx) => _vehicleTypes.map((type) {
+              final displayType =
+                  _getVehicleTypeTranslation(type, isArabic: isAr);
+              return Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  displayType,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList(),
             items: _vehicleTypes.map((type) {
               final displayType =
                   _getVehicleTypeTranslation(type, isArabic: isAr);

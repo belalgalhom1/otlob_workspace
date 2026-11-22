@@ -309,4 +309,46 @@ describe('OrderType Request Workflows (RIDE vs CUSTOM_DELIVERY vs STANDARD)', ()
       );
     });
   });
+
+  describe('vendorUpdateStatus blocks store preparation transitions on RIDE & CUSTOM_DELIVERY', () => {
+    const adminActor = { sub: 'user-admin-1', role: Role.SUPER_ADMIN } as any;
+
+    it('rejects PREPARING and READY_FOR_PICKUP on RIDE orders even for SUPER_ADMIN', async () => {
+      const rideOrder = makeOrder(OrderType.RIDE, {
+        status: OrderStatus.LOOKING_FOR_DRIVER,
+      });
+      mockOrdersRepo.findById.mockResolvedValue(rideOrder);
+
+      await expect(
+        stateService.vendorUpdateStatus(adminActor, rideOrder.id, {
+          status: OrderStatus.PREPARING,
+        }),
+      ).rejects.toThrow(new BadRequestException(OrderErrors.INVALID_TRANSITION));
+
+      await expect(
+        stateService.vendorUpdateStatus(adminActor, rideOrder.id, {
+          status: OrderStatus.READY_FOR_PICKUP,
+        }),
+      ).rejects.toThrow(new BadRequestException(OrderErrors.INVALID_TRANSITION));
+    });
+
+    it('rejects PREPARING and ACCEPTED on CUSTOM_DELIVERY orders even for SUPER_ADMIN', async () => {
+      const customOrder = makeOrder(OrderType.CUSTOM_DELIVERY, {
+        status: OrderStatus.DRIVER_ASSIGNED,
+      });
+      mockOrdersRepo.findById.mockResolvedValue(customOrder);
+
+      await expect(
+        stateService.vendorUpdateStatus(adminActor, customOrder.id, {
+          status: OrderStatus.PREPARING,
+        }),
+      ).rejects.toThrow(new BadRequestException(OrderErrors.INVALID_TRANSITION));
+
+      await expect(
+        stateService.vendorUpdateStatus(adminActor, customOrder.id, {
+          status: OrderStatus.ACCEPTED,
+        }),
+      ).rejects.toThrow(new BadRequestException(OrderErrors.INVALID_TRANSITION));
+    });
+  });
 });
