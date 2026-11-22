@@ -1748,15 +1748,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get driverBonusAmount => 'قيمة مكافأة السائق';
 
   @override
-  String get bronzeTierBonusPerKm => 'مكافأة الفئة البرونزية لكل كم';
-
-  @override
-  String get silverTierBonusPerKm => 'مكافأة الفئة الفضية لكل كم';
-
-  @override
-  String get goldTierBonusPerKm => 'مكافأة الفئة الذهبية لكل كم';
-
-  @override
   String get driverSettlementOrderThreshold => 'عدد الطلبات حتى تسوية السائق';
 
   @override

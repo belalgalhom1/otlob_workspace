@@ -351,20 +351,6 @@ export class OrderSettlementService {
         settings.driverManagerCommissionRate ??
         10) / 100;
 
-    const primaryFeeFor = (
-      fee: number,
-      routeKm: number,
-      primaryTier: string,
-    ): number =>
-      (
-        this.earnings.adjustPrimaryFeeForTier ??
-        OrderEarningsCalculator.prototype.adjustPrimaryFeeForTier
-      ).call(this.earnings, fee, settings, {
-        driverTier: primaryTier,
-        distanceKm: routeKm,
-        isStandardOrder: orderType === 'STANDARD',
-      });
-
     // Assisting driver receives their base delivery fee share; Gold per-order
     // surcharge is strictly excluded from assisting drivers, and fixed Bronze
     // deductions are recorded separately via `bronzeTierDeductionAmount`.
@@ -538,7 +524,6 @@ export class OrderSettlementService {
           tierById,
           driverTier,
         );
-        const routeKm = g.distanceKm ?? distanceKm;
 
         const rawGroupGold =
           explicitSurchargeSum > 0
@@ -549,18 +534,16 @@ export class OrderSettlementService {
         const groupGoldSurcharge = Math.min(g.deliveryFee, rawGroupGold);
         const baseGroupDeliveryFee = Math.max(0, g.deliveryFee - groupGoldSurcharge);
 
-        const primaryFee = primaryFeeFor(
-          baseGroupDeliveryFee,
-          routeKm,
-          primaryTier,
-        );
         const isGroupStacked = g.isStacked === true;
         const groupShare = isGroupStacked
           ? stackedDriverShare
           : isMultiVendorOrder
             ? multiVendorDriverShare
             : driverShare;
-        const amount = Math.max(0, multiplyMoneyRatioToWholeEgp(primaryFee, groupShare));
+        const amount = Math.max(
+          0,
+          multiplyMoneyRatioToWholeEgp(baseGroupDeliveryFee, groupShare),
+        );
 
         primaryPayouts.push({
           driverId: primaryId,
@@ -679,12 +662,11 @@ export class OrderSettlementService {
       const orderGoldSurcharge = Math.min(deliveryFee, payloadGoldSurcharge);
       const baseDeliveryFee = Math.max(0, deliveryFee - orderGoldSurcharge);
 
-      const primaryFee = primaryFeeFor(baseDeliveryFee, distanceKm, effectiveTier);
       const orderShare =
         payload.isStacked === true ? stackedDriverShare : driverShare;
       const normalDriverAmount = Math.max(
         0,
-        multiplyMoneyRatioToWholeEgp(primaryFee, orderShare),
+        multiplyMoneyRatioToWholeEgp(baseDeliveryFee, orderShare),
       );
       primaryPayouts.push({
         driverId,

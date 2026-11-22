@@ -138,25 +138,6 @@ export class OrderEarningsCalculator {
     return Math.max(0, Number(settings?.driverManagerCommissionRate ?? 10) / 100);
   }
 
-  /**
-   * Returns eligible base delivery fee before tier surcharge / deduction
-   * adjustments. Per-km tier modifiers are removed because Silver is the default
-   * baseline, Gold adds a fixed per-order surcharge (`goldTierBonusPerOrder`),
-   * and Bronze applies fixed deductions (`bronzeTierDeductionAmount`).
-   */
-  adjustPrimaryFeeForTier(
-    fee: number,
-    _settings?: DriverCommissionSettings | null,
-    _context: {
-      driverTier?: string | null;
-      distanceKm?: number | null;
-      isStandardOrder?: boolean;
-    } = {},
-  ): number {
-    const baseFeeCents = Math.max(0, toMoneyCents(fee ?? 0));
-    return centsToDecimalEgp(baseFeeCents);
-  }
-
   calculateDriverEarningsBreakdown(
     fee: number,
     settings: DriverCommissionSettings | null | undefined,
@@ -174,15 +155,7 @@ export class OrderEarningsCalculator {
     const goldSurcharge = centsToWholeEgp(effectiveSurchargeCents);
 
     const share = this.computeDriverShare(settings, context);
-    const adjustedBaseFee = this.adjustPrimaryFeeForTier(
-      baseDeliveryFee,
-      settings,
-      {
-        driverTier: context.driverTier,
-        distanceKm: context.distanceKm,
-        isStandardOrder: context.isStandardOrder,
-      },
-    );
+    const adjustedBaseFee = baseDeliveryFee;
     const baseEarnings = Math.max(
       0,
       multiplyMoneyRatioToWholeEgp(adjustedBaseFee, share),

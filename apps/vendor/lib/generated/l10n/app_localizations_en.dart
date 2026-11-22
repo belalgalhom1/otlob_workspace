@@ -1765,15 +1765,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get driverBonusAmount => 'Driver Bonus Amount';
 
   @override
-  String get bronzeTierBonusPerKm => 'Bronze Tier Bonus Per Km';
-
-  @override
-  String get silverTierBonusPerKm => 'Silver Tier Bonus Per Km';
-
-  @override
-  String get goldTierBonusPerKm => 'Gold Tier Bonus Per Km';
-
-  @override
   String get driverSettlementOrderThreshold => 'Orders Until Driver Settlement';
 
   @override

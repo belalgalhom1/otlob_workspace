@@ -1028,28 +1028,34 @@ const List<SettingsSection> platformSettingsSections = [
             'pays it.',
       ),
       SettingsField(
-        key: 'bronzeTierBonusPerKm',
+        key: 'goldTierBonusPerOrder',
         kind: SettingsFieldKind.number,
-        labelAr: 'بونص الكيلو (برونزي)',
-        labelEn: 'Bronze Tier Bonus/Km',
-        helpAr: 'بونص لكل كيلو لمندوبي المستوى البرونزي.',
-        helpEn: 'Per-km bonus for Bronze-tier drivers.',
+        labelAr: 'بونص الشارة الذهبية لكل طلب',
+        labelEn: 'Gold Tier Bonus/Order',
+        helpAr:
+            'مبلغ ثابت (ج.م) يُضاف مرة واحدة لكل طلب، يحصل عليه المندوب الذهبي بالكامل أو تحتفظ به المنصة للمندوب الفضي/البرونزي.',
+        helpEn:
+            'Fixed amount (EGP) added once per order; paid 100% to Gold drivers or retained by the platform for Silver/Bronze drivers.',
       ),
       SettingsField(
-        key: 'silverTierBonusPerKm',
+        key: 'bronzeTierDeductionAmount',
         kind: SettingsFieldKind.number,
-        labelAr: 'بونص الكيلو (فضي)',
-        labelEn: 'Silver Tier Bonus/Km',
-        helpAr: 'بونص لكل كيلو لمندوبي المستوى الفضي.',
-        helpEn: 'Per-km bonus for Silver-tier drivers.',
+        labelAr: 'خصم الشارة البرونزية من المندوب لكل طلب',
+        labelEn: 'Bronze Driver Deduction/Order',
+        helpAr:
+            'مبلغ ثابت (ج.م) يُخصم من أرباح المندوب البرونزي عن الطلب المكتمل وتحتفظ به المنصة.',
+        helpEn:
+            'Fixed amount (EGP) deducted from a Bronze driver\'s eligible order earnings and retained by the platform.',
       ),
       SettingsField(
-        key: 'goldTierBonusPerKm',
+        key: 'bronzeSupervisorDeductionAmount',
         kind: SettingsFieldKind.number,
-        labelAr: 'بونص الكيلو (ذهبي)',
-        labelEn: 'Gold Tier Bonus/Km',
-        helpAr: 'بونص لكل كيلو لمندوبي المستوى الذهبي (يُستخدم في الحساب).',
-        helpEn: 'Per-km bonus for Gold-tier drivers (used at checkout).',
+        labelAr: 'خصم الشارة البرونزية من المشرف لكل طلب',
+        labelEn: 'Bronze Supervisor Deduction/Order',
+        helpAr:
+            'مبلغ ثابت (ج.م) يُخصم من عمولة مشرف المندوب البرونزي عن الطلب المكتمل وتحتفظ به المنصة.',
+        helpEn:
+            'Fixed amount (EGP) deducted from the supervisor\'s commission on a Bronze driver\'s completed order.',
       ),
       SettingsField(
         key: 'driverSettlementOrderThreshold',

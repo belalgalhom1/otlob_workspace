@@ -3212,24 +3212,6 @@ abstract class AppLocalizations {
   /// **'Driver Bonus Amount'**
   String get driverBonusAmount;
 
-  /// No description provided for @bronzeTierBonusPerKm.
-  ///
-  /// In en, this message translates to:
-  /// **'Bronze Tier Bonus Per Km'**
-  String get bronzeTierBonusPerKm;
-
-  /// No description provided for @silverTierBonusPerKm.
-  ///
-  /// In en, this message translates to:
-  /// **'Silver Tier Bonus Per Km'**
-  String get silverTierBonusPerKm;
-
-  /// No description provided for @goldTierBonusPerKm.
-  ///
-  /// In en, this message translates to:
-  /// **'Gold Tier Bonus Per Km'**
-  String get goldTierBonusPerKm;
-
   /// No description provided for @isMaintenanceMode.
   ///
   /// In en, this message translates to:
