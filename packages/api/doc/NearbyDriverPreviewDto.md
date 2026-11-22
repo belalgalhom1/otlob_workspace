@@ -8,6 +8,7 @@ import 'package:api/api.dart';
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**markerKey** | **String** | Anonymized ephemeral marker key scoped to the search session for smooth real-time map tracking without exposing driver IDs or PII | [optional] 
 **latitude** | **num** |  | 
 **longitude** | **num** |  | 
 **vehicleType** | [**VehicleType**](VehicleType.md) |  | 

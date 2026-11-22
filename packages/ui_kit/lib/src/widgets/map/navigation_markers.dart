@@ -118,11 +118,12 @@ class InDriveVehicleMarker extends StatefulWidget {
   final double heading; // 0 - 360 degrees
   final bool isMoving;
   final String? label;
-  final String? vehicleType; // 'MOTORCYCLE', 'CAR', 'BICYCLE', 'VAN', 'TRUCK', 'MOTOR_TRICYCLE'
+  final String? vehicleType; // 'MOTORCYCLE', 'CAR', 'MINIBUS', 'TUK_TUK', 'BICYCLE', 'QUARTER_TRUCK', 'HALF_TRUCK', 'MOTOR_TRICYCLE'
   final String? plateNumber;
   final String? driverName;
   final bool showHeadlightGlow;
   final bool showRadarPulse;
+  final bool showCargoBox;
 
   const InDriveVehicleMarker({
     super.key,
@@ -136,6 +137,7 @@ class InDriveVehicleMarker extends StatefulWidget {
     this.driverName,
     this.showHeadlightGlow = true,
     this.showRadarPulse = true,
+    this.showCargoBox = true,
   });
 
   @override
@@ -143,42 +145,55 @@ class InDriveVehicleMarker extends StatefulWidget {
 }
 
 class _InDriveVehicleMarkerState extends State<InDriveVehicleMarker>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+    with TickerProviderStateMixin {
+  AnimationController? _pulseController;
+  Animation<double>? _pulseAnimation;
+
+  void _ensurePulseController() {
+    if (_pulseController != null) return;
+    final ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    _pulseController = ctrl;
+    _pulseAnimation = CurvedAnimation(
+      parent: ctrl,
+      curve: Curves.easeOutQuad,
+    );
+  }
+
+  void _syncPulseState() {
+    if (widget.showRadarPulse && widget.isMoving) {
+      _ensurePulseController();
+      if (!_pulseController!.isAnimating) {
+        _pulseController!.repeat();
+      }
+    } else if (_pulseController != null && _pulseController!.isAnimating) {
+      _pulseController!.stop();
+      _pulseController!.value = 0.0;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    );
-    _pulseAnimation = CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeOutQuad,
-    );
-
-    // Only run continuous telemetry pulse when moving to conserve CPU/battery on normal devices
-    if (widget.showRadarPulse && widget.isMoving) {
-      _pulseController.repeat();
-    }
+    // Lazily allocate a Ticker ONLY when radar pulse is actually enabled,
+    // keeping multi-vehicle map search layers completely zero-ticker.
+    _syncPulseState();
   }
 
   @override
   void didUpdateWidget(covariant InDriveVehicleMarker oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.showRadarPulse && widget.isMoving && !_pulseController.isAnimating) {
-      _pulseController.repeat();
-    } else if ((!widget.showRadarPulse || !widget.isMoving) && _pulseController.isAnimating) {
-      _pulseController.stop();
-      _pulseController.animateTo(0.0);
+    if (oldWidget.showRadarPulse != widget.showRadarPulse ||
+        oldWidget.isMoving != widget.isMoving) {
+      _syncPulseState();
     }
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _pulseController?.dispose();
     super.dispose();
   }
 
@@ -197,12 +212,12 @@ class _InDriveVehicleMarkerState extends State<InDriveVehicleMarker>
           clipBehavior: Clip.none,
           children: [
             // 1. Live Telemetry Radar Pulse Wave (inDrive style)
-            if (widget.showRadarPulse)
+            if (widget.showRadarPulse && _pulseAnimation != null)
               RepaintBoundary(
                 child: AnimatedBuilder(
-                  animation: _pulseAnimation,
+                  animation: _pulseAnimation!,
                   builder: (context, _) {
-                    final progress = _pulseAnimation.value;
+                    final progress = _pulseAnimation!.value;
                     final waveSize = widget.size * (0.8 + (progress * 0.5));
                     final opacity = (1.0 - progress).clamp(0.0, 1.0) * 0.35;
                     return Container(
@@ -231,6 +246,7 @@ class _InDriveVehicleMarkerState extends State<InDriveVehicleMarker>
                   primaryColor: widget.color,
                   showHeadlightGlow: widget.showHeadlightGlow,
                   isMoving: widget.isMoving,
+                  showCargoBox: widget.showCargoBox,
                 ),
               ),
             ),
@@ -285,9 +301,10 @@ class InDriveVehiclePainter extends CustomPainter {
   final Color primaryColor;
   final bool showHeadlightGlow;
   final bool isMoving;
+  final bool showCargoBox;
 
-  // Cached Paint objects to guarantee 0 allocations during 60/120fps animation ticks
-  // Dual-alpha hardware rasterized shadows: zero GPU blur filter overhead on budget mobile chips
+  // Cached Paint objects to guarantee 0 allocations during 60/120fps animation ticks.
+  // Dual-alpha hardware rasterized shadows: zero GPU blur filter overhead on budget mobile chips.
   static final Paint _shadowOuterPaint = Paint()
     ..color = const Color(0x18000000)
     ..style = PaintingStyle.fill;
@@ -318,6 +335,19 @@ class InDriveVehiclePainter extends CustomPainter {
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1.0;
 
+  static final Paint _detailStrokePaint = Paint()
+    ..color = const Color(0xFFCBD5E1)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.8;
+
+  static final Paint _roofPaint = Paint()
+    ..color = const Color(0xFFE2E8F0)
+    ..style = PaintingStyle.fill;
+
+  static final Paint _sunroofPaint = Paint()
+    ..color = const Color(0xFF1E293B)
+    ..style = PaintingStyle.fill;
+
   static final Paint _glassPaint = Paint()
     ..color = const Color(0xFF0F172A)
     ..style = PaintingStyle.fill;
@@ -345,6 +375,75 @@ class InDriveVehiclePainter extends CustomPainter {
     ..style = PaintingStyle.stroke
     ..strokeWidth = 0.8;
 
+  static final Paint _handlebarPaint = Paint()
+    ..color = const Color(0xFF94A3B8)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.0
+    ..strokeCap = StrokeCap.round;
+
+  static final Paint _bicycleBarPaint = Paint()
+    ..color = const Color(0xFF94A3B8)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.8
+    ..strokeCap = StrokeCap.round;
+
+  static final Paint _gripPaint = Paint()
+    ..color = const Color(0xFF0F172A)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 3.0
+    ..strokeCap = StrokeCap.square;
+
+  static final Paint _jacketPaint = Paint()
+    ..color = const Color(0xFF1E293B)
+    ..style = PaintingStyle.fill;
+
+  static final Paint _helmetPaint = Paint()
+    ..color = const Color(0xFFF8FAFC)
+    ..style = PaintingStyle.fill;
+
+  static final Paint _helmetStrokePaint = Paint()
+    ..color = const Color(0xFF64748B)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.8;
+
+  static final Paint _visorPaint = Paint()
+    ..color = const Color(0xFF0F172A)
+    ..style = PaintingStyle.fill;
+
+  static final Paint _boxStrokePaint = Paint()
+    ..color = const Color(0xFF92400E)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.0;
+
+  static final Paint _bedBorderPaint = Paint()
+    ..color = const Color(0xFF92400E)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.2;
+
+  static final Paint _boxDetailPaint = Paint()
+    ..color = const Color(0x35000000)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.8;
+
+  static final Paint _emblemPaint = Paint()
+    ..color = Colors.white
+    ..style = PaintingStyle.fill;
+
+  static final Paint _seatPaint = Paint()
+    ..color = const Color(0xFF334155)
+    ..style = PaintingStyle.fill;
+
+  static final Paint _bedInnerFloorPaint = Paint()
+    ..color = const Color(0x401E293B)
+    ..style = PaintingStyle.fill;
+
+  static final Paint _bedRibPaint = Paint()
+    ..color = const Color(0x470F172A)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.0;
+
+  final Paint _primaryFillPaint;
+  final Paint _primaryStrokePaint;
   final Path _path = Path();
 
   InDriveVehiclePainter({
@@ -352,7 +451,15 @@ class InDriveVehiclePainter extends CustomPainter {
     required this.primaryColor,
     this.showHeadlightGlow = true,
     this.isMoving = false,
-  });
+    this.showCargoBox = true,
+  }) : _primaryFillPaint = Paint()
+         ..color = primaryColor
+         ..style = PaintingStyle.fill,
+       _primaryStrokePaint = Paint()
+         ..color = primaryColor
+         ..style = PaintingStyle.stroke
+         ..strokeWidth = 1.6
+         ..strokeCap = StrokeCap.round;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -478,12 +585,16 @@ class InDriveVehiclePainter extends CustomPainter {
     canvas.drawPath(_path, _carBodyStroke);
 
     // Detail creases
-    final detailStroke = Paint()
-      ..color = const Color(0xFFCBD5E1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8;
-    canvas.drawLine(const Offset(-8, -21), const Offset(-6, -14), detailStroke);
-    canvas.drawLine(const Offset(8, -21), const Offset(6, -14), detailStroke);
+    canvas.drawLine(
+      const Offset(-8, -21),
+      const Offset(-6, -14),
+      _detailStrokePaint,
+    );
+    canvas.drawLine(
+      const Offset(8, -21),
+      const Offset(6, -14),
+      _detailStrokePaint,
+    );
 
     // 5. Front Windshield (curved dark tinted glass)
     _path.reset();
@@ -502,26 +613,20 @@ class InDriveVehiclePainter extends CustomPainter {
     );
 
     // 6. Roof & Sunroof
-    final roofPaint = Paint()
-      ..color = const Color(0xFFE2E8F0)
-      ..style = PaintingStyle.fill;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTWH(-8.5, -5, 17, 14),
         const Radius.circular(2),
       ),
-      roofPaint,
+      _roofPaint,
     );
 
-    final sunroofPaint = Paint()
-      ..color = const Color(0xFF1E293B)
-      ..style = PaintingStyle.fill;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTWH(-5.5, -3, 11, 6),
         const Radius.circular(1.5),
       ),
-      sunroofPaint,
+      _sunroofPaint,
     );
 
     // 7. Rear Window
@@ -572,15 +677,12 @@ class InDriveVehiclePainter extends CustomPainter {
     );
 
     // 10. Otlob Brand Accent on Car Roof
-    final accentPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTWH(-3, 5, 6, 2.5),
         const Radius.circular(1),
       ),
-      accentPaint,
+      _primaryFillPaint,
     );
   }
 
@@ -623,15 +725,12 @@ class InDriveVehiclePainter extends CustomPainter {
     canvas.drawLine(const Offset(0, -21), const Offset(0, -14), _rimPaint);
 
     // 4. Front Mudguard & Fairing
-    final fenderPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTWH(-3.5, -16, 7, 5),
         const Radius.circular(2),
       ),
-      fenderPaint,
+      _primaryFillPaint,
     );
 
     // 5. Front Headlight
@@ -644,21 +743,23 @@ class InDriveVehiclePainter extends CustomPainter {
     );
 
     // 6. Handlebars & Mirrors
-    final handlebarPaint = Paint()
-      ..color = const Color(0xFF94A3B8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(const Offset(-10, -11), const Offset(10, -11), handlebarPaint);
+    canvas.drawLine(
+      const Offset(-10, -11),
+      const Offset(10, -11),
+      _handlebarPaint,
+    );
 
     // Rubber Hand Grips
-    final gripPaint = Paint()
-      ..color = const Color(0xFF0F172A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.square;
-    canvas.drawLine(const Offset(-11.5, -11), const Offset(-8, -11), gripPaint);
-    canvas.drawLine(const Offset(8, -11), const Offset(11.5, -11), gripPaint);
+    canvas.drawLine(
+      const Offset(-11.5, -11),
+      const Offset(-8, -11),
+      _gripPaint,
+    );
+    canvas.drawLine(
+      const Offset(8, -11),
+      const Offset(11.5, -11),
+      _gripPaint,
+    );
 
     // Side Mirrors
     canvas.drawCircle(const Offset(-11.5, -14), 1.8, _mirrorPaint);
@@ -667,57 +768,44 @@ class InDriveVehiclePainter extends CustomPainter {
     canvas.drawCircle(const Offset(11.5, -14), 1.8, _mirrorStroke);
 
     // 7. Rider Shoulders & Uniform
-    final jacketPaint = Paint()
-      ..color = const Color(0xFF1E293B)
-      ..style = PaintingStyle.fill;
     _path.reset();
     _path.moveTo(-8, 3);
     _path.quadraticBezierTo(-8, -8, 0, -8);
     _path.quadraticBezierTo(8, -8, 8, 3);
     _path.close();
-    canvas.drawPath(_path, jacketPaint);
+    canvas.drawPath(_path, _jacketPaint);
 
     // Brand accent stripes on rider shoulders
-    final stripePaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(const Offset(-7, -4), const Offset(-4, -6), stripePaint);
-    canvas.drawLine(const Offset(7, -4), const Offset(4, -6), stripePaint);
+    canvas.drawLine(
+      const Offset(-7, -4),
+      const Offset(-4, -6),
+      _primaryStrokePaint,
+    );
+    canvas.drawLine(
+      const Offset(7, -4),
+      const Offset(4, -6),
+      _primaryStrokePaint,
+    );
 
     // 8. Rider Helmet (Top-Down with aerodynamic shape & visor)
-    final helmetPaint = Paint()
-      ..color = const Color(0xFFF8FAFC)
-      ..style = PaintingStyle.fill;
-    final helmetStroke = Paint()
-      ..color = const Color(0xFF64748B)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8;
+    canvas.drawOval(const Rect.fromLTWH(-5.5, -10, 11, 13), _helmetPaint);
     canvas.drawOval(
       const Rect.fromLTWH(-5.5, -10, 11, 13),
-      helmetPaint,
-    );
-    canvas.drawOval(
-      const Rect.fromLTWH(-5.5, -10, 11, 13),
-      helmetStroke,
+      _helmetStrokePaint,
     );
 
     // Helmet Dark Tinted Visor
-    final visorPaint = Paint()
-      ..color = const Color(0xFF0F172A)
-      ..style = PaintingStyle.fill;
     _path.reset();
     _path.moveTo(-4.5, -7);
     _path.quadraticBezierTo(0, -10.5, 4.5, -7);
     _path.quadraticBezierTo(0, -8.5, -4.5, -7);
     _path.close();
-    canvas.drawPath(_path, visorPaint);
+    canvas.drawPath(_path, _visorPaint);
 
     canvas.drawLine(
       const Offset(0, -6),
       const Offset(0, 0),
-      stripePaint,
+      _primaryStrokePaint,
     );
 
     // 9. Rear Wheel / Fender
@@ -729,39 +817,39 @@ class InDriveVehiclePainter extends CustomPainter {
       _tirePaint,
     );
 
-    // 10. Iconic Otlob Insulated Delivery Box
-    final boxPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
-    final boxStroke = Paint()
-      ..color = const Color(0xFF92400E)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    final boxRRect = RRect.fromRectAndRadius(
-      const Rect.fromLTWH(-8.5, 5, 17, 15),
-      const Radius.circular(3),
-    );
-    canvas.drawRRect(boxRRect, boxPaint);
-    canvas.drawRRect(boxRRect, boxStroke);
+    // 10. Delivery Cargo Box (Custom Delivery) OR Passenger Saddle (Ride)
+    if (showCargoBox) {
+      final boxRRect = RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-8.5, 5, 17, 15),
+        const Radius.circular(3),
+      );
+      canvas.drawRRect(boxRRect, _primaryFillPaint);
+      canvas.drawRRect(boxRRect, _boxStrokePaint);
 
-    // Delivery Box Top Zipper / Seam Detail
-    final boxDetail = Paint()
-      ..color = const Color(0x35000000)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(-7, 6.5, 14, 12),
-        const Radius.circular(2),
-      ),
-      boxDetail,
-    );
-
-    // Center Otlob dot
-    final emblemPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(const Offset(0, 12.5), 2.2, emblemPaint);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(-7, 6.5, 14, 12),
+          const Radius.circular(2),
+        ),
+        _boxDetailPaint,
+      );
+      canvas.drawCircle(const Offset(0, 12.5), 2.2, _emblemPaint);
+    } else {
+      // Sleek tapered passenger saddle for Ride motorcycles
+      final saddleRRect = RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-5.5, 3, 11, 15),
+        const Radius.circular(4),
+      );
+      canvas.drawRRect(saddleRRect, _seatPaint);
+      canvas.drawRRect(saddleRRect, _carBodyStroke);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(-3, 15.5, 6, 3),
+          const Radius.circular(1.5),
+        ),
+        _primaryFillPaint,
+      );
+    }
 
     // 11. Rear LED Brake Light
     canvas.drawRRect(
@@ -790,32 +878,21 @@ class InDriveVehiclePainter extends CustomPainter {
       _tirePaint,
     );
 
-    final barPaint = Paint()
-      ..color = const Color(0xFF94A3B8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(const Offset(-8, -10), const Offset(8, -10), barPaint);
+    canvas.drawLine(
+      const Offset(-8, -10),
+      const Offset(8, -10),
+      _bicycleBarPaint,
+    );
 
-    final bodyPaint = Paint()
-      ..color = const Color(0xFF1E293B)
-      ..style = PaintingStyle.fill;
-    canvas.drawOval(const Rect.fromLTWH(-6, -6, 12, 12), bodyPaint);
+    canvas.drawOval(const Rect.fromLTWH(-6, -6, 12, 12), _jacketPaint);
+    canvas.drawOval(const Rect.fromLTWH(-4, -9, 8, 10), _primaryFillPaint);
 
-    final helmetPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
-    canvas.drawOval(const Rect.fromLTWH(-4, -9, 8, 10), helmetPaint);
-
-    final packPaint = Paint()
-      ..color = const Color(0xFF0F172A)
-      ..style = PaintingStyle.fill;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTWH(-6.5, 4, 13, 11),
         const Radius.circular(2.5),
       ),
-      packPaint,
+      _visorPaint,
     );
 
     canvas.drawRRect(
@@ -901,10 +978,7 @@ class InDriveVehiclePainter extends CustomPainter {
       _carBodyStroke,
     );
 
-    final stripe = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(const Rect.fromLTWH(-13.5, 13, 27, 4), stripe);
+    canvas.drawRect(const Rect.fromLTWH(-13.5, 13, 27, 4), _primaryFillPaint);
 
     // Rear window
     canvas.drawRRect(
@@ -972,10 +1046,7 @@ class InDriveVehiclePainter extends CustomPainter {
     _path.quadraticBezierTo(0, 21.5, -11.5, 19);
     _path.lineTo(-11.5, -5);
     _path.close();
-    final canopyPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(_path, canopyPaint);
+    canvas.drawPath(_path, _primaryFillPaint);
     canvas.drawPath(_path, _carBodyStroke);
 
     // Curved front windshield
@@ -1084,15 +1155,8 @@ class InDriveVehiclePainter extends CustomPainter {
       Rect.fromLTRB(-halfWidth, bedTop, halfWidth, bodyBottom),
       const Radius.circular(2.5),
     );
-    final bedFill = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
-    final bedBorder = Paint()
-      ..color = const Color(0xFF92400E)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    canvas.drawRRect(bedOuter, bedFill);
-    canvas.drawRRect(bedOuter, bedBorder);
+    canvas.drawRRect(bedOuter, _primaryFillPaint);
+    canvas.drawRRect(bedOuter, _bedBorderPaint);
 
     // Inner bed floor + structural ribs
     final innerBed = Rect.fromLTRB(
@@ -1101,22 +1165,15 @@ class InDriveVehiclePainter extends CustomPainter {
       halfWidth - 2.5,
       bodyBottom - 2.5,
     );
-    final innerFloorPaint = Paint()
-      ..color = const Color(0xFF1E293B).withValues(alpha: 0.25)
-      ..style = PaintingStyle.fill;
-    canvas.drawRect(innerBed, innerFloorPaint);
+    canvas.drawRect(innerBed, _bedInnerFloorPaint);
 
-    final ribPaint = Paint()
-      ..color = const Color(0xFF0F172A).withValues(alpha: 0.28)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
     final ribCount = isHalfTon ? 3 : 2;
     for (var i = 1; i <= ribCount; i++) {
       final y = bedTop + ((bodyBottom - bedTop) * i / (ribCount + 1));
       canvas.drawLine(
         Offset(-halfWidth + 3, y),
         Offset(halfWidth - 3, y),
-        ribPaint,
+        _bedRibPaint,
       );
     }
 
@@ -1155,11 +1212,11 @@ class InDriveVehiclePainter extends CustomPainter {
       _tirePaint,
     );
 
-    final barPaint = Paint()
-      ..color = const Color(0xFF94A3B8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-    canvas.drawLine(const Offset(-9, -11), const Offset(9, -11), barPaint);
+    canvas.drawLine(
+      const Offset(-9, -11),
+      const Offset(9, -11),
+      _handlebarPaint,
+    );
 
     canvas.drawCircle(const Offset(0, -4), 5.5, _carBodyPaint);
     canvas.drawCircle(const Offset(0, -4), 5.5, _carBodyStroke);
@@ -1179,19 +1236,12 @@ class InDriveVehiclePainter extends CustomPainter {
       _tirePaint,
     );
 
-    final bedPaint = Paint()
-      ..color = primaryColor
-      ..style = PaintingStyle.fill;
-    final bedStroke = Paint()
-      ..color = const Color(0xFF92400E)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
     final bedRect = RRect.fromRectAndRadius(
       const Rect.fromLTWH(-10, 3, 20, 19),
       const Radius.circular(2),
     );
-    canvas.drawRRect(bedRect, bedPaint);
-    canvas.drawRRect(bedRect, bedStroke);
+    canvas.drawRRect(bedRect, _primaryFillPaint);
+    canvas.drawRRect(bedRect, _boxStrokePaint);
 
     canvas.drawRect(const Rect.fromLTWH(-9.5, 20.5, 3.5, 2), _taillightPaint);
     canvas.drawRect(const Rect.fromLTWH(6, 20.5, 3.5, 2), _taillightPaint);
@@ -1202,7 +1252,8 @@ class InDriveVehiclePainter extends CustomPainter {
     return oldDelegate.vehicleType != vehicleType ||
         oldDelegate.primaryColor != primaryColor ||
         oldDelegate.showHeadlightGlow != showHeadlightGlow ||
-        oldDelegate.isMoving != isMoving;
+        oldDelegate.isMoving != isMoving ||
+        oldDelegate.showCargoBox != showCargoBox;
   }
 }
 

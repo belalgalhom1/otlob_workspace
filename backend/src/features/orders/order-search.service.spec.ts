@@ -101,16 +101,115 @@ describe('OrderSearchService & Custom Delivery Matching Architecture', () => {
       ['MOTORCYCLE', 'CAR', 'MINIBUS', 'TUK_TUK'],
       false,
       null,
+      false,
     );
     expect(res.count).toBe(1);
     expect(res.drivers[0]).toEqual({
+      markerKey: expect.stringMatching(/^[a-f0-9]{12}$/),
       latitude: 30.044,
       longitude: 31.235,
       vehicleType: VehicleType.CAR,
       distanceKm: 1.23,
     });
+    expect(res.drivers[0].markerKey).not.toBe('drv-1');
+    expect(res.drivers[0].markerKey).not.toBe('u-drv-1');
     expect((res.drivers[0] as any).id).toBeUndefined();
     expect((res.drivers[0] as any).userId).toBeUndefined();
+
+    // Deterministic across consecutive polls for smooth map marker interpolation
+    const res2 = await service.getNearbyDriversPreview({
+      lat: 30.044,
+      lng: 31.235,
+      type: OrderType.RIDE,
+    });
+    expect(res2.drivers[0].markerKey).toBe(res.drivers[0].markerKey);
+  });
+
+  it('getOrderSearchStatus scopes anonymized markerKey per order so drivers cannot be correlated across orders', async () => {
+    const makeOrder = (id: string) => ({
+      id,
+      orderNumber: `OTL-${id}`,
+      type: OrderType.RIDE,
+      status: OrderStatus.LOOKING_FOR_DRIVER,
+      revision: 1,
+      distanceKm: 5,
+      requestedVehicleType: VehicleType.CAR,
+      cancelReason: null,
+      cancelledByRole: null,
+      cancelledByUserId: null,
+      createdAt: new Date('2026-11-21T01:00:00Z'),
+      updatedAt: new Date('2026-11-21T01:01:00Z'),
+      customer: { id: 'cust-1', userId: 'user-cust-1' },
+      deliveryGroups: [],
+    });
+    const prisma = {
+      order: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce(makeOrder('ord-a'))
+          .mockResolvedValueOnce(makeOrder('ord-a'))
+          .mockResolvedValueOnce(makeOrder('ord-b')),
+      },
+      orderDispatch: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const geoSearch = {
+      findNearbyDrivers: jest.fn().mockResolvedValue([
+        {
+          id: 'drv-42',
+          userId: 'u-drv-42',
+          vehicleType: VehicleType.CAR,
+          distanceKm: 0.75,
+          activeShiftId: null,
+        },
+      ]),
+    };
+    const locationRepo = {
+      getOrderLocationContext: jest.fn().mockResolvedValue({
+        lng: 31.235,
+        lat: 30.044,
+        deliveryLng: 31.26,
+        deliveryLat: 30.06,
+      }),
+      getLiveDriverLocations: jest
+        .fn()
+        .mockResolvedValue(
+          new Map([['drv-42', { lng: 31.236, lat: 30.045, isFresh: true }]]),
+        ),
+    };
+    const dispatchRepo = {
+      getSearchSnapshot: jest.fn().mockResolvedValue(null),
+      readDispatchState: jest
+        .fn()
+        .mockResolvedValue({ attempt: 1, excludeDriverIds: [] }),
+      getActiveClaim: jest.fn().mockResolvedValue(null),
+    };
+    const service = new OrderSearchService(
+      prisma as any,
+      { getSettings: jest.fn().mockResolvedValue(BASE_SETTINGS) } as any,
+      geoSearch as any,
+      {} as any,
+      locationRepo as any,
+      dispatchRepo as any,
+      {} as any,
+      {} as any,
+      { canManageOrders: jest.fn().mockResolvedValue(false) } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    const statusA1 = await service.getOrderSearchStatus(CUSTOMER_ACTOR, 'ord-a');
+    const statusA2 = await service.getOrderSearchStatus(CUSTOMER_ACTOR, 'ord-a');
+    const statusB = await service.getOrderSearchStatus(CUSTOMER_ACTOR, 'ord-b');
+
+    expect(statusA1.nearbyDrivers).toHaveLength(1);
+    expect(statusA1.nearbyDrivers[0].markerKey).toMatch(/^[a-f0-9]{12}$/);
+    expect(statusA1.nearbyDrivers[0].markerKey).toBe(
+      statusA2.nearbyDrivers[0].markerKey,
+    );
+    expect(statusA1.nearbyDrivers[0].markerKey).not.toBe(
+      statusB.nearbyDrivers[0].markerKey,
+    );
   });
 
   it('getOrderSearchStatus blocks unauthorized users', async () => {

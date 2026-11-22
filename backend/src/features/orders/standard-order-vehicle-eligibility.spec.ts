@@ -1162,6 +1162,7 @@ describe('STANDARD Order Vehicle Eligibility (Motorcycle & Bicycle Only)', () =>
         [VehicleType.MOTORCYCLE, VehicleType.BICYCLE],
         false,
         null,
+        true,
       );
     });
   });

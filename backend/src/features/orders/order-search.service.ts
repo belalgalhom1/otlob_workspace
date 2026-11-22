@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -121,6 +122,7 @@ export class OrderSearchService {
       requestedVehicleType: query.vehicleType ?? null,
       orderDistanceKm: 0,
       requireActiveShift: false,
+      markerScope: `preview:${query.lat.toFixed(2)}:${query.lng.toFixed(2)}`,
       settings,
     });
 
@@ -326,6 +328,7 @@ export class OrderSearchService {
             settings.driverShiftsEnabled,
             order.type,
           ),
+          markerScope: `order:${order.id}`,
           settings,
         });
       }
@@ -642,6 +645,13 @@ export class OrderSearchService {
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
+  private buildAnonymizedMarkerKey(scope: string, driverId: string): string {
+    return createHash('sha256')
+      .update(`${scope}:${driverId}`)
+      .digest('hex')
+      .slice(0, 12);
+  }
+
   private async fetchAnonymizedNearbyDrivers(params: {
     lng: number;
     lat: number;
@@ -650,6 +660,7 @@ export class OrderSearchService {
     requestedVehicleType: string | null;
     orderDistanceKm: number;
     requireActiveShift: boolean;
+    markerScope: string;
     settings: Awaited<ReturnType<PlatformSettingsService['getSettings']>>;
   }): Promise<NearbyDriverPreviewDto[]> {
     const allowedVehicleTypes = resolveAllowedVehicleTypes(
@@ -660,6 +671,7 @@ export class OrderSearchService {
     );
     if (allowedVehicleTypes.length === 0) return [];
 
+    const allowStacking = params.orderType !== OrderType.RIDE;
     const matches = await this.driverGeoSearch.findNearbyDrivers(
       params.lng,
       params.lat,
@@ -668,6 +680,7 @@ export class OrderSearchService {
       allowedVehicleTypes,
       params.requireActiveShift,
       null,
+      allowStacking,
     );
     if (matches.length === 0) return [];
 
@@ -681,6 +694,7 @@ export class OrderSearchService {
       const loc = locationsMap.get(match.id);
       if (!loc || !loc.isFresh) continue;
       previews.push({
+        markerKey: this.buildAnonymizedMarkerKey(params.markerScope, match.id),
         latitude: loc.lat,
         longitude: loc.lng,
         vehicleType: (match.vehicleType as VehicleType) ?? VehicleType.MOTORCYCLE,

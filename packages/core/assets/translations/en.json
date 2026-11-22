@@ -1982,5 +1982,12 @@
   "app.driverRatingsCount": "({count})",
   "app.searchRaceAlreadyAssigned": "Great news! A driver accepted your request just in time.",
   "app.searchAlreadyCancelledSync": "Search status has been updated.",
-  "app.searchWaveTimeRemaining": "{seconds}s left in current wave"
+  "app.searchWaveTimeRemaining": "{seconds}s left in current wave",
+  "app.rideServiceBadge": "Ride",
+  "app.customDeliveryServiceBadge": "Delivery",
+  "app.mapPickupPinLabel": "Pickup",
+  "app.mapDropoffPinLabel": "Dropoff",
+  "app.recenterMapTooltip": "Recenter map",
+  "app.driverHeadingToPickup": "Driver is heading to pickup",
+  "app.searchingForVehicleLabel": "Searching for {vehicle}"
 }

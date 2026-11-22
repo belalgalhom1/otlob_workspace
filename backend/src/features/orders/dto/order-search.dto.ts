@@ -25,6 +25,13 @@ export class GeoPointDto {
 }
 
 export class NearbyDriverPreviewDto {
+  @ApiPropertyOptional({
+    example: 'a1b2c3d4e5f6',
+    description:
+      'Anonymized ephemeral marker key scoped to the search session for smooth real-time map tracking without exposing driver IDs or PII',
+  })
+  markerKey?: string;
+
   @ApiProperty({ example: 30.0451 })
   latitude!: number;
 

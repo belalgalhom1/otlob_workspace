@@ -22,6 +22,7 @@ class CustomDeliverySearchSheetBody extends ConsumerWidget {
     super.key,
     required this.state,
     required this.driverLocationListenable,
+    this.nearbyVehiclesListenable,
     required this.onCancelConfirmed,
     required this.onRetrySearch,
     required this.onEditRequest,
@@ -30,6 +31,8 @@ class CustomDeliverySearchSheetBody extends ConsumerWidget {
 
   final CustomDeliverySearchState state;
   final ValueListenable<DriverLiveMarkerState?> driverLocationListenable;
+  final ValueListenable<List<NearbyVehicleMarkerState>>?
+  nearbyVehiclesListenable;
   final VoidCallback onCancelConfirmed;
   final VoidCallback onRetrySearch;
   final VoidCallback onEditRequest;
@@ -55,6 +58,7 @@ class CustomDeliverySearchSheetBody extends ConsumerWidget {
       _ => _SearchingSheetView(
         key: const ValueKey('searching_sheet'),
         state: state,
+        nearbyVehiclesListenable: nearbyVehiclesListenable,
         onRequestCancel: () => _showCancelConfirmation(context),
         currency: currency,
         isDark: isDark,
@@ -151,12 +155,15 @@ class _SearchingSheetView extends StatelessWidget {
   const _SearchingSheetView({
     super.key,
     required this.state,
+    required this.nearbyVehiclesListenable,
     required this.onRequestCancel,
     required this.currency,
     required this.isDark,
   });
 
   final CustomDeliverySearchState state;
+  final ValueListenable<List<NearbyVehicleMarkerState>>?
+  nearbyVehiclesListenable;
   final VoidCallback onRequestCancel;
   final String currency;
   final bool isDark;
@@ -170,9 +177,70 @@ class _SearchingSheetView extends StatelessWidget {
     final attempt = (sStatus?.attempt ?? 1).toInt();
     final maxAttempts = (sStatus?.maxAttempts ?? 5).toInt();
     final radius = sStatus?.radiusKm ?? 3;
-    final nearbyCount = (sStatus?.nearbyAvailableCount ?? 0).toInt();
+    final fallbackNearbyCount = (sStatus?.nearbyAvailableCount ?? 0).toInt();
     final totalContacted = (sStatus?.totalContactedCount ?? 0).toInt();
     final rejectedCount = (sStatus?.rejectedCount ?? 0).toInt();
+    final requestedVehicle = state.requestedVehicleType;
+
+    Widget buildMetricsWrap(int nearbyCount) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _MetricPill(
+            icon: Icons.radar_rounded,
+            label: 'app.waveProgressLabel'.tr(
+              context: context,
+              namedArgs: {
+                'attempt': '$attempt',
+                'maxAttempts': '$maxAttempts',
+              },
+            ),
+            color: AppColors.primary,
+            isDark: isDark,
+          ),
+          _MetricPill(
+            icon: Icons.track_changes_rounded,
+            label: 'app.searchRadiusLabel'.tr(
+              context: context,
+              namedArgs: {'radius': radius.toString()},
+            ),
+            color: Colors.blueAccent,
+            isDark: isDark,
+          ),
+          if (nearbyCount > 0)
+            _MetricPill(
+              icon: _vehicleIcon(requestedVehicle),
+              label: 'app.nearbyDriversOnlineCount'.tr(
+                context: context,
+                namedArgs: {'count': '$nearbyCount'},
+              ),
+              color: AppColors.success,
+              isDark: isDark,
+            ),
+          if (totalContacted > 0)
+            _MetricPill(
+              icon: Icons.notifications_active_rounded,
+              label: 'app.contactedDriversCount'.tr(
+                context: context,
+                namedArgs: {'count': '$totalContacted'},
+              ),
+              color: Colors.deepOrange,
+              isDark: isDark,
+            ),
+          if (rejectedCount > 0)
+            _MetricPill(
+              icon: Icons.close_rounded,
+              label: 'app.rejectedDriversCount'.tr(
+                context: context,
+                namedArgs: {'count': '$rejectedCount'},
+              ),
+              color: theme.colorScheme.onSurfaceVariant,
+              isDark: isDark,
+            ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -181,12 +249,21 @@ class _SearchingSheetView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(11),
               decoration: BoxDecoration(
-                color: statusInfo.accent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(14),
+                color: statusInfo.accent.withValues(
+                  alpha: isDark ? 0.18 : 0.12,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: statusInfo.accent.withValues(alpha: 0.25),
+                ),
               ),
-              child: Icon(statusInfo.icon, color: statusInfo.accent, size: 24),
+              child: Icon(
+                _vehicleIcon(requestedVehicle),
+                color: statusInfo.accent,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -234,63 +311,18 @@ class _SearchingSheetView extends StatelessWidget {
             accentColor: AppColors.primary,
           ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _MetricPill(
-              icon: Icons.radar_rounded,
-              label: 'app.waveProgressLabel'.tr(
-                context: context,
-                namedArgs: {
-                  'attempt': '$attempt',
-                  'maxAttempts': '$maxAttempts',
-                },
-              ),
-              color: AppColors.primary,
-              isDark: isDark,
-            ),
-            _MetricPill(
-              icon: Icons.track_changes_rounded,
-              label: 'app.searchRadiusLabel'.tr(
-                context: context,
-                namedArgs: {'radius': radius.toString()},
-              ),
-              color: Colors.blueAccent,
-              isDark: isDark,
-            ),
-            if (nearbyCount > 0)
-              _MetricPill(
-                icon: Icons.directions_car_filled_rounded,
-                label: 'app.nearbyDriversOnlineCount'.tr(
-                  context: context,
-                  namedArgs: {'count': '$nearbyCount'},
-                ),
-                color: AppColors.success,
-                isDark: isDark,
-              ),
-            if (totalContacted > 0)
-              _MetricPill(
-                icon: Icons.notifications_active_rounded,
-                label: 'app.contactedDriversCount'.tr(
-                  context: context,
-                  namedArgs: {'count': '$totalContacted'},
-                ),
-                color: Colors.deepOrange,
-                isDark: isDark,
-              ),
-            if (rejectedCount > 0)
-              _MetricPill(
-                icon: Icons.close_rounded,
-                label: 'app.rejectedDriversCount'.tr(
-                  context: context,
-                  namedArgs: {'count': '$rejectedCount'},
-                ),
-                color: theme.colorScheme.onSurfaceVariant,
-                isDark: isDark,
-              ),
-          ],
-        ),
+        if (nearbyVehiclesListenable != null)
+          ValueListenableBuilder<List<NearbyVehicleMarkerState>>(
+            valueListenable: nearbyVehiclesListenable!,
+            builder: (context, liveVehicles, _) {
+              final effectiveCount = liveVehicles.isNotEmpty
+                  ? liveVehicles.length
+                  : fallbackNearbyCount;
+              return buildMetricsWrap(effectiveCount);
+            },
+          )
+        else
+          buildMetricsWrap(fallbackNearbyCount),
         const SizedBox(height: 16),
         if (state.order != null) ...[
           _buildOrderRouteAndFareSummary(

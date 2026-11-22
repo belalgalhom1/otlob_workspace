@@ -12,12 +12,17 @@ part 'nearby_driver_preview_dto.g.dart';
 /// NearbyDriverPreviewDto
 ///
 /// Properties:
+/// * [markerKey] - Anonymized ephemeral marker key scoped to the search session for smooth real-time map tracking without exposing driver IDs or PII
 /// * [latitude] 
 /// * [longitude] 
 /// * [vehicleType] 
 /// * [distanceKm] 
 @BuiltValue()
 abstract class NearbyDriverPreviewDto implements Built<NearbyDriverPreviewDto, NearbyDriverPreviewDtoBuilder> {
+  /// Anonymized ephemeral marker key scoped to the search session for smooth real-time map tracking without exposing driver IDs or PII
+  @BuiltValueField(wireName: r'markerKey')
+  String? get markerKey;
+
   @BuiltValueField(wireName: r'latitude')
   num get latitude;
 
@@ -54,6 +59,13 @@ class _$NearbyDriverPreviewDtoSerializer implements PrimitiveSerializer<NearbyDr
     NearbyDriverPreviewDto object, {
     FullType specifiedType = FullType.unspecified,
   }) sync* {
+    if (object.markerKey != null) {
+      yield r'markerKey';
+      yield serializers.serialize(
+        object.markerKey,
+        specifiedType: const FullType(String),
+      );
+    }
     yield r'latitude';
     yield serializers.serialize(
       object.latitude,
@@ -97,6 +109,13 @@ class _$NearbyDriverPreviewDtoSerializer implements PrimitiveSerializer<NearbyDr
       final key = serializedList[i] as String;
       final value = serializedList[i + 1];
       switch (key) {
+        case r'markerKey':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.markerKey = valueDes;
+          break;
         case r'latitude':
           final valueDes = serializers.deserialize(
             value,

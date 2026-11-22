@@ -257,9 +257,13 @@ class _StubCustomDeliverySearchController
   _StubCustomDeliverySearchController(
     this._initialState, {
     DriverLiveMarkerState? live,
+    List<NearbyVehicleMarkerState>? nearby,
   }) {
     if (live != null) {
       driverLocationNotifier.value = live;
+    }
+    if (nearby != null) {
+      nearbyVehiclesNotifier.value = nearby;
     }
   }
 
@@ -269,7 +273,11 @@ class _StubCustomDeliverySearchController
 
   @override
   CustomDeliverySearchState build(String orderId) {
-    ref.onDispose(driverLocationNotifier.dispose);
+    ref.onDispose(() {
+      driverLocationNotifier.dispose();
+      nearbyVehiclesNotifier.dispose();
+      driverApproachRouteNotifier.dispose();
+    });
     return _initialState;
   }
 
@@ -277,7 +285,10 @@ class _StubCustomDeliverySearchController
   void seedOrderSnapshot(Map<String, dynamic>? initialOrder) {}
 
   @override
-  Future<void> resync({bool statusOnly = false}) async {}
+  void onAppPaused() {}
+
+  @override
+  Future<void> resync({bool statusOnly = false, bool silent = false}) async {}
 
   @override
   Future<void> cancelSearch({String reason = ''}) async {
@@ -753,6 +764,123 @@ void main() {
         expect(repo.getOrderCalls, greaterThan(initialCalls));
       },
     );
+
+    test(
+      'tracks real nearby vehicles by anonymized markerKey with real bearing, zero root rebuilds on silent polls, and clears on driver match',
+      () async {
+        repo.orderResponse = _makeOrderMap(type: 'RIDE')
+          ..['requestedVehicleType'] = 'CAR';
+        repo.searchStatusResponse = _makeSearchStatus(
+          phase: DriverSearchPhase.FINDING_DRIVERS,
+          nearbyAvailableCount: 2,
+          nearbyDrivers: [
+            NearbyDriverPreviewDto(
+              (b) => b
+                ..markerKey = 'a1b2c3d4e5f6'
+                ..latitude = 30.0444
+                ..longitude = 31.2357
+                ..vehicleType = VehicleType.CAR
+                ..distanceKm = 0.8,
+            ),
+            NearbyDriverPreviewDto(
+              (b) => b
+                ..markerKey = 'f6e5d4c3b2a1'
+                ..latitude = 30.0460
+                ..longitude = 31.2390
+                ..vehicleType = VehicleType.CAR
+                ..distanceKm = 1.2,
+            ),
+          ],
+        );
+
+        final sub = container.listen(
+          customDeliverySearchControllerProvider('ord-custom-1'),
+          (_, _) {},
+          fireImmediately: true,
+        );
+        addTearDown(sub.close);
+
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final ctrl = container.read(
+          customDeliverySearchControllerProvider('ord-custom-1').notifier,
+        );
+
+        expect(ctrl.nearbyVehiclesNotifier.value, hasLength(2));
+        expect(
+          ctrl.nearbyVehiclesNotifier.value.first.markerKey,
+          'a1b2c3d4e5f6',
+        );
+        expect(ctrl.nearbyVehiclesNotifier.value.first.vehicleType, 'CAR');
+
+        // Listen for whole-screen state changes during silent nearby-vehicle poll.
+        int rootStateChanges = 0;
+        final stateSub = container.listen(
+          customDeliverySearchControllerProvider('ord-custom-1'),
+          (_, _) => rootStateChanges++,
+        );
+        addTearDown(stateSub.close);
+
+        int nearbyUpdates = 0;
+        void onNearbyChanged() => nearbyUpdates++;
+        ctrl.nearbyVehiclesNotifier.addListener(onNearbyChanged);
+        addTearDown(
+          () => ctrl.nearbyVehiclesNotifier.removeListener(onNearbyChanged),
+        );
+
+        // Real car moves north (~550m); all search metadata stays identical.
+        repo.searchStatusResponse = _makeSearchStatus(
+          phase: DriverSearchPhase.FINDING_DRIVERS,
+          nearbyAvailableCount: 2,
+          nearbyDrivers: [
+            NearbyDriverPreviewDto(
+              (b) => b
+                ..markerKey = 'a1b2c3d4e5f6'
+                ..latitude = 30.0494
+                ..longitude = 31.2357
+                ..vehicleType = VehicleType.CAR
+                ..distanceKm = 0.5,
+            ),
+            NearbyDriverPreviewDto(
+              (b) => b
+                ..markerKey = 'f6e5d4c3b2a1'
+                ..latitude = 30.0460
+                ..longitude = 31.2390
+                ..vehicleType = VehicleType.CAR
+                ..distanceKm = 1.2,
+            ),
+          ],
+        );
+
+        await ctrl.resync(statusOnly: true, silent: true);
+
+        expect(nearbyUpdates, 1);
+        expect(rootStateChanges, 0);
+        final movedCar = ctrl.nearbyVehiclesNotifier.value.firstWhere(
+          (v) => v.markerKey == 'a1b2c3d4e5f6',
+        );
+        expect(movedCar.isMoving, isTrue);
+        expect(movedCar.heading, closeTo(0.0, 2.0));
+
+        // Once driver accepts, nearby searching vehicles clear cleanly.
+        repo.orderResponse = _makeAssignedOrderMap();
+        repo.searchStatusResponse = _makeSearchStatus(
+          phase: DriverSearchPhase.DRIVER_FOUND,
+          orderStatus: OrderStatus.DRIVER_ASSIGNED,
+          revision: 4,
+          driverLocation: GeoPointDto(
+            (b) => b
+              ..latitude = 30.0470
+              ..longitude = 31.2370,
+          ),
+        );
+        await ctrl.resync();
+        expect(ctrl.nearbyVehiclesNotifier.value, isEmpty);
+        expect(
+          ctrl.driverLocationNotifier.value?.position,
+          const LatLng(30.0470, 31.2370),
+        );
+      },
+    );
   });
 
   group('CustomDeliverySearchScreen UI, SafeArea, TextScaler & RTL/LTR', () {
@@ -1177,6 +1305,107 @@ void main() {
         );
 
         await tester.pump(const Duration(milliseconds: 250));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'shows Ride vs Custom Delivery service & vehicle icon cleanly in EN LTR and AR RTL',
+      (tester) async {
+        final rideOrder = _makeOrderMap(type: 'RIDE')
+          ..['requestedVehicleType'] = 'CAR';
+
+        await pumpSearchScreen(
+          tester,
+          locale: const Locale('en'),
+          initialState: CustomDeliverySearchState(
+            orderId: 'ord-custom-1',
+            order: rideOrder,
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.FINDING_DRIVERS,
+              nearbyAvailableCount: 3,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+
+        expect(find.text('Ride · #OTL-8841'), findsOneWidget);
+        expect(find.byIcon(VehicleTypeHelper.icon('CAR')), findsWidgets);
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+
+        final truckOrder = _makeOrderMap(type: 'CUSTOM_DELIVERY')
+          ..['requestedVehicleType'] = 'HALF_TRUCK';
+
+        await pumpSearchScreen(
+          tester,
+          locale: const Locale('ar'),
+          initialState: CustomDeliverySearchState(
+            orderId: 'ord-custom-1',
+            order: truckOrder,
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.CONTACTING_DRIVERS,
+              nearbyAvailableCount: 2,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+
+        expect(find.text('توصيل · #OTL-8841'), findsOneWidget);
+        expect(find.byIcon(VehicleTypeHelper.icon('HALF_TRUCK')), findsWidgets);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'InDriveVehicleMarker renders all 8 vehicle types cleanly with zero-ticker mode and showCargoBox variants',
+      (tester) async {
+        const vehicleTypes = <String>[
+          'MOTORCYCLE',
+          'CAR',
+          'MINIBUS',
+          'TUK_TUK',
+          'MOTOR_TRICYCLE',
+          'QUARTER_TRUCK',
+          'HALF_TRUCK',
+          'BICYCLE',
+        ];
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final v in vehicleTypes)
+                    InDriveVehicleMarker(
+                      size: 44,
+                      vehicleType: v,
+                      heading: 45,
+                      isMoving: true,
+                      showRadarPulse: false,
+                      showCargoBox: v != 'MOTORCYCLE',
+                    ),
+                  const InDriveVehicleMarker(
+                    size: 54,
+                    vehicleType: 'MOTORCYCLE',
+                    heading: 120,
+                    isMoving: true,
+                    showRadarPulse: true,
+                    showCargoBox: true,
+                    plateNumber: 'أ ب 123',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        await tester.pump(const Duration(milliseconds: 120));
+        expect(find.byType(InDriveVehicleMarker), findsNWidgets(9));
         expect(tester.takeException(), isNull);
       },
     );

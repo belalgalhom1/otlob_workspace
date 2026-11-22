@@ -103,6 +103,50 @@ class DriverLiveMarkerState {
   }
 }
 
+/// Real-time anonymized nearby vehicle marker snapshot driven strictly by real
+/// backend Redis/PostGIS coordinates and isolated in a [ValueNotifier] so
+/// multi-vehicle map updates never rebuild the screen or bottom sheet.
+@immutable
+class NearbyVehicleMarkerState {
+  const NearbyVehicleMarkerState({
+    required this.markerKey,
+    required this.position,
+    required this.heading,
+    required this.isMoving,
+    required this.vehicleType,
+    required this.distanceKm,
+  });
+
+  final String markerKey;
+  final LatLng position;
+  final double heading;
+  final bool isMoving;
+  final String vehicleType;
+  final double distanceKm;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other is NearbyVehicleMarkerState &&
+            other.markerKey == markerKey &&
+            other.position == position &&
+            other.heading == heading &&
+            other.isMoving == isMoving &&
+            other.vehicleType == vehicleType &&
+            other.distanceKm == distanceKm);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    markerKey,
+    position,
+    heading,
+    isMoving,
+    vehicleType,
+    distanceKm,
+  );
+}
+
 @immutable
 class CustomDeliverySearchState {
   const CustomDeliverySearchState({
@@ -135,6 +179,20 @@ class CustomDeliverySearchState {
 
   LatLng? get pickupPoint => extractGeoPoint(order?['pickupLocation']);
   LatLng? get dropoffPoint => extractGeoPoint(order?['deliveryLocation']);
+
+  bool get isRide =>
+      (order?['type'] ?? searchStatus?.orderType.name ?? '')
+          .toString()
+          .toUpperCase() ==
+      'RIDE';
+
+  String get requestedVehicleType {
+    final raw = order?['requestedVehicleType']?.toString().trim();
+    if (raw != null && raw.isNotEmpty) {
+      return raw.toUpperCase();
+    }
+    return isRide ? 'CAR' : 'MOTORCYCLE';
+  }
 
   String get orderStatus =>
       (order?['status'] ??
@@ -274,6 +332,15 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
   final ValueNotifier<DriverLiveMarkerState?> driverLocationNotifier =
       ValueNotifier<DriverLiveMarkerState?>(null);
 
+  /// Isolated notifier for real anonymized nearby eligible drivers around pickup.
+  /// Updated independently so live vehicle glides never rebuild the screen tree.
+  final ValueNotifier<List<NearbyVehicleMarkerState>> nearbyVehiclesNotifier =
+      ValueNotifier<List<NearbyVehicleMarkerState>>(const []);
+
+  /// Isolated notifier for the assigned driver's real road approach route to pickup.
+  final ValueNotifier<List<LatLng>> driverApproachRouteNotifier =
+      ValueNotifier<List<LatLng>>(const []);
+
   StreamSubscription<dynamic>? _searchProgressSub;
   StreamSubscription<dynamic>? _orderStatusSub;
   StreamSubscription<dynamic>? _orderAssignedSub;
@@ -283,8 +350,13 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
   StreamSubscription<bool>? _connectivitySub;
   Timer? _safetyPollTimer;
   Timer? _routeFetchDebounce;
+  Timer? _approachRouteDebounce;
+
+  final Map<String, NearbyVehicleMarkerState> _trackedNearbyDrivers = {};
+  LatLng? _lastApproachRouteOrigin;
 
   bool _disposed = false;
+  bool _isAppPaused = false;
   bool _socketAttached = false;
   int _lastSearchSeq = 0;
   DateTime? _lastLocationAppliedAt;
@@ -320,7 +392,11 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
       _connectivitySub?.cancel();
       _safetyPollTimer?.cancel();
       _routeFetchDebounce?.cancel();
+      _approachRouteDebounce?.cancel();
+      _trackedNearbyDrivers.clear();
       driverLocationNotifier.dispose();
+      nearbyVehiclesNotifier.dispose();
+      driverApproachRouteNotifier.dispose();
     });
 
     Future.microtask(() async {
@@ -362,7 +438,17 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
     state = state.copyWith(clearTransientNotice: true);
   }
 
-  Future<void> onAppResumed() => _ensureSocketConnectedAndSync();
+  void onAppPaused() {
+    if (_disposed) return;
+    _isAppPaused = true;
+    _safetyPollTimer?.cancel();
+    _safetyPollTimer = null;
+  }
+
+  Future<void> onAppResumed() {
+    _isAppPaused = false;
+    return _ensureSocketConnectedAndSync();
+  }
 
   Future<void> _ensureSocketConnectedAndSync() async {
     if (_disposed) return;
@@ -385,14 +471,14 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
 
   /// Single-flight authoritative sync combining `GET /orders/:id` and
   /// `GET /orders/:id/search-status`.
-  Future<void> resync({bool statusOnly = false}) async {
+  Future<void> resync({bool statusOnly = false, bool silent = false}) async {
     if (_disposed) return;
     if (_inflightSync != null) {
       _syncQueued = true;
       return _inflightSync;
     }
 
-    final future = _performSync(statusOnly: statusOnly);
+    final future = _performSync(statusOnly: statusOnly, silent: silent);
     _inflightSync = future;
     try {
       await future;
@@ -405,9 +491,12 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
     }
   }
 
-  Future<void> _performSync({required bool statusOnly}) async {
+  Future<void> _performSync({
+    required bool statusOnly,
+    required bool silent,
+  }) async {
     if (_disposed) return;
-    if (state.order != null) {
+    if (!silent && state.order != null) {
       state = state.copyWith(isRefreshing: true);
     }
 
@@ -441,12 +530,14 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
       if (_disposed) return;
 
       var nextOrder = state.order;
+      var orderChanged = false;
       if (fetchedOrder != null) {
         final rev = orderRevisionOf(fetchedOrder);
         if (rev == null ||
             revisions.accept(orderId, rev) ||
             nextOrder == null) {
           nextOrder = fetchedOrder;
+          orderChanged = true;
           ref.read(ordersProvider.notifier).upsertOrder(fetchedOrder);
         }
       }
@@ -454,31 +545,75 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
       if (fetchedSearch != null) {
         revisions.accept(orderId, fetchedSearch.revision.toInt());
         _syncDriverMarkerFromSearchStatus(fetchedSearch, nextOrder);
+        _syncNearbyVehiclesFromSearchStatus(fetchedSearch, nextOrder);
       }
 
-      state = state.copyWith(
-        order: nextOrder,
-        searchStatus: fetchedSearch ?? state.searchStatus,
-        isInitialLoading: false,
-        isRefreshing: false,
-        clearErrorKey: true,
-      );
+      // Fast path for silent live nearby-vehicle polls: if only vehicle
+      // coordinates changed and all search metadata/status remained identical,
+      // skip root state emission so the screen & bottom sheet do 0 rebuilds.
+      final shouldSkipRootRebuild =
+          silent &&
+          statusOnly &&
+          !orderChanged &&
+          !state.isInitialLoading &&
+          !state.isRefreshing &&
+          state.errorKey == null &&
+          fetchedSearch != null &&
+          !_hasSearchUiMetadataChanged(state.searchStatus, fetchedSearch);
+
+      if (!shouldSkipRootRebuild) {
+        state = state.copyWith(
+          order: nextOrder,
+          searchStatus: fetchedSearch ?? state.searchStatus,
+          isInitialLoading: false,
+          isRefreshing: false,
+          clearErrorKey: true,
+        );
+      }
 
       _maybeFetchRoadRoute();
       _ensureSafetyPolling();
 
       if (state.isDriverMatched) {
+        _clearNearbyVehicles();
         _requestDriverLocation();
+      } else if (state.isTerminal) {
+        _clearNearbyVehicles();
       }
     } catch (e) {
       if (_disposed) return;
       debugPrint('Search resync error: $e');
-      state = state.copyWith(
-        isInitialLoading: false,
-        isRefreshing: false,
-        errorKey: state.order == null ? _errorKeyFromException(e) : null,
-      );
+      if (!silent || state.order == null || state.isRefreshing) {
+        state = state.copyWith(
+          isInitialLoading: false,
+          isRefreshing: false,
+          errorKey: state.order == null ? _errorKeyFromException(e) : null,
+        );
+      }
     }
+  }
+
+  bool _hasSearchUiMetadataChanged(
+    OrderSearchStatusDto? prev,
+    OrderSearchStatusDto next,
+  ) {
+    if (prev == null) return true;
+    return prev.orderStatus != next.orderStatus ||
+        prev.phase != next.phase ||
+        prev.attempt != next.attempt ||
+        prev.maxAttempts != next.maxAttempts ||
+        prev.radiusKm != next.radiusKm ||
+        prev.maxRadiusKm != next.maxRadiusKm ||
+        prev.contactedCount != next.contactedCount ||
+        prev.totalContactedCount != next.totalContactedCount ||
+        prev.rejectedCount != next.rejectedCount ||
+        prev.nearbyAvailableCount != next.nearbyAvailableCount ||
+        prev.waveExpiresAt != next.waveExpiresAt ||
+        prev.searchTimeoutSecs != next.searchTimeoutSecs ||
+        prev.terminalReason != next.terminalReason ||
+        prev.canRetry != next.canRetry ||
+        prev.driverEtaMinutes != next.driverEtaMinutes ||
+        prev.driverDistanceKm != next.driverDistanceKm;
   }
 
   Future<void> cancelSearch({String reason = ''}) async {
@@ -520,10 +655,14 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
       if (_disposed) return;
 
       _lastSearchSeq = 0;
+      _trackedNearbyDrivers.clear();
+      _lastApproachRouteOrigin = null;
+      driverApproachRouteNotifier.value = const [];
       ref
           .read(orderRevisionTrackerProvider)
           .accept(orderId, res.searchStatus.revision.toInt());
       _syncDriverMarkerFromSearchStatus(res.searchStatus, res.order);
+      _syncNearbyVehiclesFromSearchStatus(res.searchStatus, res.order);
 
       state = state.copyWith(
         order: res.order.isNotEmpty ? res.order : state.order,
@@ -548,6 +687,88 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
     }
   }
 
+  void _clearNearbyVehicles() {
+    if (_trackedNearbyDrivers.isNotEmpty) {
+      _trackedNearbyDrivers.clear();
+    }
+    if (nearbyVehiclesNotifier.value.isNotEmpty) {
+      nearbyVehiclesNotifier.value = const [];
+    }
+  }
+
+  void _syncNearbyVehiclesFromSearchStatus(
+    OrderSearchStatusDto searchStatus,
+    Map<String, dynamic>? orderMap,
+  ) {
+    final isMatchedOrTerminal =
+        searchStatus.phase == DriverSearchPhase.DRIVER_FOUND ||
+        searchStatus.phase == DriverSearchPhase.CANCELLED ||
+        searchStatus.phase == DriverSearchPhase.SEARCH_TIMEOUT ||
+        searchStatus.phase == DriverSearchPhase.NO_DRIVERS_AVAILABLE ||
+        searchStatus.orderStatus == OrderStatus.CANCELLED ||
+        searchStatus.orderStatus == OrderStatus.DRIVER_ASSIGNED ||
+        searchStatus.orderStatus == OrderStatus.PENDING_PAYMENT ||
+        searchStatus.orderStatus == OrderStatus.PICKED_UP ||
+        searchStatus.orderStatus == OrderStatus.DELIVERED;
+    if (isMatchedOrTerminal) {
+      _clearNearbyVehicles();
+      return;
+    }
+
+    final pickup = extractGeoPoint(
+      (orderMap ?? state.order)?['pickupLocation'],
+    );
+    final rawList = searchStatus.nearbyDrivers;
+    if (rawList.isEmpty) {
+      _clearNearbyVehicles();
+      return;
+    }
+
+    final nextTracked = <String, NearbyVehicleMarkerState>{};
+    final nextList = <NearbyVehicleMarkerState>[];
+
+    for (var i = 0; i < rawList.length; i++) {
+      final dto = rawList[i];
+      final point = LatLng(dto.latitude.toDouble(), dto.longitude.toDouble());
+      final rawKey = dto.markerKey?.trim();
+      final key = (rawKey != null && rawKey.isNotEmpty)
+          ? rawKey
+          : 'nearby_${i}_${dto.vehicleType.name}';
+
+      final prev = _trackedNearbyDrivers[key];
+      final displacementMeters = prev != null
+          ? distanceKmBetween(prev.position, point) * 1000.0
+          : 0.0;
+      final isMoving = prev != null && displacementMeters >= 3.0;
+      final heading = prev != null
+          ? (computeBearingDegrees(prev.position, point) ?? prev.heading)
+          : (pickup != null
+                ? (computeBearingDegrees(point, pickup) ?? 0.0)
+                : 0.0);
+
+      final marker = NearbyVehicleMarkerState(
+        markerKey: key,
+        position: point,
+        heading: heading,
+        isMoving: isMoving,
+        vehicleType: dto.vehicleType.name,
+        distanceKm: dto.distanceKm.toDouble(),
+      );
+      nextTracked[key] = marker;
+      nextList.add(marker);
+    }
+
+    _trackedNearbyDrivers
+      ..clear()
+      ..addAll(nextTracked);
+
+    if (!listEquals(nearbyVehiclesNotifier.value, nextList)) {
+      nearbyVehiclesNotifier.value = List<NearbyVehicleMarkerState>.unmodifiable(
+        nextList,
+      );
+    }
+  }
+
   void _syncDriverMarkerFromSearchStatus(
     OrderSearchStatusDto searchStatus,
     Map<String, dynamic>? orderMap,
@@ -565,13 +786,18 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
     final prev = driverLocationNotifier.value;
     final heading = prev != null
         ? (computeBearingDegrees(prev.position, point) ?? prev.heading)
-        : 0.0;
+        : (pickup != null ? (computeBearingDegrees(point, pickup) ?? 0.0) : 0.0);
     driverLocationNotifier.value = DriverLiveMarkerState(
       position: point,
       heading: heading,
-      isMoving: false,
+      isMoving:
+          prev != null &&
+          distanceKmBetween(prev.position, point) * 1000.0 >= 3.0,
       distanceToPickupKm: distKm,
     );
+    if (pickup != null) {
+      _maybeFetchDriverApproachRoute(point, pickup);
+    }
   }
 
   Future<void> _attachSocketListeners() async {
@@ -696,6 +922,13 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
     state = state.copyWith(order: updatedOrder, searchStatus: updatedSearch);
 
     if (parsedPhase == DriverSearchPhase.DRIVER_FOUND ||
+        parsedPhase == DriverSearchPhase.SEARCH_TIMEOUT ||
+        parsedPhase == DriverSearchPhase.NO_DRIVERS_AVAILABLE ||
+        parsedPhase == DriverSearchPhase.CANCELLED) {
+      _clearNearbyVehicles();
+    }
+
+    if (parsedPhase == DriverSearchPhase.DRIVER_FOUND ||
         nextStatus != prevStatus) {
       unawaited(resync());
     }
@@ -730,11 +963,11 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
 
     final prev = driverLocationNotifier.value;
     final rawHeading = (raw['heading'] ?? raw['bearing']) as num?;
+    final pickup = state.pickupPoint;
     final computedHeading = prev != null
         ? (computeBearingDegrees(prev.position, point) ?? prev.heading)
-        : 0.0;
+        : (pickup != null ? (computeBearingDegrees(point, pickup) ?? 0.0) : 0.0);
     final heading = rawHeading?.toDouble() ?? computedHeading;
-    final pickup = state.pickupPoint;
     final distKm = pickup != null ? distanceKmBetween(point, pickup) : null;
 
     driverLocationNotifier.value = DriverLiveMarkerState(
@@ -747,6 +980,10 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
           ? double.parse(distKm.toStringAsFixed(2))
           : null,
     );
+
+    if (state.isDriverMatched && pickup != null) {
+      _maybeFetchDriverApproachRoute(point, pickup);
+    }
   }
 
   void _requestDriverLocation() {
@@ -757,6 +994,46 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
         'orderId': orderId,
       });
     }
+  }
+
+  void _maybeFetchDriverApproachRoute(LatLng driverPos, LatLng pickup) {
+    if (_disposed) return;
+    if (_lastApproachRouteOrigin != null &&
+        distanceKmBetween(_lastApproachRouteOrigin!, driverPos) * 1000.0 <
+            120.0) {
+      return;
+    }
+    _lastApproachRouteOrigin = driverPos;
+    _approachRouteDebounce?.cancel();
+    _approachRouteDebounce = Timer(const Duration(milliseconds: 180), () async {
+      if (_disposed || !state.isDriverMatched) return;
+      List<LatLng>? points;
+      try {
+        final route = await ref
+            .read(sharedRoutingRepositoryProvider)
+            .computeWaypointsRoute([
+              toRoadRoutePoint(driverPos),
+              toRoadRoutePoint(pickup),
+            ]);
+        if (route.isRoadRoute && route.points.length >= 2) {
+          points = fromRoadRoutePoints(route.points);
+        }
+      } catch (_) {
+        // Fallback when shared routing provider is not mounted in unit tests
+      }
+      if (_disposed || !state.isDriverMatched) return;
+      points ??= await fetchRoadRoutePoints(
+        ref.read(dioProvider),
+        driverPos,
+        pickup,
+      );
+      if (!_disposed &&
+          state.isDriverMatched &&
+          points != null &&
+          points.length >= 2) {
+        driverApproachRouteNotifier.value = List<LatLng>.unmodifiable(points);
+      }
+    });
   }
 
   void _maybeFetchRoadRoute() {
@@ -799,19 +1076,19 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
 
   void _ensureSafetyPolling() {
     if (_disposed) return;
-    if (!state.isSearching) {
+    if (!state.isSearching || _isAppPaused) {
       _safetyPollTimer?.cancel();
       _safetyPollTimer = null;
       return;
     }
-    _safetyPollTimer ??= Timer.periodic(const Duration(seconds: 8), (_) {
-      if (_disposed || !state.isSearching) {
+    _safetyPollTimer ??= Timer.periodic(const Duration(seconds: 4), (_) {
+      if (_disposed || !state.isSearching || _isAppPaused) {
         _safetyPollTimer?.cancel();
         _safetyPollTimer = null;
         return;
       }
       if (!state.isOffline) {
-        unawaited(resync(statusOnly: true));
+        unawaited(resync(statusOnly: true, silent: true));
       }
     });
   }

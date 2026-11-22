@@ -1982,5 +1982,12 @@
   "app.driverRatingsCount": "({count})",
   "app.searchRaceAlreadyAssigned": "بشرى سارة! وافق سائق على طلبك للتو.",
   "app.searchAlreadyCancelledSync": "تم تحديث حالة البحث.",
-  "app.searchWaveTimeRemaining": "متبقي {seconds} ث للمحاولة الحالية"
+  "app.searchWaveTimeRemaining": "متبقي {seconds} ث للمحاولة الحالية",
+  "app.rideServiceBadge": "مشوار",
+  "app.customDeliveryServiceBadge": "توصيل",
+  "app.mapPickupPinLabel": "الاستلام",
+  "app.mapDropoffPinLabel": "الوجهة",
+  "app.recenterMapTooltip": "توسيط الخريطة",
+  "app.driverHeadingToPickup": "السائق في طريقه إلى نقطة الاستلام",
+  "app.searchingForVehicleLabel": "جاري البحث عن {vehicle}"
 }

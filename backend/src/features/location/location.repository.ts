@@ -184,12 +184,13 @@ export class LocationRepository {
       DRIVER_GEO_POOL_KEY,
       driverIds,
     );
-    await Promise.all(
-      [...positions.keys()].map(async (id) => {
-        const isFresh = await this.isDriverLocationFresh(id);
-        map.set(id, { ...positions.get(id)!, isFresh });
-      }),
-    );
+    const presentIds = [...positions.keys()];
+    if (presentIds.length === 0) return map;
+
+    const freshIds = await this.filterFreshDriverIds(presentIds);
+    for (const id of presentIds) {
+      map.set(id, { ...positions.get(id)!, isFresh: freshIds.has(id) });
+    }
     return map;
   }
 

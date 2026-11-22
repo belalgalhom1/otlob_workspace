@@ -95,30 +95,43 @@ class _RadarPulsePainter extends CustomPainter {
   final int waveCount;
   final bool isActive;
 
+  // Reused across frames to guarantee zero GC allocations at 60/120fps.
+  final Paint _fillPaint = Paint()..style = PaintingStyle.fill;
+  final Paint _ringPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.6;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (!isActive || waveCount <= 0) return;
 
     final center = Offset(size.width / 2, size.height / 2);
     final maxRadius = math.min(size.width, size.height) * 0.48;
-    final minRadius = maxRadius * 0.16;
+    final minRadius = maxRadius * 0.14;
+
+    // Soft breathing core aura around pickup pin
+    final corePulse = 0.5 + 0.5 * math.sin(progress.value * math.pi * 2.0);
+    _fillPaint.color = color.withValues(alpha: 0.10 + corePulse * 0.08);
+    canvas.drawCircle(
+      center,
+      minRadius * (1.2 + corePulse * 0.28),
+      _fillPaint,
+    );
 
     for (var i = 0; i < waveCount; i++) {
       final t = (progress.value + i / waveCount) % 1.0;
-      final eased = Curves.easeOut.transform(t);
+      final eased = Curves.easeOutCubic.transform(t);
       final radius = minRadius + (maxRadius - minRadius) * eased;
-      final opacity = (1.0 - eased) * 0.34;
+      final fade = (1.0 - eased).clamp(0.0, 1.0);
+      final smoothFade = fade * fade;
 
-      final fillPaint = Paint()
-        ..color = color.withValues(alpha: opacity * 0.45)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(center, radius, fillPaint);
+      _fillPaint.color = color.withValues(alpha: smoothFade * 0.18);
+      canvas.drawCircle(center, radius, _fillPaint);
 
-      final ringPaint = Paint()
-        ..color = color.withValues(alpha: opacity)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6;
-      canvas.drawCircle(center, radius, ringPaint);
+      _ringPaint
+        ..color = color.withValues(alpha: fade * 0.48)
+        ..strokeWidth = 1.2 + fade * 1.1;
+      canvas.drawCircle(center, radius, _ringPaint);
     }
   }
 

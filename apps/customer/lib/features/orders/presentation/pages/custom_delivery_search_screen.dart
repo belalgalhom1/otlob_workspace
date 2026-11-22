@@ -1,8 +1,10 @@
-import 'package:api/api.dart';
-import 'package:core/core.dart' show ApiErrorMapper;
+import 'dart:ui' show lerpDouble;
+
+import 'package:core/core.dart' show ApiErrorMapper, VehicleTypeHelper;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,21 +21,32 @@ import '../../../../core/theme/app_colors.dart';
 import '../providers/custom_delivery_search_controller.dart';
 import '../widgets/custom_delivery_search_sheets.dart';
 
+/// Interpolates between two compass bearings in degrees along the shortest arc.
+double _lerpAngleDegrees(double fromDeg, double toDeg, double t) {
+  final delta = ((toDeg - fromDeg + 540.0) % 360.0) - 180.0;
+  return (fromDeg + delta * t + 360.0) % 360.0;
+}
+
 class _SearchLifecycleObserver with WidgetsBindingObserver {
-  _SearchLifecycleObserver(this.onResume);
+  _SearchLifecycleObserver({required this.onResume, required this.onPause});
   final VoidCallback onResume;
+  final VoidCallback onPause;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       onResume();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      onPause();
     }
   }
 }
 
 /// Real-time Custom Delivery & Ride Driver Search Screen inspired by inDrive's
-/// matching flow while preserving Otlob branding, zero-lag rebuild isolation,
-/// full SafeArea compliance, and arbitrary [TextScaler] adaptation.
+/// map-first matching flow while preserving Otlob branding, zero-lag rebuild
+/// isolation, full SafeArea compliance, and arbitrary [TextScaler] adaptation.
 class CustomDeliverySearchScreen extends ConsumerStatefulWidget {
   const CustomDeliverySearchScreen({
     super.key,
@@ -55,74 +68,179 @@ class CustomDeliverySearchScreen extends ConsumerStatefulWidget {
 }
 
 class _CustomDeliverySearchScreenState
-    extends ConsumerState<CustomDeliverySearchScreen> {
+    extends ConsumerState<CustomDeliverySearchScreen>
+    with SingleTickerProviderStateMixin {
   final MapController _mapController = MapController();
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
   late final _SearchLifecycleObserver _lifecycleObserver;
+  late final AnimationController _cameraAnimController;
+
+  LatLng? _camFromCenter;
+  LatLng? _camToCenter;
+  double? _camFromZoom;
+  double? _camToZoom;
 
   bool _hasFittedInitialBounds = false;
   bool _hasFittedDriverMatchBounds = false;
+  bool _hasFittedAssignedDriverLocation = false;
+  ValueListenable<DriverLiveMarkerState?>? _observedDriverLocListenable;
   String? _lastShownNotice;
 
   @override
   void initState() {
     super.initState();
+    _cameraAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    )..addListener(_onCameraAnimationTick);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final ctrl = ref.read(
         customDeliverySearchControllerProvider(widget.orderId).notifier,
       );
       ctrl.seedOrderSnapshot(widget.initialOrder);
+      _attachDriverLocationFitListener(ctrl.driverLocationNotifier);
     });
 
-    _lifecycleObserver = _SearchLifecycleObserver(() {
-      if (!mounted) return;
-      ref
-          .read(customDeliverySearchControllerProvider(widget.orderId).notifier)
-          .onAppResumed();
-    });
+    _lifecycleObserver = _SearchLifecycleObserver(
+      onResume: () {
+        if (!mounted) return;
+        ref
+            .read(
+              customDeliverySearchControllerProvider(widget.orderId).notifier,
+            )
+            .onAppResumed();
+      },
+      onPause: () {
+        if (!mounted) return;
+        ref
+            .read(
+              customDeliverySearchControllerProvider(widget.orderId).notifier,
+            )
+            .onAppPaused();
+      },
+    );
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
+  }
+
+  void _onCameraAnimationTick() {
+    if (!mounted ||
+        _camFromCenter == null ||
+        _camToCenter == null ||
+        _camFromZoom == null ||
+        _camToZoom == null) {
+      return;
+    }
+    final t = Curves.easeOutCubic.transform(_cameraAnimController.value);
+    final lat = lerpDouble(
+      _camFromCenter!.latitude,
+      _camToCenter!.latitude,
+      t,
+    )!;
+    final lng = lerpDouble(
+      _camFromCenter!.longitude,
+      _camToCenter!.longitude,
+      t,
+    )!;
+    final zoom = lerpDouble(_camFromZoom!, _camToZoom!, t)!;
+    try {
+      _mapController.move(LatLng(lat, lng), zoom);
+    } catch (_) {
+      // Ignore if map controller is not attached yet.
+    }
+  }
+
+  void _cancelCameraAnimation() {
+    if (_cameraAnimController.isAnimating) {
+      _cameraAnimController.stop();
+    }
+  }
+
+  void _attachDriverLocationFitListener(
+    ValueListenable<DriverLiveMarkerState?> listenable,
+  ) {
+    if (_observedDriverLocListenable == listenable) return;
+    _observedDriverLocListenable?.removeListener(_onFirstAssignedDriverLocation);
+    _observedDriverLocListenable = listenable;
+    listenable.addListener(_onFirstAssignedDriverLocation);
+  }
+
+  void _onFirstAssignedDriverLocation() {
+    if (!mounted || _hasFittedAssignedDriverLocation) return;
+    final live = _observedDriverLocListenable?.value;
+    if (live == null) return;
+    final currentState = ref.read(
+      customDeliverySearchControllerProvider(widget.orderId),
+    );
+    if (!currentState.isDriverMatched) return;
+    _hasFittedAssignedDriverLocation = true;
+    _recenterMap(currentState, live, animated: true);
   }
 
   @override
   void dispose() {
+    _observedDriverLocListenable?.removeListener(_onFirstAssignedDriverLocation);
     WidgetsBinding.instance.removeObserver(_lifecycleObserver);
+    _cameraAnimController.removeListener(_onCameraAnimationTick);
+    _cameraAnimController.dispose();
     _mapController.dispose();
     _sheetController.dispose();
     super.dispose();
   }
 
-  void _fitCameraToPoints(List<LatLng> points) {
-    if (points.isEmpty || widget.mapBuilder != null) return;
-    if (points.length == 1) {
-      _mapController.move(points.first, 14.8);
-      return;
-    }
+  void _animateCameraToPoints(List<LatLng> points, {bool animated = true}) {
+    if (points.isEmpty || widget.mapBuilder != null || !mounted) return;
     try {
-      final bounds = LatLngBounds.fromPoints(points);
-      final screenHeight = MediaQuery.sizeOf(context).height;
-      final topInset = MediaQuery.paddingOf(context).top;
-      _mapController.fitCamera(
-        CameraFit.bounds(
+      final currentCamera = _mapController.camera;
+      LatLng targetCenter;
+      double targetZoom;
+
+      if (points.length == 1) {
+        targetCenter = points.first;
+        targetZoom = 14.8;
+      } else {
+        final bounds = LatLngBounds.fromPoints(points);
+        final screenHeight = MediaQuery.sizeOf(context).height;
+        final topInset = MediaQuery.paddingOf(context).top;
+        final fitted = CameraFit.bounds(
           bounds: bounds,
+          maxZoom: 16.2,
           padding: EdgeInsets.fromLTRB(
-            48,
-            topInset + 84,
-            48,
-            (screenHeight * 0.45).clamp(160.0, 380.0),
+            52,
+            topInset + 96,
+            52,
+            (screenHeight * 0.44).clamp(160.0, 380.0),
           ),
-        ),
-      );
+        ).fit(currentCamera);
+        targetCenter = fitted.center;
+        targetZoom = fitted.zoom;
+      }
+
+      if (!animated) {
+        _cancelCameraAnimation();
+        _mapController.move(targetCenter, targetZoom);
+        return;
+      }
+
+      _camFromCenter = currentCamera.center;
+      _camFromZoom = currentCamera.zoom;
+      _camToCenter = targetCenter;
+      _camToZoom = targetZoom;
+      _cameraAnimController.forward(from: 0.0);
     } catch (_) {
-      _mapController.move(points.first, 14.0);
+      try {
+        _mapController.move(points.first, 14.2);
+      } catch (_) {}
     }
   }
 
   void _recenterMap(
     CustomDeliverySearchState state,
-    DriverLiveMarkerState? driverLoc,
-  ) {
+    DriverLiveMarkerState? driverLoc, {
+    bool animated = true,
+  }) {
     final pts = <LatLng>[];
     if (state.pickupPoint != null) pts.add(state.pickupPoint!);
     if (state.dropoffPoint != null) pts.add(state.dropoffPoint!);
@@ -130,7 +248,7 @@ class _CustomDeliverySearchScreenState
       pts.add(driverLoc.position);
     }
     if (pts.isNotEmpty) {
-      _fitCameraToPoints(pts);
+      _animateCameraToPoints(pts, animated: animated);
     }
   }
 
@@ -165,19 +283,34 @@ class _CustomDeliverySearchScreenState
         _hasFittedInitialBounds = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _recenterMap(next, controller.driverLocationNotifier.value);
+            _recenterMap(
+              next,
+              controller.driverLocationNotifier.value,
+              animated: false,
+            );
           }
         });
       }
       if ((prev?.isDriverMatched != true) && next.isDriverMatched) {
         if (!_hasFittedDriverMatchBounds) {
           _hasFittedDriverMatchBounds = true;
+          final live = controller.driverLocationNotifier.value;
+          if (live != null) {
+            _hasFittedAssignedDriverLocation = true;
+          }
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              _recenterMap(next, controller.driverLocationNotifier.value);
+              _recenterMap(
+                next,
+                controller.driverLocationNotifier.value,
+                animated: true,
+              );
             }
           });
         }
+      } else if (!next.isDriverMatched) {
+        _hasFittedDriverMatchBounds = false;
+        _hasFittedAssignedDriverLocation = false;
       }
     });
 
@@ -273,7 +406,7 @@ class _CustomDeliverySearchScreenState
                 ? widget.mapBuilder!(context, state)
                 : _buildInteractiveMap(context, state, controller, isDark),
           ),
-          // Top floating navigation + connection status bar inside SafeArea.
+          // Top floating navigation + service pill + connection status bar inside SafeArea.
           Positioned(
             top: 0,
             left: 0,
@@ -284,6 +417,7 @@ class _CustomDeliverySearchScreenState
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
                       children: [
@@ -308,6 +442,8 @@ class _CustomDeliverySearchScreenState
                             child: _OrderStatusHeaderBadge(
                               orderNumber: (state.order?['orderNumber'] ?? '')
                                   .toString(),
+                              isRide: state.isRide,
+                              vehicleType: state.requestedVehicleType,
                               isRefreshing: state.isRefreshing,
                               isDark: isDark,
                             ),
@@ -316,15 +452,31 @@ class _CustomDeliverySearchScreenState
                         const SizedBox(width: 8),
                         _FloatingCircleAction(
                           icon: Icons.my_location_rounded,
-                          tooltip: 'Recenter',
+                          tooltip: 'app.recenterMapTooltip'.tr(
+                            context: context,
+                          ),
                           onPressed: () => _recenterMap(
                             state,
                             controller.driverLocationNotifier.value,
+                            animated: true,
                           ),
                           isDark: isDark,
                         ),
                       ],
                     ),
+                    if (state.isSearching &&
+                        !state.isOffline &&
+                        !state.isSocketReconnecting) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: _LiveNearbyVehiclesFloatingPill(
+                          vehiclesListenable: controller.nearbyVehiclesNotifier,
+                          vehicleType: state.requestedVehicleType,
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
                     if (state.isOffline || state.isSocketReconnecting) ...[
                       const SizedBox(height: 8),
                       Container(
@@ -382,11 +534,11 @@ class _CustomDeliverySearchScreenState
           // Responsive, draggable, SafeArea-aware bottom sheet.
           DraggableScrollableSheet(
             controller: _sheetController,
-            initialChildSize: 0.46,
-            minChildSize: 0.28,
+            initialChildSize: 0.44,
+            minChildSize: 0.26,
             maxChildSize: 0.90,
             snap: true,
-            snapSizes: const [0.30, 0.48, 0.88],
+            snapSizes: const [0.28, 0.45, 0.88],
             builder: (sheetCtx, scrollController) {
               return Container(
                 decoration: BoxDecoration(
@@ -427,6 +579,8 @@ class _CustomDeliverySearchScreenState
                           state: state,
                           driverLocationListenable:
                               controller.driverLocationNotifier,
+                          nearbyVehiclesListenable:
+                              controller.nearbyVehiclesNotifier,
                           onCancelConfirmed: () => controller.cancelSearch(),
                           onRetrySearch: () => controller.retrySearch(),
                           onEditRequest: () {
@@ -465,16 +619,8 @@ class _CustomDeliverySearchScreenState
             ? <LatLng>[pickup, dropoff]
             : const <LatLng>[]);
 
-    final nearby = state.isSearching
-        ? (state.searchStatus?.nearbyDrivers.toList() ??
-              const <NearbyDriverPreviewDto>[])
-        : const <NearbyDriverPreviewDto>[];
-
     final driverVehicleType =
-        (state.driver?['vehicleType'] ??
-                state.order?['requestedVehicleType'] ??
-                'MOTORCYCLE')
-            .toString();
+        (state.driver?['vehicleType'] ?? state.requestedVehicleType).toString();
 
     return FlutterMap(
       mapController: _mapController,
@@ -486,12 +632,20 @@ class _CustomDeliverySearchScreenState
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
+        onMapEvent: (event) {
+          if (event.source == MapEventSource.onDrag ||
+              event.source == MapEventSource.onMultiFinger ||
+              event.source == MapEventSource.scrollWheel) {
+            _cancelCameraAnimation();
+          }
+        },
       ),
       children: [
         const AppMapTileLayer(
           style: AppMapStyle.auto,
           userAgentPackageName: 'com.otlob.customer',
         ),
+        // 1. Primary Pickup -> Destination trip route
         if (polylinePoints.length >= 2)
           RepaintBoundary(
             child: PolylineLayer(
@@ -499,95 +653,471 @@ class _CustomDeliverySearchScreenState
                 points: polylinePoints,
                 foregroundColor: AppColors.primary,
                 casingColor: isDark
-                    ? const Color(0xFF0F172A).withValues(alpha: 0.85)
+                    ? const Color(0xFF0F172A).withValues(alpha: 0.88)
                     : const Color(0xFF1E293B).withValues(alpha: 0.72),
+                strokeWidth: 5.2,
+                casingWidth: 8.8,
               ),
             ),
           ),
-        // Repaint-isolated radar pulse centered on pickup while actively searching.
+        // 2. Assigned Driver -> Pickup real approach road route (isolated ValueNotifier)
+        if (state.isDriverMatched)
+          _DriverApproachRouteLayer(
+            routeListenable: controller.driverApproachRouteNotifier,
+            isDark: isDark,
+          ),
+        // 3. Repaint-isolated radar pulse centered on pickup while actively searching.
         if (pickup != null && state.isSearching)
           MarkerLayer(
             markers: [
               Marker(
                 point: pickup,
-                width: 240,
-                height: 240,
+                width: 248,
+                height: 248,
                 alignment: Alignment.center,
                 child: DriverSearchRadarPulse(
-                  size: 240,
+                  size: 248,
                   color: AppColors.primary,
                   isActive: !state.isOffline,
                 ),
               ),
             ],
           ),
-        // Real anonymized nearby eligible drivers around pickup.
-        if (nearby.isNotEmpty)
-          RepaintBoundary(
-            child: MarkerLayer(
-              markers: nearby
-                  .map((d) {
-                    return Marker(
-                      point: LatLng(
-                        d.latitude.toDouble(),
-                        d.longitude.toDouble(),
-                      ),
-                      width: 44,
-                      height: 44,
-                      child: IgnorePointer(
-                        child: Opacity(
-                          opacity: 0.88,
-                          child: InDriveVehicleMarker(
-                            size: 40,
-                            color: AppColors.primary,
-                            vehicleType: d.vehicleType.name,
-                            showHeadlightGlow: false,
-                            showRadarPulse: false,
-                          ),
-                        ),
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
-            ),
-          ),
-        // Origin and destination markers.
+        // 4. Single-ticker 60fps real-time animated nearby vehicles layer.
+        _AnimatedNearbyVehiclesLayer(
+          vehiclesListenable: controller.nearbyVehiclesNotifier,
+          isRide: state.isRide,
+          isActive: state.isSearching,
+        ),
+        // 5. Clear Pickup & Destination endpoint markers with floating labels.
         RepaintBoundary(
           child: MarkerLayer(
             markers: [
               if (pickup != null)
                 Marker(
                   point: pickup,
-                  width: 40,
-                  height: 40,
-                  child: const _MapPinBadge(
-                    icon: Icons.my_location_rounded,
+                  width: 112,
+                  height: 70,
+                  alignment: Alignment.center,
+                  child: _MapEndpointMarker(
+                    icon: Icons.trip_origin_rounded,
+                    label: 'app.mapPickupPinLabel'.tr(context: context),
                     color: AppColors.primary,
                     foreground: Colors.black,
+                    isDark: isDark,
                   ),
                 ),
               if (dropoff != null)
                 Marker(
                   point: dropoff,
-                  width: 40,
-                  height: 40,
-                  child: const _MapPinBadge(
+                  width: 112,
+                  height: 70,
+                  alignment: Alignment.center,
+                  child: _MapEndpointMarker(
                     icon: Icons.flag_rounded,
-                    color: Color(0xFFEF4444),
+                    label: 'app.mapDropoffPinLabel'.tr(context: context),
+                    color: const Color(0xFFEF4444),
                     foreground: Colors.white,
+                    isDark: isDark,
                   ),
                 ),
             ],
           ),
         ),
-        // Smooth live driver marker isolated from whole-screen rebuilds.
+        // 6. Smooth live assigned driver marker isolated from whole-screen rebuilds.
         if (state.isDriverMatched)
           _AnimatedAssignedDriverLayer(
             locationListenable: controller.driverLocationNotifier,
             vehicleType: driverVehicleType,
             plateNumber: state.driver?['vehiclePlate']?.toString(),
+            showCargoBox: !state.isRide,
           ),
       ],
+    );
+  }
+}
+
+/// Repaint-isolated approach route from the assigned driver's real position
+/// to the pickup point.
+class _DriverApproachRouteLayer extends StatelessWidget {
+  const _DriverApproachRouteLayer({
+    required this.routeListenable,
+    required this.isDark,
+  });
+
+  final ValueListenable<List<LatLng>> routeListenable;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: ValueListenableBuilder<List<LatLng>>(
+        valueListenable: routeListenable,
+        builder: (context, points, _) {
+          if (points.length < 2) return const SizedBox.shrink();
+          return PolylineLayer(
+            polylines: NavigationRoutePolylines.build(
+              points: points,
+              foregroundColor: const Color(0xFF2563EB),
+              casingColor: isDark
+                  ? const Color(0xFF0F172A).withValues(alpha: 0.85)
+                  : Colors.white.withValues(alpha: 0.90),
+              strokeWidth: 4.5,
+              casingWidth: 7.5,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AnimatedVehicleSlot {
+  _AnimatedVehicleSlot({
+    required this.markerKey,
+    required this.vehicleType,
+    required LatLng position,
+    required double heading,
+    required this.isMoving,
+    required Duration now,
+  }) : fromPos = position,
+       toPos = position,
+       currentPos = position,
+       fromHeading = heading,
+       toHeading = heading,
+       currentHeading = heading,
+       moveStart = now,
+       rotStart = now,
+       fadeStart = now,
+       fromOpacity = 0.0,
+       toOpacity = 0.96,
+       currentOpacity = 0.0,
+       fromScale = 0.65,
+       toScale = 1.0,
+       currentScale = 0.65,
+       isExiting = false;
+
+  final String markerKey;
+  String vehicleType;
+  LatLng fromPos;
+  LatLng toPos;
+  LatLng currentPos;
+  double fromHeading;
+  double toHeading;
+  double currentHeading;
+  bool isMoving;
+
+  Duration moveStart;
+  Duration rotStart;
+  Duration fadeStart;
+
+  double fromOpacity;
+  double toOpacity;
+  double currentOpacity;
+  double fromScale;
+  double toScale;
+  double currentScale;
+  bool isExiting;
+
+  static const int _moveDurationMs = 3400;
+  static const int _rotDurationMs = 700;
+  static const int _fadeInDurationMs = 420;
+  static const int _fadeOutDurationMs = 340;
+
+  void updateTarget({
+    required LatLng nextPos,
+    required double nextHeading,
+    required String nextVehicleType,
+    required bool nextIsMoving,
+    required Duration now,
+  }) {
+    vehicleType = nextVehicleType;
+    final posChanged =
+        (toPos.latitude - nextPos.latitude).abs() > 1e-7 ||
+        (toPos.longitude - nextPos.longitude).abs() > 1e-7;
+    if (posChanged) {
+      fromPos = currentPos;
+      toPos = nextPos;
+      moveStart = now;
+    }
+
+    final headingDelta = ((nextHeading - toHeading + 540.0) % 360.0) - 180.0;
+    if (headingDelta.abs() > 1.5) {
+      fromHeading = currentHeading;
+      toHeading = nextHeading;
+      rotStart = now;
+    }
+
+    isMoving = nextIsMoving;
+
+    if (isExiting) {
+      isExiting = false;
+      fromOpacity = currentOpacity;
+      toOpacity = 0.96;
+      fromScale = currentScale;
+      toScale = 1.0;
+      fadeStart = now;
+    }
+  }
+
+  void startExit(Duration now) {
+    if (isExiting) return;
+    isExiting = true;
+    isMoving = false;
+    fromOpacity = currentOpacity;
+    toOpacity = 0.0;
+    fromScale = currentScale;
+    toScale = 0.62;
+    fadeStart = now;
+  }
+
+  /// Advances slot interpolation and returns `true` if still animating.
+  bool advance(Duration now) {
+    var active = false;
+
+    final moveElapsed = (now - moveStart).inMilliseconds;
+    if (moveElapsed < _moveDurationMs && fromPos != toPos) {
+      final raw = (moveElapsed / _moveDurationMs).clamp(0.0, 1.0);
+      final t = Curves.easeInOutCubic.transform(raw);
+      currentPos = LatLng(
+        fromPos.latitude + (toPos.latitude - fromPos.latitude) * t,
+        fromPos.longitude + (toPos.longitude - fromPos.longitude) * t,
+      );
+      active = true;
+    } else {
+      currentPos = toPos;
+      fromPos = toPos;
+      isMoving = false;
+    }
+
+    final rotElapsed = (now - rotStart).inMilliseconds;
+    if (rotElapsed < _rotDurationMs &&
+        (((toHeading - fromHeading + 540.0) % 360.0) - 180.0).abs() > 0.25) {
+      final raw = (rotElapsed / _rotDurationMs).clamp(0.0, 1.0);
+      final t = Curves.easeOutCubic.transform(raw);
+      currentHeading = _lerpAngleDegrees(fromHeading, toHeading, t);
+      active = true;
+    } else {
+      currentHeading = toHeading;
+      fromHeading = toHeading;
+    }
+
+    final fadeDuration = isExiting ? _fadeOutDurationMs : _fadeInDurationMs;
+    final fadeElapsed = (now - fadeStart).inMilliseconds;
+    final needsFade =
+        (fromOpacity - toOpacity).abs() > 0.005 ||
+        (fromScale - toScale).abs() > 0.005;
+    if (needsFade && fadeElapsed < fadeDuration) {
+      final raw = (fadeElapsed / fadeDuration).clamp(0.0, 1.0);
+      final opacityT = Curves.easeOut.transform(raw);
+      final scaleT = isExiting
+          ? Curves.easeIn.transform(raw)
+          : Curves.easeOutBack.transform(raw);
+      currentOpacity = lerpDouble(fromOpacity, toOpacity, opacityT)!.clamp(
+        0.0,
+        1.0,
+      );
+      currentScale = lerpDouble(fromScale, toScale, scaleT)!.clamp(0.5, 1.12);
+      active = true;
+    } else {
+      currentOpacity = toOpacity;
+      fromOpacity = toOpacity;
+      currentScale = toScale;
+      fromScale = toScale;
+    }
+
+    return active;
+  }
+
+  bool get shouldRemove => isExiting && currentOpacity <= 0.01;
+}
+
+/// High-performance single-ticker animation layer for ALL real anonymized
+/// nearby vehicles on the map.
+///
+/// Guarantees:
+/// - Exactly ONE [Ticker] shared across all visible vehicles (never 1 per marker).
+/// - Automatically stops the [Ticker] when all vehicles settle (0% idle CPU).
+/// - Completely repaint-isolated from tiles, polylines, and the bottom sheet.
+/// - Strictly interpolates between real backend coordinates only.
+class _AnimatedNearbyVehiclesLayer extends StatefulWidget {
+  const _AnimatedNearbyVehiclesLayer({
+    required this.vehiclesListenable,
+    required this.isRide,
+    required this.isActive,
+  });
+
+  final ValueListenable<List<NearbyVehicleMarkerState>> vehiclesListenable;
+  final bool isRide;
+  final bool isActive;
+
+  @override
+  State<_AnimatedNearbyVehiclesLayer> createState() =>
+      _AnimatedNearbyVehiclesLayerState();
+}
+
+class _AnimatedNearbyVehiclesLayerState
+    extends State<_AnimatedNearbyVehiclesLayer>
+    with SingleTickerProviderStateMixin {
+  final Map<String, _AnimatedVehicleSlot> _slots = {};
+  late final Ticker _ticker;
+  Duration _lastElapsed = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_onTick);
+    widget.vehiclesListenable.addListener(_syncFromListenable);
+    _syncFromListenable();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedNearbyVehiclesLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.vehiclesListenable != widget.vehiclesListenable) {
+      oldWidget.vehiclesListenable.removeListener(_syncFromListenable);
+      widget.vehiclesListenable.addListener(_syncFromListenable);
+      _syncFromListenable();
+    } else if (oldWidget.isActive != widget.isActive) {
+      _syncFromListenable();
+    }
+  }
+
+  Duration _nowElapsed() {
+    return _ticker.isActive ? _lastElapsed : Duration.zero;
+  }
+
+  void _syncFromListenable() {
+    if (!mounted) return;
+    final incoming = widget.isActive
+        ? widget.vehiclesListenable.value
+        : const <NearbyVehicleMarkerState>[];
+    final now = _nowElapsed();
+    final seen = <String>{};
+
+    for (final vehicle in incoming) {
+      seen.add(vehicle.markerKey);
+      final existing = _slots[vehicle.markerKey];
+      if (existing == null) {
+        _slots[vehicle.markerKey] = _AnimatedVehicleSlot(
+          markerKey: vehicle.markerKey,
+          vehicleType: vehicle.vehicleType,
+          position: vehicle.position,
+          heading: vehicle.heading,
+          isMoving: vehicle.isMoving,
+          now: now,
+        );
+      } else {
+        existing.updateTarget(
+          nextPos: vehicle.position,
+          nextHeading: vehicle.heading,
+          nextVehicleType: vehicle.vehicleType,
+          nextIsMoving: vehicle.isMoving,
+          now: now,
+        );
+      }
+    }
+
+    for (final entry in _slots.entries) {
+      if (!seen.contains(entry.key)) {
+        entry.value.startExit(now);
+      }
+    }
+
+    if (_slots.isNotEmpty) {
+      _ensureTicking();
+    }
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _ensureTicking() {
+    if (!_ticker.isActive) {
+      _lastElapsed = Duration.zero;
+      // Re-anchor active slot start timestamps to 0 before restarting ticker.
+      for (final slot in _slots.values) {
+        slot.moveStart = Duration.zero;
+        slot.rotStart = Duration.zero;
+        slot.fadeStart = Duration.zero;
+      }
+      _ticker.start();
+    }
+  }
+
+  void _onTick(Duration elapsed) {
+    _lastElapsed = elapsed;
+    if (!mounted) {
+      _ticker.stop();
+      return;
+    }
+
+    var anyAnimating = false;
+    final toRemove = <String>[];
+
+    for (final entry in _slots.entries) {
+      final slot = entry.value;
+      if (slot.advance(elapsed)) {
+        anyAnimating = true;
+      }
+      if (slot.shouldRemove) {
+        toRemove.add(entry.key);
+      }
+    }
+
+    for (final key in toRemove) {
+      _slots.remove(key);
+    }
+
+    setState(() {});
+
+    if (!anyAnimating) {
+      _ticker.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.vehiclesListenable.removeListener(_syncFromListenable);
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_slots.isEmpty) return const SizedBox.shrink();
+    return RepaintBoundary(
+      child: MarkerLayer(
+        markers: _slots.values
+            .map((slot) {
+              return Marker(
+                key: ValueKey('nearby_${slot.markerKey}'),
+                point: slot.currentPos,
+                width: 54,
+                height: 54,
+                alignment: Alignment.center,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: slot.currentOpacity,
+                    child: Transform.scale(
+                      scale: slot.currentScale,
+                      child: InDriveVehicleMarker(
+                        size: 40,
+                        color: AppColors.primary,
+                        heading: slot.currentHeading,
+                        isMoving: slot.isMoving,
+                        vehicleType: slot.vehicleType,
+                        showHeadlightGlow: slot.isMoving,
+                        showRadarPulse: false,
+                        showCargoBox: !widget.isRide,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            })
+            .toList(growable: false),
+      ),
     );
   }
 }
@@ -596,11 +1126,13 @@ class _AnimatedAssignedDriverLayer extends StatefulWidget {
   const _AnimatedAssignedDriverLayer({
     required this.locationListenable,
     required this.vehicleType,
+    required this.showCargoBox,
     this.plateNumber,
   });
 
   final ValueListenable<DriverLiveMarkerState?> locationListenable;
   final String vehicleType;
+  final bool showCargoBox;
   final String? plateNumber;
 
   @override
@@ -610,11 +1142,14 @@ class _AnimatedAssignedDriverLayer extends StatefulWidget {
 
 class _AnimatedAssignedDriverLayerState
     extends State<_AnimatedAssignedDriverLayer>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _moveController;
+  late final AnimationController _entryController;
   LatLng? _from;
   LatLng? _to;
   LatLng? _current;
+  double _fromHeading = 0.0;
+  double _toHeading = 0.0;
   double _heading = 0.0;
   bool _isMoving = false;
 
@@ -623,8 +1158,12 @@ class _AnimatedAssignedDriverLayerState
     super.initState();
     _moveController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: const Duration(milliseconds: 1050),
     )..addListener(_onAnimationTick);
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
     widget.locationListenable.addListener(_onLocationChanged);
     _applyInitial(widget.locationListenable.value);
   }
@@ -634,8 +1173,11 @@ class _AnimatedAssignedDriverLayerState
     _current = snapshot.position;
     _from = snapshot.position;
     _to = snapshot.position;
+    _fromHeading = snapshot.heading;
+    _toHeading = snapshot.heading;
     _heading = snapshot.heading;
     _isMoving = snapshot.isMoving;
+    _entryController.forward(from: 0.0);
   }
 
   void _onLocationChanged() {
@@ -647,7 +1189,8 @@ class _AnimatedAssignedDriverLayerState
     }
     _from = _current;
     _to = next.position;
-    _heading = next.heading;
+    _fromHeading = _heading;
+    _toHeading = next.heading;
     _isMoving = next.isMoving;
     _moveController.forward(from: 0);
   }
@@ -660,6 +1203,7 @@ class _AnimatedAssignedDriverLayerState
         _from!.latitude + (_to!.latitude - _from!.latitude) * t,
         _from!.longitude + (_to!.longitude - _from!.longitude) * t,
       );
+      _heading = _lerpAngleDegrees(_fromHeading, _toHeading, t);
       if (t >= 1.0) {
         _isMoving = false;
       }
@@ -671,6 +1215,7 @@ class _AnimatedAssignedDriverLayerState
     widget.locationListenable.removeListener(_onLocationChanged);
     _moveController.removeListener(_onAnimationTick);
     _moveController.dispose();
+    _entryController.dispose();
     super.dispose();
   }
 
@@ -678,24 +1223,120 @@ class _AnimatedAssignedDriverLayerState
   Widget build(BuildContext context) {
     final pos = _current;
     if (pos == null) return const SizedBox.shrink();
-    return MarkerLayer(
-      markers: [
-        Marker(
-          point: pos,
-          width: 80,
-          height: 80,
-          child: RepaintBoundary(
-            child: InDriveVehicleMarker(
-              size: 54,
-              color: AppColors.primary,
-              heading: _heading,
-              isMoving: _isMoving,
-              vehicleType: widget.vehicleType,
-              plateNumber: widget.plateNumber,
+    return RepaintBoundary(
+      child: MarkerLayer(
+        markers: [
+          Marker(
+            point: pos,
+            width: 84,
+            height: 84,
+            alignment: Alignment.center,
+            child: ScaleTransition(
+              scale: CurvedAnimation(
+                parent: _entryController,
+                curve: Curves.easeOutBack,
+              ),
+              child: InDriveVehicleMarker(
+                size: 54,
+                color: AppColors.primary,
+                heading: _heading,
+                isMoving: _isMoving,
+                vehicleType: widget.vehicleType,
+                plateNumber: widget.plateNumber,
+                showCargoBox: widget.showCargoBox,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveNearbyVehiclesFloatingPill extends StatelessWidget {
+  const _LiveNearbyVehiclesFloatingPill({
+    required this.vehiclesListenable,
+    required this.vehicleType,
+    required this.isDark,
+  });
+
+  final ValueListenable<List<NearbyVehicleMarkerState>> vehiclesListenable;
+  final String vehicleType;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<List<NearbyVehicleMarkerState>>(
+      valueListenable: vehiclesListenable,
+      builder: (context, vehicles, _) {
+        final count = vehicles.length;
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: count == 0
+              ? const SizedBox.shrink(key: ValueKey('empty_pill'))
+              : Container(
+                  key: const ValueKey('active_nearby_pill'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (isDark ? const Color(0xFF1F2937) : Colors.white)
+                        .withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: AppColors.success.withValues(alpha: 0.32),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.success,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Icon(
+                        VehicleTypeHelper.icon(vehicleType),
+                        size: 15,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'app.nearbyDriversOnlineCount'.tr(
+                            context: context,
+                            namedArgs: {'count': '$count'},
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        );
+      },
     );
   }
 }
@@ -743,18 +1384,25 @@ class _FloatingCircleAction extends StatelessWidget {
 class _OrderStatusHeaderBadge extends StatelessWidget {
   const _OrderStatusHeaderBadge({
     required this.orderNumber,
+    required this.isRide,
+    required this.vehicleType,
     required this.isRefreshing,
     required this.isDark,
   });
 
   final String orderNumber;
+  final bool isRide;
+  final String vehicleType;
   final bool isRefreshing;
   final bool isDark;
 
   @override
   Widget build(BuildContext context) {
+    final serviceLabel = isRide
+        ? 'app.rideServiceBadge'.tr(context: context)
+        : 'app.customDeliveryServiceBadge'.tr(context: context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1F2937) : Colors.white,
         borderRadius: BorderRadius.circular(999),
@@ -770,14 +1418,18 @@ class _OrderStatusHeaderBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.local_shipping_rounded,
-            size: 16,
+            VehicleTypeHelper.icon(vehicleType),
+            size: 17,
             color: AppColors.primary,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 7),
           Flexible(
             child: Text(
-              orderNumber.isNotEmpty ? '#$orderNumber' : 'OTLOB',
+              orderNumber.isNotEmpty
+                  ? '$serviceLabel · #$orderNumber'
+                  : serviceLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w800,
                 fontFeatures: const [FontFeature.tabularFigures()],
@@ -798,33 +1450,77 @@ class _OrderStatusHeaderBadge extends StatelessWidget {
   }
 }
 
-class _MapPinBadge extends StatelessWidget {
-  const _MapPinBadge({
+class _MapEndpointMarker extends StatelessWidget {
+  const _MapEndpointMarker({
     required this.icon,
+    required this.label,
     required this.color,
     required this.foreground,
+    required this.isDark,
   });
 
   final IconData icon;
+  final String label;
   final Color color;
   final Color foreground;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+    return IgnorePointer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xEE0F172A) : Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: color.withValues(alpha: 0.55),
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: foreground, size: 17),
           ),
         ],
       ),
-      child: Icon(icon, color: foreground, size: 20),
     );
   }
 }

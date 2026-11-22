@@ -8,6 +8,8 @@ part of 'nearby_driver_preview_dto.dart';
 
 class _$NearbyDriverPreviewDto extends NearbyDriverPreviewDto {
   @override
+  final String? markerKey;
+  @override
   final num latitude;
   @override
   final num longitude;
@@ -21,6 +23,7 @@ class _$NearbyDriverPreviewDto extends NearbyDriverPreviewDto {
   ]) => (NearbyDriverPreviewDtoBuilder()..update(updates))._build();
 
   _$NearbyDriverPreviewDto._({
+    this.markerKey,
     required this.latitude,
     required this.longitude,
     required this.vehicleType,
@@ -39,6 +42,7 @@ class _$NearbyDriverPreviewDto extends NearbyDriverPreviewDto {
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
     return other is NearbyDriverPreviewDto &&
+        markerKey == other.markerKey &&
         latitude == other.latitude &&
         longitude == other.longitude &&
         vehicleType == other.vehicleType &&
@@ -48,6 +52,7 @@ class _$NearbyDriverPreviewDto extends NearbyDriverPreviewDto {
   @override
   int get hashCode {
     var _$hash = 0;
+    _$hash = $jc(_$hash, markerKey.hashCode);
     _$hash = $jc(_$hash, latitude.hashCode);
     _$hash = $jc(_$hash, longitude.hashCode);
     _$hash = $jc(_$hash, vehicleType.hashCode);
@@ -59,6 +64,7 @@ class _$NearbyDriverPreviewDto extends NearbyDriverPreviewDto {
   @override
   String toString() {
     return (newBuiltValueToStringHelper(r'NearbyDriverPreviewDto')
+          ..add('markerKey', markerKey)
           ..add('latitude', latitude)
           ..add('longitude', longitude)
           ..add('vehicleType', vehicleType)
@@ -70,6 +76,10 @@ class _$NearbyDriverPreviewDto extends NearbyDriverPreviewDto {
 class NearbyDriverPreviewDtoBuilder
     implements Builder<NearbyDriverPreviewDto, NearbyDriverPreviewDtoBuilder> {
   _$NearbyDriverPreviewDto? _$v;
+
+  String? _markerKey;
+  String? get markerKey => _$this._markerKey;
+  set markerKey(String? markerKey) => _$this._markerKey = markerKey;
 
   num? _latitude;
   num? get latitude => _$this._latitude;
@@ -95,6 +105,7 @@ class NearbyDriverPreviewDtoBuilder
   NearbyDriverPreviewDtoBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
+      _markerKey = $v.markerKey;
       _latitude = $v.latitude;
       _longitude = $v.longitude;
       _vehicleType = $v.vehicleType;
@@ -121,6 +132,7 @@ class NearbyDriverPreviewDtoBuilder
     final _$result =
         _$v ??
         _$NearbyDriverPreviewDto._(
+          markerKey: markerKey,
           latitude: BuiltValueNullFieldError.checkNotNull(
             latitude,
             r'NearbyDriverPreviewDto',
