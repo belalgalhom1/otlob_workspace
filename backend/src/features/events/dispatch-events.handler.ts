@@ -78,14 +78,19 @@ export class DispatchEventsHandler {
           : 'طلب توصيل جديد',
       body: isRide
         ? `Ride ${event.orderNumber} — ${distanceLabel}km`
-        : `Order ${event.orderNumber} — ${distanceLabel}km`,
+        : isCustomDelivery
+          ? `Delivery ${event.orderNumber} — ${distanceLabel}km`
+          : `Order ${event.orderNumber} — ${distanceLabel}km`,
       bodyAr: isRide
         ? `رحلة ${event.orderNumber} — ${distanceLabel} كم`
-        : `طلب ${event.orderNumber} — ${distanceLabel} كم`,
+        : isCustomDelivery
+          ? `توصيل ${event.orderNumber} — ${distanceLabel} كم`
+          : `طلب ${event.orderNumber} — ${distanceLabel} كم`,
       type: NotificationType.ORDER_UPDATE,
       data: {
         dispatchId: event.dispatchId,
         orderId: event.orderId,
+        orderType: event.type,
         type: 'DISPATCH',
       },
     });

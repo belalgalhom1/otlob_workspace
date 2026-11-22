@@ -574,7 +574,13 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                             ],
                           ],
                         ),
-                        subtitle: Text(status),
+                        subtitle: Text(
+                          OrderTypeHelper.customerStatusLabel(
+                            itemType,
+                            status,
+                            isArabic: isItemAr,
+                          ),
+                        ),
                         trailing: isSelected
                             ? const Icon(LucideIcons.check, color: AppColors.primary)
                             : null,
@@ -787,24 +793,32 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
               : customerPhone)
           : (branch['phone'] ?? (vendorData is Map ? vendorData['phone'] : '') ?? '').toString();
       final address = (branch['address'] ?? order['pickupAddress'] ?? '').toString();
-      final subtotal = double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0;
-      final isContracted = (branch['isContracted'] ?? (vendorData is Map ? vendorData['isContracted'] : false)) ?? false;
-      final double cashToPay = order['financials'] is Map && order['financials']['cashToPayStore'] != null
-          ? (double.tryParse(order['financials']['cashToPayStore'].toString()) ?? 0.0)
-          : (order['cashToPay'] != null
-              ? (double.tryParse(order['cashToPay'].toString()) ?? 0.0)
-              : subtotal);
+      final subtotal = isCustomOrRide
+          ? 0.0
+          : (double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0);
+      final isContracted = isCustomOrRide
+          ? false
+          : ((branch['isContracted'] ?? (vendorData is Map ? vendorData['isContracted'] : false)) ?? false);
+      final double cashToPay = isCustomOrRide
+          ? 0.0
+          : (order['financials'] is Map && order['financials']['cashToPayStore'] != null
+              ? (double.tryParse(order['financials']['cashToPayStore'].toString()) ?? 0.0)
+              : (order['cashToPay'] != null
+                  ? (double.tryParse(order['cashToPay'].toString()) ?? 0.0)
+                  : subtotal));
 
       pickupStops.add({
         'fulfillmentId': '',
-        'vendorId': order['vendorId']?.toString() ?? '',
+        'vendorId': isCustomOrRide ? '' : (order['vendorId']?.toString() ?? ''),
         'storeName': storeName,
-        'branchName': branchName,
+        'branchName': isCustomOrRide ? '' : branchName,
         'vendorLogo': orderType.isRide
             ? customerAvatar
-            : (vendorData is Map ? (vendorData['logo'] ?? vendorData['logoUrl']) : null)
-                ?.toString(),
-        'name': branchName.isNotEmpty ? '$storeName ($branchName)' : storeName,
+            : (isCustomOrRide
+                ? null
+                : (vendorData is Map ? (vendorData['logo'] ?? vendorData['logoUrl']) : null)
+                    ?.toString()),
+        'name': !isCustomOrRide && branchName.isNotEmpty ? '$storeName ($branchName)' : storeName,
         'phone': phone,
         'address': address,
         'lat': vendorLat,
@@ -812,7 +826,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         'subtotal': subtotal,
         'isContracted': isContracted,
         'cashToPay': cashToPay,
-        'items': allItems,
+        'items': isCustomOrRide ? const <dynamic>[] : allItems,
         'status': order['status'] ?? 'PENDING',
       });
     }
@@ -835,7 +849,7 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final status = order['status'] ?? '';
     final isCashOnDelivery = order['paymentMethod'] == 'CASH_ON_DELIVERY';
     final isMobileWallet = order['paymentMethod'] == 'MOBILE_WALLET';
-    final isDelivering = status == 'PICKED_UP' || status == 'PENDING_PAYMENT';
+    final isDelivering = status == 'PICKED_UP';
 
     // Clamp current stop index and auto-advance past stops already marked PICKED_UP
     if (pickupStops.isNotEmpty) {
@@ -1286,14 +1300,20 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                           : (status == 'PICKED_UP')
                                               ? (orderType.isRide
                                                   ? (isAr ? 'التوجه إلى الوجهة' : 'Navigate to Dropoff')
-                                                  : l10n.navigatingToCustomer)
-                                              : (pickupStops.length > 1
-                                                  ? (isAr ? 'المحطة ${_currentStopIndex + 1} من ${pickupStops.length} (استلام)' : 'Stop ${_currentStopIndex + 1} of ${pickupStops.length} (Pickup)')
-                                                  : (orderType.isRide
-                                                      ? (isAr ? 'التوجه إلى نقطة الاستلام' : 'Navigate to Pickup')
-                                                      : (orderType.isCustomDelivery
-                                                          ? (isAr ? 'التوجه إلى موقع الاستلام' : 'Navigating to Pickup')
-                                                          : l10n.navigatingToVendor))),
+                                                  : (orderType.isCustomDelivery
+                                                      ? (isAr ? 'التوجه إلى موقع التسليم' : 'Navigating to Dropoff')
+                                                      : l10n.navigatingToCustomer))
+                                              : (status == 'READY_FOR_PICKUP' && isCustomOrRide)
+                                                  ? (orderType.isRide
+                                                      ? (isAr ? 'تم الوصول لنقطة الركوب' : 'Arrived at Pickup')
+                                                      : (isAr ? 'تم الوصول لموقع الاستلام' : 'Arrived at Pickup'))
+                                                  : (pickupStops.length > 1
+                                                      ? (isAr ? 'المحطة ${_currentStopIndex + 1} من ${pickupStops.length} (استلام)' : 'Stop ${_currentStopIndex + 1} of ${pickupStops.length} (Pickup)')
+                                                      : (orderType.isRide
+                                                          ? (isAr ? 'التوجه إلى نقطة الركوب' : 'Navigate to Pickup')
+                                                          : (orderType.isCustomDelivery
+                                                              ? (isAr ? 'التوجه إلى موقع الاستلام' : 'Navigating to Pickup')
+                                                              : l10n.navigatingToVendor))),
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -1328,7 +1348,9 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                 (status == 'PICKED_UP' || status == 'PENDING_PAYMENT')
                                     ? (customerName?.isNotEmpty == true ? customerName! : l10n.customerFallback)
                                     : (orderType.isRide
-                                        ? (isAr ? 'العميل' : 'Customer')
+                                        ? (customerName?.isNotEmpty == true
+                                            ? customerName!
+                                            : (isAr ? 'الراكب' : 'Passenger'))
                                         : (currentStop != null
                                             ? currentStop['name']
                                             : (isCustomOrRide
@@ -1347,18 +1369,11 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                               ? (order['deliveryAddress']['address'] ?? '').toString()
                                               : ''))
                                       : ((currentStop?['address'] ?? order['pickupAddress'] ?? '').toString());
-                                  final infoLine = !isDelivering &&
-                                          customerName != null &&
-                                          customerName.isNotEmpty
-                                      ? (addrText.isNotEmpty
-                                          ? '$customerName • $addrText'
-                                          : customerName)
-                                      : addrText;
-                                  if (infoLine.isEmpty) return const SizedBox.shrink();
+                                  if (addrText.isEmpty) return const SizedBox.shrink();
                                   return Padding(
                                     padding: const EdgeInsets.only(top: 2),
                                     child: Text(
-                                      infoLine,
+                                      addrText,
                                       style: TextStyle(
                                         fontSize: 11.5,
                                         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
@@ -1553,7 +1568,17 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                         const SizedBox(width: 8),
                         // Chat
                         IconButton(
-                          onPressed: () => context.push('/chat/${order['id']}'),
+                          onPressed: () => context.push(
+                            '/chat/${order['id']}',
+                            extra: {
+                              'type': 'order',
+                              'title': OrderTypeHelper.chatTitle(
+                                orderType,
+                                orderNumber: order['orderNumber']?.toString(),
+                                isArabic: isAr,
+                              ),
+                            },
+                          ),
                           icon: const Icon(LucideIcons.messageCircle, color: AppColors.primary),
                           tooltip: l10n.messageButton,
                         ),
@@ -2176,16 +2201,42 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
         );
       }
 
-      final requiresPhotos = OrderTypeHelper.requiresOrderPhotos(order);
+      final orderType = OrderTypeHelper.resolve(order);
+      final requiresPhotos = orderType.requiresOrderPhotos;
       final isAr = l10n.localeName == 'ar';
+
+      // For Ride and Custom Delivery, give the driver an explicit "I've Arrived"
+      // step (DRIVER_ASSIGNED -> READY_FOR_PICKUP) so the customer immediately
+      // receives the live "Your driver has arrived!" banner and push notification
+      // before starting the ride or confirming package pickup.
+      if (isCustomOrRide && status == 'DRIVER_ASSIGNED') {
+        return PrimaryButton(
+          text: orderType.isRide
+              ? (isAr ? 'وصلت إلى نقطة الركوب' : "I've Arrived at Pickup")
+              : (isAr ? 'وصلت إلى موقع الاستلام' : "I've Arrived at Pickup"),
+          onPressed: () => handleAction(() async {
+            await ref
+                .read(orderExecutionProvider.notifier)
+                .markArrivedAtPickup();
+          }),
+        );
+      }
+
+      final pickupCtaLabel = hasMultiple
+          ? (isAr
+              ? 'تأكيد استلام المحطة الأخيرة مع الصورة'
+              : 'Confirm Final Stop Pickup (Photo)')
+          : orderType.isRide
+              ? (isAr ? 'بدء الرحلة' : 'Start Ride')
+              : (orderType.isCustomDelivery
+                  ? (isAr ? 'تأكيد استلام الشحنة' : 'Confirm Package Pickup')
+                  : l10n.confirmPickup);
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           PrimaryButton(
-            text: hasMultiple
-                ? (isAr ? 'تأكيد استلام المحطة الأخيرة مع الصورة' : 'Confirm Final Stop Pickup (Photo)')
-                : l10n.confirmPickup,
+            text: pickupCtaLabel,
             onPressed: () => handleAction(() async {
               if (!requiresPhotos) {
                 await ref

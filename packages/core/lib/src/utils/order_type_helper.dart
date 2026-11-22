@@ -203,10 +203,10 @@ class OrderTypeHelper {
         return isArabic ? 'بانتظار الدفع' : 'Awaiting Payment';
       case 'READY_FOR_PICKUP':
         if (type.isRide) {
-          return isArabic ? 'الكابتن متجه إلى نقطة الركوب' : 'Heading to Pickup';
+          return isArabic ? 'وصل الكابتن' : 'Driver Arrived';
         }
         if (type.isCustomDelivery) {
-          return isArabic ? 'السائق في طريقه للاستلام' : 'Heading to Pickup';
+          return isArabic ? 'وصل السائق' : 'Driver Arrived';
         }
         return isArabic ? 'جاهز للاستلام' : 'Ready for Pickup';
       case 'PARTIALLY_PICKED_UP':
@@ -288,6 +288,113 @@ class OrderTypeHelper {
         return isArabic ? 'تتبع التوصيل' : 'Track Delivery';
       case AppOrderType.standard:
         return isArabic ? 'تتبع الطلب' : 'Track Order';
+    }
+  }
+
+  static String chatTitle(
+    AppOrderType type, {
+    String? orderNumber,
+    required bool isArabic,
+  }) {
+    final trimmed = orderNumber?.trim() ?? '';
+    if (trimmed.isEmpty) {
+      switch (type) {
+        case AppOrderType.ride:
+          return isArabic ? 'محادثة الرحلة' : 'Ride Chat';
+        case AppOrderType.customDelivery:
+          return isArabic ? 'محادثة التوصيل' : 'Delivery Chat';
+        case AppOrderType.standard:
+          return isArabic ? 'محادثة الطلب' : 'Order Chat';
+      }
+    }
+    switch (type) {
+      case AppOrderType.ride:
+        return isArabic ? 'رحلة #$trimmed' : 'Ride #$trimmed';
+      case AppOrderType.customDelivery:
+        return isArabic ? 'توصيل #$trimmed' : 'Delivery #$trimmed';
+      case AppOrderType.standard:
+        return isArabic ? 'طلب #$trimmed' : 'Order #$trimmed';
+    }
+  }
+
+  static String paymentMethodLabel(
+    AppOrderType type,
+    String? rawMethod, {
+    required bool isArabic,
+  }) {
+    switch ((rawMethod ?? '').trim().toUpperCase()) {
+      case 'CASH_ON_DELIVERY':
+      case 'CASH':
+        if (type.isRide) {
+          return isArabic ? 'نقدي' : 'Cash';
+        }
+        return isArabic ? 'الدفع عند الاستلام' : 'Cash on Delivery';
+      case 'MOBILE_WALLET':
+      case 'MOBILE_WALLET_VODAFONE':
+      case 'VODAFONE':
+        return isArabic ? 'محفظة إلكترونية' : 'Mobile Wallet';
+      case 'MOBILE_WALLET_INSTAPAY':
+      case 'INSTAPAY':
+        return isArabic ? 'إنستاباي' : 'InstaPay';
+      case 'CARD':
+        return isArabic ? 'بطاقة بنكية' : 'Card';
+      default:
+        return isArabic ? 'نقدي' : 'Cash';
+    }
+  }
+
+  static String pickupLabel(
+    AppOrderType type, {
+    required bool isArabic,
+  }) {
+    switch (type) {
+      case AppOrderType.ride:
+        return isArabic ? 'نقطة الركوب' : 'Pickup Location';
+      case AppOrderType.customDelivery:
+      case AppOrderType.standard:
+        return isArabic ? 'نقطة الاستلام' : 'Pickup Address';
+    }
+  }
+
+  static String dropoffLabel(
+    AppOrderType type, {
+    required bool isArabic,
+  }) {
+    switch (type) {
+      case AppOrderType.ride:
+        return isArabic ? 'الوجهة' : 'Destination';
+      case AppOrderType.customDelivery:
+        return isArabic ? 'نقطة التسليم' : 'Dropoff Address';
+      case AppOrderType.standard:
+        return isArabic ? 'عنوان التوصيل' : 'Delivery Address';
+    }
+  }
+
+  static String rateActionLabel(
+    AppOrderType type, {
+    required bool isArabic,
+  }) {
+    switch (type) {
+      case AppOrderType.ride:
+        return isArabic ? 'تقييم الرحلة' : 'Rate Ride';
+      case AppOrderType.customDelivery:
+        return isArabic ? 'تقييم التوصيل' : 'Rate Delivery';
+      case AppOrderType.standard:
+        return isArabic ? 'تقييم الطلب' : 'Rate Order';
+    }
+  }
+
+  static String cancelTitle(
+    AppOrderType type, {
+    required bool isArabic,
+  }) {
+    switch (type) {
+      case AppOrderType.ride:
+        return isArabic ? 'إلغاء الرحلة' : 'Cancel Ride';
+      case AppOrderType.customDelivery:
+        return isArabic ? 'إلغاء التوصيل' : 'Cancel Delivery';
+      case AppOrderType.standard:
+        return isArabic ? 'إلغاء الطلب' : 'Cancel Order';
     }
   }
 

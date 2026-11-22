@@ -206,19 +206,31 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
               : null)
           ?.toString();
     } else if (type == 'ORDER') {
-      typeLabel = isAr ? 'محادثة طلب' : 'Order Conversation';
+      final orderMap = convo['order'] is Map ? convo['order'] as Map : null;
+      final orderType = OrderTypeHelper.resolve(orderMap);
+      typeLabel = orderType.isRide
+          ? (isAr ? 'محادثة رحلة' : 'Ride Conversation')
+          : (orderType.isCustomDelivery
+              ? (isAr ? 'محادثة توصيل خاص' : 'Custom Delivery Conversation')
+              : (isAr ? 'محادثة طلب' : 'Order Conversation'));
       final orderIdStr = convo['orderId']?.toString() ?? '';
       final orderNumStr =
-          (convo['order']?['orderNumber'] ?? convo['orderNumber'])?.toString() ??
+          (orderMap?['orderNumber'] ?? convo['orderNumber'])?.toString() ??
           (orderIdStr.length > 8 ? orderIdStr.substring(0, 8) : orderIdStr);
-      title = isAr ? 'طلب #$orderNumStr' : 'Order #$orderNumStr';
-      icon = Icons.receipt_long_rounded;
-      iconColor = Colors.orange;
-      rawAvatar = (convo['order']?['customer']?['user']?['avatar'] ??
-              convo['order']?['vendor']?['logo'])
+      title = OrderTypeHelper.chatTitle(
+        orderType,
+        orderNumber: orderNumStr,
+        isArabic: isAr,
+      );
+      icon = orderType.isNonStandard
+          ? VehicleTypeHelper.icon(orderMap?['requestedVehicleType']?.toString())
+          : Icons.receipt_long_rounded;
+      iconColor = orderType.isRide ? AppColors.primary : Colors.orange;
+      rawAvatar = (orderMap?['customer']?['user']?['avatar'] ??
+              (orderType.isStandard ? orderMap?['vendor']?['logo'] : null))
           ?.toString();
-      if (rawAvatar == null || rawAvatar.isEmpty) {
-        final vLogo = convo['order']?['vendor']?['logo']?.toString();
+      if (orderType.isStandard && (rawAvatar == null || rawAvatar.isEmpty)) {
+        final vLogo = orderMap?['vendor']?['logo']?.toString();
         if (vLogo != null && vLogo.isNotEmpty) {
           rawAvatar = vLogo;
           isStore = true;

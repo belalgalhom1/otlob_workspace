@@ -63,6 +63,7 @@ class _FakeDriverOrdersRepository extends Fake
 
 class _RecordingOrderExecution extends OrderExecution {
   Map<String, dynamic> currentOrder;
+  int markArrivedAtPickupCalls = 0;
   int confirmPickupWithoutPhotoCalls = 0;
   int confirmDeliveryWithoutPhotoCalls = 0;
 
@@ -73,6 +74,13 @@ class _RecordingOrderExecution extends OrderExecution {
 
   @override
   Future<void> refresh() async {}
+
+  @override
+  Future<void> markArrivedAtPickup() async {
+    markArrivedAtPickupCalls++;
+    currentOrder = {...currentOrder, 'status': 'READY_FOR_PICKUP'};
+    state = AsyncValue.data(currentOrder);
+  }
 
   @override
   Future<void> confirmPickupWithoutPhoto() async {
@@ -238,7 +246,7 @@ void main() {
   }
 
   testWidgets(
-    'Normal RIDE shows Navigate to Pickup + Customer, hides store cash notice and photo requirements, and transitions without photos',
+    'Normal RIDE shows Navigate to Pickup + passenger name, hides store cash notice and photo requirements, and transitions Arrived -> Start Ride -> Complete without photos',
     (tester) async {
       final repo = _FakeDriverOrdersRepository();
       final notifier = _RecordingOrderExecution(_rideOrder());
@@ -251,8 +259,7 @@ void main() {
 
       expect(find.text('Active Ride'), findsOneWidget);
       expect(find.text('Navigate to Pickup'), findsOneWidget);
-      expect(find.text('Customer'), findsOneWidget);
-      expect(find.textContaining('Mona Ali'), findsWidgets);
+      expect(find.text('Mona Ali'), findsOneWidget);
 
       // Must NOT show vendor/store labels or cash-at-store banner
       expect(find.textContaining('Do not pay cash at this store'), findsNothing);
@@ -265,7 +272,16 @@ void main() {
         findsNothing,
       );
 
-      // Tap CONFIRM PICKUP -> calls non-photo transition cleanly
+      // Step 1: Tap "I've Arrived at Pickup" -> READY_FOR_PICKUP
+      expect(find.text("I've Arrived at Pickup"), findsOneWidget);
+      await tester.tap(find.byType(PrimaryButton));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(notifier.markArrivedAtPickupCalls, 1);
+      expect(find.text('Arrived at Pickup'), findsOneWidget);
+      expect(find.text('Start Ride'), findsOneWidget);
+
+      // Step 2: Tap "Start Ride" -> calls non-photo transition cleanly
       await tester.tap(find.byType(PrimaryButton));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
@@ -285,7 +301,7 @@ void main() {
   );
 
   testWidgets(
-    'CUSTOM_DELIVERY preserves photo requirement while hiding store-only cash notice',
+    'CUSTOM_DELIVERY transitions Arrived -> Confirm Package Pickup and preserves photo requirement while hiding store-only cash notice',
     (tester) async {
       final repo = _FakeDriverOrdersRepository();
       final notifier = _RecordingOrderExecution(_customOrder());
@@ -298,6 +314,15 @@ void main() {
 
       expect(find.text('Active Custom Delivery'), findsOneWidget);
       expect(find.textContaining('Do not pay cash at this store'), findsNothing);
+      expect(find.text("I've Arrived at Pickup"), findsOneWidget);
+
+      // Driver arrives at pickup -> transitions to READY_FOR_PICKUP with photo requirement
+      await tester.tap(find.byType(PrimaryButton));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(notifier.markArrivedAtPickupCalls, 1);
+      expect(find.text('Arrived at Pickup'), findsOneWidget);
+      expect(find.text('Confirm Package Pickup'), findsOneWidget);
       expect(find.text('Take order photo'), findsOneWidget);
       expect(
         find.textContaining('photo of the order is required'),

@@ -3,6 +3,7 @@ import {
   DeliveryGroupStatus,
   NotificationType,
   OrderStatus,
+  OrderType,
 } from '@prisma/client';
 import { SocketService } from '../../infrastructure/socket/socket.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -142,26 +143,27 @@ export class OrderEventsHandler {
       `Order ${event.orderNumber}: ${event.oldStatus} -> ${event.newStatus}`,
     );
 
+    let customerUserId: string | null = event.customerUserId ?? null;
+    let vendorUserIds = event.vendorUserIds || [];
+    let driverUserId: string | null = event.driverUserId ?? null;
+    let orderType: OrderType = OrderType.STANDARD;
+
+    const resolved = await this.resolveOrderMeta(event.orderId);
+    orderType = resolved.orderType;
+    if (!customerUserId) customerUserId = resolved.customerUserId;
+    if (vendorUserIds.length === 0) vendorUserIds = resolved.vendorUserIds;
+    if (!driverUserId) driverUserId = resolved.driverUserId;
+
     const socketPayload = {
       orderId: event.orderId,
       orderNumber: event.orderNumber,
+      orderType,
       oldStatus: event.oldStatus,
       newStatus: event.newStatus,
       status: event.newStatus,
       note: event.note,
       revision: event.revision,
     };
-
-    let customerUserId: string | null = event.customerUserId ?? null;
-    let vendorUserIds = event.vendorUserIds || [];
-    let driverUserId: string | null = event.driverUserId ?? null;
-
-    if (!customerUserId || vendorUserIds.length === 0) {
-      const resolved = await this.resolveOrderUserIds(event.orderId);
-      if (!customerUserId) customerUserId = resolved.customerUserId;
-      if (vendorUserIds.length === 0) vendorUserIds = resolved.vendorUserIds;
-      if (!driverUserId) driverUserId = resolved.driverUserId;
-    }
 
     const notifyUserIds = new Set<string>();
     if (customerUserId) notifyUserIds.add(customerUserId);
@@ -203,18 +205,34 @@ export class OrderEventsHandler {
       ),
     );
 
-    const customerMsg = this.buildCustomerStatusMessage(event.newStatus);
+    const customerMsg = this.buildCustomerStatusMessage(
+      event.newStatus,
+      orderType,
+    );
     if (customerMsg && customerUserId) {
+      const refEn =
+        orderType === OrderType.RIDE
+          ? `Ride ${event.orderNumber}`
+          : orderType === OrderType.CUSTOM_DELIVERY
+            ? `Delivery ${event.orderNumber}`
+            : `Order ${event.orderNumber}`;
+      const refAr =
+        orderType === OrderType.RIDE
+          ? `رحلة ${event.orderNumber}`
+          : orderType === OrderType.CUSTOM_DELIVERY
+            ? `توصيل ${event.orderNumber}`
+            : `طلب ${event.orderNumber}`;
       await this.notificationsService.create({
         userId: customerUserId,
         title: customerMsg.en,
         titleAr: customerMsg.ar,
-        body: `Order ${event.orderNumber}`,
-        bodyAr: `طلب ${event.orderNumber}`,
+        body: refEn,
+        bodyAr: refAr,
         type: NotificationType.ORDER_UPDATE,
         data: {
           orderId: event.orderId,
           orderNumber: event.orderNumber,
+          orderType,
           status: event.newStatus,
         },
       });
@@ -246,13 +264,11 @@ export class OrderEventsHandler {
     let customerUserId: string | null = event.customerUserId ?? null;
     let vendorUserIds = event.vendorUserIds || [];
     let driverUserId: string | null = event.driverUserId ?? null;
-
-    if (!customerUserId || vendorUserIds.length === 0) {
-      const resolved = await this.resolveOrderUserIds(event.orderId);
-      if (!customerUserId) customerUserId = resolved.customerUserId;
-      if (vendorUserIds.length === 0) vendorUserIds = resolved.vendorUserIds;
-      if (!driverUserId) driverUserId = resolved.driverUserId;
-    }
+    const resolved = await this.resolveOrderMeta(event.orderId);
+    const orderType = resolved.orderType;
+    if (!customerUserId) customerUserId = resolved.customerUserId;
+    if (vendorUserIds.length === 0) vendorUserIds = resolved.vendorUserIds;
+    if (!driverUserId) driverUserId = resolved.driverUserId;
 
     const notifyUserIds = new Set<string>();
     if (customerUserId) notifyUserIds.add(customerUserId);
@@ -275,6 +291,7 @@ export class OrderEventsHandler {
         this.socketService.emitToUser(uid, WS.ORDER_STATUS, {
           orderId: event.orderId,
           orderNumber: event.orderNumber,
+          orderType,
           oldStatus: null,
           newStatus: 'CANCELLED',
           status: 'CANCELLED',
@@ -300,16 +317,29 @@ export class OrderEventsHandler {
       const bodyAr = cleanReason
         ? `تم الإلغاء بواسطة ${actorAr}: ${cleanReason}`
         : `تم الإلغاء بواسطة ${actorAr}`;
+      const cancelTitleEn =
+        orderType === OrderType.RIDE
+          ? 'Ride Cancelled'
+          : orderType === OrderType.CUSTOM_DELIVERY
+            ? 'Delivery Cancelled'
+            : 'Order Cancelled';
+      const cancelTitleAr =
+        orderType === OrderType.RIDE
+          ? 'تم إلغاء الرحلة'
+          : orderType === OrderType.CUSTOM_DELIVERY
+            ? 'تم إلغاء التوصيل'
+            : 'تم إلغاء الطلب';
       await this.notificationsService.create({
         userId: customerUserId,
-        title: 'Order Cancelled',
-        titleAr: 'تم إلغاء الطلب',
+        title: cancelTitleEn,
+        titleAr: cancelTitleAr,
         body: bodyEn,
         bodyAr: bodyAr,
         type: NotificationType.ORDER_UPDATE,
         data: {
           orderId: event.orderId,
           orderNumber: event.orderNumber,
+          orderType,
           cancelledByUserId: event.cancelledByUserId ?? null,
           cancelledByName: actorEn,
           cancelledByNameAr: actorAr,
@@ -544,7 +574,64 @@ export class OrderEventsHandler {
 
   private buildCustomerStatusMessage(
     status: OrderStatus,
+    orderType: OrderType = OrderType.STANDARD,
   ): { en: string; ar: string } | null {
+    if (orderType === OrderType.RIDE) {
+      const rideMessages: Partial<
+        Record<OrderStatus, { en: string; ar: string }>
+      > = {
+        [OrderStatus.DRIVER_ASSIGNED]: {
+          en: 'Your driver is on the way',
+          ar: 'كابتن الرحلة في طريقه إليك',
+        },
+        [OrderStatus.PENDING_PAYMENT]: {
+          en: 'Driver accepted! Complete payment to confirm your ride',
+          ar: 'قبل الكابتن رحلتك! أكمل الدفع للتأكيد',
+        },
+        [OrderStatus.READY_FOR_PICKUP]: {
+          en: 'Your driver has arrived!',
+          ar: 'وصل الكابتن!',
+        },
+        [OrderStatus.PICKED_UP]: {
+          en: 'Your ride has started!',
+          ar: 'بدأت رحلتك!',
+        },
+        [OrderStatus.DELIVERED]: {
+          en: 'Your ride is complete!',
+          ar: 'اكتملت رحلتك!',
+        },
+      };
+      return rideMessages[status] ?? null;
+    }
+
+    if (orderType === OrderType.CUSTOM_DELIVERY) {
+      const deliveryMessages: Partial<
+        Record<OrderStatus, { en: string; ar: string }>
+      > = {
+        [OrderStatus.DRIVER_ASSIGNED]: {
+          en: 'Your driver is on the way to pickup',
+          ar: 'السائق في طريقه إلى نقطة الاستلام',
+        },
+        [OrderStatus.PENDING_PAYMENT]: {
+          en: 'Driver accepted! Complete payment to confirm your delivery',
+          ar: 'قبل السائق طلبك! أكمل الدفع للتأكيد',
+        },
+        [OrderStatus.READY_FOR_PICKUP]: {
+          en: 'Your driver has arrived!',
+          ar: 'وصل السائق إلى نقطة الاستلام!',
+        },
+        [OrderStatus.PICKED_UP]: {
+          en: 'Your delivery is on its way!',
+          ar: 'توصيلك في الطريق!',
+        },
+        [OrderStatus.DELIVERED]: {
+          en: 'Your delivery is complete!',
+          ar: 'تم التوصيل بنجاح!',
+        },
+      };
+      return deliveryMessages[status] ?? null;
+    }
+
     const messages: Partial<Record<OrderStatus, { en: string; ar: string }>> = {
       [OrderStatus.ACCEPTED]: {
         en: 'Your order was accepted!',
@@ -578,7 +665,8 @@ export class OrderEventsHandler {
     return messages[status] ?? null;
   }
 
-  private async resolveOrderUserIds(orderId: string): Promise<{
+  private async resolveOrderMeta(orderId: string): Promise<{
+    orderType: OrderType;
     customerUserId: string | null;
     vendorUserIds: string[];
     driverUserId: string | null;
@@ -587,6 +675,7 @@ export class OrderEventsHandler {
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
         select: {
+          type: true,
           customerId: true,
           customer: { select: { userId: true } },
           vendorFulfillments: {
@@ -603,7 +692,12 @@ export class OrderEventsHandler {
         },
       });
       if (!order) {
-        return { customerUserId: null, vendorUserIds: [], driverUserId: null };
+        return {
+          orderType: OrderType.STANDARD,
+          customerUserId: null,
+          vendorUserIds: [],
+          driverUserId: null,
+        };
       }
 
       const customerUserId = order.customer?.userId || order.customerId;
@@ -633,14 +727,24 @@ export class OrderEventsHandler {
         vendorUserIds = Array.from(new Set(members.map((m) => m.userId)));
       }
 
-      return { customerUserId, vendorUserIds, driverUserId };
+      return {
+        orderType: order.type ?? OrderType.STANDARD,
+        customerUserId,
+        vendorUserIds,
+        driverUserId,
+      };
     } catch (err) {
       this.logger.error(
         `Failed to resolve order user IDs for ${orderId}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
-      return { customerUserId: null, vendorUserIds: [], driverUserId: null };
+      return {
+        orderType: OrderType.STANDARD,
+        customerUserId: null,
+        vendorUserIds: [],
+        driverUserId: null,
+      };
     }
   }
 }

@@ -288,6 +288,8 @@ export class DeliveryGroupTransitionService {
       actor.sub,
       { orderId: order.id },
     );
+    const isNonStandard =
+      order.type === OrderType.RIDE || order.type === OrderType.CUSTOM_DELIVERY;
     await recordOrderStatusEventIdempotent(this.prisma, {
       orderId: order.id,
       deliveryGroupId: group.id,
@@ -297,11 +299,27 @@ export class DeliveryGroupTransitionService {
           ? OrderStatus.DELIVERED
           : dto.status === OrderStatus.PICKED_UP
             ? OrderStatus.PICKED_UP
-            : order.status,
+            : isNonStandard && dto.status === OrderStatus.READY_FOR_PICKUP
+              ? OrderStatus.READY_FOR_PICKUP
+              : order.status,
       note:
         order.type === OrderType.RIDE
-          ? `Ride ${group.sequence}: ${group.status} → ${dto.status}`
-          : `Delivery ${group.sequence}: ${group.status} → ${dto.status}`,
+          ? dto.status === OrderStatus.READY_FOR_PICKUP
+            ? 'Driver arrived at pickup location'
+            : dto.status === OrderStatus.PICKED_UP
+              ? 'Ride started'
+              : dto.status === OrderStatus.DELIVERED
+                ? 'Ride completed'
+                : `Ride ${group.sequence}: ${group.status} → ${dto.status}`
+          : order.type === OrderType.CUSTOM_DELIVERY
+            ? dto.status === OrderStatus.READY_FOR_PICKUP
+              ? 'Driver arrived at pickup point'
+              : dto.status === OrderStatus.PICKED_UP
+                ? 'Package picked up'
+                : dto.status === OrderStatus.DELIVERED
+                  ? 'Delivery completed'
+                  : `Delivery ${group.sequence}: ${group.status} → ${dto.status}`
+            : `Delivery ${group.sequence}: ${group.status} → ${dto.status}`,
       createdBy: actor.sub,
       actor: driverActorSnapshot,
     });
@@ -381,6 +399,7 @@ export class DeliveryGroupTransitionService {
     const fresh = await this.prisma.order.findUnique({
       where: { id: order.id },
       select: {
+        type: true,
         status: true,
         revision: true,
         customerId: true,
@@ -392,6 +411,11 @@ export class DeliveryGroupTransitionService {
       },
     });
     if (!fresh) return;
+
+    const effectiveType = fresh.type ?? order.type;
+    const isNonStandard =
+      effectiveType === OrderType.RIDE ||
+      effectiveType === OrderType.CUSTOM_DELIVERY;
 
     const allDelivered = active.every(
       (g) => g.status === DeliveryGroupStatus.DELIVERED,
@@ -407,6 +431,9 @@ export class DeliveryGroupTransitionService {
         g.status === DeliveryGroupStatus.PARTIALLY_PICKED_UP ||
         g.status === DeliveryGroupStatus.DELIVERED,
     );
+    const allReadyAtPickup =
+      isNonStandard &&
+      active.every((g) => g.status === DeliveryGroupStatus.READY_FOR_PICKUP);
 
     let target: OrderStatus | null = null;
     if (allDelivered) {
@@ -420,6 +447,11 @@ export class DeliveryGroupTransitionService {
       fresh.status !== OrderStatus.DELIVERED
     ) {
       target = OrderStatus.PARTIALLY_PICKED_UP;
+    } else if (
+      allReadyAtPickup &&
+      fresh.status !== OrderStatus.READY_FOR_PICKUP
+    ) {
+      target = OrderStatus.READY_FOR_PICKUP;
     }
     if (!target || fresh.status === target) return;
 
@@ -433,6 +465,12 @@ export class DeliveryGroupTransitionService {
     }
 
     const allowedFrom: Record<string, OrderStatus[]> = {
+      [OrderStatus.READY_FOR_PICKUP]: [
+        OrderStatus.DRIVER_ASSIGNED,
+        OrderStatus.PENDING_PAYMENT,
+        OrderStatus.ACCEPTED,
+        OrderStatus.LOOKING_FOR_DRIVER,
+      ],
       [OrderStatus.PARTIALLY_PICKED_UP]: [
         OrderStatus.DRIVER_ASSIGNED,
         OrderStatus.PENDING_PAYMENT,
@@ -468,17 +506,36 @@ export class DeliveryGroupTransitionService {
       extraData.actualDeliveryTime = new Date();
     }
 
+    const transitionNote =
+      effectiveType === OrderType.RIDE
+        ? target === OrderStatus.DELIVERED
+          ? 'Ride completed'
+          : target === OrderStatus.PICKED_UP
+            ? 'Ride started'
+            : target === OrderStatus.READY_FOR_PICKUP
+              ? 'Driver arrived at pickup location'
+              : 'Ride status updated'
+        : effectiveType === OrderType.CUSTOM_DELIVERY
+          ? target === OrderStatus.DELIVERED
+            ? 'Custom delivery completed'
+            : target === OrderStatus.PICKED_UP
+              ? 'Package picked up'
+              : target === OrderStatus.READY_FOR_PICKUP
+                ? 'Driver arrived at pickup point'
+                : 'Delivery status updated'
+          : target === OrderStatus.DELIVERED
+            ? 'All deliveries completed'
+            : target === OrderStatus.PICKED_UP
+              ? 'All deliveries picked up'
+              : 'Driver is collecting portions from stores';
+
     let updatedRevision = fresh.revision;
     try {
       const updated = await this.ordersRepository.updateStatus(
         order.id,
         target,
         actor.sub,
-        target === OrderStatus.DELIVERED
-          ? 'All deliveries completed'
-          : target === OrderStatus.PICKED_UP
-            ? 'All deliveries picked up'
-            : 'Driver is collecting portions from stores',
+        transitionNote,
         extraData,
         fresh.status,
       );
@@ -529,11 +586,7 @@ export class DeliveryGroupTransitionService {
         collectorDriverId,
         null,
         actor.sub,
-        target === OrderStatus.DELIVERED
-          ? 'All deliveries completed'
-          : target === OrderStatus.PICKED_UP
-            ? 'All deliveries picked up'
-            : 'Driver is collecting portions from stores',
+        transitionNote,
         updatedRevision,
       ),
     );

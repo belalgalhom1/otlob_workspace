@@ -159,35 +159,21 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
 
   String _formatStatusLabel(BuildContext context, String? status) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    switch (status?.toUpperCase()) {
-      case 'LOOKING_FOR_DRIVER':
-        return isAr ? 'جاري البحث عن كابتن' : 'Finding Driver';
-      case 'ACCEPTED':
-      case 'DRIVER_ASSIGNED':
-        return isAr ? 'تم تعيين الكابتن' : 'Driver Assigned';
-      case 'PENDING_PAYMENT':
-        return isAr ? 'في انتظار الدفع' : 'Pending Payment';
-      case 'PREPARING':
-        return isAr ? 'قيد التحضير' : 'Preparing';
-      case 'READY_FOR_PICKUP':
-        return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
-      case 'PARTIALLY_PICKED_UP':
-        return isAr ? 'تم استلام جزء' : 'Partially Picked Up';
-      case 'PICKED_UP':
-      case 'OUT_FOR_DELIVERY':
-        return isAr ? 'قيد التوصيل' : 'Out for Delivery';
-      case 'DELIVERED':
-        return isAr ? 'تم التوصيل' : 'Delivered';
-      case 'CANCELLED':
-        return isAr ? 'ملغي' : 'Cancelled';
-      default:
-        return status ?? (isAr ? 'نشط' : 'Active');
+    final orderType = OrderTypeHelper.resolve(_orderData);
+    if (status == null || status.trim().isEmpty) {
+      return isAr ? 'نشط' : 'Active';
     }
+    return OrderTypeHelper.customerStatusLabel(
+      orderType,
+      status,
+      isArabic: isAr,
+    );
   }
 
   Color _getStatusColor(String? status) {
     switch (status?.toUpperCase()) {
       case 'OUT_FOR_DELIVERY':
+      case 'PICKED_UP':
       case 'DELIVERED':
         return AppColors.success;
       case 'PREPARING':
@@ -201,6 +187,25 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
   }
 
   List<QuickReplyChipItem> _getDriverQuickReplies(bool isAr) {
+    final isRide = OrderTypeHelper.isRide(_orderData);
+    if (isRide) {
+      if (isAr) {
+        return const [
+          QuickReplyChipItem(text: 'وصلت لنقطة الركوب 📍', icon: LucideIcons.mapPin),
+          QuickReplyChipItem(text: 'أنا في طريقي إليك 🚗', icon: LucideIcons.car),
+          QuickReplyChipItem(text: 'أنا بانتظارك في الخارج 👋', icon: LucideIcons.userCheck),
+          QuickReplyChipItem(text: 'يرجى الرد على الهاتف 📞', icon: LucideIcons.phone),
+          QuickReplyChipItem(text: 'تأخير مروري ٥ دقائق ⏱️', icon: LucideIcons.clock),
+        ];
+      }
+      return const [
+        QuickReplyChipItem(text: 'I have arrived at pickup 📍', icon: LucideIcons.mapPin),
+        QuickReplyChipItem(text: 'On my way to you 🚗', icon: LucideIcons.car),
+        QuickReplyChipItem(text: 'Waiting for you outside 👋', icon: LucideIcons.userCheck),
+        QuickReplyChipItem(text: 'Please check your phone 📞', icon: LucideIcons.phone),
+        QuickReplyChipItem(text: 'Traffic delay 5 mins ⏱️', icon: LucideIcons.clock),
+      ];
+    }
     if (isAr) {
       return const [
         QuickReplyChipItem(text: 'وصلت للموقع 📍', icon: LucideIcons.mapPin),
@@ -610,7 +615,17 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
           ),
           onPressed: () => context.pop(),
         ),
-        title: Text(widget.title?.isNotEmpty == true ? widget.title! : l10n.orderChat),
+        title: Text(
+          widget.title?.isNotEmpty == true
+              ? widget.title!
+              : (_orderData != null
+                    ? OrderTypeHelper.chatTitle(
+                        OrderTypeHelper.resolve(_orderData),
+                        orderNumber: (_orderData!['orderNumber'] ?? '').toString(),
+                        isArabic: l10n.localeName == 'ar',
+                      )
+                    : l10n.orderChat),
+        ),
         backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
@@ -624,19 +639,44 @@ class _OrderChatScreenState extends ConsumerState<OrderChatScreen> {
       body: Column(
         children: [
           if (_orderData != null)
-            OrderContextBar(
-              orderNumber: (_orderData!['orderNumber'] ?? (widget.orderId.length > 8 ? widget.orderId.substring(0, 8) : widget.orderId)).toString(),
-              statusLabel: _formatStatusLabel(context, _orderData!['status']?.toString()),
-              statusColor: _getStatusColor(_orderData!['status']?.toString()),
-              totalAmount: _orderData!['totalAmount'] != null ? '${_orderData!['totalAmount']} EGP' : null,
-              onTap: () {
-                if (context.canPop()) {
-                  context.pop();
-                } else {
-                  context.go('/order-execution');
-                }
+            Builder(
+              builder: (context) {
+                final chatOrderType = OrderTypeHelper.resolve(_orderData);
+                final rawTotal =
+                    _orderData!['grandTotal'] ??
+                    _orderData!['totalAmount'] ??
+                    _orderData!['totalFee'] ??
+                    _orderData!['total'];
+                return OrderContextBar(
+                  orderNumber:
+                      (_orderData!['orderNumber'] ??
+                              (widget.orderId.length > 8
+                                  ? widget.orderId.substring(0, 8)
+                                  : widget.orderId))
+                          .toString(),
+                  statusLabel: _formatStatusLabel(
+                    context,
+                    _orderData!['status']?.toString(),
+                  ),
+                  statusColor: _getStatusColor(
+                    _orderData!['status']?.toString(),
+                  ),
+                  icon: chatOrderType.isNonStandard
+                      ? VehicleTypeHelper.icon(
+                          _orderData!['requestedVehicleType']?.toString(),
+                        )
+                      : LucideIcons.packageCheck,
+                  totalAmount: rawTotal != null ? '$rawTotal EGP' : null,
+                  onTap: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/order-execution');
+                    }
+                  },
+                  onCall: _hasCustomerPhone() ? _callCustomer : null,
+                );
               },
-              onCall: _hasCustomerPhone() ? _callCustomer : null,
             ),
           Expanded(
             child: chatState.when(

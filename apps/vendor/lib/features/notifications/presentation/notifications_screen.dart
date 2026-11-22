@@ -1,3 +1,4 @@
+import 'package:core/core.dart' show OrderTypeHelper, VehicleTypeHelper;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -148,8 +149,22 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           Color iconColor = AppColors.primary;
 
                           if (type == 'ORDER_UPDATE') {
-                            iconData = LucideIcons.shoppingBag;
-                            iconColor = Colors.orange;
+                            final notifData = n['data'] is Map ? n['data'] as Map : null;
+                            final notifOrderType = OrderTypeHelper.resolve(
+                              notifData != null
+                                  ? {'type': notifData['orderType']}
+                                  : null,
+                            );
+                            if (notifOrderType.isRide) {
+                              iconData = VehicleTypeHelper.icon('CAR');
+                              iconColor = AppColors.primary;
+                            } else if (notifOrderType.isCustomDelivery) {
+                              iconData = VehicleTypeHelper.icon('MOTORCYCLE');
+                              iconColor = AppColors.primary;
+                            } else {
+                              iconData = LucideIcons.shoppingBag;
+                              iconColor = Colors.orange;
+                            }
                           } else if (type == 'CHAT_MESSAGE') {
                             iconData = LucideIcons.messageSquare;
                             iconColor = Colors.blue;

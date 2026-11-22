@@ -1409,5 +1409,253 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets(
+      'Ride full live journey on same screen: live ETA -> driver arrived -> ride started -> ride completed (EN LTR)',
+      (tester) async {
+        Map<String, dynamic> makeRideOrder(String status) =>
+            _makeAssignedOrderMap(
+              status: status,
+              rating: 4.8,
+              ratingCount: 25,
+              vehiclePlate: 'أ ب ج 1234',
+            )
+              ..['type'] = 'RIDE'
+              ..['requestedVehicleType'] = 'CAR'
+              ..['itemDetails'] = 'Should never render on Ride'
+              ..['paymentMethod'] = 'CASH_ON_DELIVERY';
+
+        final stub = await pumpSearchScreen(
+          tester,
+          locale: const Locale('en'),
+          initialState: CustomDeliverySearchState(
+            orderId: 'ord-ride-1',
+            order: makeRideOrder('DRIVER_ASSIGNED'),
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.DRIVER_FOUND,
+              orderStatus: OrderStatus.DRIVER_ASSIGNED,
+              driverEtaMinutes: 6,
+              driverDistanceKm: 1.8,
+            ),
+            isInitialLoading: false,
+          ),
+          liveDriver: const DriverLiveMarkerState(
+            position: LatLng(30.049, 31.239),
+            heading: 90,
+            isMoving: true,
+            distanceToPickupKm: 1.8,
+            etaMinutes: 6,
+          ),
+        );
+
+        // Stage 1: Assigned & heading to pickup with live ETA
+        expect(find.text('Driver Found!'), findsOneWidget);
+        expect(find.text('Arriving in 6 min'), findsOneWidget);
+        expect(find.text('Est. 6 min'), findsOneWidget);
+        // Ride separation checks: no "Package Details", "Cash" instead of "Cash on Delivery"
+        expect(find.text('Should never render on Ride'), findsNothing);
+        expect(find.text('Cash'), findsOneWidget);
+        expect(find.text('Cash on Delivery'), findsNothing);
+
+        // Live ETA updates via ValueNotifier without rebuilding whole screen
+        stub.driverLocationNotifier.value = const DriverLiveMarkerState(
+          position: LatLng(30.045, 31.236),
+          heading: 90,
+          isMoving: true,
+          distanceToPickupKm: 0.7,
+          etaMinutes: 3,
+        );
+        await tester.pump(const Duration(milliseconds: 80));
+        expect(find.text('Arriving in 3 min'), findsOneWidget);
+        expect(find.text('Est. 3 min'), findsOneWidget);
+
+        // Stage 2: Driver arrives at pickup (READY_FOR_PICKUP)
+        stub.setStateForTest(
+          CustomDeliverySearchState(
+            orderId: 'ord-ride-1',
+            order: makeRideOrder('READY_FOR_PICKUP'),
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.DRIVER_FOUND,
+              orderStatus: OrderStatus.READY_FOR_PICKUP,
+              driverEtaMinutes: 0,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 450));
+        expect(find.text('Your driver has arrived!'), findsOneWidget);
+        expect(
+          find.text('Head to your pickup point to start your ride.'),
+          findsOneWidget,
+        );
+        expect(find.text('Driver accepted your request.'), findsNothing);
+
+        // Stage 3: Driver starts ride (PICKED_UP)
+        stub.driverLocationNotifier.value = const DriverLiveMarkerState(
+          position: LatLng(30.052, 31.242),
+          heading: 45,
+          isMoving: true,
+          distanceToPickupKm: 4.2,
+          etaMinutes: 11,
+        );
+        stub.setStateForTest(
+          CustomDeliverySearchState(
+            orderId: 'ord-ride-1',
+            order: makeRideOrder('PICKED_UP'),
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.DRIVER_FOUND,
+              orderStatus: OrderStatus.PICKED_UP,
+              driverEtaMinutes: 11,
+              driverDistanceKm: 4.2,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 450));
+        expect(find.text('Your ride has started!'), findsOneWidget);
+        expect(find.text('11 min to destination'), findsWidgets);
+        expect(find.text('4.2 km to destination'), findsOneWidget);
+        expect(find.text('Driver accepted your request.'), findsNothing);
+        expect(find.text('Your driver has arrived!'), findsNothing);
+
+        // Stage 4: Ride completed (DELIVERED)
+        stub.setStateForTest(
+          CustomDeliverySearchState(
+            orderId: 'ord-ride-1',
+            order: makeRideOrder('DELIVERED'),
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.DRIVER_FOUND,
+              orderStatus: OrderStatus.DELIVERED,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 450));
+        expect(find.text('Your ride is complete!'), findsOneWidget);
+        expect(find.text('Rate Ride'), findsOneWidget);
+        expect(find.text('Back to Home'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'Custom Delivery full live journey in EN LTR: arrived -> on its way -> completed',
+      (tester) async {
+        Map<String, dynamic> makeCustomOrder(String status) =>
+            _makeAssignedOrderMap(
+              status: status,
+              rating: 4.9,
+              ratingCount: 15,
+              vehiclePlate: 'ق ن 5511',
+            )..['type'] = 'CUSTOM_DELIVERY';
+
+        final stubEn = await pumpSearchScreen(
+          tester,
+          locale: const Locale('en'),
+          initialState: CustomDeliverySearchState(
+            orderId: 'ord-del-en',
+            order: makeCustomOrder('READY_FOR_PICKUP'),
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.DRIVER_FOUND,
+              orderStatus: OrderStatus.READY_FOR_PICKUP,
+              driverEtaMinutes: 0,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+        expect(find.text('Your driver has arrived!'), findsOneWidget);
+        expect(
+          find.text(
+            'Meet your driver at the pickup point to hand over your package.',
+          ),
+          findsOneWidget,
+        );
+
+        stubEn.setStateForTest(
+          CustomDeliverySearchState(
+            orderId: 'ord-del-en',
+            order: makeCustomOrder('PICKED_UP'),
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.DRIVER_FOUND,
+              orderStatus: OrderStatus.PICKED_UP,
+              driverEtaMinutes: 9,
+              driverDistanceKm: 3.1,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 450));
+        expect(find.text('Your delivery is on its way!'), findsOneWidget);
+        expect(find.text('Driver accepted your request.'), findsNothing);
+
+        stubEn.setStateForTest(
+          CustomDeliverySearchState(
+            orderId: 'ord-del-en',
+            order: makeCustomOrder('DELIVERED'),
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.DRIVER_FOUND,
+              orderStatus: OrderStatus.DELIVERED,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 450));
+        expect(find.text('Your delivery is complete!'), findsOneWidget);
+        expect(find.text('Rate Delivery'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'Custom Delivery full live journey in AR RTL at 1.4x scale: arrived -> on its way -> completed',
+      (tester) async {
+        Map<String, dynamic> makeCustomOrder(String status) =>
+            _makeAssignedOrderMap(
+              status: status,
+              rating: 4.9,
+              ratingCount: 15,
+              vehiclePlate: 'ق ن 5511',
+            )..['type'] = 'CUSTOM_DELIVERY';
+
+        final stubAr = await pumpSearchScreen(
+          tester,
+          locale: const Locale('ar'),
+          textScale: 1.4,
+          initialState: CustomDeliverySearchState(
+            orderId: 'ord-del-ar',
+            order: makeCustomOrder('READY_FOR_PICKUP'),
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.DRIVER_FOUND,
+              orderStatus: OrderStatus.READY_FOR_PICKUP,
+              driverEtaMinutes: 0,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+        expect(find.text('وصل السائق!'), findsOneWidget);
+
+        stubAr.setStateForTest(
+          CustomDeliverySearchState(
+            orderId: 'ord-del-ar',
+            order: makeCustomOrder('PICKED_UP'),
+            searchStatus: _makeSearchStatus(
+              phase: DriverSearchPhase.DRIVER_FOUND,
+              orderStatus: OrderStatus.PICKED_UP,
+              driverEtaMinutes: 8,
+            ),
+            isInitialLoading: false,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 450));
+        expect(find.text('توصيلك في الطريق!'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }

@@ -60,8 +60,9 @@ bool _hasPendingReviews(Map<String, dynamic> order) {
       .whereType<String>()
       .toSet();
 
+  final orderType = OrderTypeHelper.resolve(order);
   final fulfillments = order['vendorFulfillments'];
-  if (fulfillments is List && fulfillments.isNotEmpty) {
+  if (orderType.isStandard && fulfillments is List && fulfillments.isNotEmpty) {
     final anyUnratedFulfillment = fulfillments.whereType<Map>().any((f) {
       final fid = f['id']?.toString();
       final status = f['status']?.toString() ?? '';
@@ -776,10 +777,17 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     final cancelledByActor =
         isCancelled ? OrderActivityHelper.resolveCancelledBy(order) : null;
 
-    final isCustomSearchScreen = isNonStandard &&
+    final isActivelySearching = isNonStandard &&
         (status == 'PENDING' ||
             status == 'ACCEPTED' ||
-            status == 'LOOKING_FOR_DRIVER' ||
+            status == 'LOOKING_FOR_DRIVER');
+
+    final isCustomSearchScreen = isNonStandard &&
+        (isActivelySearching ||
+            status == 'DRIVER_ASSIGNED' ||
+            status == 'READY_FOR_PICKUP' ||
+            status == 'PICKED_UP' ||
+            status == 'PARTIALLY_PICKED_UP' ||
             (status == 'CANCELLED' &&
                 order['driver'] == null &&
                 order['driverId'] == null));
@@ -996,7 +1004,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${s.pickupLocation}: ${order['pickup'] ?? order['pickupAddress'] ?? ''}',
+                    '${OrderTypeHelper.pickupLabel(orderType, isArabic: s.isArabic)}: ${order['pickup'] ?? order['pickupAddress'] ?? ''}',
                     style: TextStyle(
                         fontSize: 13,
                         color: isDark ? Colors.white70 : Colors.black87),
@@ -1011,7 +1019,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${s.dropoffLocation}: ${order['dropoff'] ?? order['deliveryAddress'] ?? ''}',
+                    '${OrderTypeHelper.dropoffLabel(orderType, isArabic: s.isArabic)}: ${order['dropoff'] ?? order['deliveryAddress'] ?? ''}',
                     style: TextStyle(
                         fontSize: 13,
                         color: isDark ? Colors.white70 : Colors.black87),
@@ -1476,9 +1484,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 },
                 icon: const Icon(Icons.star_rate_rounded, size: 20),
                 label: Text(
-                  orderType.isRide
-                      ? (s.isArabic ? 'تقييم الرحلة' : 'Rate Ride')
-                      : (s.isArabic ? 'تقييم الطلب' : 'Rate Order'),
+                  OrderTypeHelper.rateActionLabel(
+                    orderType,
+                    isArabic: s.isArabic,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber,
@@ -1505,17 +1514,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   }
                 },
                 icon: Icon(
-                  isCustomSearchScreen
+                  isActivelySearching
                       ? Icons.radar_rounded
                       : Icons.location_searching_rounded,
                   size: 20,
                 ),
                 label: Text(
-                  isCustomSearchScreen
+                  isActivelySearching
                       ? (s.isArabic ? 'حالة البحث عن سائق' : 'Driver Search Status')
-                      : (orderType.isRide
-                          ? (s.isArabic ? 'تتبع الرحلة' : 'Track Ride')
-                          : (s.isArabic ? 'تتبع الطلب' : 'Track Order')),
+                      : OrderTypeHelper.trackingScreenTitle(
+                          orderType,
+                          isArabic: s.isArabic,
+                        ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -1598,17 +1608,26 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    orderType.isRide
-                        ? (s.isArabic ? 'إلغاء الرحلة' : 'Cancel Ride')
-                        : (s.isArabic ? 'إلغاء الطلب' : 'Cancel Order'),
+                    OrderTypeHelper.cancelTitle(
+                      orderType,
+                      isArabic: s.isArabic,
+                    ),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    s.isArabic
-                        ? 'يرجى اختيار سبب إلغاء طلبك لمساعدتنا على التحسن:'
-                        : 'Please select a reason for cancelling your order:',
+                    orderType.isRide
+                        ? (s.isArabic
+                            ? 'يرجى اختيار سبب إلغاء رحلتك لمساعدتنا على التحسن:'
+                            : 'Please select a reason for cancelling your ride:')
+                        : (orderType.isCustomDelivery
+                            ? (s.isArabic
+                                ? 'يرجى اختيار سبب إلغاء التوصيل لمساعدتنا على التحسن:'
+                                : 'Please select a reason for cancelling your delivery:')
+                            : (s.isArabic
+                                ? 'يرجى اختيار سبب إلغاء طلبك لمساعدتنا على التحسن:'
+                                : 'Please select a reason for cancelling your order:')),
                     style: TextStyle(fontSize: 13, color: isDark ? Colors.white60 : Colors.grey.shade600),
                     textAlign: TextAlign.center,
                   ),
@@ -1691,8 +1710,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(success
-                                            ? (s.isArabic ? 'تم إلغاء الطلب بنجاح!' : 'Order cancelled successfully!')
-                                            : (s.isArabic ? 'فشل إلغاء الطلب!' : 'Failed to cancel order!')),
+                                            ? (orderType.isRide
+                                                ? (s.isArabic ? 'تم إلغاء الرحلة بنجاح!' : 'Ride cancelled successfully!')
+                                                : (orderType.isCustomDelivery
+                                                    ? (s.isArabic ? 'تم إلغاء التوصيل بنجاح!' : 'Delivery cancelled successfully!')
+                                                    : (s.isArabic ? 'تم إلغاء الطلب بنجاح!' : 'Order cancelled successfully!')))
+                                            : (orderType.isRide
+                                                ? (s.isArabic ? 'فشل إلغاء الرحلة!' : 'Failed to cancel ride!')
+                                                : (orderType.isCustomDelivery
+                                                    ? (s.isArabic ? 'فشل إلغاء التوصيل!' : 'Failed to cancel delivery!')
+                                                    : (s.isArabic ? 'فشل إلغاء الطلب!' : 'Failed to cancel order!')))),
                                         backgroundColor: success ? Colors.green : Colors.red,
                                         behavior: SnackBarBehavior.floating,
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
