@@ -114,7 +114,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                     child: Text(
                       orderType.isRide
                           ? (isAr ? 'تفاصيل الرحلة' : 'Ride Details')
-                          : (isAr ? 'تفاصيل الطلب' : 'Order Details'),
+                          : (orderType.isCustomDelivery
+                              ? (isAr ? 'تفاصيل التوصيل' : 'Delivery Details')
+                              : (isAr ? 'تفاصيل الطلب' : 'Order Details')),
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -674,7 +676,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 }
 
                 if (items.isEmpty) {
-                  if (order['itemDetails'] != null && order['itemDetails'].toString().isNotEmpty) {
+                  if (!orderType.isRide &&
+                      order['itemDetails'] != null &&
+                      order['itemDetails'].toString().isNotEmpty) {
                     return _buildInfoRow(context, LucideIcons.package, order['itemDetails'].toString());
                   } else if (order['specialRequest'] != null && order['specialRequest'].toString().isNotEmpty) {
                     return _buildInfoRow(context, LucideIcons.fileText, order['specialRequest'].toString());
@@ -767,19 +771,28 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               Builder(builder: (context) {
                 final financials = order['financials'] is Map ? order['financials'] as Map : null;
 
+                final rawPayMethod =
+                    (order['paymentMethod']?.toString() ?? '').toUpperCase();
+                final isCashMethod =
+                    rawPayMethod == 'CASH_ON_DELIVERY' ||
+                    rawPayMethod == 'CASH';
                 final isPrepaid = financials?['isPrepaid'] == true ||
-                    (order['paymentMethod'] != 'CASH_ON_DELIVERY' && order['paymentMethod'] != 'MOBILE_WALLET');
+                    (!isCashMethod && rawPayMethod.isNotEmpty);
                 final double cashToCollect = financials?['cashToCollect'] != null
                     ? (double.tryParse(financials!['cashToCollect'].toString()) ?? 0.0)
                     : (isPrepaid
                         ? 0.0
-                        : ((double.tryParse((order['total'] ?? order['grandTotal']).toString()) ?? 0.0) - (double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0)));
+                        : ((double.tryParse((order['grandTotal'] ?? order['totalFee'] ?? order['total']).toString()) ?? 0.0) -
+                            (double.tryParse(order['upfrontAmount']?.toString() ?? '0') ?? 0.0)));
 
-                final bool isStorePrepaid = financials?['isStorePrepaid'] ??
-                    (order['vendorBranch']?['isContracted'] ?? order['vendor']?['isContracted'] ?? false);
-                final double cashToPayStore = financials?['cashToPayStore'] != null
-                    ? (double.tryParse(financials!['cashToPayStore'].toString()) ?? 0.0)
-                    : (isStorePrepaid ? 0.0 : (double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0));
+                final bool isStorePrepaid = orderType.hasStoreFulfillment &&
+                    (financials?['isStorePrepaid'] ??
+                        (order['vendorBranch']?['isContracted'] ?? order['vendor']?['isContracted'] ?? false));
+                final double cashToPayStore = !orderType.hasStoreFulfillment
+                    ? 0.0
+                    : (financials?['cashToPayStore'] != null
+                        ? (double.tryParse(financials!['cashToPayStore'].toString()) ?? 0.0)
+                        : (isStorePrepaid ? 0.0 : (double.tryParse(order['subtotal']?.toString() ?? '0') ?? 0.0)));
 
                 final double deliveryFee = financials?['deliveryFee'] != null
                     ? (double.tryParse(financials!['deliveryFee'].toString()) ?? 0.0)
@@ -789,7 +802,7 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                     ? (double.tryParse(financials!['driverEarnings'].toString()) ?? 0.0)
                     : (order['driverEarnings'] != null
                         ? (double.tryParse(order['driverEarnings'].toString()) ?? 0.0)
-                        : (deliveryFee * 0.70));
+                        : 0.0);
 
                 final isAr = l10n.localeName == 'ar';
 
@@ -825,8 +838,12 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                               children: [
                                 Text(
                                   (isPrepaid || cashToCollect <= 0)
-                                      ? (isAr ? 'الطلب مدفوع إلكترونياً' : 'Order Paid Online')
-                                      : (isAr ? 'المطلوب تحصيله كاش من العميل' : 'Cash to Collect from Customer'),
+                                      ? (orderType.isRide
+                                            ? (isAr ? 'الرحلة مدفوعة إلكترونياً' : 'Ride Paid Online')
+                                            : (isAr ? 'الطلب مدفوع إلكترونياً' : 'Order Paid Online'))
+                                      : (orderType.isRide
+                                            ? (isAr ? 'الأجرة المطلوب تحصيلها من الراكب' : 'Fare to Collect from Passenger')
+                                            : (isAr ? 'المطلوب تحصيله كاش من العميل' : 'Cash to Collect from Customer')),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
@@ -1125,9 +1142,10 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                     _buildInfoRow(
                       context,
                       LucideIcons.wallet,
-                      _paymentMethodLabel(
+                      OrderTypeHelper.paymentMethodLabel(
+                        orderType,
                         order['paymentMethod']?.toString() ?? '',
-                        isAr,
+                        isArabic: isAr,
                       ),
                     ),
                   ],
@@ -1135,7 +1153,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
               }),
               
               // Multi-Store Pickups Section (for Multi-Vendor orders)
-              if (order['vendorFulfillments'] is List && (order['vendorFulfillments'] as List).isNotEmpty) ...[
+              if (orderType.hasStoreFulfillment &&
+                  order['vendorFulfillments'] is List &&
+                  (order['vendorFulfillments'] as List).isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -1405,22 +1425,6 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  String _paymentMethodLabel(String rawMethod, bool isArabic) {
-    switch (rawMethod.toUpperCase().trim()) {
-      case 'CASH_ON_DELIVERY':
-      case 'CASH':
-        return isArabic ? 'الدفع عند الاستلام' : 'Cash on Delivery';
-      case 'MOBILE_WALLET':
-      case 'MOBILE_WALLET_VODAFONE':
-        return isArabic ? 'المحفظة الإلكترونية' : 'Mobile Wallet';
-      case 'MOBILE_WALLET_INSTAPAY':
-      case 'INSTAPAY':
-        return isArabic ? 'إنستا باي' : 'InstaPay';
-      default:
-        return isArabic ? 'طريقة الدفع: $rawMethod' : 'Payment: $rawMethod';
-    }
   }
 
   Widget _buildVendorAvatar(

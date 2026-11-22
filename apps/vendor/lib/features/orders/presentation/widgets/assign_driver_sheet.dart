@@ -170,9 +170,17 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      isAr
-                          ? 'تعيين سائق للطلب #${widget.orderCode}'
-                          : 'Assign Driver to Order #${widget.orderCode}',
+                      _normalizedOrderType == 'RIDE'
+                          ? (isAr
+                              ? 'تعيين كابتن للرحلة #${widget.orderCode}'
+                              : 'Assign Driver to Ride #${widget.orderCode}')
+                          : (_normalizedOrderType == 'CUSTOM_DELIVERY'
+                              ? (isAr
+                                  ? 'تعيين سائق للتوصيل #${widget.orderCode}'
+                                  : 'Assign Driver to Delivery #${widget.orderCode}')
+                              : (isAr
+                                  ? 'تعيين سائق للطلب #${widget.orderCode}'
+                                  : 'Assign Driver to Order #${widget.orderCode}')),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -184,7 +192,7 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                   ),
                 ],
               ),
-              if (groups.length > 1) ...[
+              if (_isStandardOrder && groups.length > 1) ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedGroupId,
@@ -248,13 +256,14 @@ class _AssignDriverSheetState extends ConsumerState<AssignDriverSheet> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  DropdownMenuItem(
-                    value: DeliveryIncidentResponsibility.VENDOR,
-                    child: Text(
-                      isAr ? 'بسبب المتجر' : 'Vendor',
-                      overflow: TextOverflow.ellipsis,
+                  if (_isStandardOrder)
+                    DropdownMenuItem(
+                      value: DeliveryIncidentResponsibility.VENDOR,
+                      child: Text(
+                        isAr ? 'بسبب المتجر' : 'Vendor',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
                   DropdownMenuItem(
                     value: DeliveryIncidentResponsibility.EXTERNAL_OR_SYSTEM,
                     child: Text(

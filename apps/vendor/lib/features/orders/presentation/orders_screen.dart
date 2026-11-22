@@ -241,11 +241,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         final haystackList = <dynamic>[
           order['orderNumber'],
           order['id'],
+          order['type'],
+          order['requestedVehicleType'],
           order['status'],
           order['paymentMethod'],
           order['total'],
           order['grandTotal'],
+          order['pickupAddress'],
           order['deliveryAddress'],
+          order['itemDetails'],
           customer is Map ? customer['name'] : null,
           customer is Map ? customer['phone'] : null,
           customerUser is Map ? customerUser['name'] : null,
@@ -1131,11 +1135,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         : (isArabic
             ? (branch['nameAr']?.toString() ?? branch['name']?.toString())
             : (branch['name']?.toString() ?? branch['nameAr']?.toString()));
-    final bool isMultiVendor = order['isMultiVendor'] == true ||
-        fulfillments.length > 1 ||
-        (order['vendor'] == null && fulfillments.isNotEmpty) ||
-        (order['deliveryGroups'] is List && (order['deliveryGroups'] as List).length > 1) ||
-        order['myFulfillmentStatus'] != null;
+    final orderType = OrderTypeHelper.resolve(order);
+    final bool isMultiVendor = orderType.isStandard &&
+        (order['isMultiVendor'] == true ||
+            fulfillments.length > 1 ||
+            (order['vendor'] == null && fulfillments.isNotEmpty) ||
+            (order['deliveryGroups'] is List && (order['deliveryGroups'] as List).length > 1) ||
+            order['myFulfillmentStatus'] != null);
     String? multiVendorStoresText;
     if (isMultiVendor) {
       final countsByVendor = <String, int>{};
@@ -1178,8 +1184,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final isCancelled = status.contains('CANCEL') || status.contains('REJECT');
     final areFeesFinalized = !isCancelled;
     final orderNumber = order['orderNumber']?.toString() ?? 'N/A';
-    
-    final orderType = OrderTypeHelper.resolve(order);
+
     final grandTotal = double.tryParse(
       order['grandTotal']?.toString() ??
           order['totalFee']?.toString() ??
@@ -1660,14 +1665,20 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                       fallbackIcon: LucideIcons.user,
                                       fallbackIconSize: 15,
                                     ),
-                                    title: isArabic ? 'العميل' : 'Customer',
+                                    title: orderType.isRide
+                                        ? (isArabic ? 'الراكب' : 'Passenger')
+                                        : (isArabic ? 'العميل' : 'Customer'),
                                     value: customerName,
                                     iconColor: statusColor,
                                   ),
                                   const SizedBox(height: 12),
                                   _buildPremiumDetailRow(
                                     icon: LucideIcons.hash,
-                                    title: isArabic ? 'معرف الطلب' : 'Order ID',
+                                    title: orderType.isRide
+                                        ? (isArabic ? 'معرف الرحلة' : 'Ride ID')
+                                        : (orderType.isCustomDelivery
+                                            ? (isArabic ? 'معرف التوصيل' : 'Delivery ID')
+                                            : (isArabic ? 'معرف الطلب' : 'Order ID')),
                                     value: orderId,
                                     iconColor: statusColor,
                                     trailing: Material(
@@ -1754,29 +1765,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                     title: isArabic
                                         ? 'طريقة الدفع'
                                         : 'Payment Method',
-                                    value:
-                                        (paymentMethod == 'CASH_ON_DELIVERY' ||
-                                            paymentMethod == 'CASH')
-                                        ? (isArabic
-                                              ? 'نقدي عند الاستلام'
-                                              : 'Cash on Delivery')
-                                        : (paymentMethod == 'MOBILE_WALLET')
-                                        ? (isArabic
-                                              ? 'محفظة إلكترونية'
-                                              : 'Mobile Wallet')
-                                        : (paymentMethod ==
-                                                  'MOBILE_WALLET_VODAFONE' ||
-                                              paymentMethod == 'VODAFONE')
-                                        ? (isArabic
-                                              ? 'فودافون كاش'
-                                              : 'Mobile Wallet')
-                                        : (paymentMethod ==
-                                                  'MOBILE_WALLET_INSTAPAY' ||
-                                              paymentMethod == 'INSTAPAY')
-                                        ? (isArabic ? 'إنستاباي' : 'InstaPay')
-                                        : (isArabic
-                                              ? 'غير محدد'
-                                              : 'Not Specified'),
+                                    value: OrderTypeHelper.paymentMethodLabel(
+                                      orderType,
+                                      paymentMethod,
+                                      isArabic: isArabic,
+                                    ),
                                     iconColor: statusColor,
                                   ),
                                   if (hasAssignedDriver) ...[
@@ -1979,9 +1972,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                             ? (isArabic
                                                   ? 'محادثة الرحلة (الراكب والكابتن)'
                                                   : 'Ride Chat (Passenger & Driver)')
-                                            : (isArabic
-                                                  ? 'محادثة الطلب (العميل والسائق)'
-                                                  : 'Order Chat (Customer & Driver)'),
+                                            : (orderType.isCustomDelivery
+                                                  ? (isArabic
+                                                        ? 'محادثة التوصيل (العميل والسائق)'
+                                                        : 'Delivery Chat (Customer & Driver)')
+                                                  : (isArabic
+                                                        ? 'محادثة الطلب (العميل والسائق)'
+                                                        : 'Order Chat (Customer & Driver)')),
                                         style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
                                       ),
                                       style: OutlinedButton.styleFrom(
@@ -2053,14 +2050,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                 if ((order['pickupAddress']?.toString().trim() ?? '').isNotEmpty) ...[
                                   const SizedBox(height: 8),
                                   Text(
-                                    '${isArabic ? 'نقطة الاستلام' : 'Pickup'}: ${order['pickupAddress']}',
+                                    '${OrderTypeHelper.pickupLabel(orderType, isArabic: isArabic)}: ${order['pickupAddress']}',
                                     style: const TextStyle(fontSize: 12.5),
                                   ),
                                 ],
                                 if (address.trim().isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${orderType.isRide ? (isArabic ? 'الوجهة' : 'Destination') : (isArabic ? 'عنوان التوصيل' : 'Dropoff')}: $address',
+                                    '${OrderTypeHelper.dropoffLabel(orderType, isArabic: isArabic)}: $address',
                                     style: const TextStyle(fontSize: 12.5),
                                   ),
                                 ],

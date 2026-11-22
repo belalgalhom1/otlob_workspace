@@ -137,12 +137,13 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
         : (double.tryParse(rawEarnings?.toString() ?? '0') ?? 0.0);
     final earnings = '${earningsNum.toStringAsFixed(0)} $currency';
 
+    final orderType = OrderTypeHelper.resolve(widget.dispatchData);
     final rawDeliveryFee = widget.dispatchData['deliveryFee'];
     final double deliveryFeeNum = rawDeliveryFee is num
         ? rawDeliveryFee.toDouble()
         : (double.tryParse(rawDeliveryFee?.toString() ?? '0') ?? 0.0);
     final String? feeSubLabel = (deliveryFeeNum > 0 && (deliveryFeeNum - earningsNum).abs() > 0.01)
-        ? '${isAr ? 'رسوم التوصيل' : 'Delivery fee'}: ${deliveryFeeNum.toStringAsFixed(0)} $currency'
+        ? '${orderType.isRide ? (isAr ? 'أجرة الرحلة' : 'Ride fare') : (isAr ? 'رسوم التوصيل' : 'Delivery fee')}: ${deliveryFeeNum.toStringAsFixed(0)} $currency'
         : null;
 
     final rawDist = widget.dispatchData['distanceKm'] ?? widget.dispatchData['estimatedDistanceKm'];
@@ -151,7 +152,6 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
         : (double.tryParse(rawDist?.toString() ?? '0') ?? 0.0);
     final distance = '${distVal.toStringAsFixed(1)} ${isAr ? 'كم' : 'km'}';
 
-    final orderType = OrderTypeHelper.resolve(widget.dispatchData);
     final pickupFallback = orderType.isRide
         ? l10n.customerFallback
         : (orderType.isCustomDelivery ? l10n.pickupLabel : l10n.vendorFallback);
@@ -273,9 +273,7 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
                           ? LucideIcons.package
                           : LucideIcons.store),
                   pickupName,
-                  orderType.isRide
-                      ? '${l10n.pickupLabel} (${l10n.customerFallback})'
-                      : l10n.pickupLabel,
+                  OrderTypeHelper.pickupLabel(orderType, isArabic: isAr),
                   context,
                   avatarUrl: orderType.isRide ? dropoffAvatar : pickupLogo,
                   isStore: orderType.isStandard,
@@ -288,9 +286,9 @@ class _DispatchModalState extends ConsumerState<DispatchModal> {
                 _buildLocationRow(
                   LucideIcons.mapPin,
                   dropoffName,
-                  l10n.dropoffLabel,
+                  OrderTypeHelper.dropoffLabel(orderType, isArabic: isAr),
                   context,
-                  avatarUrl: dropoffAvatar,
+                  avatarUrl: orderType.isRide ? null : dropoffAvatar,
                 ),
               ],
             ),

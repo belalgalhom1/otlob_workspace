@@ -24,6 +24,7 @@ import {
 } from '../location/driver-geo-search.service';
 import { DriverTrackingService } from '../location/driver-tracking.service';
 import { LocationRepository } from '../location/location.repository';
+import { RoutingService } from '../location/routing.service';
 import { DispatchRepository } from '../dispatch/dispatch.repository';
 import { DispatchSearchTracker } from '../dispatch/dispatch-search-tracker.service';
 import {
@@ -106,6 +107,7 @@ export class OrderSearchService {
     private readonly outbox: OutboxService,
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly searchTracker?: DispatchSearchTracker,
+    @Optional() private readonly routingService?: RoutingService,
   ) {}
 
   async getNearbyDriversPreview(
@@ -261,14 +263,24 @@ export class OrderSearchService {
     let driverDistanceKm: number | null = null;
     let driverEtaMinutes: number | null = null;
 
-    if (DRIVER_MATCHED_STATUSES.includes(order.status) || hasAssignedDriver) {
+    const effectiveOrderStatus: OrderStatus =
+      order.type !== OrderType.STANDARD &&
+      order.status === OrderStatus.DRIVER_ASSIGNED &&
+      activeGroup?.status === DeliveryGroupStatus.READY_FOR_PICKUP
+        ? OrderStatus.READY_FOR_PICKUP
+        : order.status;
+
+    if (
+      DRIVER_MATCHED_STATUSES.includes(effectiveOrderStatus) ||
+      hasAssignedDriver
+    ) {
       phase = DriverSearchPhase.DRIVER_FOUND;
       terminalReason = SearchTerminalReason.NONE;
       waveExpiresAt = null;
 
       if (
         assignedDriverId &&
-        ACTIVE_TRIP_TRACKING_STATUSES.includes(order.status)
+        ACTIVE_TRIP_TRACKING_STATUSES.includes(effectiveOrderStatus)
       ) {
         const liveLoc = await this.driverTracking.getDriverLocationWithState(
           assignedDriverId,
@@ -280,17 +292,70 @@ export class OrderSearchService {
             longitude: liveLoc.lng,
           };
           if (locationCtx) {
-            const km = await this.locationRepository.getDistanceKm(
-              liveLoc.lng,
-              liveLoc.lat,
-              locationCtx.lng,
-              locationCtx.lat,
-            );
-            driverDistanceKm = Number(km.toFixed(2));
+            const isPickedUpLeg =
+              effectiveOrderStatus === OrderStatus.PICKED_UP ||
+              effectiveOrderStatus === OrderStatus.PARTIALLY_PICKED_UP;
+            const targetLng =
+              isPickedUpLeg && locationCtx.deliveryLng != null
+                ? locationCtx.deliveryLng
+                : locationCtx.lng;
+            const targetLat =
+              isPickedUpLeg && locationCtx.deliveryLat != null
+                ? locationCtx.deliveryLat
+                : locationCtx.lat;
+
+            if (
+              order.type !== OrderType.STANDARD &&
+              effectiveOrderStatus === OrderStatus.READY_FOR_PICKUP
+            ) {
+              driverEtaMinutes = 0;
+              const km = await this.locationRepository.getDistanceKm(
+                liveLoc.lng,
+                liveLoc.lat,
+                targetLng,
+                targetLat,
+              );
+              driverDistanceKm = Number(km.toFixed(2));
+            } else {
+              let routeComputed = false;
+              if (this.routingService) {
+                try {
+                  const road = await this.routingService.computeRoute([
+                    { lng: liveLoc.lng, lat: liveLoc.lat },
+                    { lng: targetLng, lat: targetLat },
+                  ]);
+                  if (road.isRoadRoute && road.durationSeconds > 0) {
+                    driverDistanceKm = Number(
+                      (road.distanceMeters / 1000).toFixed(2),
+                    );
+                    driverEtaMinutes = Math.max(
+                      1,
+                      Math.ceil(road.durationSeconds / 60),
+                    );
+                    routeComputed = true;
+                  }
+                } catch (err) {
+                  this.logger.debug(
+                    `Road ETA fallback for order ${order.id}: ${
+                      err instanceof Error ? err.message : String(err)
+                    }`,
+                  );
+                }
+              }
+              if (!routeComputed) {
+                const km = await this.locationRepository.getDistanceKm(
+                  liveLoc.lng,
+                  liveLoc.lat,
+                  targetLng,
+                  targetLat,
+                );
+                driverDistanceKm = Number(km.toFixed(2));
+              }
+            }
           }
         }
       }
-    } else if (order.status === OrderStatus.CANCELLED) {
+    } else if (effectiveOrderStatus === OrderStatus.CANCELLED) {
       waveExpiresAt = null;
       contactedCount = 0;
       const resolvedTerminal = this.resolveCancelledSearchState(
@@ -344,7 +409,7 @@ export class OrderSearchService {
       orderId: order.id,
       orderNumber: order.orderNumber,
       orderType: order.type,
-      orderStatus: order.status,
+      orderStatus: effectiveOrderStatus,
       revision: order.revision,
       phase,
       attempt,

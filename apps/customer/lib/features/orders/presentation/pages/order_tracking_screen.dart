@@ -153,7 +153,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
       final t = _orderDetails!['requestedVehicleType'].toString().trim();
       if (t.isNotEmpty) return t;
     }
-    return 'MOTORCYCLE';
+    return _orderType.isRide ? 'CAR' : 'MOTORCYCLE';
   }
 
   String? get _driverVehiclePlate {
@@ -666,7 +666,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
         .toSet();
 
     final fulfillments = order['vendorFulfillments'];
-    if (fulfillments is List && fulfillments.isNotEmpty) {
+    if (OrderTypeHelper.resolve(order).isStandard &&
+        fulfillments is List &&
+        fulfillments.isNotEmpty) {
       final hasUnratedFulfillment = fulfillments.whereType<Map>().any((f) {
         final fid = f['id']?.toString();
         final fStatus = f['status']?.toString() ?? '';
@@ -1169,7 +1171,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     if (_orderDetails == null) return stops;
 
     final fulfillments = _orderDetails!['vendorFulfillments'];
-    if (fulfillments is List && fulfillments.isNotEmpty) {
+    if (_orderType.isStandard &&
+        fulfillments is List &&
+        fulfillments.isNotEmpty) {
       for (int i = 0; i < fulfillments.length; i++) {
         final f = fulfillments[i];
         if (f is! Map) continue;
@@ -1549,8 +1553,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
                                     ),
                                   ],
                                 ),
-                                child: const Icon(
-                                  Icons.home_rounded,
+                                child: Icon(
+                                  _orderType.isNonStandard
+                                      ? Icons.flag_rounded
+                                      : Icons.home_rounded,
                                   color: Colors.white,
                                   size: 16,
                                 ),
@@ -1655,9 +1661,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             (widget.orderId.length >= 8
                 ? widget.orderId.substring(0, 8)
                 : widget.orderId);
-        final title = _orderType.isRide
-            ? (s.isArabic ? 'رحلة #$orderNum' : 'Ride #$orderNum')
-            : (s.isArabic ? 'طلب #$orderNum' : 'Order #$orderNum');
+        final title = OrderTypeHelper.chatTitle(
+          _orderType,
+          orderNumber: orderNum.toString(),
+          isArabic: s.isArabic,
+        );
         ref.read(sharedInboxProvider.notifier).refresh();
         await context.push(
           '/chat/order/$convoId',
@@ -1681,7 +1689,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
   Widget? _buildAssistPromptWidget(BuildContext context, AppStrings s) {
     final order = _orderDetails;
-    if (order == null) return null;
+    if (order == null || !_orderType.isStandard) return null;
     final deliveryGroups = order['deliveryGroups'] is List
         ? order['deliveryGroups'] as List
         : const [];

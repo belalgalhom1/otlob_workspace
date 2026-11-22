@@ -1,6 +1,7 @@
 import 'dart:ui' show lerpDouble;
 
-import 'package:core/core.dart' show ApiErrorMapper, VehicleTypeHelper;
+import 'package:core/core.dart'
+    show ApiErrorMapper, OrderTypeHelper, VehicleTypeHelper;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -242,10 +243,21 @@ class _CustomDeliverySearchScreenState
     bool animated = true,
   }) {
     final pts = <LatLng>[];
-    if (state.pickupPoint != null) pts.add(state.pickupPoint!);
-    if (state.dropoffPoint != null) pts.add(state.dropoffPoint!);
-    if (state.isDriverMatched && driverLoc != null) {
-      pts.add(driverLoc.position);
+    if (state.isDriverArrived && state.pickupPoint != null) {
+      pts.add(state.pickupPoint!);
+      if (driverLoc != null) pts.add(driverLoc.position);
+    } else if (state.isTripInProgress) {
+      if (driverLoc != null) pts.add(driverLoc.position);
+      if (state.dropoffPoint != null) pts.add(state.dropoffPoint!);
+      if (pts.isEmpty && state.pickupPoint != null) {
+        pts.add(state.pickupPoint!);
+      }
+    } else {
+      if (state.pickupPoint != null) pts.add(state.pickupPoint!);
+      if (state.dropoffPoint != null) pts.add(state.dropoffPoint!);
+      if (state.isDriverMatched && driverLoc != null) {
+        pts.add(driverLoc.position);
+      }
     }
     if (pts.isNotEmpty) {
       _animateCameraToPoints(pts, animated: animated);
@@ -311,6 +323,20 @@ class _CustomDeliverySearchScreenState
       } else if (!next.isDriverMatched) {
         _hasFittedDriverMatchBounds = false;
         _hasFittedAssignedDriverLocation = false;
+      }
+
+      if (prev != null && prev.orderStatus != next.orderStatus) {
+        if (next.isDriverArrived || next.isTripInProgress || next.isTripCompleted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _recenterMap(
+                next,
+                controller.driverLocationNotifier.value,
+                animated: true,
+              );
+            }
+          });
+        }
       }
     });
 
@@ -473,6 +499,20 @@ class _CustomDeliverySearchScreenState
                         child: _LiveNearbyVehiclesFloatingPill(
                           vehiclesListenable: controller.nearbyVehiclesNotifier,
                           vehicleType: state.requestedVehicleType,
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                    if (state.isDriverMatched &&
+                        !state.isOffline &&
+                        !state.isSocketReconnecting) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: _LiveJourneyStatusFloatingPill(
+                          state: state,
+                          driverLocationListenable:
+                              controller.driverLocationNotifier,
                           isDark: isDark,
                         ),
                       ),
@@ -660,11 +700,14 @@ class _CustomDeliverySearchScreenState
               ),
             ),
           ),
-        // 2. Assigned Driver -> Pickup real approach road route (isolated ValueNotifier)
-        if (state.isDriverMatched)
+        // 2. Assigned Driver -> Active target (Pickup or Destination) live road route
+        if (state.isDriverMatched && !state.isDriverArrived && !state.isTripCompleted)
           _DriverApproachRouteLayer(
             routeListenable: controller.driverApproachRouteNotifier,
             isDark: isDark,
+            routeColor: state.isTripInProgress
+                ? AppColors.success
+                : const Color(0xFF2563EB),
           ),
         // 3. Repaint-isolated radar pulse centered on pickup while actively searching.
         if (pickup != null && state.isSearching)
@@ -701,7 +744,10 @@ class _CustomDeliverySearchScreenState
                   alignment: Alignment.center,
                   child: _MapEndpointMarker(
                     icon: Icons.trip_origin_rounded,
-                    label: 'app.mapPickupPinLabel'.tr(context: context),
+                    label: (state.isRide
+                            ? 'app.mapRidePickupPinLabel'
+                            : 'app.mapPickupPinLabel')
+                        .tr(context: context),
                     color: AppColors.primary,
                     foreground: Colors.black,
                     isDark: isDark,
@@ -715,7 +761,10 @@ class _CustomDeliverySearchScreenState
                   alignment: Alignment.center,
                   child: _MapEndpointMarker(
                     icon: Icons.flag_rounded,
-                    label: 'app.mapDropoffPinLabel'.tr(context: context),
+                    label: (state.isRide
+                            ? 'app.mapRideDropoffPinLabel'
+                            : 'app.mapDropoffPinLabel')
+                        .tr(context: context),
                     color: const Color(0xFFEF4444),
                     foreground: Colors.white,
                     isDark: isDark,
@@ -737,16 +786,18 @@ class _CustomDeliverySearchScreenState
   }
 }
 
-/// Repaint-isolated approach route from the assigned driver's real position
-/// to the pickup point.
+/// Repaint-isolated live route from the assigned driver's real position
+/// to the active waypoint (pickup before start, destination during trip).
 class _DriverApproachRouteLayer extends StatelessWidget {
   const _DriverApproachRouteLayer({
     required this.routeListenable,
     required this.isDark,
+    this.routeColor = const Color(0xFF2563EB),
   });
 
   final ValueListenable<List<LatLng>> routeListenable;
   final bool isDark;
+  final Color routeColor;
 
   @override
   Widget build(BuildContext context) {
@@ -758,7 +809,7 @@ class _DriverApproachRouteLayer extends StatelessWidget {
           return PolylineLayer(
             polylines: NavigationRoutePolylines.build(
               points: points,
-              foregroundColor: const Color(0xFF2563EB),
+              foregroundColor: routeColor,
               casingColor: isDark
                   ? const Color(0xFF0F172A).withValues(alpha: 0.85)
                   : Colors.white.withValues(alpha: 0.90),
@@ -1520,6 +1571,157 @@ class _MapEndpointMarker extends StatelessWidget {
             child: Icon(icon, color: foreground, size: 17),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Isolated live status / road-ETA pill shown above the map once a driver is
+/// matched, smoothly animating across approach, arrival, active trip, and completion.
+class _LiveJourneyStatusFloatingPill extends StatelessWidget {
+  const _LiveJourneyStatusFloatingPill({
+    required this.state,
+    required this.driverLocationListenable,
+    required this.isDark,
+  });
+
+  final CustomDeliverySearchState state;
+  final ValueListenable<DriverLiveMarkerState?> driverLocationListenable;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAr = context.locale.languageCode == 'ar';
+    final orderType = OrderTypeHelper.resolve(
+      state.order ?? {'type': state.isRide ? 'RIDE' : 'CUSTOM_DELIVERY'},
+    );
+
+    return RepaintBoundary(
+      child: ValueListenableBuilder<DriverLiveMarkerState?>(
+        valueListenable: driverLocationListenable,
+        builder: (context, liveLoc, _) {
+          final etaMinutes =
+              liveLoc?.etaMinutes ??
+              state.searchStatus?.driverEtaMinutes?.toInt();
+
+          String? label;
+          IconData icon = Icons.schedule_rounded;
+          Color accent = AppColors.primary;
+          bool filled = false;
+
+          if (state.isDriverArrived) {
+            label = OrderTypeHelper.customerStatusLabel(
+              orderType,
+              'READY_FOR_PICKUP',
+              isArabic: isAr,
+            );
+            icon = Icons.where_to_vote_rounded;
+            accent = AppColors.success;
+            filled = true;
+          } else if (state.isTripCompleted) {
+            label = OrderTypeHelper.customerStatusLabel(
+              orderType,
+              'DELIVERED',
+              isArabic: isAr,
+            );
+            icon = Icons.check_circle_rounded;
+            accent = AppColors.success;
+            filled = true;
+          } else if (state.isTripInProgress) {
+            icon = VehicleTypeHelper.icon(
+              (state.driver?['vehicleType'] ?? state.requestedVehicleType)
+                  .toString(),
+            );
+            accent = AppColors.success;
+            if (etaMinutes != null && etaMinutes > 0) {
+              label = 'app.etaToDestinationMin'.tr(
+                context: context,
+                namedArgs: {'minutes': '$etaMinutes'},
+              );
+            } else {
+              label = OrderTypeHelper.customerStatusLabel(
+                orderType,
+                'PICKED_UP',
+                isArabic: isAr,
+              );
+            }
+          } else if (state.orderStatus == 'DRIVER_ASSIGNED') {
+            if (etaMinutes != null) {
+              icon = Icons.schedule_rounded;
+              accent = AppColors.success;
+              label = etaMinutes <= 0
+                  ? 'app.driverArrivingSoon'.tr(context: context)
+                  : 'app.driverArrivingInMin'.tr(
+                      context: context,
+                      namedArgs: {'minutes': '$etaMinutes'},
+                    );
+            }
+          }
+
+          if (label == null || label.isEmpty) {
+            return const SizedBox.shrink();
+          }
+
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.94, end: 1.0).animate(anim),
+                child: child,
+              ),
+            ),
+            child: Container(
+              key: ValueKey('${state.orderStatus}_$label'),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: filled
+                    ? accent
+                    : (isDark
+                          ? const Color(0xEA0F172A)
+                          : Colors.white.withValues(alpha: 0.95)),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: filled ? accent : accent.withValues(alpha: 0.45),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 16,
+                    color: filled ? Colors.white : accent,
+                  ),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: filled
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

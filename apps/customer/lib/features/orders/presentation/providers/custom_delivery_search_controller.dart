@@ -81,24 +81,29 @@ class DriverLiveMarkerState {
     required this.heading,
     required this.isMoving,
     this.distanceToPickupKm,
+    this.etaMinutes,
   });
 
   final LatLng position;
   final double heading;
   final bool isMoving;
   final double? distanceToPickupKm;
+  final int? etaMinutes;
 
   DriverLiveMarkerState copyWith({
     LatLng? position,
     double? heading,
     bool? isMoving,
     double? distanceToPickupKm,
+    int? etaMinutes,
+    bool clearEtaMinutes = false,
   }) {
     return DriverLiveMarkerState(
       position: position ?? this.position,
       heading: heading ?? this.heading,
       isMoving: isMoving ?? this.isMoving,
       distanceToPickupKm: distanceToPickupKm ?? this.distanceToPickupKm,
+      etaMinutes: clearEtaMinutes ? null : (etaMinutes ?? this.etaMinutes),
     );
   }
 }
@@ -257,6 +262,23 @@ class CustomDeliverySearchState {
 
   bool get isDriverMatched => phase == DriverSearchPhase.DRIVER_FOUND;
 
+  bool get isAwaitingPayment =>
+      isDriverMatched && orderStatus == 'PENDING_PAYMENT';
+
+  bool get isDriverArrived =>
+      isDriverMatched && orderStatus == 'READY_FOR_PICKUP';
+
+  bool get isTripInProgress =>
+      isDriverMatched &&
+      (orderStatus == 'PICKED_UP' || orderStatus == 'PARTIALLY_PICKED_UP');
+
+  bool get isTripCompleted => orderStatus == 'DELIVERED';
+
+  /// Active navigation waypoint for live driver distance/ETA/route:
+  /// Destination once picked up / ride started; pickup point beforehand.
+  LatLng? get activeTrackingTarget =>
+      isTripInProgress ? dropoffPoint : pickupPoint;
+
   bool get isTerminal =>
       !isDriverMatched &&
       (orderStatus == 'CANCELLED' ||
@@ -354,6 +376,8 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
 
   final Map<String, NearbyVehicleMarkerState> _trackedNearbyDrivers = {};
   LatLng? _lastApproachRouteOrigin;
+  String? _lastApproachTargetKey;
+  Duration? _safetyPollInterval;
 
   bool _disposed = false;
   bool _isAppPaused = false;
@@ -657,6 +681,7 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
       _lastSearchSeq = 0;
       _trackedNearbyDrivers.clear();
       _lastApproachRouteOrigin = null;
+      _lastApproachTargetKey = null;
       driverApproachRouteNotifier.value = const [];
       ref
           .read(orderRevisionTrackerProvider)
@@ -773,20 +798,53 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
     OrderSearchStatusDto searchStatus,
     Map<String, dynamic>? orderMap,
   ) {
+    final effectiveStatus =
+        (orderMap?['status'] ?? searchStatus.orderStatus.name).toString();
+    final isArrived = effectiveStatus == 'READY_FOR_PICKUP';
+    final isInProgress =
+        effectiveStatus == 'PICKED_UP' ||
+        effectiveStatus == 'PARTIALLY_PICKED_UP';
+    final isCompleted = effectiveStatus == 'DELIVERED';
+
+    if (isArrived || isCompleted) {
+      if (driverApproachRouteNotifier.value.isNotEmpty) {
+        driverApproachRouteNotifier.value = const [];
+      }
+      _lastApproachRouteOrigin = null;
+      _lastApproachTargetKey = isArrived ? 'arrived' : 'completed';
+    }
+
     final loc = searchStatus.driverLocation;
-    if (loc == null) return;
-    final pickup = extractGeoPoint(
-      (orderMap ?? state.order)?['pickupLocation'],
-    );
+    if (loc == null) {
+      if (isArrived && driverLocationNotifier.value != null) {
+        driverLocationNotifier.value = driverLocationNotifier.value!.copyWith(
+          etaMinutes: 0,
+        );
+      }
+      return;
+    }
+
+    final mapData = orderMap ?? state.order;
+    final pickup = extractGeoPoint(mapData?['pickupLocation']);
+    final dropoff = extractGeoPoint(mapData?['deliveryLocation']);
+    final target = isInProgress ? dropoff : pickup;
+    final targetKey = isInProgress ? 'dropoff' : 'pickup';
+
     final point = LatLng(loc.latitude.toDouble(), loc.longitude.toDouble());
     final distKm =
         searchStatus.driverDistanceKm?.toDouble() ??
-        (pickup != null ? distanceKmBetween(point, pickup) : null);
+        (target != null ? distanceKmBetween(point, target) : null);
 
     final prev = driverLocationNotifier.value;
     final heading = prev != null
         ? (computeBearingDegrees(prev.position, point) ?? prev.heading)
-        : (pickup != null ? (computeBearingDegrees(point, pickup) ?? 0.0) : 0.0);
+        : (target != null ? (computeBearingDegrees(point, target) ?? 0.0) : 0.0);
+
+    final backendEta = searchStatus.driverEtaMinutes?.toInt();
+    final nextEta = isArrived
+        ? 0
+        : (backendEta ?? (_lastApproachTargetKey == targetKey ? prev?.etaMinutes : null));
+
     driverLocationNotifier.value = DriverLiveMarkerState(
       position: point,
       heading: heading,
@@ -794,9 +852,10 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
           prev != null &&
           distanceKmBetween(prev.position, point) * 1000.0 >= 3.0,
       distanceToPickupKm: distKm,
+      etaMinutes: nextEta,
     );
-    if (pickup != null) {
-      _maybeFetchDriverApproachRoute(point, pickup);
+    if (!isArrived && !isCompleted && target != null) {
+      _maybeFetchDriverApproachRoute(point, target, targetKey: targetKey);
     }
   }
 
@@ -941,6 +1000,74 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
         .accept(orderId, orderRevisionOf(raw))) {
       return;
     }
+
+    // Apply authoritative status immediately so arrival / trip start / completion
+    // transitions appear instantaneously while full resync reconciles backend ETA & details.
+    final nextStatus = raw['status']?.toString().trim();
+    if (nextStatus != null &&
+        nextStatus.isNotEmpty &&
+        nextStatus != state.orderStatus) {
+      Map<String, dynamic>? updatedOrder = state.order;
+      if (updatedOrder != null) {
+        updatedOrder = Map<String, dynamic>.from(updatedOrder)
+          ..['status'] = nextStatus;
+        final rev = orderRevisionOf(raw);
+        if (rev != null) updatedOrder['revision'] = rev;
+      }
+      final parsedStatus = _parseOrderStatus(nextStatus);
+      final updatedSearch = (state.searchStatus != null && parsedStatus != null)
+          ? state.searchStatus!.rebuild((b) {
+              b.orderStatus = parsedStatus;
+              if (nextStatus == 'READY_FOR_PICKUP') {
+                b.driverEtaMinutes = 0;
+              } else if (nextStatus == 'PICKED_UP' ||
+                  nextStatus == 'PARTIALLY_PICKED_UP') {
+                b.driverEtaMinutes = null;
+              }
+            })
+          : state.searchStatus;
+
+      state = state.copyWith(order: updatedOrder, searchStatus: updatedSearch);
+
+      final live = driverLocationNotifier.value;
+      if (nextStatus == 'READY_FOR_PICKUP') {
+        driverApproachRouteNotifier.value = const [];
+        _lastApproachRouteOrigin = null;
+        _lastApproachTargetKey = 'arrived';
+        if (live != null) {
+          driverLocationNotifier.value = live.copyWith(etaMinutes: 0);
+        }
+      } else if (nextStatus == 'PICKED_UP' ||
+          nextStatus == 'PARTIALLY_PICKED_UP') {
+        driverApproachRouteNotifier.value = const [];
+        _lastApproachRouteOrigin = null;
+        _lastApproachTargetKey = null;
+        if (live != null) {
+          final dropoff = state.dropoffPoint;
+          final distKm = dropoff != null
+              ? double.parse(
+                  distanceKmBetween(live.position, dropoff).toStringAsFixed(2),
+                )
+              : null;
+          driverLocationNotifier.value = live.copyWith(
+            distanceToPickupKm: distKm,
+            clearEtaMinutes: true,
+          );
+          if (dropoff != null) {
+            _maybeFetchDriverApproachRoute(
+              live.position,
+              dropoff,
+              targetKey: 'dropoff',
+            );
+          }
+        }
+      } else if (nextStatus == 'DELIVERED') {
+        driverApproachRouteNotifier.value = const [];
+        _lastApproachRouteOrigin = null;
+        _lastApproachTargetKey = 'completed';
+      }
+    }
+
     unawaited(resync());
   }
 
@@ -963,12 +1090,17 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
 
     final prev = driverLocationNotifier.value;
     final rawHeading = (raw['heading'] ?? raw['bearing']) as num?;
-    final pickup = state.pickupPoint;
+    final target = state.activeTrackingTarget;
+    final targetKey = state.isTripInProgress ? 'dropoff' : 'pickup';
     final computedHeading = prev != null
         ? (computeBearingDegrees(prev.position, point) ?? prev.heading)
-        : (pickup != null ? (computeBearingDegrees(point, pickup) ?? 0.0) : 0.0);
+        : (target != null ? (computeBearingDegrees(point, target) ?? 0.0) : 0.0);
     final heading = rawHeading?.toDouble() ?? computedHeading;
-    final distKm = pickup != null ? distanceKmBetween(point, pickup) : null;
+    final distKm = target != null ? distanceKmBetween(point, target) : null;
+
+    final preservedEta = state.isDriverArrived
+        ? 0
+        : (_lastApproachTargetKey == targetKey ? prev?.etaMinutes : null);
 
     driverLocationNotifier.value = DriverLiveMarkerState(
       position: point,
@@ -979,10 +1111,14 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
       distanceToPickupKm: distKm != null
           ? double.parse(distKm.toStringAsFixed(2))
           : null,
+      etaMinutes: preservedEta,
     );
 
-    if (state.isDriverMatched && pickup != null) {
-      _maybeFetchDriverApproachRoute(point, pickup);
+    if (state.isDriverMatched &&
+        !state.isDriverArrived &&
+        !state.isTripCompleted &&
+        target != null) {
+      _maybeFetchDriverApproachRoute(point, target, targetKey: targetKey);
     }
   }
 
@@ -996,42 +1132,84 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
     }
   }
 
-  void _maybeFetchDriverApproachRoute(LatLng driverPos, LatLng pickup) {
+  void _maybeFetchDriverApproachRoute(
+    LatLng driverPos,
+    LatLng target, {
+    required String targetKey,
+  }) {
     if (_disposed) return;
-    if (_lastApproachRouteOrigin != null &&
+    final targetChanged = _lastApproachTargetKey != targetKey;
+    if (!targetChanged &&
+        _lastApproachRouteOrigin != null &&
         distanceKmBetween(_lastApproachRouteOrigin!, driverPos) * 1000.0 <
             120.0) {
       return;
     }
     _lastApproachRouteOrigin = driverPos;
+    _lastApproachTargetKey = targetKey;
     _approachRouteDebounce?.cancel();
     _approachRouteDebounce = Timer(const Duration(milliseconds: 180), () async {
-      if (_disposed || !state.isDriverMatched) return;
+      if (_disposed ||
+          !state.isDriverMatched ||
+          state.isDriverArrived ||
+          state.isTripCompleted) {
+        return;
+      }
       List<LatLng>? points;
+      int? liveRoadEtaMinutes;
+      double? liveRoadDistanceKm;
       try {
         final route = await ref
             .read(sharedRoutingRepositoryProvider)
             .computeWaypointsRoute([
               toRoadRoutePoint(driverPos),
-              toRoadRoutePoint(pickup),
+              toRoadRoutePoint(target),
             ]);
         if (route.isRoadRoute && route.points.length >= 2) {
           points = fromRoadRoutePoints(route.points);
+          // Only derive ETA from real road-route duration (never fabricated).
+          if (route.durationSeconds > 0) {
+            liveRoadEtaMinutes = (route.durationSeconds / 60.0)
+                .ceil()
+                .clamp(1, 999);
+          }
+          if (route.distanceMeters > 0) {
+            liveRoadDistanceKm = double.parse(
+              (route.distanceMeters / 1000.0).toStringAsFixed(2),
+            );
+          }
         }
       } catch (_) {
         // Fallback when shared routing provider is not mounted in unit tests
       }
-      if (_disposed || !state.isDriverMatched) return;
+      if (_disposed ||
+          !state.isDriverMatched ||
+          state.isDriverArrived ||
+          state.isTripCompleted) {
+        return;
+      }
       points ??= await fetchRoadRoutePoints(
         ref.read(dioProvider),
         driverPos,
-        pickup,
+        target,
       );
       if (!_disposed &&
           state.isDriverMatched &&
-          points != null &&
-          points.length >= 2) {
-        driverApproachRouteNotifier.value = List<LatLng>.unmodifiable(points);
+          !state.isDriverArrived &&
+          !state.isTripCompleted &&
+          _lastApproachTargetKey == targetKey) {
+        if (points != null && points.length >= 2) {
+          driverApproachRouteNotifier.value = List<LatLng>.unmodifiable(points);
+        }
+        final currentLoc = driverLocationNotifier.value;
+        if (currentLoc != null &&
+            (liveRoadEtaMinutes != null || liveRoadDistanceKm != null)) {
+          driverLocationNotifier.value = currentLoc.copyWith(
+            etaMinutes: liveRoadEtaMinutes ?? currentLoc.etaMinutes,
+            distanceToPickupKm:
+                liveRoadDistanceKm ?? currentLoc.distanceToPickupKm,
+          );
+        }
       }
     });
   }
@@ -1076,18 +1254,46 @@ class CustomDeliverySearchController extends _$CustomDeliverySearchController {
 
   void _ensureSafetyPolling() {
     if (_disposed) return;
-    if (!state.isSearching || _isAppPaused) {
+    final shouldPollSearching = state.isSearching && !_isAppPaused;
+    final shouldPollActiveTrip =
+        state.isDriverMatched && !state.isTripCompleted && !_isAppPaused;
+
+    if (!shouldPollSearching && !shouldPollActiveTrip) {
       _safetyPollTimer?.cancel();
       _safetyPollTimer = null;
+      _safetyPollInterval = null;
       return;
     }
-    _safetyPollTimer ??= Timer.periodic(const Duration(seconds: 4), (_) {
-      if (_disposed || !state.isSearching || _isAppPaused) {
+
+    final desiredInterval = shouldPollSearching
+        ? const Duration(seconds: 4)
+        : const Duration(seconds: 12);
+
+    if (_safetyPollTimer != null && _safetyPollInterval == desiredInterval) {
+      return;
+    }
+
+    _safetyPollTimer?.cancel();
+    _safetyPollInterval = desiredInterval;
+    _safetyPollTimer = Timer.periodic(desiredInterval, (_) {
+      if (_disposed || _isAppPaused) {
         _safetyPollTimer?.cancel();
         _safetyPollTimer = null;
+        _safetyPollInterval = null;
+        return;
+      }
+      if (state.isTripCompleted || state.isTerminal) {
+        _safetyPollTimer?.cancel();
+        _safetyPollTimer = null;
+        _safetyPollInterval = null;
         return;
       }
       if (!state.isOffline) {
+        // During active trip, only poll when socket is disconnected so there is
+        // zero redundant traffic when real-time sockets are healthy.
+        if (state.isDriverMatched && ref.read(socketServiceProvider).isConnected) {
+          return;
+        }
         unawaited(resync(statusOnly: true, silent: true));
       }
     });

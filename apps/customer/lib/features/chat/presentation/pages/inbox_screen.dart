@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:core/core.dart' show OrderTypeHelper, VehicleTypeHelper;
 import 'package:ui_kit/ui_kit.dart';
 import 'package:data/providers.dart' hide inboxCountsProvider;
 import '../../../../core/utils/image_utils.dart';
@@ -427,19 +428,33 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       icon = Icons.support_agent_rounded;
       iconColor = Colors.blue;
     } else if (type == 'ORDER') {
-      typeLabel = isAr ? 'محادثة طلب' : 'Order Conversation';
-      final rawOrderNum = convo['order']?['orderNumber'];
+      final orderMap = convo['order'] is Map
+          ? Map<String, dynamic>.from(convo['order'] as Map)
+          : null;
+      final orderType = OrderTypeHelper.resolve(orderMap);
+      typeLabel = OrderTypeHelper.chatTitle(orderType, isArabic: isAr);
+      final rawOrderNum = orderMap?['orderNumber'];
       final fallbackOrderId = convo['orderId']?.toString() ?? '';
       final orderNumStr = rawOrderNum != null
           ? rawOrderNum.toString()
           : (fallbackOrderId.length >= 8
               ? fallbackOrderId.substring(0, 8)
               : fallbackOrderId);
-      title = orderNumStr.isNotEmpty
-          ? (isAr ? 'طلب #$orderNumStr' : 'Order #$orderNumStr')
-          : (isAr ? 'محادثة طلب' : 'Order Conversation');
-      icon = Icons.receipt_long_rounded;
-      iconColor = Colors.orange;
+      title = OrderTypeHelper.chatTitle(
+        orderType,
+        orderNumber: orderNumStr.isNotEmpty ? orderNumStr : null,
+        isArabic: isAr,
+      );
+      if (orderType.isNonStandard) {
+        icon = VehicleTypeHelper.icon(
+          orderMap?['requestedVehicleType']?.toString() ??
+              (orderType.isRide ? 'CAR' : 'MOTORCYCLE'),
+        );
+        iconColor = AppColors.primary;
+      } else {
+        icon = Icons.receipt_long_rounded;
+        iconColor = Colors.orange;
+      }
     } else if (type == 'VENDOR') {
       typeLabel = isAr ? 'محادثة متجر' : 'Store Conversation';
       final vendorName = isAr
@@ -463,11 +478,16 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
     String? rawAvatar;
     bool isStore = false;
-    if (type == 'VENDOR' || type == 'ORDER') {
+    final convoOrderMap = convo['order'] is Map
+        ? Map<String, dynamic>.from(convo['order'] as Map)
+        : null;
+    final isStandardOrderConvo =
+        type == 'ORDER' && OrderTypeHelper.resolve(convoOrderMap).isStandard;
+    if (type == 'VENDOR' || isStandardOrderConvo) {
       final vMap = convo['vendor'] is Map
           ? convo['vendor'] as Map
-          : (convo['order'] is Map && convo['order']['vendor'] is Map
-              ? convo['order']['vendor'] as Map
+          : (convoOrderMap != null && convoOrderMap['vendor'] is Map
+              ? convoOrderMap['vendor'] as Map
               : null);
       rawAvatar = (vMap?['logo'] ?? vMap?['logoUrl'] ?? convo['vendorLogo'])
           ?.toString();

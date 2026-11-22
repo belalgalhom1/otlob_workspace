@@ -118,6 +118,10 @@ class OrderExecution extends _$OrderExecution {
     }
   }
 
+  /// Marks driver arrival at the pickup location for `RIDE` and
+  /// `CUSTOM_DELIVERY` requests (`DRIVER_ASSIGNED -> READY_FOR_PICKUP`).
+  Future<void> markArrivedAtPickup() => updateOrderStatus('READY_FOR_PICKUP');
+
   /// Marks pickup without uploading a proof photo (allowed by backend ONLY for
   /// `OrderType.RIDE`, where no store items or parcels exist).
   Future<void> confirmPickupWithoutPhoto() => updateOrderStatus('PICKED_UP');

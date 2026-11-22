@@ -109,6 +109,7 @@ class _RateOrderBottomSheetState extends ConsumerState<RateOrderBottomSheet> {
     Map<String, dynamic> order,
     Set<String> ratedIds,
   ) {
+    if (!OrderTypeHelper.resolve(order).isStandard) return const [];
     final raw = order['vendorFulfillments'];
     if (raw is! List) return const [];
     return raw
@@ -165,10 +166,12 @@ class _RateOrderBottomSheetState extends ConsumerState<RateOrderBottomSheet> {
       final hasFulfillmentTargets = _fulfillmentRatings.isNotEmpty;
       final hasGroupTargets = _groupRatings.isNotEmpty;
 
-      // Custom orders have no vendorFulfillments; avoid sending vendorRating
-      // which backend rejects with INVALID_TRANSITION when deliveredFulfillments is empty.
+      // Non-standard orders (Ride & Custom Delivery) never have vendor ratings;
+      // avoid sending vendorRating which backend rejects when deliveredFulfillments is empty.
       final hasAnyVendorFulfillment =
-          fulfillmentsRaw is List && fulfillmentsRaw.isNotEmpty;
+          OrderTypeHelper.resolve(order).isStandard &&
+          fulfillmentsRaw is List &&
+          fulfillmentsRaw.isNotEmpty;
 
       final success = await ref.read(ordersProvider.notifier).rateOrder(
             widget.orderId,
@@ -276,9 +279,7 @@ class _RateOrderBottomSheetState extends ConsumerState<RateOrderBottomSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              orderType.isRide
-                  ? (s.isArabic ? 'تقييم الرحلة' : 'Rate Ride')
-                  : (s.isArabic ? 'تقييم الطلب' : 'Rate Order'),
+              OrderTypeHelper.rateActionLabel(orderType, isArabic: s.isArabic),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),

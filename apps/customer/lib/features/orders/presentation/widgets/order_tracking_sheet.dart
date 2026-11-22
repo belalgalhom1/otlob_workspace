@@ -324,11 +324,20 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                                 onPressed: widget.onOpenChat,
                                 icon: const Icon(Icons.chat_rounded, size: 20),
                                 label: Text(
-                                  OrderTypeHelper.isRide(widget.orderDetails)
-                                      ? (s.isArabic
+                                  () {
+                                    final t = OrderTypeHelper.resolve(
+                                      widget.orderDetails,
+                                    );
+                                    if (t.isRide) {
+                                      return s.isArabic
                                           ? 'محادثة الكابتن'
-                                          : 'Chat with Driver')
-                                      : (s.isArabic ? 'محادثة الطلب' : 'Order Chat'),
+                                          : 'Chat with Driver';
+                                    }
+                                    return OrderTypeHelper.chatTitle(
+                                      t,
+                                      isArabic: s.isArabic,
+                                    );
+                                  }(),
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary.withValues(
@@ -356,13 +365,12 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                                     size: 20,
                                   ),
                                   label: Text(
-                                    OrderTypeHelper.isRide(widget.orderDetails)
-                                        ? (s.isArabic
-                                            ? 'تقييم الرحلة'
-                                            : 'Rate Ride')
-                                        : (s.isArabic
-                                            ? 'تقييم الطلب'
-                                            : 'Rate Order'),
+                                    OrderTypeHelper.rateActionLabel(
+                                      OrderTypeHelper.resolve(
+                                        widget.orderDetails,
+                                      ),
+                                      isArabic: s.isArabic,
+                                    ),
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.amber,
@@ -535,7 +543,10 @@ class _OrderTrackingSheetOverlayState extends State<OrderTrackingSheetOverlay> {
                 borderRadius: BorderRadius.circular(10),
                 onTap: widget.onOpenChat,
                 child: Tooltip(
-                  message: s.isArabic ? 'محادثة الطلب' : 'Order Chat',
+                  message: OrderTypeHelper.chatTitle(
+                    orderType,
+                    isArabic: s.isArabic,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,

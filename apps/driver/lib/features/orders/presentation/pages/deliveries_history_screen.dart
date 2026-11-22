@@ -129,17 +129,31 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
     final rawId = (order['id'] ?? '').toString();
     final orderNumber = order['orderNumber']?.toString() ??
         (rawId.isEmpty ? '#' : '#${rawId.length > 8 ? rawId.substring(0, 8) : rawId}');
+    final orderType = OrderTypeHelper.resolve(order);
     final rawFinancials = order['financials'] is Map ? order['financials'] as Map : null;
     final rawEarnings = rawFinancials?['driverEarnings'] ?? order['driverEarnings'] ?? order['estimatedEarnings'];
-    final rawFee = rawFinancials?['deliveryFee'] ?? order['deliveryFee'] ?? order['fee'] ?? 0;
     final double deliveryFee = rawEarnings != null
         ? (rawEarnings is num ? rawEarnings.toDouble() : double.tryParse(rawEarnings.toString()) ?? 0.0)
-        : (rawFee is num ? rawFee.toDouble() * 0.7 : (double.tryParse(rawFee.toString()) ?? 0.0) * 0.7);
-    final vendor = order['vendor'] as Map<String, dynamic>?;
-    final vendorLogo = (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
-    final vendorName = l10n.localeName == 'ar'
-        ? (vendor?['storeNameAr'] ?? vendor?['storeName'] ?? (order['pickupAddress'] ?? ''))
-        : (vendor?['storeName'] ?? (order['pickupAddress'] ?? ''));
+        : 0.0;
+    final vendor = orderType.isStandard && order['vendor'] is Map
+        ? Map<String, dynamic>.from(order['vendor'] as Map)
+        : null;
+    final customerAvatar =
+        (order['customer']?['user']?['avatar'] ?? order['customer']?['avatar'])
+            ?.toString();
+    final vendorLogo = orderType.isRide
+        ? customerAvatar
+        : (vendor?['logo'] ?? vendor?['logoUrl'])?.toString();
+    final vendorName = orderType.isNonStandard
+        ? ((order['pickupAddress']?.toString().trim().isNotEmpty == true)
+            ? order['pickupAddress'].toString().trim()
+            : OrderTypeHelper.pickupLabel(
+                orderType,
+                isArabic: l10n.localeName == 'ar',
+              ))
+        : (l10n.localeName == 'ar'
+            ? (vendor?['storeNameAr'] ?? vendor?['storeName'] ?? '')
+            : (vendor?['storeName'] ?? ''));
 
     final addressRaw = order['deliveryAddress'];
     final String dropoffAddress = addressRaw is String
@@ -151,7 +165,6 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
       createdAt = DateTime.tryParse(order['createdAt'].toString())?.toLocal();
     }
 
-    final orderType = OrderTypeHelper.resolve(order);
     final isAr = l10n.localeName == 'ar';
     final statusStr = order['status']?.toString() ?? 'DELIVERED';
 
@@ -328,7 +341,9 @@ class _DeliveriesHistoryScreenState extends ConsumerState<DeliveriesHistoryScree
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        l10n.deliveryFeeEarned,
+                        orderType.isRide
+                            ? (isAr ? 'أرباح الرحلة' : 'Ride Earnings')
+                            : l10n.deliveryFeeEarned,
                         style: TextStyle(
                           fontSize: 11,
                           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),

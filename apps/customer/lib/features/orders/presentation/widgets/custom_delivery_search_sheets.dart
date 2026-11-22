@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:api/api.dart';
-import 'package:core/core.dart' show OrderActivityHelper, VehicleTypeHelper;
+import 'package:core/core.dart'
+    show OrderActivityHelper, OrderTypeHelper, VehicleTypeHelper;
 import 'package:data/providers.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
@@ -12,7 +13,7 @@ import 'package:ui_kit/ui_kit.dart'
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../providers/custom_delivery_search_controller.dart';
-import '../widgets/order_tracking_sheet.dart';
+import '../widgets/rate_order_bottom_sheet.dart';
 
 /// Main draggable bottom sheet content for [CustomDeliverySearchScreen].
 /// Adapts smoothly across Searching, Driver Found, and Terminal states without
@@ -427,10 +428,18 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
           widget.state.order?['orderNumber']?.toString() ??
           (orderId.length >= 8 ? orderId.substring(0, 8) : orderId);
       final isAr = context.locale.languageCode == 'ar';
+      final orderType = OrderTypeHelper.resolve(
+        widget.state.order ??
+            {'type': widget.state.isRide ? 'RIDE' : 'CUSTOM_DELIVERY'},
+      );
       await context.push(
         '/chat/order/$convoId',
         extra: {
-          'title': isAr ? 'طلب #$orderNum' : 'Order #$orderNum',
+          'title': OrderTypeHelper.chatTitle(
+            orderType,
+            orderNumber: orderNum,
+            isArabic: isAr,
+          ),
           'orderId': orderId,
         },
       );
@@ -442,6 +451,83 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
     }
   }
 
+  ({
+    String key,
+    IconData icon,
+    Color accent,
+    String title,
+    String subtitle,
+    bool emphasize,
+  })
+  _resolveJourneyBanner(BuildContext context, CustomDeliverySearchState state) {
+    if (state.isAwaitingPayment) {
+      return (
+        key: 'awaiting_payment',
+        icon: Icons.account_balance_wallet_rounded,
+        accent: Colors.deepPurple,
+        title: 'app.driverFoundTitle'.tr(context: context),
+        subtitle: 'app.driverAwaitingPaymentStatus'.tr(context: context),
+        emphasize: false,
+      );
+    }
+    if (state.isDriverArrived) {
+      return (
+        key: 'driver_arrived',
+        icon: Icons.where_to_vote_rounded,
+        accent: AppColors.success,
+        title: 'app.driverArrivedTitle'.tr(context: context),
+        subtitle: (state.isRide
+                ? 'app.driverArrivedRideSubtitle'
+                : 'app.driverArrivedDeliverySubtitle')
+            .tr(context: context),
+        emphasize: true,
+      );
+    }
+    if (state.isTripInProgress) {
+      return (
+        key: 'trip_in_progress_${state.isRide}',
+        icon: _vehicleIcon(
+          (state.driver?['vehicleType'] ?? state.requestedVehicleType)
+              .toString(),
+        ),
+        accent: AppColors.success,
+        title: (state.isRide
+                ? 'app.rideStartedTitle'
+                : 'app.deliveryOnItsWayTitle')
+            .tr(context: context),
+        subtitle: (state.isRide
+                ? 'app.rideStartedSubtitle'
+                : 'app.deliveryOnItsWaySubtitle')
+            .tr(context: context),
+        emphasize: true,
+      );
+    }
+    if (state.isTripCompleted) {
+      return (
+        key: 'trip_completed_${state.isRide}',
+        icon: Icons.check_circle_rounded,
+        accent: AppColors.success,
+        title: (state.isRide
+                ? 'app.rideCompletedTitle'
+                : 'app.deliveryCompletedTitle')
+            .tr(context: context),
+        subtitle: (state.isRide
+                ? 'app.rideCompletedSubtitle'
+                : 'app.deliveryCompletedSubtitle')
+            .tr(context: context),
+        emphasize: true,
+      );
+    }
+    return (
+      key: 'driver_assigned',
+      icon: Icons.verified_rounded,
+      accent: AppColors.success,
+      title: 'app.driverFoundTitle'.tr(context: context),
+      subtitle: 'app.driverAcceptedStatus'.tr(context: context),
+      emphasize: false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -449,6 +535,9 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
     final isAr = context.locale.languageCode == 'ar';
     final state = widget.state;
     final order = state.order ?? const <String, dynamic>{};
+    final orderType = OrderTypeHelper.resolve(
+      state.order ?? {'type': state.isRide ? 'RIDE' : 'CUSTOM_DELIVERY'},
+    );
     final driver = state.driver ?? const <String, dynamic>{};
     final user = driver['user'] is Map
         ? Map<String, dynamic>.from(driver['user'] as Map)
@@ -476,55 +565,86 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
     final vehiclePlate = (driver['vehiclePlate'] ?? '').toString().trim();
     final ratingCount = (driver['ratingCount'] as num?)?.toInt() ?? 0;
     final ratingValue = (driver['rating'] as num?)?.toDouble() ?? 0.0;
-    final isPendingPayment = state.orderStatus == 'PENDING_PAYMENT';
-    final etaMinutes = state.searchStatus?.driverEtaMinutes?.toInt();
+    final isPendingPayment = state.isAwaitingPayment;
+    final banner = _resolveJourneyBanner(context, state);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: (isPendingPayment ? Colors.deepPurple : AppColors.success)
-                .withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(16),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 340),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -0.06),
+                end: Offset.zero,
+              ).animate(anim),
+              child: child,
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(
-                isPendingPayment
-                    ? Icons.account_balance_wallet_rounded
-                    : Icons.verified_rounded,
-                color: isPendingPayment ? Colors.deepPurple : AppColors.success,
-                size: 26,
+          child: Container(
+            key: ValueKey(banner.key),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: banner.accent.withValues(
+                alpha: banner.emphasize ? (isDark ? 0.22 : 0.14) : 0.12,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'app.driverFoundTitle'.tr(context: context),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+              borderRadius: BorderRadius.circular(16),
+              border: banner.emphasize
+                  ? Border.all(
+                      color: banner.accent.withValues(alpha: 0.45),
+                      width: 1.4,
+                    )
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: banner.accent.withValues(
+                      alpha: banner.emphasize ? 0.20 : 0.14,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isPendingPayment
-                          ? 'app.driverAwaitingPaymentStatus'.tr(
-                              context: context,
-                            )
-                          : 'app.driverAcceptedStatus'.tr(context: context),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    banner.icon,
+                    color: banner.accent,
+                    size: 24,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        banner.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: banner.emphasize
+                              ? (isDark
+                                    ? Colors.white
+                                    : theme.colorScheme.onSurface)
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        banner.subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -599,84 +719,111 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              ValueListenableBuilder<DriverLiveMarkerState?>(
-                valueListenable: widget.driverLocationListenable,
-                builder: (context, liveLoc, _) {
-                  final distKm =
-                      liveLoc?.distanceToPickupKm ??
-                      state.searchStatus?.driverDistanceKm?.toDouble();
-                  if (distKm == null && etaMinutes == null) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (distKm != null)
-                          _MetricPill(
-                            icon: Icons.near_me_rounded,
-                            label: 'app.driverDistanceAway'.tr(
-                              context: context,
-                              namedArgs: {
-                                'distance': distKm.toStringAsFixed(1),
-                              },
+              if (!state.isDriverArrived && !state.isTripCompleted) ...[
+                const SizedBox(height: 12),
+                ValueListenableBuilder<DriverLiveMarkerState?>(
+                  valueListenable: widget.driverLocationListenable,
+                  builder: (context, liveLoc, _) {
+                    final distKm =
+                        liveLoc?.distanceToPickupKm ??
+                        state.searchStatus?.driverDistanceKm?.toDouble();
+                    final liveEtaMinutes =
+                        liveLoc?.etaMinutes ??
+                        state.searchStatus?.driverEtaMinutes?.toInt();
+                    if (distKm == null && liveEtaMinutes == null) {
+                      return const SizedBox.shrink();
+                    }
+                    final distanceLabel = distKm != null
+                        ? (state.isTripInProgress
+                              ? 'app.distanceToDestinationKm'.tr(
+                                  context: context,
+                                  namedArgs: {
+                                    'distance': distKm.toStringAsFixed(1),
+                                  },
+                                )
+                              : 'app.driverDistanceAway'.tr(
+                                  context: context,
+                                  namedArgs: {
+                                    'distance': distKm.toStringAsFixed(1),
+                                  },
+                                ))
+                        : null;
+                    final etaLabel = liveEtaMinutes != null
+                        ? (state.isTripInProgress
+                              ? 'app.etaToDestinationMin'.tr(
+                                  context: context,
+                                  namedArgs: {'minutes': '$liveEtaMinutes'},
+                                )
+                              : 'app.driverEtaApprox'.tr(
+                                  context: context,
+                                  namedArgs: {'minutes': '$liveEtaMinutes'},
+                                ))
+                        : null;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (distanceLabel != null)
+                            _MetricPill(
+                              icon: state.isTripInProgress
+                                  ? Icons.flag_rounded
+                                  : Icons.near_me_rounded,
+                              label: distanceLabel,
+                              color: Colors.blueAccent,
+                              isDark: isDark,
                             ),
-                            color: Colors.blueAccent,
-                            isDark: isDark,
-                          ),
-                        if (etaMinutes != null)
-                          _MetricPill(
-                            icon: Icons.schedule_rounded,
-                            label: 'app.driverEtaApprox'.tr(
-                              context: context,
-                              namedArgs: {'minutes': '$etaMinutes'},
+                          if (etaLabel != null)
+                            _MetricPill(
+                              icon: Icons.schedule_rounded,
+                              label: etaLabel,
+                              color: AppColors.success,
+                              isDark: isDark,
                             ),
-                            color: AppColors.success,
-                            isDark: isDark,
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ] else
+                const SizedBox(height: 12),
+              if (!state.isTripCompleted)
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    if (driverPhone.isNotEmpty)
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        child: OutlinedButton.icon(
+                          onPressed: () => ExternalActionLauncher.callPhone(
+                            driverPhone,
+                            context: context,
                           ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  if (driverPhone.isNotEmpty)
+                          icon: const Icon(Icons.phone_rounded, size: 18),
+                          label: Text('app.callDriver'.tr(context: context)),
+                        ),
+                      ),
                     ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 48),
                       child: OutlinedButton.icon(
-                        onPressed: () => ExternalActionLauncher.callPhone(
-                          driverPhone,
-                          context: context,
-                        ),
-                        icon: const Icon(Icons.phone_rounded, size: 18),
-                        label: Text('app.callDriver'.tr(context: context)),
+                        onPressed: _openingChat ? null : _openOrderChat,
+                        icon: _openingChat
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 18,
+                              ),
+                        label: Text('app.chatWithDriver'.tr(context: context)),
                       ),
                     ),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: OutlinedButton.icon(
-                      onPressed: _openingChat ? null : _openOrderChat,
-                      icon: _openingChat
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              size: 18,
-                            ),
-                      label: Text('app.chatWithDriver'.tr(context: context)),
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -717,26 +864,62 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
           ),
           const SizedBox(height: 14),
         ],
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 50),
-          child: ElevatedButton.icon(
-            onPressed: () => context.push('/order-tracking/${state.orderId}'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+        if (state.isTripCompleted) ...[
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 50),
+            child: ElevatedButton.icon(
+              onPressed: state.order == null
+                  ? null
+                  : () {
+                      RateOrderBottomSheet.show(
+                        context,
+                        state.orderId,
+                        order: state.order,
+                      );
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            icon: const Icon(Icons.location_searching_rounded),
-            label: Text(
-              'app.openLiveTracking'.tr(context: context),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w900),
+              icon: const Icon(Icons.star_rounded),
+              label: Text(
+                OrderTypeHelper.rateActionLabel(orderType, isArabic: isAr),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: OutlinedButton(
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/home');
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              child: Text('app.backToHome'.tr(context: context)),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1078,6 +1261,7 @@ Widget _buildOrderRouteAndFareSummary(
   required bool isAr,
   required bool isDark,
 }) {
+  final orderType = OrderTypeHelper.resolve(order);
   final pickupAddr = (order['pickupAddress'] ?? '').toString().trim();
   final dropoffAddr = (order['deliveryAddress'] ?? '').toString().trim();
   final itemDetails = (order['itemDetails'] ?? '').toString().trim();
@@ -1092,14 +1276,22 @@ Widget _buildOrderRouteAndFareSummary(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       RouteEndpointsCard(
-        pickupLabel: 'app.pickupPointLabel'.tr(context: context),
+        pickupLabel: (orderType.isRide
+                ? 'app.ridePickupPointLabel'
+                : 'app.pickupPointLabel')
+            .tr(context: context),
         pickupAddress: pickupAddr.isEmpty ? '-' : pickupAddr,
-        dropoffLabel: 'app.dropoffPointLabel'.tr(context: context),
+        dropoffLabel: (orderType.isRide
+                ? 'app.rideDropoffPointLabel'
+                : 'app.dropoffPointLabel')
+            .tr(context: context),
         dropoffAddress: dropoffAddr.isEmpty ? '-' : dropoffAddr,
         pickupColor: AppColors.primary,
         dropoffColor: Colors.redAccent,
         itemDetailsLabel: isAr ? 'تفاصيل الشحنة' : 'Package Details',
-        itemDetails: itemDetails.isNotEmpty ? itemDetails : null,
+        itemDetails: (!orderType.isRide && itemDetails.isNotEmpty)
+            ? itemDetails
+            : null,
         notesLabel: isAr ? 'ملاحظات إضافية' : 'Special Notes',
         notes: specialRequest.isNotEmpty ? specialRequest : null,
       ),
@@ -1134,7 +1326,11 @@ Widget _buildOrderRouteAndFareSummary(
             icon: paymentMethod == 'MOBILE_WALLET'
                 ? Icons.account_balance_wallet_outlined
                 : Icons.money_rounded,
-            label: _localizedPaymentLabel(paymentMethod, isArabic: isAr),
+            label: OrderTypeHelper.paymentMethodLabel(
+              orderType,
+              paymentMethod,
+              isArabic: isAr,
+            ),
             color: Colors.teal,
             isDark: isDark,
           ),
@@ -1190,12 +1386,3 @@ IconData _vehicleIcon(String vehicle) => VehicleTypeHelper.icon(vehicle);
 
 String _localizedVehicleLabel(String vehicle, {required bool isArabic}) =>
     VehicleTypeHelper.label(vehicle, isArabic: isArabic);
-
-String _localizedPaymentLabel(String method, {required bool isArabic}) {
-  return switch (method.toUpperCase()) {
-    'CASH_ON_DELIVERY' => isArabic ? 'الدفع عند الاستلام' : 'Cash on Delivery',
-    'MOBILE_WALLET' => isArabic ? 'محفظة إلكترونية' : 'Mobile Wallet',
-    'CARD' => isArabic ? 'بطاقة بنكية' : 'Card',
-    _ => formatTrackingDisplayStatus(method, isArabic),
-  };
-}

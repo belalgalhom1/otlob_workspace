@@ -10,6 +10,7 @@ class OrderContextBar extends StatelessWidget {
   final String statusLabel;
   final Color? statusColor;
   final String? totalAmount;
+  final IconData icon;
   final VoidCallback? onTap;
   final VoidCallback? onCall;
 
@@ -19,6 +20,7 @@ class OrderContextBar extends StatelessWidget {
     required this.statusLabel,
     this.statusColor,
     this.totalAmount,
+    this.icon = LucideIcons.packageCheck,
     this.onTap,
     this.onCall,
   });
@@ -56,7 +58,7 @@ class OrderContextBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  LucideIcons.packageCheck,
+                  icon,
                   size: 16,
                   color: isDark ? AppColors.primary : const Color(0xFF92400E),
                 ),

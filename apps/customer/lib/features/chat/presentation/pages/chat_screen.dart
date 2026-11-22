@@ -17,6 +17,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../../../../core/l10n/app_strings.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
+import 'package:core/core.dart' show OrderTypeHelper, VehicleTypeHelper;
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
 import '../widgets/order_offer_bottom_sheet.dart';
@@ -197,37 +198,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   String _formatStatusLabel(BuildContext context, String? status) {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    switch (status?.toUpperCase()) {
-      case 'PENDING':
-        return isAr ? 'قيد الانتظار' : 'Pending';
-      case 'ACCEPTED':
-        return isAr ? 'مقبول' : 'Accepted';
-      case 'PREPARING':
-        return isAr ? 'قيد التحضير' : 'Preparing';
-      case 'CHANGES_REQUESTED':
-        return isAr ? 'طلب تعديل' : 'Changes Requested';
-      case 'LOOKING_FOR_DRIVER':
-        return isAr ? 'جاري البحث عن مندوب' : 'Looking for Driver';
-      case 'DRIVER_ASSIGNED':
-        return isAr ? 'تم تعيين المندوب' : 'Driver Assigned';
-      case 'PENDING_PAYMENT':
-        return isAr ? 'بانتظار الدفع' : 'Pending Payment';
-      case 'READY_FOR_PICKUP':
-        return isAr ? 'جاهز للاستلام' : 'Ready for Pickup';
-      case 'PARTIALLY_PICKED_UP':
-        return isAr ? 'جاري الاستلام من المتاجر' : 'Partially Picked Up';
-      case 'PICKED_UP':
-      case 'OUT_FOR_DELIVERY':
-        return isAr ? 'قيد التوصيل' : 'Out for Delivery';
-      case 'DELIVERED':
-        return isAr ? 'تم التوصيل' : 'Delivered';
-      case 'CANCELLED':
-        return isAr ? 'ملغي' : 'Cancelled';
-      case 'REJECTED':
-        return isAr ? 'مرفوض' : 'Rejected';
-      default:
-        return status ?? (isAr ? 'نشط' : 'Active');
+    if (status == null || status.trim().isEmpty) {
+      return isAr ? 'نشط' : 'Active';
     }
+    return OrderTypeHelper.customerStatusLabel(
+      OrderTypeHelper.resolve(_orderData),
+      status,
+      isArabic: isAr,
+    );
   }
 
   Color _getStatusColor(String? status) {
@@ -255,6 +233,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   List<QuickReplyChipItem> _getCustomerQuickReplies(bool isAr) {
+    final isRide = OrderTypeHelper.isRide(_orderData);
+    if (isRide) {
+      if (isAr) {
+        return const [
+          QuickReplyChipItem(text: 'أنا في نقطة الركوب 📍', icon: LucideIcons.mapPin),
+          QuickReplyChipItem(text: 'أنا نازل الآن ⏳', icon: LucideIcons.clock),
+          QuickReplyChipItem(text: 'أين موقعك الآن؟ 🚗', icon: LucideIcons.navigation),
+          QuickReplyChipItem(text: 'سأتصل بك الآن 📞', icon: LucideIcons.phone),
+        ];
+      }
+      return const [
+        QuickReplyChipItem(text: "I'm at the pickup point 📍", icon: LucideIcons.mapPin),
+        QuickReplyChipItem(text: "I'm coming out now ⏳", icon: LucideIcons.clock),
+        QuickReplyChipItem(text: 'Where are you right now? 🚗', icon: LucideIcons.navigation),
+        QuickReplyChipItem(text: 'Calling you now 📞', icon: LucideIcons.phone),
+      ];
+    }
     if (isAr) {
       return const [
         QuickReplyChipItem(text: 'اترك الطلب عند الباب 🚪', icon: LucideIcons.doorOpen),
@@ -640,11 +635,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
 
     final messagesAsync = ref.watch(sharedChatProvider(_args));
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final orderType = OrderTypeHelper.resolve(_orderData);
+    final resolvedTitle = (widget.type.toLowerCase() == 'order' && _orderData != null)
+        ? OrderTypeHelper.chatTitle(
+            orderType,
+            orderNumber: _orderData!['orderNumber']?.toString(),
+            isArabic: isAr,
+          )
+        : widget.title;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: Text(widget.title, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
+        title: Text(resolvedTitle, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
       ),
       body: Stack(
@@ -656,13 +660,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   orderNumber: (_orderData!['orderNumber'] ?? widget.orderId ?? (widget.conversationId.length > 8 ? widget.conversationId.substring(0, 8) : widget.conversationId)).toString(),
                   statusLabel: _formatStatusLabel(context, _orderData!['status']?.toString()),
                   statusColor: _getStatusColor(_orderData!['status']?.toString()),
-                  totalAmount: (_orderData!['grandTotal'] ?? _orderData!['totalAmount']) != null
-                      ? '${_orderData!['grandTotal'] ?? _orderData!['totalAmount']} EGP'
+                  icon: orderType.isNonStandard
+                      ? VehicleTypeHelper.icon(
+                          _orderData!['requestedVehicleType']?.toString() ??
+                              (orderType.isRide ? 'CAR' : 'MOTORCYCLE'),
+                        )
+                      : LucideIcons.packageCheck,
+                  totalAmount: (_orderData!['grandTotal'] ?? _orderData!['totalAmount'] ?? _orderData!['totalFee'] ?? _orderData!['total']) != null
+                      ? '${_orderData!['grandTotal'] ?? _orderData!['totalAmount'] ?? _orderData!['totalFee'] ?? _orderData!['total']} ${isAr ? 'ج.م' : 'EGP'}'
                       : null,
                   onTap: () {
                     final targetId = widget.orderId ?? _orderData!['id']?.toString();
                     if (targetId != null && targetId.isNotEmpty) {
-                      context.push('/order-tracking/$targetId');
+                      if (orderType.isNonStandard) {
+                        context.push('/order-search/$targetId', extra: _orderData);
+                      } else {
+                        context.push('/order-tracking/$targetId');
+                      }
                     }
                   },
                   onCall: _hasDriverPhone() ? _callDriver : null,

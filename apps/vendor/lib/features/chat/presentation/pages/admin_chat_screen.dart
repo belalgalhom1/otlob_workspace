@@ -969,11 +969,20 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     }
 
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final orderType = OrderTypeHelper.resolve(_orderDetails);
     final orderNum = _orderDetails!['orderNumber'] ?? 'N/A';
     final status = _orderDetails!['status']?.toString() ?? 'PENDING';
-    final total = _orderDetails!['grandTotal']?.toString() ?? '0';
+    final total =
+        (_orderDetails!['grandTotal'] ??
+                _orderDetails!['totalFee'] ??
+                _orderDetails!['total'] ??
+                '0')
+            .toString();
     final payment = _orderDetails!['paymentMethod']?.toString() ?? 'CASH';
+    final pickupAddress = _orderDetails!['pickupAddress']?.toString().trim() ?? '';
     final address = _orderDetails!['deliveryAddress']?.toString() ?? '';
+    final itemDetails = _orderDetails!['itemDetails']?.toString().trim() ?? '';
+    final requestedVehicle = _orderDetails!['requestedVehicleType']?.toString() ?? '';
     final customer = _orderDetails!['customer']?['user'] ?? {};
     final customerName = customer['name'] ?? '';
     final customerPhone = customer['phone'] ?? '';
@@ -986,49 +995,54 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     final driverAvatar =
         driver['avatar']?.toString() ?? driverUser['avatar']?.toString();
     final vendor = _orderDetails!['vendor'] ?? {};
-    final vendorName = vendor['storeName'] ?? '';
-    final vendorLogo = vendor['logo']?.toString();
-    final items = _orderDetails!['items'] as List? ?? [];
+    final vendorName = vendor['storeName']?.toString().trim() ?? '';
+    final vendorLogo = orderType.isStandard ? vendor['logo']?.toString() : null;
+    final items = orderType.isStandard
+        ? (_orderDetails!['items'] as List? ?? [])
+        : const <dynamic>[];
 
     Color statusColor;
-    String statusText;
     switch (status.toUpperCase()) {
       case 'PENDING':
         statusColor = Colors.orange;
-        statusText = isAr ? 'قيد الانتظار' : 'Pending';
         break;
       case 'ACCEPTED':
         statusColor = Colors.blue;
-        statusText = isAr ? 'مقبول' : 'Accepted';
         break;
       case 'PREPARING':
         statusColor = Colors.indigo;
-        statusText = isAr ? 'قيد التحضير' : 'Preparing';
         break;
       case 'READY_FOR_PICKUP':
         statusColor = Colors.purple;
-        statusText = isAr ? 'جاهز للاستلام' : 'Ready';
         break;
       case 'DRIVER_ASSIGNED':
         statusColor = Colors.teal;
-        statusText = isAr ? 'تم تعيين المندوب' : 'Driver Assigned';
         break;
       case 'PICKED_UP':
         statusColor = Colors.cyan;
-        statusText = isAr ? 'في الطريق' : 'Picked Up';
         break;
       case 'DELIVERED':
         statusColor = Colors.green;
-        statusText = isAr ? 'تم التوصيل' : 'Delivered';
         break;
       case 'CANCELLED':
         statusColor = Colors.red;
-        statusText = isAr ? 'ملغي' : 'Cancelled';
         break;
       default:
         statusColor = Colors.grey;
-        statusText = status;
     }
+    final statusText = OrderTypeHelper.customerStatusLabel(
+      orderType,
+      status,
+      isArabic: isAr,
+    );
+    final subtitleSecondary = orderType.isNonStandard
+        ? (requestedVehicle.isNotEmpty
+            ? VehicleTypeHelper.label(requestedVehicle, isArabic: isAr)
+            : '')
+        : vendorName;
+    final subtitleText = subtitleSecondary.isNotEmpty
+        ? '$total ${isAr ? 'ج.م' : 'EGP'} • $subtitleSecondary'
+        : '$total ${isAr ? 'ج.م' : 'EGP'}';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1071,7 +1085,13 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                       imageUrl: ImageUtils.formatImageUrl(vendorLogo),
                       size: 36,
                       borderRadius: 10,
-                      fallbackIcon: LucideIcons.shoppingBag,
+                      fallbackIcon: orderType.isNonStandard
+                          ? VehicleTypeHelper.icon(
+                              requestedVehicle.isNotEmpty
+                                  ? requestedVehicle
+                                  : (orderType.isRide ? 'CAR' : 'MOTORCYCLE'),
+                            )
+                          : LucideIcons.shoppingBag,
                       fallbackIconSize: 18,
                       backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                       foregroundColor: AppColors.primary,
@@ -1082,7 +1102,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${isAr ? 'طلب' : 'Order'} $orderNum',
+                            '${OrderTypeHelper.requestTypeLabel(orderType, isArabic: isAr)} #$orderNum',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
@@ -1091,7 +1111,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '$total ${isAr ? 'ج.م' : 'EGP'} • $vendorName',
+                            subtitleText,
                             style: TextStyle(
                               fontSize: 12,
                               color: Theme.of(context).colorScheme.onSurface,
@@ -1232,6 +1252,29 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                       ),
                       const SizedBox(height: 8),
                     ],
+                    if (orderType.isNonStandard && pickupAddress.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            LucideIcons.circleDot,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${OrderTypeHelper.pickupLabel(orderType, isArabic: isAr)}: $pickupAddress',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     if (address.isNotEmpty) ...[
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1244,7 +1287,9 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              address,
+                              orderType.isNonStandard
+                                  ? '${OrderTypeHelper.dropoffLabel(orderType, isArabic: isAr)}: $address'
+                                  : address,
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Theme.of(context).colorScheme.onSurface,
@@ -1264,7 +1309,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '${isAr ? 'طريقة الدفع:' : 'Payment:'} ${payment.toUpperCase()}',
+                          '${isAr ? 'طريقة الدفع:' : 'Payment:'} ${OrderTypeHelper.paymentMethodLabel(orderType, payment, isArabic: isAr)}',
                           style: TextStyle(
                             fontSize: 13,
                             color: Theme.of(context).colorScheme.onSurface,
@@ -1273,19 +1318,40 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 12),
-                    Text(
-                      isAr ? 'المنتجات المطلوبة:' : 'Items Ordered:',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: AppColors.primary,
+                    if (orderType.isCustomDelivery && itemDetails.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        isAr ? 'تفاصيل الشحنة:' : 'Package Details:',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: AppColors.primary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
+                      const SizedBox(height: 4),
+                      Text(
+                        itemDetails,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
 
-                    // Products List
-                    ...items.map((item) {
+                    if (orderType.isStandard && items.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        isAr ? 'المنتجات المطلوبة:' : 'Items Ordered:',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Products List
+                      ...items.map((item) {
                       final productName = item['product']?['name'] ?? item['productName'] ?? '';
                       final variantName = item['variantName'] ?? '';
                       final quantity = item['quantity'] ?? 1;
@@ -1349,6 +1415,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
                         ),
                       );
                     }),
+                    ],
                   ],
                 ),
               ),
@@ -2007,7 +2074,10 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
               onPressed: _escalateTicket,
             ),
           ],
-          if (widget.type != 'SUPPORT')
+          if (widget.type != 'SUPPORT' &&
+              widget.vendorId != null &&
+              widget.vendorId!.isNotEmpty &&
+              OrderTypeHelper.resolve(_orderDetails).isStandard)
             IconButton(
               icon: const Icon(LucideIcons.plus, size: 20),
               onPressed: _showAddProductDialog,
