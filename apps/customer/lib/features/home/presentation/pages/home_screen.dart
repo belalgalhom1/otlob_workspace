@@ -1244,18 +1244,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ];
     }
 
+    final unselectedBorderColor = palette.isDark
+        ? const Color.fromRGBO(229, 169, 60, 0.25)
+        : palette.borderSubtle;
+
     return Container(
-      key: isAll ? const ValueKey('home_all_category_tile') : null,
+      key: isAll
+          ? const ValueKey('home_all_category_tile')
+          : ValueKey('home_category_tile_${cat['type']}'),
       width: double.infinity,
       height: double.infinity,
       padding: EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: isAll ? palette.logoBg : palette.cardSurface1,
+        color: isAll ? palette.logoBg : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: (isSelected || isAll)
               ? HomeDesignTokens.gold
-              : palette.borderSubtle,
+              : unselectedBorderColor,
           width: (isSelected || isAll) ? 2 : 1,
         ),
         boxShadow: tileShadows,
@@ -1274,35 +1280,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   latinSize: 15.0,
                 ),
               )
-            : hasImage
-                ? CachedNetworkImage(
-                    imageUrl: ImageUtils.formatImageUrl(iconUrl),
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 240,
-                    placeholder: (_, _) => Center(
-                      child: Icon(
-                        _getFallbackIconData(cat['type']?.toString() ?? ''),
-                        color: palette.goldText,
-                        size: 24,
+            : ColoredBox(
+                color: Colors.white,
+                child: hasImage
+                    ? CachedNetworkImage(
+                        imageUrl: ImageUtils.formatImageUrl(iconUrl),
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 240,
+                        placeholder: (_, _) => Center(
+                          child: Icon(
+                            _getFallbackIconData(cat['type']?.toString() ?? ''),
+                            color: HomeDesignTokens.goldDark,
+                            size: 24,
+                          ),
+                        ),
+                        errorWidget: (_, _, _) => Center(
+                          child: Icon(
+                            _getFallbackIconData(cat['type']?.toString() ?? ''),
+                            color: HomeDesignTokens.goldDark,
+                            size: 24,
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(
+                          _getFallbackIconData(cat['type']?.toString() ?? ''),
+                          color: HomeDesignTokens.goldDark,
+                          size: 24,
+                        ),
                       ),
-                    ),
-                    errorWidget: (_, _, _) => Center(
-                      child: Icon(
-                        _getFallbackIconData(cat['type']?.toString() ?? ''),
-                        color: palette.goldText,
-                        size: 24,
-                      ),
-                    ),
-                  )
-                : Center(
-                    child: Icon(
-                      _getFallbackIconData(cat['type']?.toString() ?? ''),
-                      color: palette.goldText,
-                      size: 24,
-                    ),
-                  ),
+              ),
       ),
     );
   }

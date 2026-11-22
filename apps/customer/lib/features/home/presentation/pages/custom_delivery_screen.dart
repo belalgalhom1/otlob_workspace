@@ -221,7 +221,13 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           _dropoffLocation!.latitude,
         ],
         vehicleType: _selectedVehicle,
-        details: detailsText.isEmpty ? null : detailsText,
+        // PlaceCustomOrderDto validates itemDetails as @IsNotEmpty() for
+        // CUSTOM_DELIVERY even on /orders/custom/estimate, although pricing
+        // only depends on locations/vehicle/coins. _submitOrder still requires
+        // the customer to enter real itemDetails before placing an order.
+        details: _serviceType == 'delivery'
+            ? (detailsText.isEmpty ? 'Custom delivery item' : detailsText)
+            : (detailsText.isEmpty ? null : detailsText),
         paymentMethod: _paymentMethod,
         coinsToUse: coinsToUse,
       );
@@ -232,9 +238,6 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           _estimateFailed = result == null;
           _estimateErrorKey =
               result == null ? ordersNotifier.lastCustomEstimateErrorKey : null;
-          if (result == null) {
-            _lastEstimateKey = null;
-          }
           _isEstimating = false;
         });
       }
@@ -645,7 +648,6 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
               isSettingsLoading: isSettingsLoading,
               enabledVehicles: enabledVehicles,
               distanceKm: estDistanceKm,
-              activeGrandTotal: estGrandTotal,
               palette: palette,
               isCompact: isCompact,
               isUltraCompact: isUltraCompact,
@@ -1197,7 +1199,6 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     required bool isSettingsLoading,
     required List<String> enabledVehicles,
     required double? distanceKm,
-    required double? activeGrandTotal,
     required SpecialDeliveryPalette palette,
     bool isCompact = false,
     bool isUltraCompact = false,
@@ -1220,7 +1221,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     final activeSelection = enabledVehicles.contains(_selectedVehicle)
         ? _selectedVehicle
         : (enabledVehicles.isNotEmpty ? enabledVehicles.first : '');
-    final cardHeight = isUltraCompact ? 76.0 : (isCompact ? 80.0 : 88.0);
+    final boxSize = isUltraCompact ? 54.0 : (isCompact ? 60.0 : 68.0);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1271,32 +1272,55 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
               ),
           ],
         ),
-        SizedBox(height: isCompact ? 4 : 6),
+        SizedBox(height: isCompact ? 6 : 8),
 
         // Loading Skeleton / Empty / 4-Column Grid
         if (isSettingsLoading)
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: List.generate(4, (idx) {
               return Expanded(
                 child: Padding(
-                  padding: EdgeInsetsDirectional.only(end: idx < 3 ? 6 : 0),
-                  child: Container(
-                    height: cardHeight,
-                    decoration: BoxDecoration(
-                      color: palette.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: palette.surfaceBorder),
-                    ),
-                    child: Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: palette.goldText,
+                  padding: EdgeInsetsDirectional.only(end: idx < 3 ? 8 : 0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: boxSize,
+                          maxHeight: boxSize,
+                        ),
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: palette.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: palette.surfaceBorder),
+                            ),
+                            child: Center(
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: palette.goldText,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      SizedBox(height: isCompact ? 5 : 6),
+                      Container(
+                        width: 40,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: palette.surface2,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -1334,14 +1358,12 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           )
         else
           _buildFourColumnVehicleRows(
-            s: s,
             isAr: isAr,
             enabledVehicles: enabledVehicles,
             activeSelection: activeSelection,
             settings: settings,
-            activeGrandTotal: activeGrandTotal,
             palette: palette,
-            cardHeight: cardHeight,
+            boxSize: boxSize,
             isCompact: isCompact,
           ),
       ],
@@ -1349,29 +1371,28 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   }
 
   Widget _buildFourColumnVehicleRows({
-    required AppStrings s,
     required bool isAr,
     required List<String> enabledVehicles,
     required String activeSelection,
     required PlatformSettingsData? settings,
-    required double? activeGrandTotal,
     required SpecialDeliveryPalette palette,
-    required double cardHeight,
+    required double boxSize,
     bool isCompact = false,
   }) {
     final rows = <Widget>[];
     for (var start = 0; start < enabledVehicles.length; start += 4) {
       final chunk = enabledVehicles.skip(start).take(4).toList(growable: false);
       if (rows.isNotEmpty) {
-        rows.add(const SizedBox(height: 6));
+        rows.add(const SizedBox(height: 8));
       }
       rows.add(
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: List.generate(4, (col) {
             final code = col < chunk.length ? chunk[col] : null;
             return Expanded(
               child: Padding(
-                padding: EdgeInsetsDirectional.only(end: col < 3 ? 6 : 0),
+                padding: EdgeInsetsDirectional.only(end: col < 3 ? 8 : 0),
                 child: code == null
                     ? const SizedBox.shrink()
                     : _buildVehicleCard(
@@ -1380,19 +1401,8 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                         fallbackIcon: VehicleTypeHelper.icon(code),
                         customIconUrl: settings?.iconUrlForVehicle(code),
                         isSelected: activeSelection == code,
-                        priceAmount:
-                            (activeSelection == code &&
-                                activeGrandTotal != null)
-                            ? ((activeGrandTotal -
-                                          activeGrandTotal.roundToDouble())
-                                      .abs() <
-                                  0.005
-                                  ? activeGrandTotal.toStringAsFixed(0)
-                                  : activeGrandTotal.toStringAsFixed(2))
-                            : null,
-                        priceCurrency: s.egp.trim(),
                         palette: palette,
-                        cardHeight: cardHeight,
+                        boxSize: boxSize,
                         isCompact: isCompact,
                       ),
               ),
@@ -1411,14 +1421,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     required IconData fallbackIcon,
     required String? customIconUrl,
     required bool isSelected,
-    required String? priceAmount,
-    required String priceCurrency,
     required SpecialDeliveryPalette palette,
-    double cardHeight = 88,
+    double boxSize = 68,
     bool isCompact = false,
   }) {
-    final iconW = isCompact ? 38.0 : 44.0;
-    final iconH = isCompact ? 30.0 : 36.0;
+    final hasImage = customIconUrl != null && customIconUrl.isNotEmpty;
 
     return TactileScaleTap(
       tapKey: ValueKey('vehicle_option_${_serviceType}_$code'),
@@ -1434,164 +1441,149 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           _invalidateOrderIntent();
         });
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        height: cardHeight,
-        padding: EdgeInsets.symmetric(horizontal: 4, vertical: isCompact ? 4 : 6),
-        decoration: BoxDecoration(
-          color: isSelected ? palette.selectedTint : palette.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? SpecialDeliveryTokens.gold
-                : palette.surfaceBorder,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected
-              ? const [
-                  BoxShadow(
-                    color: Color.fromRGBO(229, 169, 60, 0.22),
-                    blurRadius: 14,
-                    offset: Offset(0, 4),
-                  ),
-                ]
-              : [palette.surfaceShadow],
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            if (isSelected)
-              PositionedDirectional(
-                top: -2,
-                start: -1,
-                child: Container(
-                  width: 15,
-                  height: 15,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: SpecialDeliveryTokens.gold,
-                  ),
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.check_rounded,
-                    size: 10,
-                    color: SpecialDeliveryTokens.darkOnGold,
-                  ),
-                ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 1:1 Rounded Square Icon Box (Full-bleed edge-to-edge image, zero inner padding)
+          AnimatedScale(
+            scale: isSelected ? 1.03 : 1.0,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: boxSize,
+                maxHeight: boxSize,
               ),
-            MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 1.08,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Container(
-                      width: iconW,
-                      height: iconH,
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      width: double.infinity,
+                      height: double.infinity,
+                      padding: EdgeInsets.zero,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(11),
-                        color: isSelected
-                            ? SpecialDeliveryTokens.gold.withValues(alpha: 0.20)
-                            : palette.surface2,
+                        color: palette.surface,
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSelected
                               ? SpecialDeliveryTokens.gold
                               : palette.surfaceBorder,
-                          width: 1,
+                          width: isSelected ? 2 : 1,
                         ),
+                        boxShadow: isSelected
+                            ? const [
+                                BoxShadow(
+                                  color: Color.fromRGBO(229, 169, 60, 0.42),
+                                  blurRadius: 14,
+                                  spreadRadius: 0,
+                                ),
+                              ]
+                            : [palette.surfaceShadow],
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      alignment: Alignment.center,
-                      child: customIconUrl != null && customIconUrl.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: ImageUtils.formatImageUrl(
-                                customIconUrl,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(
+                          isSelected ? 14 : 15,
+                        ),
+                        child: hasImage
+                            ? CachedNetworkImage(
+                                imageUrl: ImageUtils.formatImageUrl(
+                                  customIconUrl,
+                                ),
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.cover,
+                                memCacheWidth: 240,
+                                placeholder: (_, _) => Center(
+                                  child: Icon(
+                                    fallbackIcon,
+                                    size: isCompact ? 22 : 26,
+                                    color: isSelected
+                                        ? palette.goldText
+                                        : palette.textMuted,
+                                  ),
+                                ),
+                                errorWidget: (_, _, _) => Center(
+                                  child: Icon(
+                                    fallbackIcon,
+                                    size: isCompact ? 22 : 26,
+                                    color: isSelected
+                                        ? palette.goldText
+                                        : palette.textMuted,
+                                  ),
+                                ),
+                              )
+                            : Center(
+                                child: Icon(
+                                  fallbackIcon,
+                                  size: isCompact ? 22 : 26,
+                                  color: isSelected
+                                      ? palette.goldText
+                                      : palette.textPrimary,
+                                ),
                               ),
-                              width: iconW - 2,
-                              height: iconH - 2,
-                              fit: BoxFit.contain,
-                              memCacheWidth: 140,
-                              placeholder: (_, _) => Icon(
-                                fallbackIcon,
-                                size: isCompact ? 18 : 20,
-                                color: isSelected
-                                    ? palette.goldText
-                                    : palette.textPrimary,
-                              ),
-                              errorWidget: (_, _, _) => Icon(
-                                fallbackIcon,
-                                size: isCompact ? 18 : 20,
-                                color: isSelected
-                                    ? palette.goldText
-                                    : palette.textPrimary,
-                              ),
-                            )
-                          : Icon(
-                              fallbackIcon,
-                              size: isCompact ? 18 : 20,
-                              color: isSelected
-                                  ? palette.goldText
-                                  : palette.textPrimary,
-                            ),
+                      ),
                     ),
-                    SizedBox(height: isCompact ? 3 : 4),
-                    Flexible(
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: SpecialDeliveryTokens.text(
-                          size: 10,
-                          weight: FontWeight.w800,
-                          color: isSelected
-                              ? palette.goldText
-                              : palette.textPrimary,
-                          height: 1.08,
+                    if (isSelected)
+                      PositionedDirectional(
+                        top: -4,
+                        start: -4,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: SpecialDeliveryTokens.gold,
+                            border: Border.all(
+                              color: palette.bgMain,
+                              width: 1.5,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color.fromRGBO(0, 0, 0, 0.25),
+                                blurRadius: 4,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.check_rounded,
+                            size: 11,
+                            color: SpecialDeliveryTokens.darkOnGold,
+                          ),
                         ),
                       ),
-                    ),
-                    if (priceAmount != null) ...[
-                      const SizedBox(height: 2),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              priceAmount,
-                              maxLines: 1,
-                              style: SpecialDeliveryTokens.numeric(
-                                size: 9.5,
-                                weight: FontWeight.w800,
-                                color: palette.goldText,
-                                height: 1.05,
-                              ),
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              priceCurrency,
-                              maxLines: 1,
-                              style: SpecialDeliveryTokens.text(
-                                size: 8.5,
-                                weight: FontWeight.w700,
-                                color: palette.goldText,
-                                height: 1.05,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+          SizedBox(height: isCompact ? 5 : 6),
+          // Vehicle Name Label below the icon box (matches Home Business Types)
+          MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.10,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: SpecialDeliveryTokens.text(
+                size: isSelected ? 10.5 : 10.0,
+                weight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                color: isSelected
+                    ? palette.goldText
+                    : (palette.isDark
+                          ? const Color(0xFFC9C1B4)
+                          : palette.textMuted),
+                height: 1.15,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -501,6 +501,15 @@ void main() {
       (darkAllTile.decoration as BoxDecoration).color,
       const Color(0xFFFFFFFF),
     );
+    for (final catType in const ['restaurants', 'pharmacy', 'produce', 'grocery']) {
+      final tile = tester.widget<Container>(
+        find.byKey(ValueKey('home_category_tile_$catType')),
+      );
+      expect(
+        (tile.decoration as BoxDecoration).color,
+        const Color(0xFFFFFFFF),
+      );
+    }
     final darkTlobTexts = tester.widgetList<Text>(find.text('TLOB')).toList();
     expect(darkTlobTexts.length, 2);
     for (final t in darkTlobTexts) {
@@ -540,6 +549,15 @@ void main() {
       (lightAllTile.decoration as BoxDecoration).color,
       const Color(0xFF11100E),
     );
+    for (final catType in const ['restaurants', 'pharmacy', 'produce', 'grocery']) {
+      final tile = tester.widget<Container>(
+        find.byKey(ValueKey('home_category_tile_$catType')),
+      );
+      expect(
+        (tile.decoration as BoxDecoration).color,
+        const Color(0xFFFFFFFF),
+      );
+    }
     final lightTlobTexts = tester.widgetList<Text>(find.text('TLOB')).toList();
     expect(lightTlobTexts.length, 2);
     for (final t in lightTlobTexts) {

@@ -263,4 +263,120 @@ void main() {
       expect(find.byType(TextFormField), findsNothing);
     },
   );
+
+  testWidgets(
+    'Delivery fare estimate sends non-empty itemDetails when input is empty and never infinite-loops on error',
+    (tester) async {
+      final capturedDetails = <String?>[];
+      var failEstimate = true;
+
+      SharedPreferences.setMockInitialValues({});
+      await EasyLocalization.ensureInitialized();
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en'), Locale('ar')],
+          path: 'translations',
+          fallbackLocale: const Locale('en'),
+          startLocale: const Locale('ar'),
+          assetLoader: const _RealCatalogLoader(),
+          child: ProviderScope(
+            overrides: [
+              platformSettingsProvider.overrideWith(
+                (ref) async => PlatformSettingsData(),
+              ),
+              coinHistoryProvider.overrideWith(() => _TestCoins(0)),
+              ordersProvider.overrideWith(
+                () => _RecordingOrders(
+                  onEstimate: (details) {
+                    capturedDetails.add(details);
+                    if (failEstimate) return null;
+                    return {
+                      'distanceKm': 3.8,
+                      'deliveryFee': 30.0,
+                      'serviceFee': 5.0,
+                      'driverBonusFee': 0.0,
+                      'driverBonusPaidByCustomer': false,
+                      'tax': 0.0,
+                      'coinsUsed': 0,
+                      'discount': 0.0,
+                      'coinsEarned': 0,
+                      'grandTotal': 35.0,
+                      'upfrontAmount': 0.0,
+                    };
+                  },
+                ),
+              ),
+            ],
+            child: Builder(
+              builder: (context) => MaterialApp(
+                localizationsDelegates: context.localizationDelegates,
+                supportedLocales: context.supportedLocales,
+                locale: context.locale,
+                theme: ThemeData.light(),
+                darkTheme: ThemeData.dark(),
+                themeMode: ThemeMode.dark,
+                home: const CustomDeliveryScreen(
+                  initialDraft: CustomDeliveryDraft(
+                    serviceType: 'delivery',
+                    pickupAddress: 'السكه الجديد',
+                    dropoffAddress: 'وسط البلد',
+                    pickupLocation: LatLng(30.0444, 31.2357),
+                    dropoffLocation: LatLng(30.0561, 31.2394),
+                    vehicleType: 'motorcycle',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Must have sent a non-empty details string to satisfy PlaceCustomOrderDto
+      // and must NOT loop endlessly when estimate returns null!
+      expect(capturedDetails.length, 1);
+      expect(capturedDetails.first, isNotNull);
+      expect(capturedDetails.first!.trim(), isNotEmpty);
+      expect(find.textContaining('اضغط لإعادة المحاولة'), findsOneWidget);
+
+      // Tapping retry should trigger exactly one fresh request and display fare
+      failEstimate = false;
+      await tester.tap(find.textContaining('اضغط لإعادة المحاولة'));
+      await tester.pumpAndSettle();
+      expect(capturedDetails.length, 2);
+      expect(find.text('35 ج.م'), findsOneWidget);
+    },
+  );
+}
+
+class _RecordingOrders extends Orders {
+  _RecordingOrders({required this.onEstimate});
+  final Map<String, dynamic>? Function(String? details) onEstimate;
+
+  @override
+  OrdersState build() => OrdersState();
+
+  @override
+  Future<Map<String, dynamic>?> estimateCustomOrder({
+    required String type,
+    required String pickup,
+    required List<double> pickupLocation,
+    required String dropoff,
+    required List<double> deliveryLocation,
+    String? details,
+    String? specialRequest,
+    String paymentMethod = 'CASH_ON_DELIVERY',
+    String? vehicleType,
+    int? coinsToUse,
+  }) async {
+    return onEstimate(details);
+  }
 }
