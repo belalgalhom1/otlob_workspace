@@ -9,8 +9,7 @@ on:
   pull_request:
     paths-ignore:
       - 'backend/**'
-  workflow_dispatch:
-
+      
 permissions:
   contents: write
   pull-requests: read
