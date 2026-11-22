@@ -1,12 +1,11 @@
-import 'dart:ui';
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:ui_kit/ui_kit.dart' show AppNetworkAvatar;
-import '../../../../core/theme/app_colors.dart';
+
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/utils/image_utils.dart';
+import 'home_design_tokens.dart';
 
 class OffersAutoScroller extends StatefulWidget {
   final List<Map<String, dynamic>> offers;
@@ -14,7 +13,8 @@ class OffersAutoScroller extends StatefulWidget {
   final AppStrings s;
   final List<Map<String, dynamic>> allVendors;
 
-  const OffersAutoScroller({super.key, 
+  const OffersAutoScroller({
+    super.key,
     required this.offers,
     required this.isDark,
     required this.s,
@@ -38,14 +38,21 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
   }
 
   void _initPageAndController() {
-    _page = widget.offers.isNotEmpty ? widget.offers.length * 100 : 0;
-    _controller = PageController(viewportFraction: 0.85, initialPage: _page);
+    _page = widget.offers.length > 1 ? widget.offers.length * 100 : 0;
+    // 0.87 viewportFraction with 10px trailing margin yields ~84% visible card
+    // width with the next offer peeking in cleanly from the end edge.
+    _controller = PageController(
+      viewportFraction: widget.offers.length > 1 ? 0.87 : 1.0,
+      initialPage: _page,
+    );
   }
 
   @override
   void didUpdateWidget(OffersAutoScroller oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.offers.length != widget.offers.length) {
+      _controller.dispose();
+      _initPageAndController();
       _startTimer();
     }
   }
@@ -53,13 +60,13 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
   void _startTimer() {
     _timer?.cancel();
     if (widget.offers.length <= 1) return;
-    
+
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_controller.hasClients && _controller.page != null) {
         _page = _controller.page!.round() + 1;
         _controller.animateToPage(
           _page,
-          duration: const Duration(milliseconds: 800),
+          duration: const Duration(milliseconds: 700),
           curve: Curves.fastOutSlowIn,
         );
       }
@@ -76,15 +83,40 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
   @override
   Widget build(BuildContext context) {
     if (widget.offers.isEmpty) return const SizedBox.shrink();
-    
+
+    final isMultiple = widget.offers.length > 1;
+
     return PageView.builder(
       controller: _controller,
+      padEnds: false,
+      itemCount: isMultiple ? null : 1,
       onPageChanged: (index) {
         _page = index;
       },
       itemBuilder: (context, index) {
         final offer = widget.offers[index % widget.offers.length];
-        return _buildOfferCard(context, offer);
+        return Padding(
+          padding: EdgeInsetsDirectional.only(end: isMultiple ? 10 : 0),
+          child: _buildOfferCard(context, offer),
+        );
+      },
+    );
+  }
+
+  void _openOfferVendor(
+    BuildContext context,
+    Map<String, dynamic> offer,
+    String? vendorId,
+    String vendorName,
+  ) {
+    if (vendorId == null) return;
+    context.push(
+      '/vendor',
+      extra: {
+        'id': vendorId,
+        'name': vendorName,
+        'productId': offer['productId']?.toString(),
+        'variantId': offer['variantId']?.toString(),
       },
     );
   }
@@ -92,11 +124,19 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
   Widget _buildOfferCard(BuildContext context, Map<String, dynamic> offer) {
     final isAr = widget.s.isArabic;
 
-    final productName = (isAr && offer['productNameAr'] != null && offer['productNameAr'].toString().isNotEmpty)
+    final productName =
+        (isAr &&
+            offer['productNameAr'] != null &&
+            offer['productNameAr'].toString().isNotEmpty)
         ? offer['productNameAr'].toString()
-        : (offer['productName']?.toString() ?? (isAr ? offer['titleAr'] ?? offer['title'] : offer['title']) ?? '');
+        : (offer['productName']?.toString() ??
+              (isAr ? offer['titleAr'] ?? offer['title'] : offer['title']) ??
+              '');
 
-    final variantName = (isAr && offer['variantNameAr'] != null && offer['variantNameAr'].toString().isNotEmpty)
+    final variantName =
+        (isAr &&
+            offer['variantNameAr'] != null &&
+            offer['variantNameAr'].toString().isNotEmpty)
         ? offer['variantNameAr'].toString()
         : (offer['variantName']?.toString() ?? '');
 
@@ -104,162 +144,153 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
         ? '$productName ($variantName)'
         : productName;
 
-    final vendorName = (isAr && offer['vendorStoreNameAr'] != null && offer['vendorStoreNameAr'].toString().isNotEmpty)
+    final vendorName =
+        (isAr &&
+            offer['vendorStoreNameAr'] != null &&
+            offer['vendorStoreNameAr'].toString().isNotEmpty)
         ? offer['vendorStoreNameAr'].toString()
         : (offer['vendorStoreName']?.toString() ?? '');
 
-    final String? rawImageUrl = offer['productImageUrl']?.toString().isNotEmpty == true
+    final String? rawImageUrl =
+        offer['productImageUrl']?.toString().isNotEmpty == true
         ? offer['productImageUrl'].toString()
         : offer['imageUrl']?.toString();
-    final String imageUrl = rawImageUrl != null ? ImageUtils.formatImageUrl(rawImageUrl) : '';
+    final String imageUrl =
+        rawImageUrl != null ? ImageUtils.formatImageUrl(rawImageUrl) : '';
 
-    // Price resolution: use explicit offer/original if set, else use product prices
-    final double? offerPrice = _toDouble(offer['offerPrice']) ?? _toDouble(offer['productBasePrice']);
-    final double? originalPrice = _toDouble(offer['originalPrice']) ?? _toDouble(offer['productComparePrice']);
+    final double? offerPrice =
+        _toDouble(offer['offerPrice']) ?? _toDouble(offer['productBasePrice']);
+    final double? originalPrice =
+        _toDouble(offer['originalPrice']) ??
+        _toDouble(offer['productComparePrice']);
 
     final vendorId = offer['vendorId']?.toString();
-    final vendorList = widget.allVendors.where((v) => v['id']?.toString() == vendorId).toList();
-    final Map<String, dynamic>? vendorObj = vendorList.isNotEmpty ? vendorList.first : null;
+    final vendorObj = widget.allVendors
+        .where((v) => v['id']?.toString() == vendorId)
+        .firstOrNull;
+    final double? vendorRating = vendorObj != null
+        ? double.tryParse(vendorObj['rating']?.toString() ?? '')
+        : null;
+
+    final hasDiscount =
+        offerPrice != null &&
+        originalPrice != null &&
+        originalPrice > offerPrice;
 
     return GestureDetector(
-      onTap: () {
-        if (vendorId != null) {
-          context.push('/vendor', extra: {
-            'id': vendorId,
-            'name': vendorName,
-            'productId': offer['productId']?.toString(),
-            'variantId': offer['variantId']?.toString(),
-          });
-        }
-      },
+      onTap: () => _openOfferVendor(context, offer, vendorId, vendorName),
       child: Container(
-        margin: const EdgeInsetsDirectional.only(start: 16, end: 8),
+        padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: widget.isDark ? const Color(0xFF18181B) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              HomeDesignTokens.hotDealGradientStart,
+              HomeDesignTokens.hotDealGradientEnd,
+            ],
+          ),
           border: Border.all(
-            color: widget.isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.06),
+            color: HomeDesignTokens.borderHotDeal,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: widget.isDark ? 0.35 : 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Product image — full top section with ambient glow
-              Expanded(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Product Image Container (Start / Right in RTL): 96x80
+            SizedBox(
+              width: 96,
+              height: 80,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  width: double.infinity,
-                  color: widget.isDark ? const Color(0xFF101012) : const Color(0xFFF4F4F5),
+                  decoration: BoxDecoration(
+                    color: HomeDesignTokens.logoBg,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // Ambient blurred backdrop: eliminates harsh cutoffs/letterboxing
                       if (imageUrl.isNotEmpty)
-                        Positioned.fill(
-                          child: ClipRect(
-                            child: ImageFiltered(
-                              imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-                              child: Transform.scale(
-                                scale: 1.35,
-                                child: CachedNetworkImage(
-                                  imageUrl: imageUrl,
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 200,
-                                  color: (widget.isDark ? Colors.black : Colors.white).withValues(alpha: 0.35),
-                                  colorBlendMode: widget.isDark ? BlendMode.darken : BlendMode.lighten,
-                                  errorWidget: (_, _, _) => const SizedBox(),
-                                ),
+                        CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          memCacheWidth: 280,
+                          placeholder: (_, _) => const Center(
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.8,
+                                color: HomeDesignTokens.gold,
                               ),
                             ),
                           ),
-                        ),
-
-                      // Gradient overlay for smooth transition into card
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: widget.isDark ? 0.3 : 0.08),
-                                Colors.transparent,
-                                (widget.isDark ? const Color(0xFF18181B) : Colors.white).withValues(alpha: 0.85),
-                                widget.isDark ? const Color(0xFF18181B) : Colors.white,
-                              ],
-                              stops: const [0.0, 0.4, 0.88, 1.0],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // Hero crisp foreground image
-                      if (imageUrl.isNotEmpty)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            child: CachedNetworkImage(
-                              imageUrl: imageUrl,
-                              fit: BoxFit.contain,
-                              memCacheWidth: 600,
-                              placeholder: (_, _) => const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                              errorWidget: (_, _, _) => const Icon(
-                                Icons.image_not_supported_rounded, 
-                                color: Colors.grey, 
-                                size: 40,
-                              ),
+                          errorWidget: (_, _, _) => const Center(
+                            child: Icon(
+                              Icons.local_offer_rounded,
+                              color: HomeDesignTokens.gold,
+                              size: 26,
                             ),
                           ),
                         )
                       else
                         const Center(
-                          child: Icon(Icons.local_offer_rounded, color: AppColors.primary, size: 48),
+                          child: Icon(
+                            Icons.local_offer_rounded,
+                            color: HomeDesignTokens.gold,
+                            size: 26,
+                          ),
                         ),
-
-                      // OFFER badge
+                      // Red Offer Badge at Top-Start (Top-Right in RTL)
                       PositionedDirectional(
-                        top: 12,
-                        start: 12,
+                        top: 6,
+                        start: 6,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFE11D48), Color(0xFFBE123C)],
-                            ),
-                            borderRadius: BorderRadius.circular(10),
+                            color: HomeDesignTokens.offerBadgeRed,
+                            borderRadius: BorderRadius.circular(6),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFE11D48).withValues(alpha: 0.4),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
                               ),
                             ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.bolt_rounded, color: Colors.white, size: 12),
-                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.bolt_rounded,
+                                color: Colors.white,
+                                size: 9,
+                              ),
+                              const SizedBox(width: 2),
                               Text(
-                                widget.s.offerBadge.toUpperCase(),
-                                style: const TextStyle(
+                                widget.s.offerBadge,
+                                style: HomeDesignTokens.text(
+                                  size: 8,
+                                  weight: FontWeight.w900,
                                   color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.5,
+                                  height: 1.1,
                                 ),
                               ),
                             ],
@@ -270,134 +301,134 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                   ),
                 ),
               ),
-              // Bottom info section
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            ),
+
+            const SizedBox(width: 10),
+
+            // Details Column (End / Left in RTL): height 80, space-between
+            Expanded(
+              child: SizedBox(
+                height: 80,
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (vendorName.isNotEmpty)
-                      Row(
-                        children: [
-                          AppNetworkAvatar(
-                            imageUrl: ImageUtils.formatImageUrl(
-                              (vendorObj?['logo'] ??
-                                      vendorObj?['logoUrl'] ??
-                                      vendorObj?['image'] ??
-                                      offer['vendorLogo'])
-                                  ?.toString(),
-                            ),
-                            size: 16,
-                            borderRadius: 4,
-                            fallbackIcon: Icons.storefront_rounded,
-                            fallbackIconSize: 11,
-                          ),
-                          const SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              vendorName,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w800,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (vendorObj != null) ...[
-                            const SizedBox(width: 8),
-                            Builder(builder: (context) {
-                              double rating = double.tryParse(vendorObj['rating']?.toString() ?? '0') ?? 0;
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: List.generate(5, (index) {
-                                  if (index < rating.floor()) {
-                                    return const Icon(Icons.star_rounded, color: Colors.amber, size: 14);
-                                  } else if (index < rating) {
-                                    return const Icon(Icons.star_half_rounded, color: Colors.amber, size: 14);
-                                  } else {
-                                    return Icon(Icons.star_rounded, color: widget.isDark ? Colors.white12 : Colors.grey.shade300, size: 14);
-                                  }
-                                }),
-                              );
-                            }),
-                          ],
-                        ],
-                      ),
-                    const SizedBox(height: 4),
-                    Text(
-                      displayTitle,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        color: widget.isDark ? Colors.white : Colors.black,
-                        letterSpacing: widget.s.isArabic ? null : -0.4,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // Top: Store name + Star rating, followed by 1-line Product title
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [
-                              if (offerPrice != null)
-                                Text(
-                                  '${offerPrice.toStringAsFixed(0)}${widget.s.egp}',
-                                  style: TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppColors.primary,
-                                    letterSpacing: widget.s.isArabic ? null : -0.5,
-                                  ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                vendorName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: HomeDesignTokens.text(
+                                  size: 9.5,
+                                  weight: FontWeight.w800,
+                                  color: HomeDesignTokens.gold,
+                                  height: 1.15,
                                 ),
-                              if (offerPrice != null && originalPrice != null && originalPrice > offerPrice) ...[
-                                Text(
-                                  '${originalPrice.toStringAsFixed(0)}${widget.s.egp}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: widget.isDark ? Colors.white : Colors.black54,
-                                    decoration: TextDecoration.lineThrough,
-                                    decorationThickness: 2,
-                                    decorationColor: Colors.red.withValues(alpha: 0.5),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                _buildDiscountBadge(offerPrice, originalPrice),
-                              ],
+                              ),
+                            ),
+                            if (vendorRating != null && vendorRating > 0) ...[
+                              const SizedBox(width: 4),
+                              _buildRatingRow(vendorRating),
                             ],
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          displayTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: HomeDesignTokens.text(
+                            size: 12,
+                            weight: FontWeight.w900,
+                            color: HomeDesignTokens.textPrimary,
+                            height: 1.2,
                           ),
                         ),
-                        // Order Button
-                        ElevatedButton(
-                          onPressed: () {
-                            if (vendorId != null) {
-                              context.push('/vendor', extra: {
-                                'id': vendorId,
-                                'name': vendorName,
-                                'productId': offer['productId']?.toString(),
-                                'variantId': offer['variantId']?.toString(),
-                              });
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                            minimumSize: const Size(60, 36),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 4,
-                            shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                      ],
+                    ),
+
+                    // Bottom: Prices + Discount pill + Gold Order button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                if (offerPrice != null)
+                                  Text(
+                                    '${offerPrice.toStringAsFixed(0)} ${widget.s.egp}',
+                                    style: HomeDesignTokens.numeric(
+                                      size: 12.5,
+                                      weight: FontWeight.w900,
+                                      color: HomeDesignTokens.gold,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                if (hasDiscount) ...[
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    originalPrice.toStringAsFixed(0),
+                                    style: HomeDesignTokens.numeric(
+                                      size: 9.5,
+                                      weight: FontWeight.w600,
+                                      color: HomeDesignTokens.textMuted,
+                                      height: 1.0,
+                                      decoration: TextDecoration.lineThrough,
+                                      decorationColor:
+                                          HomeDesignTokens.textMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  _buildDiscountBadge(
+                                    offerPrice,
+                                    originalPrice,
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
-                          child: Text(
-                            widget.s.isArabic ? 'اطلب' : 'Order',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(width: 6),
+                        Material(
+                          color: HomeDesignTokens.gold,
+                          borderRadius: BorderRadius.circular(8),
+                          child: InkWell(
+                            onTap: () => _openOfferVendor(
+                              context,
+                              offer,
+                              vendorId,
+                              vendorName,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                isAr ? 'اطلب' : 'Order',
+                                style: HomeDesignTokens.text(
+                                  size: 10.5,
+                                  weight: FontWeight.w900,
+                                  color: HomeDesignTokens.darkOnGold,
+                                  height: 1.15,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -405,30 +436,63 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRatingRow(double rating) {
+    final fullStars = rating.floor().clamp(0, 5);
+    final hasHalf = (rating - fullStars) >= 0.5 && fullStars < 5;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...List.generate(5, (i) {
+          if (i < fullStars) {
+            return const Icon(
+              Icons.star_rounded,
+              color: HomeDesignTokens.ratingAmber,
+              size: 9.5,
+            );
+          }
+          if (i == fullStars && hasHalf) {
+            return const Icon(
+              Icons.star_half_rounded,
+              color: HomeDesignTokens.ratingAmber,
+              size: 9.5,
+            );
+          }
+          return Icon(
+            Icons.star_rounded,
+            color: Colors.white.withValues(alpha: 0.16),
+            size: 9.5,
+          );
+        }),
+      ],
     );
   }
 
   Widget _buildDiscountBadge(double offer, double original) {
     final pct = (((original - offer) / original) * 100).round();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFDC2626).withValues(alpha: widget.isDark ? 0.22 : 0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: HomeDesignTokens.discountBgRed,
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: const Color(0xFFDC2626).withValues(alpha: widget.isDark ? 0.45 : 0.25),
+          color: HomeDesignTokens.discountBorderRed,
+          width: 0.8,
         ),
       ),
       child: Text(
         '-$pct%',
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-          color: Color(0xFFEF4444),
+        style: HomeDesignTokens.numeric(
+          size: 8.5,
+          weight: FontWeight.w800,
+          color: HomeDesignTokens.discountTextRed,
+          height: 1.0,
         ),
       ),
     );

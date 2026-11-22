@@ -1,0 +1,398 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:otlob_customer/core/providers/platform_settings_provider.dart';
+import 'package:otlob_customer/features/auth/presentation/providers/auth_controller.dart';
+import 'package:otlob_customer/features/cart/presentation/providers/cart_controller.dart';
+import 'package:otlob_customer/features/chat/presentation/providers/inbox_counts_provider.dart';
+import 'package:otlob_customer/features/home/presentation/pages/home_screen.dart';
+import 'package:otlob_customer/features/home/presentation/providers/customer_location_provider.dart';
+import 'package:otlob_customer/features/home/presentation/providers/favorites_provider.dart';
+import 'package:otlob_customer/features/home/presentation/providers/home_controller.dart';
+import 'package:otlob_customer/features/home/presentation/providers/home_state.dart';
+import 'package:otlob_customer/features/home/presentation/widgets/home_suggested_store_card.dart';
+import 'package:otlob_customer/features/home/presentation/widgets/offers_auto_scroller.dart';
+import 'package:otlob_customer/features/profile/presentation/providers/coin_history_provider.dart';
+import 'package:otlob_customer/features/profile/presentation/providers/delivery_address_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _TestAssetLoader extends AssetLoader {
+  const _TestAssetLoader();
+
+  @override
+  Future<Map<String, dynamic>?> load(String path, Locale locale) async {
+    final code = locale.languageCode;
+    final p1 = '../../packages/core/assets/translations/$code.json';
+    final p2 = 'packages/core/assets/translations/$code.json';
+    final file = File(File(p1).existsSync() ? p1 : p2);
+    if (!file.existsSync()) return {};
+    return jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+  }
+}
+
+class _TestHomeController extends HomeController {
+  final HomeData data;
+  _TestHomeController(this.data);
+
+  @override
+  Future<HomeData> build() async => data;
+}
+
+class _TestAuthController extends AuthController {
+  @override
+  AuthStatus build() => AuthStatus.authenticated;
+}
+
+class _TestCoinHistory extends CoinHistory {
+  final int balance;
+  _TestCoinHistory(this.balance);
+
+  @override
+  CoinHistoryState build() => CoinHistoryState(currentBalance: balance);
+}
+
+class _TestInboxCounts extends InboxCounts {
+  final int chatUnread;
+  final int notificationsUnread;
+  _TestInboxCounts({this.chatUnread = 0, this.notificationsUnread = 0});
+
+  @override
+  InboxCountsState build() => InboxCountsState(
+    chatUnread: chatUnread,
+    notificationsUnread: notificationsUnread,
+  );
+
+  @override
+  Future<void> refresh() async {}
+}
+
+class _TestCart extends Cart {
+  final CartState cartState;
+  _TestCart(this.cartState);
+
+  @override
+  CartState build() => cartState;
+}
+
+class _TestFavorites extends Favorites {
+  @override
+  Set<String> build() => {'v1'};
+
+  @override
+  Future<void> toggleFavorite(String vendorId) async {
+    if (state.contains(vendorId)) {
+      state = {...state}..remove(vendorId);
+    } else {
+      state = {...state, vendorId};
+    }
+  }
+}
+
+HomeData _buildSampleHomeData({bool includeOffers = true}) {
+  return HomeData(
+    categories: [
+      {'id': 'all', 'name': 'All', 'nameAr': 'الكل', 'type': 'all'},
+      {'id': '1', 'name': 'Restaurants', 'nameAr': 'مطاعم', 'type': 'restaurants', 'iconUrl': ''},
+      {'id': '2', 'name': 'Pharmacies', 'nameAr': 'صيدليات', 'type': 'pharmacy', 'iconUrl': ''},
+      {'id': '3', 'name': 'Produce', 'nameAr': 'فواكه وخضار', 'type': 'produce', 'iconUrl': ''},
+      {'id': '4', 'name': 'Grocery', 'nameAr': 'بقالة', 'type': 'grocery', 'iconUrl': ''},
+    ],
+    products: [
+      {
+        'id': 'v1',
+        'name': 'Burger King',
+        'nameAr': 'برجر كينج',
+        'vendor': 'Burgers',
+        'status': 'OPEN',
+        'rating': 4.9,
+        'distanceKm': 0.9,
+        'deliveryTime': '17-27 دقيقة',
+        'deliveryTimeEn': '17-27 mins',
+        'image': '',
+        'logo': '',
+        'coverImage': '',
+      },
+      {
+        'id': 'v2',
+        'name': 'Al-Ezaby Pharmacy',
+        'nameAr': 'صيدلية العزبي',
+        'vendor': 'Pharmacy',
+        'status': 'CLOSED',
+        'rating': 4.7,
+        'distanceKm': 1.4,
+        'deliveryTime': '20-30 دقيقة',
+        'deliveryTimeEn': '20-30 mins',
+        'image': '',
+        'logo': '',
+        'coverImage': '',
+      },
+    ],
+    promotions: [
+      {
+        'id': 'p1',
+        'title': 'Fast Delivery Everywhere',
+        'titleAr': 'توصيل أطلب لكل مكان',
+        'description': 'Bikes, motorcycles and cars ready 24h',
+        'descriptionAr': 'دراجات وموتوسيكلات جاهزة لخدمتك 24 ساعة',
+        'imageUrl': '',
+        'type': 'VENDOR',
+        'vendorId': 'v1',
+      },
+    ],
+    offers: includeOffers
+        ? [
+            {
+              'id': 'o1',
+              'vendorId': 'v1',
+              'productId': 'prod1',
+              'originalPrice': 150,
+              'offerPrice': 105,
+              'productName': 'Double Cheese Burger',
+              'productNameAr': 'دبل تشيز برجر',
+              'vendorStoreName': 'Burger King',
+              'vendorStoreNameAr': 'برجر كينج',
+              'productImageUrl': '',
+            },
+            {
+              'id': 'o2',
+              'vendorId': 'v2',
+              'productId': 'prod2',
+              'originalPrice': 200,
+              'offerPrice': 160,
+              'productName': 'Vitamin C Pack',
+              'productNameAr': 'عبوة فيتامين سي',
+              'vendorStoreName': 'Al-Ezaby Pharmacy',
+              'vendorStoreNameAr': 'صيدلية العزبي',
+              'productImageUrl': '',
+            },
+          ]
+        : [],
+  );
+}
+
+Future<void> _pumpHome(
+  WidgetTester tester, {
+  required Size viewport,
+  required EdgeInsets safeAreaPadding,
+  Locale locale = const Locale('ar'),
+  TextScaler textScaler = TextScaler.noScaling,
+  HomeData? data,
+  int cartItemsCount = 3,
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  await EasyLocalization.ensureInitialized();
+
+  tester.view.physicalSize = viewport;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  final homeData = data ?? _buildSampleHomeData();
+  final cartState = CartState(
+    vendorBaskets: cartItemsCount > 0
+        ? {
+            'v1': [
+              CartItem(
+                product: const CartProductRef(
+                  id: 'prod1',
+                  name: 'Burger',
+                  price: 105,
+                  vendorId: 'v1',
+                  isActive: true,
+                  tracksStock: false,
+                ),
+                quantity: cartItemsCount,
+              ),
+            ],
+          }
+        : const {},
+  );
+
+  await tester.pumpWidget(
+    EasyLocalization(
+      supportedLocales: const [Locale('en'), Locale('ar')],
+      path: 'translations',
+      fallbackLocale: const Locale('en'),
+      startLocale: locale,
+      assetLoader: const _TestAssetLoader(),
+      child: ProviderScope(
+        overrides: [
+          homeControllerProvider.overrideWith(
+            () => _TestHomeController(homeData),
+          ),
+          platformSettingsProvider.overrideWith(
+            (ref) async => PlatformSettingsData(),
+          ),
+          authControllerProvider.overrideWith(() => _TestAuthController()),
+          coinHistoryProvider.overrideWith(() => _TestCoinHistory(40)),
+          inboxCountsProvider.overrideWith(
+            () => _TestInboxCounts(chatUnread: 1, notificationsUnread: 2),
+          ),
+          cartProvider.overrideWith(() => _TestCart(cartState)),
+          favoritesProvider.overrideWith(() => _TestFavorites()),
+          activeDeliveryAddressProvider.overrideWith(
+            (ref) => {'id': 'a1', 'label': 'Home', 'address': 'السكه الجديد'},
+          ),
+          effectiveCustomerLocationProvider.overrideWith(
+            (ref) async => const EffectiveLocation(
+              lat: 30.0444,
+              lng: 31.2357,
+              isGps: false,
+            ),
+          ),
+        ],
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              localizationsDelegates: context.localizationDelegates,
+              supportedLocales: context.supportedLocales,
+              locale: context.locale,
+              home: MediaQuery(
+                data: MediaQueryData(
+                  size: viewport,
+                  padding: safeAreaPadding,
+                  textScaler: textScaler,
+                ),
+                child: const HomeScreen(),
+              ),
+            );
+          },
+        ),
+      ),
+    ),
+  );
+
+  // Pump a few frames (avoid pumpAndSettle because of periodic timers)
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+}
+
+void main() {
+  final viewports = <String, ({Size size, EdgeInsets padding})>{
+    '360x800': (
+      size: const Size(360, 800),
+      padding: const EdgeInsets.only(top: 28, bottom: 16),
+    ),
+    '390x844': (
+      size: const Size(390, 844),
+      padding: const EdgeInsets.only(top: 47, bottom: 34),
+    ),
+    '412x915': (
+      size: const Size(412, 915),
+      padding: const EdgeInsets.only(top: 36, bottom: 24),
+    ),
+  };
+
+  for (final entry in viewports.entries) {
+    testWidgets(
+      'HomeScreen zero-scroll RTL layout fits with zero overflow on ${entry.key}',
+      (tester) async {
+        await _pumpHome(
+          tester,
+          viewport: entry.value.size,
+          safeAreaPadding: entry.value.padding,
+          locale: const Locale('ar'),
+        );
+
+        expect(tester.takeException(), isNull);
+
+        // Verify ZERO vertical scrollables exist on HomeScreen
+        final verticalScrollables = tester
+            .widgetList<Scrollable>(find.byType(Scrollable))
+            .where((s) => s.axis == Axis.vertical);
+        expect(verticalScrollables, isEmpty);
+
+        // Verify real dynamic data bindings are all rendered simultaneously
+        expect(find.text('السكه الجديد'), findsOneWidget);
+        expect(find.text('40'), findsOneWidget);
+        expect(find.text('الكل'), findsOneWidget);
+        expect(find.text('مطاعم'), findsOneWidget);
+        expect(find.text('صيدليات'), findsOneWidget);
+        expect(find.text('بقالة'), findsOneWidget);
+        expect(find.text('24/7'), findsOneWidget);
+        expect(find.byType(OffersAutoScroller), findsOneWidget);
+        expect(find.text('دبل تشيز برجر'), findsOneWidget);
+        expect(find.text('-30%'), findsOneWidget);
+        expect(find.byType(HomeSuggestedStoreCard), findsWidgets);
+        expect(find.text('برجر كينج'), findsWidgets);
+        // Real cart badge count in bottom nav
+        expect(find.text('3'), findsOneWidget);
+
+        // Verify all key sections are inside the viewport vertically
+        final viewportHeight = entry.value.size.height;
+        final courierRect = tester.getRect(find.text('24/7'));
+        final offersRect = tester.getRect(find.byType(OffersAutoScroller));
+        final storeRect = tester.getRect(
+          find.byType(HomeSuggestedStoreCard).first,
+        );
+        expect(courierRect.top, greaterThan(0));
+        expect(offersRect.bottom, lessThan(viewportHeight));
+        expect(storeRect.bottom, lessThan(viewportHeight));
+      },
+    );
+  }
+
+  testWidgets('HomeScreen fits cleanly in LTR English & 1.3x text scale', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      viewport: const Size(390, 844),
+      safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+      locale: const Locale('en'),
+      textScaler: const TextScaler.linear(1.3),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Double Cheese Burger'), findsOneWidget);
+    expect(find.text('Burger King'), findsWidgets);
+  });
+
+  testWidgets('HomeScreen search dynamically filters suggested stores', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      viewport: const Size(390, 844),
+      safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+      locale: const Locale('ar'),
+    );
+
+    expect(find.byType(HomeSuggestedStoreCard), findsNWidgets(2));
+
+    await tester.enterText(find.byType(TextField), 'العزبي');
+    await tester.pump();
+
+    expect(find.byType(HomeSuggestedStoreCard), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(HomeSuggestedStoreCard),
+        matching: find.text('صيدلية العزبي'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('HomeScreen handles empty offers gracefully with zero overflow', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      viewport: const Size(360, 800),
+      safeAreaPadding: const EdgeInsets.only(top: 28, bottom: 16),
+      locale: const Locale('ar'),
+      data: _buildSampleHomeData(includeOffers: false),
+      cartItemsCount: 0,
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(OffersAutoScroller), findsNothing);
+    expect(find.byType(HomeSuggestedStoreCard), findsNWidgets(2));
+  });
+}
