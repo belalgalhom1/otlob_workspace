@@ -84,6 +84,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
   Widget build(BuildContext context) {
     if (widget.offers.isEmpty) return const SizedBox.shrink();
 
+    final palette = HomePalette.fromBrightness(widget.isDark);
     final isMultiple = widget.offers.length > 1;
 
     return PageView.builder(
@@ -97,7 +98,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
         final offer = widget.offers[index % widget.offers.length];
         return Padding(
           padding: EdgeInsetsDirectional.only(end: isMultiple ? 10 : 0),
-          child: _buildOfferCard(context, offer),
+          child: _buildOfferCard(context, offer, palette),
         );
       },
     );
@@ -121,7 +122,11 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
     );
   }
 
-  Widget _buildOfferCard(BuildContext context, Map<String, dynamic> offer) {
+  Widget _buildOfferCard(
+    BuildContext context,
+    Map<String, dynamic> offer,
+    HomePalette palette,
+  ) {
     final isAr = widget.s.isArabic;
 
     final productName =
@@ -183,21 +188,18 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              HomeDesignTokens.hotDealGradientStart,
-              HomeDesignTokens.hotDealGradientEnd,
-            ],
+            colors: palette.hotDealGradientColors,
           ),
           border: Border.all(
-            color: HomeDesignTokens.borderHotDeal,
+            color: palette.borderHotDeal,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
+              color: palette.cardShadowColor,
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -214,9 +216,11 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: HomeDesignTokens.logoBg,
+                    color: palette.cardSurface2,
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: palette.isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : palette.borderSubtle,
                       width: 1,
                     ),
                     borderRadius: BorderRadius.circular(12),
@@ -239,19 +243,19 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                               ),
                             ),
                           ),
-                          errorWidget: (_, _, _) => const Center(
+                          errorWidget: (_, _, _) => Center(
                             child: Icon(
                               Icons.local_offer_rounded,
-                              color: HomeDesignTokens.gold,
+                              color: palette.goldText,
                               size: 26,
                             ),
                           ),
                         )
                       else
-                        const Center(
+                        Center(
                           child: Icon(
                             Icons.local_offer_rounded,
-                            color: HomeDesignTokens.gold,
+                            color: palette.goldText,
                             size: 26,
                           ),
                         ),
@@ -269,7 +273,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                             borderRadius: BorderRadius.circular(6),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.35),
+                                color: Colors.black.withValues(alpha: 0.30),
                                 blurRadius: 4,
                                 offset: const Offset(0, 1),
                               ),
@@ -329,14 +333,14 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                                 style: HomeDesignTokens.text(
                                   size: 9.5,
                                   weight: FontWeight.w800,
-                                  color: HomeDesignTokens.gold,
+                                  color: palette.goldText,
                                   height: 1.15,
                                 ),
                               ),
                             ),
                             if (vendorRating != null && vendorRating > 0) ...[
                               const SizedBox(width: 4),
-                              _buildRatingRow(vendorRating),
+                              _buildRatingRow(vendorRating, palette),
                             ],
                           ],
                         ),
@@ -348,7 +352,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                           style: HomeDesignTokens.text(
                             size: 12,
                             weight: FontWeight.w900,
-                            color: HomeDesignTokens.textPrimary,
+                            color: palette.textPrimary,
                             height: 1.2,
                           ),
                         ),
@@ -374,7 +378,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                                     style: HomeDesignTokens.numeric(
                                       size: 12.5,
                                       weight: FontWeight.w900,
-                                      color: HomeDesignTokens.gold,
+                                      color: palette.goldText,
                                       height: 1.0,
                                     ),
                                   ),
@@ -385,17 +389,17 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                                     style: HomeDesignTokens.numeric(
                                       size: 9.5,
                                       weight: FontWeight.w600,
-                                      color: HomeDesignTokens.textMuted,
+                                      color: palette.textMuted,
                                       height: 1.0,
                                       decoration: TextDecoration.lineThrough,
-                                      decorationColor:
-                                          HomeDesignTokens.textMuted,
+                                      decorationColor: palette.textMuted,
                                     ),
                                   ),
                                   const SizedBox(width: 5),
                                   _buildDiscountBadge(
                                     offerPrice,
                                     originalPrice,
+                                    palette,
                                   ),
                                 ],
                               ],
@@ -443,9 +447,13 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
     );
   }
 
-  Widget _buildRatingRow(double rating) {
+  Widget _buildRatingRow(double rating, HomePalette palette) {
     final fullStars = rating.floor().clamp(0, 5);
     final hasHalf = (rating - fullStars) >= 0.5 && fullStars < 5;
+    final emptyStarColor = palette.isDark
+        ? Colors.white.withValues(alpha: 0.16)
+        : Colors.black.withValues(alpha: 0.14);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -466,7 +474,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
           }
           return Icon(
             Icons.star_rounded,
-            color: Colors.white.withValues(alpha: 0.16),
+            color: emptyStarColor,
             size: 9.5,
           );
         }),
@@ -474,15 +482,19 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
     );
   }
 
-  Widget _buildDiscountBadge(double offer, double original) {
+  Widget _buildDiscountBadge(
+    double offer,
+    double original,
+    HomePalette palette,
+  ) {
     final pct = (((original - offer) / original) * 100).round();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: HomeDesignTokens.discountBgRed,
+        color: palette.discountBgRed,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: HomeDesignTokens.discountBorderRed,
+          color: palette.discountBorderRed,
           width: 0.8,
         ),
       ),
@@ -491,7 +503,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
         style: HomeDesignTokens.numeric(
           size: 8.5,
           weight: FontWeight.w800,
-          color: HomeDesignTokens.discountTextRed,
+          color: palette.discountTextRed,
           height: 1.0,
         ),
       ),

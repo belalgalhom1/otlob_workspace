@@ -11,7 +11,7 @@ import '../providers/favorites_provider.dart';
 import 'home_design_tokens.dart';
 
 /// Compact horizontal Suggested Store card for the zero-scroll Home Screen
-/// (Section 6). Preserves all existing vendor navigation & favorite logic.
+/// (Section 6). Adapts automatically to Dark & Light Mode via [HomePalette].
 class HomeSuggestedStoreCard extends ConsumerWidget {
   final Map<String, dynamic> vendor;
 
@@ -54,6 +54,7 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = HomePalette.of(context);
     final s = AppStrings.of(context);
     final isAr = s.isArabic;
     final vendorId = vendor['id']?.toString() ?? '';
@@ -88,295 +89,317 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
 
     return SizedBox(
       width: 172,
-      child: Material(
-        color: HomeDesignTokens.cardSurface1,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => context.push('/vendor', extra: vendor),
+      child: Container(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: HomeDesignTokens.borderSubtle,
-                width: 1,
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: palette.cardShadowColor,
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(15),
-              child: Column(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  // Top Cover Strip (48px)
-                  SizedBox(
-                    height: 48,
-                    width: double.infinity,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Cover background
-                        if (coverUrl.isNotEmpty)
-                          CachedNetworkImage(
-                            imageUrl: coverUrl,
-                            fit: BoxFit.cover,
-                            memCacheWidth: 360,
-                            placeholder: (_, _) => const DecoratedBox(
+          ],
+        ),
+        child: Material(
+          color: palette.cardSurface1,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => context.push('/vendor', extra: vendor),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: palette.borderSubtle,
+                  width: 1,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    // Top Cover Strip (48px)
+                    SizedBox(
+                      height: 48,
+                      width: double.infinity,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (coverUrl.isNotEmpty)
+                            CachedNetworkImage(
+                              imageUrl: coverUrl,
+                              fit: BoxFit.cover,
+                              memCacheWidth: 360,
+                              placeholder: (_, _) => DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      palette.cardSurface2,
+                                      palette.cardSurface1,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (_, _, _) => DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      palette.cardSurface2,
+                                      palette.cardSurface1,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                   colors: [
-                                    HomeDesignTokens.cardSurface2,
-                                    HomeDesignTokens.cardSurface1,
+                                    palette.cardSurface2,
+                                    palette.cardSurface1,
                                   ],
                                 ),
                               ),
                             ),
-                            errorWidget: (_, _, _) => const DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    HomeDesignTokens.cardSurface2,
-                                    HomeDesignTokens.cardSurface1,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
-                        else
-                          const DecoratedBox(
+                          // Subtle scrim so pill, centered logo, and fav icon stay crisp
+                          DecoratedBox(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
                                 colors: [
-                                  HomeDesignTokens.cardSurface2,
-                                  HomeDesignTokens.cardSurface1,
+                                  Colors.black.withValues(
+                                    alpha: palette.isDark ? 0.32 : 0.18,
+                                  ),
+                                  Colors.black.withValues(
+                                    alpha: palette.isDark ? 0.45 : 0.28,
+                                  ),
                                 ],
                               ),
                             ),
                           ),
-                        // Subtle scrim so pill, centered logo, and fav icon stay crisp
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.32),
-                                Colors.black.withValues(alpha: 0.45),
+                          // Strip controls: Status pill (start), Logo (center), Favorite (end)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // Status pill
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isOpen
+                                        ? HomeDesignTokens.gold
+                                        : Colors.black.withValues(alpha: 0.65),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: isOpen
+                                        ? null
+                                        : Border.all(
+                                            color: palette.borderSubtle,
+                                          ),
+                                  ),
+                                  child: Text(
+                                    statusLabel,
+                                    style: HomeDesignTokens.text(
+                                      size: 8.5,
+                                      weight: FontWeight.w900,
+                                      color: isOpen
+                                          ? HomeDesignTokens.darkOnGold
+                                          : const Color(0xFFF87171),
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                ),
+                                // Centered Store Logo (36x36)
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: palette.isDark
+                                        ? HomeDesignTokens.logoBg
+                                        : Colors.white,
+                                    border: Border.all(
+                                      color: HomeDesignTokens.gold.withValues(
+                                        alpha: 0.65,
+                                      ),
+                                      width: 1.2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.30,
+                                        ),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: logoUrl.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: logoUrl,
+                                          fit: BoxFit.cover,
+                                          memCacheWidth: 120,
+                                          placeholder: (_, _) => Icon(
+                                            Icons.storefront_rounded,
+                                            size: 16,
+                                            color: palette.goldText,
+                                          ),
+                                          errorWidget: (_, _, _) => Icon(
+                                            Icons.storefront_rounded,
+                                            size: 16,
+                                            color: palette.goldText,
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.storefront_rounded,
+                                          size: 16,
+                                          color: palette.goldText,
+                                        ),
+                                ),
+                                // Favorite Button (20x20)
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
+                                    final authStatus = ref.read(
+                                      authControllerProvider,
+                                    );
+                                    if (authStatus !=
+                                        AuthStatus.authenticated) {
+                                      AuthPromptDialog.show(context);
+                                      return;
+                                    }
+                                    ref
+                                        .read(favoritesProvider.notifier)
+                                        .toggleFavorite(vendorId);
+                                  },
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.black.withValues(
+                                        alpha: 0.45,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Icon(
+                                      isFav
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      size: 11,
+                                      color: isFav
+                                          ? const Color(0xFFF87171)
+                                          : Colors.white.withValues(
+                                              alpha: 0.90,
+                                            ),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                        ),
-                        // Strip controls: Status pill (start), Logo (center), Favorite (end)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ],
+                      ),
+                    ),
+
+                    // Bottom Info Bar
+                    Expanded(
+                      child: MediaQuery.withClampedTextScaling(
+                        maxScaleFactor: 1.12,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 3,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              // Status pill
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isOpen
-                                      ? HomeDesignTokens.gold
-                                      : Colors.black.withValues(alpha: 0.65),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: isOpen
-                                      ? null
-                                      : Border.all(
-                                          color: HomeDesignTokens.borderSubtle,
-                                        ),
-                                ),
-                                child: Text(
-                                  statusLabel,
-                                  style: HomeDesignTokens.text(
-                                    size: 8.5,
-                                    weight: FontWeight.w900,
-                                    color: isOpen
-                                        ? HomeDesignTokens.darkOnGold
-                                        : HomeDesignTokens.discountTextRed,
-                                    height: 1.1,
-                                  ),
-                                ),
-                              ),
-                              // Centered Store Logo (36x36)
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: HomeDesignTokens.logoBg,
-                                  border: Border.all(
-                                    color: HomeDesignTokens.gold.withValues(
-                                      alpha: 0.55,
-                                    ),
-                                    width: 1.2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.45,
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: HomeDesignTokens.text(
+                                        size: 10.5,
+                                        weight: FontWeight.w900,
+                                        color: palette.textPrimary,
+                                        height: 1.15,
                                       ),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
                                     ),
-                                  ],
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: logoUrl.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: logoUrl,
-                                        fit: BoxFit.cover,
-                                        memCacheWidth: 120,
-                                        placeholder: (_, _) => const Icon(
-                                          Icons.storefront_rounded,
-                                          size: 16,
-                                          color: HomeDesignTokens.gold,
-                                        ),
-                                        errorWidget: (_, _, _) => const Icon(
-                                          Icons.storefront_rounded,
-                                          size: 16,
-                                          color: HomeDesignTokens.gold,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.storefront_rounded,
-                                        size: 16,
-                                        color: HomeDesignTokens.gold,
-                                      ),
-                              ),
-                              // Favorite Button (20x20)
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  final authStatus = ref.read(
-                                    authControllerProvider,
-                                  );
-                                  if (authStatus != AuthStatus.authenticated) {
-                                    AuthPromptDialog.show(context);
-                                    return;
-                                  }
-                                  ref
-                                      .read(favoritesProvider.notifier)
-                                      .toggleFavorite(vendorId);
-                                },
-                                child: Container(
-                                  width: 20,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.black.withValues(alpha: 0.45),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Icon(
-                                    isFav
-                                        ? Icons.favorite_rounded
-                                        : Icons.favorite_border_rounded,
-                                    size: 11,
-                                    color: isFav
-                                        ? HomeDesignTokens.discountTextRed
-                                        : Colors.white.withValues(alpha: 0.85),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Bottom Info Bar
-                  Expanded(
-                    child: MediaQuery.withClampedTextScaling(
-                      maxScaleFactor: 1.12,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 3,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: HomeDesignTokens.text(
-                                      size: 10.5,
-                                      weight: FontWeight.w900,
-                                      color: HomeDesignTokens.textPrimary,
-                                      height: 1.15,
-                                    ),
-                                  ),
-                                  if (metaText.isNotEmpty) ...[
-                                    const SizedBox(height: 1),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.location_on_rounded,
-                                          size: 9,
-                                          color: HomeDesignTokens.gold,
-                                        ),
-                                        const SizedBox(width: 2),
-                                        Expanded(
-                                          child: Text(
-                                            metaText,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: HomeDesignTokens.text(
-                                              size: 8.5,
-                                              weight: FontWeight.w600,
-                                              color: HomeDesignTokens.textMuted,
-                                              height: 1.1,
+                                    if (metaText.isNotEmpty) ...[
+                                      const SizedBox(height: 1),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.location_on_rounded,
+                                            size: 9,
+                                            color: palette.goldText,
+                                          ),
+                                          const SizedBox(width: 2),
+                                          Expanded(
+                                            child: Text(
+                                              metaText,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: HomeDesignTokens.text(
+                                                size: 8.5,
+                                                weight: FontWeight.w600,
+                                                color: palette.textMuted,
+                                                height: 1.1,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
-                                ],
-                              ),
-                            ),
-                          const SizedBox(width: 6),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                size: 11,
-                                color: HomeDesignTokens.gold,
-                              ),
-                              const SizedBox(width: 1),
-                              Text(
-                                rating.toStringAsFixed(1),
-                                style: HomeDesignTokens.numeric(
-                                  size: 9.5,
-                                  weight: FontWeight.w800,
-                                  color: HomeDesignTokens.gold,
-                                  height: 1.1,
                                 ),
+                              ),
+                              const SizedBox(width: 6),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.star_rounded,
+                                    size: 11,
+                                    color: palette.goldText,
+                                  ),
+                                  const SizedBox(width: 1),
+                                  Text(
+                                    rating.toStringAsFixed(1),
+                                    style: HomeDesignTokens.numeric(
+                                      size: 9.5,
+                                      weight: FontWeight.w800,
+                                      color: palette.goldText,
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -181,6 +181,7 @@ Future<void> _pumpHome(
   required EdgeInsets safeAreaPadding,
   Locale locale = const Locale('ar'),
   TextScaler textScaler = TextScaler.noScaling,
+  ThemeMode themeMode = ThemeMode.dark,
   HomeData? data,
   int cartItemsCount = 3,
 }) async {
@@ -254,6 +255,9 @@ Future<void> _pumpHome(
               localizationsDelegates: context.localizationDelegates,
               supportedLocales: context.supportedLocales,
               locale: context.locale,
+              theme: ThemeData.light(),
+              darkTheme: ThemeData.dark(),
+              themeMode: themeMode,
               home: MediaQuery(
                 data: MediaQueryData(
                   size: viewport,
@@ -464,6 +468,38 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('HomeScreen adapts dynamically to Dark Mode and Light Mode', (
+    tester,
+  ) async {
+    // Dark Mode check
+    await _pumpHome(
+      tester,
+      viewport: const Size(390, 844),
+      safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+      locale: const Locale('ar'),
+      themeMode: ThemeMode.dark,
+    );
+    expect(tester.takeException(), isNull);
+    final darkScaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(darkScaffold.backgroundColor, const Color(0xFF0F0E0C));
+    final darkAllLabel = tester.widget<Text>(find.text('الكل'));
+    expect(darkAllLabel.style?.color, const Color(0xFFE5A93C));
+
+    // Light Mode check
+    await _pumpHome(
+      tester,
+      viewport: const Size(390, 844),
+      safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+      locale: const Locale('ar'),
+      themeMode: ThemeMode.light,
+    );
+    expect(tester.takeException(), isNull);
+    final lightScaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(lightScaffold.backgroundColor, const Color(0xFFF8F7F4));
+    final lightAllLabel = tester.widget<Text>(find.text('الكل'));
+    expect(lightAllLabel.style?.color, const Color(0xFFB87B14));
   });
 
   testWidgets('HomeScreen handles empty offers gracefully with zero overflow', (

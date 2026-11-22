@@ -109,12 +109,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = HomePalette.of(context);
     final homeState = ref.watch(homeControllerProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: palette.systemOverlayStyle,
       child: Scaffold(
-        backgroundColor: HomeDesignTokens.bgMain,
+        backgroundColor: palette.bgMain,
         resizeToAvoidBottomInset: false,
         body: Stack(
           fit: StackFit.expand,
@@ -122,10 +123,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             SafeArea(
               bottom: false,
               child: homeState.when(
-                data: (data) => _buildZeroScrollLayout(context, data),
+                data: (data) => _buildZeroScrollLayout(context, data, palette),
                 loading: () => _buildShimmer(),
                 error: (error, _) =>
-                    _buildError(ErrorUtils.translate(context, error)),
+                    _buildError(ErrorUtils.translate(context, error), palette),
               ),
             ),
             homeState.maybeWhen(
@@ -133,7 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: _buildBottomNav(context, data),
+                child: _buildBottomNav(context, data, palette),
               ),
               orElse: () => const SizedBox.shrink(),
             ),
@@ -143,7 +144,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildZeroScrollLayout(BuildContext context, HomeData data) {
+  Widget _buildZeroScrollLayout(
+    BuildContext context,
+    HomeData data,
+    HomePalette palette,
+  ) {
     final searchQuery = _searchController.text.toLowerCase();
 
     final filtered = data.products.where((v) {
@@ -161,10 +166,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Column(
       children: [
-        // 1. Fixed Top App Bar (48px)
-        _buildHeader(context),
+        // 0. Fixed Top App Bar (48px)
+        _buildHeader(context, palette),
 
-        // 2. Main Body Container (fills all remaining viewport space, ZERO vertical scroll)
+        // Main Body Container (fills all remaining viewport space, ZERO vertical scroll)
         Expanded(
           child: Padding(
             padding: EdgeInsets.fromLTRB(14, 8, 14, 58 + bottomInset),
@@ -175,7 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   final hasOffers = data.offers.isNotEmpty;
 
                   const double searchHeight = 36.0;
-                  const double categoriesHeight = 64.0;
+                  const double categoriesHeight = 80.0;
                   final double hotDealsHeight = hasOffers ? 114.0 : 0.0;
                   const double storesHeight = 106.0;
 
@@ -186,7 +191,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       hotDealsHeight +
                       storesHeight;
 
-                  double remainingForFlex =
+                  final double remainingForFlex =
                       availableHeight - fixedTotal - (gapCount * responsiveGap);
 
                   double bannerHeight;
@@ -240,35 +245,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Section 1: Top Promotional Banner (Carousel)
+                      // Section 1: Hero Promotional Carousel
                       SizedBox(
                         height: bannerHeight,
-                        child: _buildTopBanners(context, data),
+                        child: _buildTopBanners(context, data, palette),
                       ),
 
                       // Section 2: Search Bar (36px)
                       SizedBox(
                         height: searchHeight,
-                        child: _buildSearch(),
+                        child: _buildSearch(palette),
                       ),
 
-                      // Section 3: Services / Categories Grid (~64px, all visible at once)
+                      // Section 3: Business Types / Categories Grid (5-col row, 100% square images)
                       SizedBox(
                         height: categoriesHeight,
-                        child: _buildMainCategoryTabs(data),
+                        child: _buildMainCategoryTabs(data, palette),
                       ),
 
                       // Section 4: Custom Courier Card
                       SizedBox(
                         height: courierHeight,
-                        child: _buildCustomCourierBanner(courierHeight),
+                        child: _buildCustomCourierBanner(
+                          courierHeight,
+                          palette,
+                        ),
                       ),
 
                       // Section 5: Hot Deals (Horizontal Snap Carousel, ~114px)
                       if (hasOffers)
                         SizedBox(
                           height: hotDealsHeight,
-                          child: _buildOffersStrip(data),
+                          child: _buildOffersStrip(data, palette),
                         ),
 
                       // Section 6: Suggested Stores (Horizontal Scroll Row, ~106px)
@@ -278,6 +286,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           context,
                           data,
                           filtered,
+                          palette,
                         ),
                       ),
                     ],
@@ -292,9 +301,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 1. Top App Bar (Header) — 48px fixed
+  // 0. Top Header — ~48px fixed, theme-aware
   // ---------------------------------------------------------------------------
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, HomePalette palette) {
     final s = AppStrings.of(context);
     final activeAddress = ref.watch(activeDeliveryAddressProvider);
     final effectiveLocation = ref.watch(effectiveCustomerLocationProvider).value;
@@ -315,10 +324,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: HomeDesignTokens.bgMain.withValues(alpha: 0.95),
-        border: const Border(
+        color: palette.headerBg,
+        border: Border(
           bottom: BorderSide(
-            color: HomeDesignTokens.borderHeader,
+            color: palette.borderHeader,
             width: 1,
           ),
         ),
@@ -326,7 +335,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Start Side (Right in RTL): Circular App Logo (36x36) + Address Picker
+          // Start Side (Right in RTL): Circular TLOB Logo (36x36) + Address Picker
           Container(
             width: 36,
             height: 36,
@@ -339,7 +348,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
+                  color: palette.cardShadowColor,
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
@@ -362,7 +371,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   AuthPromptDialog.show(context);
                   return;
                 }
-                _showAddressSelectionBottomSheet(context, ref, activeAddress);
+                _showAddressSelectionBottomSheet(
+                  context,
+                  ref,
+                  activeAddress,
+                  palette,
+                );
               },
               behavior: HitTestBehavior.opaque,
               child: Column(
@@ -380,15 +394,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           style: HomeDesignTokens.text(
                             size: 9.5,
                             weight: FontWeight.w600,
-                            color: HomeDesignTokens.textMuted,
+                            color: palette.textMuted,
                             height: 1.05,
                           ),
                         ),
                       ),
                       const SizedBox(width: 3),
-                      const Icon(
+                      Icon(
                         Icons.location_on_rounded,
-                        color: HomeDesignTokens.gold,
+                        color: palette.goldText,
                         size: 10,
                       ),
                     ],
@@ -407,16 +421,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           style: HomeDesignTokens.text(
                             size: 11.5,
                             weight: FontWeight.w800,
-                            color: HomeDesignTokens.textPrimary,
+                            color: palette.textPrimary,
                             height: 1.15,
                           ),
                         ),
                       ),
                       const SizedBox(width: 2),
-                      const Icon(
+                      Icon(
                         Icons.keyboard_arrow_down_rounded,
                         size: 12,
-                        color: HomeDesignTokens.gold,
+                        color: palette.goldText,
                       ),
                     ],
                   ),
@@ -447,10 +461,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: HomeDesignTokens.cardSurface1,
+                    color: palette.cardSurface1,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: HomeDesignTokens.borderHighlight,
+                      color: palette.borderHighlight,
                       width: 1,
                     ),
                   ),
@@ -462,7 +476,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         style: HomeDesignTokens.numeric(
                           size: 11,
                           weight: FontWeight.w800,
-                          color: HomeDesignTokens.gold,
+                          color: palette.goldText,
                           height: 1.1,
                         ),
                       ),
@@ -490,6 +504,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
               // Chat Icon Button (28x28)
               _buildHeaderIconButton(
+                palette: palette,
                 icon: LucideIcons.messageSquare,
                 hasUnread: inboxCounts.chatUnread > 0,
                 onTap: () {
@@ -506,6 +521,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
               // Notification Icon Button (28x28 + 6x6 gold unread dot)
               _buildHeaderIconButton(
+                palette: palette,
                 icon: LucideIcons.bell,
                 hasUnread: inboxCounts.notificationsUnread > 0,
                 onTap: () {
@@ -525,6 +541,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildHeaderIconButton({
+    required HomePalette palette,
     required IconData icon,
     required bool hasUnread,
     required VoidCallback onTap,
@@ -535,10 +552,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         width: 28,
         height: 28,
         decoration: BoxDecoration(
-          color: HomeDesignTokens.cardSurface1,
+          color: palette.cardSurface1,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: HomeDesignTokens.borderSubtle,
+            color: palette.borderSubtle,
             width: 1,
           ),
         ),
@@ -549,7 +566,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Icon(
                 icon,
                 size: 14,
-                color: HomeDesignTokens.textPrimary,
+                color: palette.textPrimary,
               ),
             ),
             if (hasUnread)
@@ -572,9 +589,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 3. Section 1 — Top Promotional Banner (Carousel)
+  // 1. Hero Promotional Carousel (flex: 1.35, 118px–148px, radius: 16px)
   // ---------------------------------------------------------------------------
-  Widget _buildTopBanners(BuildContext context, HomeData data) {
+  Widget _buildTopBanners(
+    BuildContext context,
+    HomeData data,
+    HomePalette palette,
+  ) {
     final s = AppStrings.of(context);
     final banners = data.promotions;
     final totalItems = banners.isEmpty ? 1 : (banners.length + 1);
@@ -623,12 +644,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: HomeDesignTokens.borderBanner,
+              color: palette.borderBanner,
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: palette.cardShadowColor,
                 blurRadius: 14,
                 offset: const Offset(0, 6),
               ),
@@ -680,7 +701,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       final linkedVendorName = linkedVendor != null
                           ? ((s.isArabic &&
                                     linkedVendor['nameAr'] != null &&
-                                    linkedVendor['nameAr'].toString().isNotEmpty)
+                                    linkedVendor['nameAr']
+                                        .toString()
+                                        .isNotEmpty)
                                 ? linkedVendor['nameAr'].toString()
                                 : (linkedVendor['name']?.toString() ?? ''))
                           : '';
@@ -744,9 +767,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               CachedNetworkImage(
                                 imageUrl: fullUrl,
                                 fit: BoxFit.cover,
-                                errorWidget: (_, _, _) => const SizedBox.shrink(),
+                                errorWidget: (_, _, _) =>
+                                    const SizedBox.shrink(),
                               ),
-                            // Subtle RTL dark gradient overlay (start 95% -> center 75% -> end transparent)
+                            // Subtle dark gradient scrim for white text readability in both modes
                             if (hasTextOverlay)
                               const DecoratedBox(
                                 decoration: BoxDecoration(
@@ -782,11 +806,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: HomeDesignTokens.gold.withValues(
-                                          alpha: 0.20,
+                                          alpha: 0.22,
                                         ),
                                         borderRadius: BorderRadius.circular(999),
                                         border: Border.all(
-                                          color: HomeDesignTokens.borderHighlight,
+                                          color: HomeDesignTokens.gold
+                                              .withValues(alpha: 0.55),
                                           width: 1,
                                         ),
                                       ),
@@ -880,7 +905,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     },
                   ),
 
-                // Optional 24x24 circular next-slide button at top-end (left in RTL)
+                // 24x24 circular next-slide chevron button at top-end (left in RTL)
                 if (totalItems > 1)
                   PositionedDirectional(
                     top: 10,
@@ -960,24 +985,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 4. Section 2 — Search Bar (36px fixed)
+  // 2. Search Bar (36px fixed, radius: 12px, theme-aware)
   // ---------------------------------------------------------------------------
-  Widget _buildSearch() {
+  Widget _buildSearch(HomePalette palette) {
     final s = AppStrings.of(context);
     final isFocused = _searchFocusNode.hasFocus;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
+    return Container(
       height: 36,
       decoration: BoxDecoration(
-        color: HomeDesignTokens.inputBg,
+        color: palette.inputSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isFocused
-              ? HomeDesignTokens.gold
-              : HomeDesignTokens.borderSubtle,
+          color: isFocused ? HomeDesignTokens.gold : palette.borderSubtle,
           width: 1,
         ),
+        boxShadow: palette.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: palette.cardShadowColor,
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Stack(
         alignment: AlignmentDirectional.centerStart,
@@ -985,9 +1016,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           PositionedDirectional(
             start: 12,
             child: IgnorePointer(
-              child: const Icon(
+              child: Icon(
                 LucideIcons.search,
-                color: HomeDesignTokens.gold,
+                color: palette.goldText,
                 size: 16,
               ),
             ),
@@ -1002,7 +1033,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             style: HomeDesignTokens.text(
               size: 11.5,
               weight: FontWeight.w600,
-              color: HomeDesignTokens.textPrimary,
+              color: palette.textPrimary,
               height: 1.2,
             ),
             decoration: InputDecoration(
@@ -1011,7 +1042,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               hintStyle: HomeDesignTokens.text(
                 size: 11.5,
                 weight: FontWeight.w600,
-                color: HomeDesignTokens.textMuted,
+                color: palette.textMuted,
                 height: 1.2,
               ),
               filled: false,
@@ -1034,9 +1065,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _searchController.clear();
                   setState(() {});
                 },
-                child: const Icon(
+                child: Icon(
                   Icons.close_rounded,
-                  color: HomeDesignTokens.textMuted,
+                  color: palette.textMuted,
                   size: 15,
                 ),
               ),
@@ -1047,9 +1078,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 5. Section 3 — Services / Categories Grid (All visible at once, ~64px)
+  // 3. Business Types / Categories Grid (5-col row, gap: 8px, 100% square images)
   // ---------------------------------------------------------------------------
-  Widget _buildMainCategoryTabs(HomeData data) {
+  Widget _buildMainCategoryTabs(HomeData data, HomePalette palette) {
     final s = AppStrings.of(context);
     final categories = data.categories;
     if (categories.isEmpty) return const SizedBox.shrink();
@@ -1068,74 +1099,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return Expanded(
           child: Padding(
             padding: EdgeInsetsDirectional.only(
-              end: i < categories.length - 1 ? 6 : 0,
+              end: i < categories.length - 1 ? 8 : 0,
             ),
-            child: Material(
-              color: isSelected
-                  ? HomeDesignTokens.gold
-                  : HomeDesignTokens.cardSurface1,
-              borderRadius: BorderRadius.circular(16),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () {
-                  context.push('/all-vendors', extra: cat['type'] as String);
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSelected
-                          ? HomeDesignTokens.goldLight
-                          : HomeDesignTokens.borderSubtle,
-                      width: 1,
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: HomeDesignTokens.gold.withValues(
-                                alpha: 0.25,
-                              ),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Circular 36x36 Icon Badge
-                      _buildCategoryIcon(cat, isSelected, categories),
-                      const SizedBox(height: 3),
-                      // Label
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            textAlign: TextAlign.center,
-                            style: HomeDesignTokens.text(
-                              size: isSelected ? 9.5 : 8.8,
-                              weight: isSelected
-                                  ? FontWeight.w900
-                                  : FontWeight.w700,
-                              color: isSelected
-                                  ? HomeDesignTokens.darkOnGold
-                                  : HomeDesignTokens.textPrimary,
-                              height: 1.05,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                context.push('/all-vendors', extra: cat['type'] as String);
+              },
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Square 1:1 Image Card (max 60x60, radius 16, padding 0, 100% edge-to-edge image)
+                  Expanded(
+                    child: Center(
+                      child: Transform.scale(
+                        scale: isSelected ? 1.03 : 1.0,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: 60,
+                            maxHeight: 60,
+                          ),
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: _buildCategoryImageCard(
+                              cat,
+                              isSelected,
+                              palette,
                             ),
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 6),
+                  // Category Label below image (10px black active gold / 9.5px bold inactive primary)
+                  MediaQuery.withClampedTextScaling(
+                    maxScaleFactor: 1.12,
+                    child: SizedBox(
+                      height: 14,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: HomeDesignTokens.text(
+                            size: isSelected ? 10.0 : 9.5,
+                            weight: isSelected
+                                ? FontWeight.w900
+                                : FontWeight.w700,
+                            color: isSelected
+                                ? palette.goldText
+                                : palette.textPrimary,
+                            height: 1.05,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1144,164 +1168,99 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildCategoryIcon(
+  Widget _buildCategoryImageCard(
     Map<String, dynamic> cat,
     bool isSelected,
-    List<dynamic> allCategories,
+    HomePalette palette,
   ) {
-    if (isSelected && cat['type'] == 'all') {
-      final realCategories = allCategories
-          .where((c) => c['type'] != 'all')
-          .take(4)
-          .toList();
-
-      return Container(
-        width: 36,
-        height: 36,
-        padding: const EdgeInsets.all(2.5),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: HomeDesignTokens.selectedCategoryIconBg.withValues(
-            alpha: 0.92,
-          ),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.25),
-            width: 1,
-          ),
-        ),
-        child: realCategories.isEmpty
-            ? const Icon(
-                Icons.grid_view_rounded,
-                color: HomeDesignTokens.gold,
-                size: 16,
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildMiniCategoryIcon(
-                        realCategories[0]['type']?.toString() ?? '',
-                        realCategories[0]['iconUrl'],
-                      ),
-                      if (realCategories.length > 1) ...[
-                        const SizedBox(width: 1.5),
-                        _buildMiniCategoryIcon(
-                          realCategories[1]['type']?.toString() ?? '',
-                          realCategories[1]['iconUrl'],
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (realCategories.length > 2) ...[
-                    const SizedBox(height: 1.5),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildMiniCategoryIcon(
-                          realCategories[2]['type']?.toString() ?? '',
-                          realCategories[2]['iconUrl'],
-                        ),
-                        if (realCategories.length > 3) ...[
-                          const SizedBox(width: 1.5),
-                          _buildMiniCategoryIcon(
-                            realCategories[3]['type']?.toString() ?? '',
-                            realCategories[3]['iconUrl'],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-      );
-    }
-
-    // 3D-style radial dark circular badge (36x36) with full-bleed circular icon image
+    final isAll = cat['type'] == 'all';
     final iconUrl = cat['iconUrl']?.toString();
     final hasImage = iconUrl != null && iconUrl.isNotEmpty;
 
     return Container(
-      width: 36,
-      height: 36,
+      width: double.infinity,
+      height: double.infinity,
+      padding: EdgeInsets.zero,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: isSelected
-            ? null
-            : const RadialGradient(
-                center: Alignment(-0.4, -0.5),
-                radius: 0.85,
-                colors: [
-                  Color(0xFF34302A),
-                  Color(0xFF1A1815),
-                  Color(0xFF110F0D),
-                ],
-                stops: [0.0, 0.70, 1.0],
-              ),
-        color: isSelected ? HomeDesignTokens.selectedCategoryIconBg : null,
+        color: isAll ? HomeDesignTokens.darkOnGold : palette.cardSurface1,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: HomeDesignTokens.gold.withValues(alpha: 0.35),
-          width: 1,
+          color: isSelected ? HomeDesignTokens.gold : palette.borderSubtle,
+          width: isSelected ? 2 : 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.45),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        boxShadow: isSelected
+            ? const [
+                BoxShadow(
+                  color: Color.fromRGBO(229, 169, 60, 0.45),
+                  blurRadius: 14,
+                  spreadRadius: 0,
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: palette.cardShadowColor,
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
       ),
-      alignment: Alignment.center,
-      child: hasImage
-          ? ClipOval(
-              child: CachedNetworkImage(
-                imageUrl: ImageUtils.formatImageUrl(iconUrl),
-                width: 34,
-                height: 34,
-                fit: BoxFit.cover,
-                memCacheWidth: 144,
-                placeholder: (_, _) => Icon(
-                  _getFallbackIconData(cat['type']?.toString() ?? ''),
-                  color: HomeDesignTokens.gold,
-                  size: 18,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(isSelected ? 14 : 15),
+        child: isAll
+            ? Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: HomeDesignTokens.darkOnGold,
+                alignment: Alignment.center,
+                padding: const EdgeInsets.all(5),
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: HomeDesignTokens.logoBg,
+                    border: Border.all(
+                      color: HomeDesignTokens.gold,
+                      width: 1.8,
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
-                errorWidget: (_, _, _) => Icon(
-                  _getFallbackIconData(cat['type']?.toString() ?? ''),
-                  color: HomeDesignTokens.gold,
-                  size: 18,
-                ),
-              ),
-            )
-          : Icon(
-              _getFallbackIconData(cat['type']?.toString() ?? ''),
-              color: HomeDesignTokens.gold,
-              size: 18,
-            ),
-    );
-  }
-
-  Widget _buildMiniCategoryIcon(String type, dynamic iconUrl) {
-    if (iconUrl != null && iconUrl.toString().isNotEmpty) {
-      return ClipOval(
-        child: CachedNetworkImage(
-          imageUrl: ImageUtils.formatImageUrl(iconUrl as String?),
-          width: 13.5,
-          height: 13.5,
-          fit: BoxFit.cover,
-          memCacheWidth: 64,
-          errorWidget: (_, _, _) => Icon(
-            _getFallbackIconData(type),
-            color: HomeDesignTokens.gold,
-            size: 11,
-          ),
-        ),
-      );
-    }
-    return Icon(
-      _getFallbackIconData(type),
-      color: HomeDesignTokens.gold,
-      size: 11,
+              )
+            : hasImage
+                ? CachedNetworkImage(
+                    imageUrl: ImageUtils.formatImageUrl(iconUrl),
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    memCacheWidth: 240,
+                    placeholder: (_, _) => Center(
+                      child: Icon(
+                        _getFallbackIconData(cat['type']?.toString() ?? ''),
+                        color: palette.goldText,
+                        size: 24,
+                      ),
+                    ),
+                    errorWidget: (_, _, _) => Center(
+                      child: Icon(
+                        _getFallbackIconData(cat['type']?.toString() ?? ''),
+                        color: palette.goldText,
+                        size: 24,
+                      ),
+                    ),
+                  )
+                : Center(
+                    child: Icon(
+                      _getFallbackIconData(cat['type']?.toString() ?? ''),
+                      color: palette.goldText,
+                      size: 24,
+                    ),
+                  ),
+      ),
     );
   }
 
@@ -1323,9 +1282,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 6. Section 4 — Custom Courier Card (flex: 1, 92px–112px)
+  // 4. Custom Courier Card (flex: 1, 92px–112px, Dark & Light adaptive)
   // ---------------------------------------------------------------------------
-  Widget _buildCustomCourierBanner(double cardHeight) {
+  Widget _buildCustomCourierBanner(double cardHeight, HomePalette palette) {
     final s = AppStrings.of(context);
     final verticalPad = cardHeight >= 104 ? 10.0 : 6.0;
     final imageBoxHeight = (cardHeight - verticalPad * 2).clamp(60.0, 78.0);
@@ -1355,7 +1314,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: HomeDesignTokens.gold.withValues(alpha: 0.14),
+                color: palette.courierShadowColor,
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -1369,19 +1328,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: HomeDesignTokens.borderCourier,
+                  color: palette.borderCourier,
                   width: 1,
                 ),
-                gradient: const RadialGradient(
-                  center: Alignment(-0.6, -0.6),
-                  radius: 1.35,
-                  colors: [
-                    HomeDesignTokens.courierGoldGlow,
-                    HomeDesignTokens.courierBgMid,
-                    HomeDesignTokens.courierBgDark,
-                  ],
-                  stops: [0.0, 0.55, 1.0],
-                ),
+                gradient: palette.courierGradient,
               ),
               child: InkWell(
                 onTap: openCustomDelivery,
@@ -1394,7 +1344,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Start Column (Right in RTL): Title + 24/7 pill, Description (2 lines, no ellipsis), CTA button
+                      // Start Column (Right in RTL): Title + 24/7 pill, 2-line Description, CTA button
                       Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -1412,7 +1362,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     style: HomeDesignTokens.text(
                                       size: 14.5,
                                       weight: FontWeight.w900,
-                                      color: HomeDesignTokens.gold,
+                                      color: palette.courierTitleColor,
                                       height: 1.1,
                                     ),
                                   ),
@@ -1424,12 +1374,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: HomeDesignTokens.gold.withValues(
-                                      alpha: 0.20,
-                                    ),
+                                    color: palette.courierBadgeBg,
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: HomeDesignTokens.borderCourier,
+                                      color: palette.borderCourier,
                                       width: 0.8,
                                     ),
                                   ),
@@ -1438,7 +1386,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     style: HomeDesignTokens.numeric(
                                       size: 8.5,
                                       weight: FontWeight.w900,
-                                      color: HomeDesignTokens.goldLight,
+                                      color: palette.courierBadgeText,
                                       height: 1.0,
                                     ),
                                   ),
@@ -1459,9 +1407,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     style: HomeDesignTokens.text(
                                       size: 10.5,
                                       weight: FontWeight.w600,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.95,
-                                      ),
+                                      color: palette.courierSubtitleColor,
                                       height: 1.25,
                                     ),
                                   ),
@@ -1505,16 +1451,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: HomeDesignTokens.borderCourierImage,
+                            color: palette.borderCourierImage,
                             width: 1,
                           ),
-                          gradient: const LinearGradient(
+                          gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF132945),
-                              Color(0xFF0A1424),
-                            ],
+                            colors: palette.courierImageFallbackColors,
                           ),
                         ),
                         clipBehavior: Clip.antiAlias,
@@ -1523,25 +1466,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 imageUrl: fullUrl,
                                 fit: BoxFit.cover,
                                 memCacheWidth: 300,
-                                placeholder: (_, _) => const Center(
+                                placeholder: (_, _) => Center(
                                   child: Icon(
                                     Icons.delivery_dining_rounded,
-                                    color: HomeDesignTokens.gold,
+                                    color: palette.goldText,
                                     size: 32,
                                   ),
                                 ),
-                                errorWidget: (_, _, _) => const Center(
+                                errorWidget: (_, _, _) => Center(
                                   child: Icon(
                                     Icons.delivery_dining_rounded,
-                                    color: HomeDesignTokens.gold,
+                                    color: palette.goldText,
                                     size: 32,
                                   ),
                                 ),
                               )
-                            : const Center(
+                            : Center(
                                 child: Icon(
                                   Icons.delivery_dining_rounded,
-                                  color: HomeDesignTokens.gold,
+                                  color: palette.goldText,
                                   size: 36,
                                 ),
                               ),
@@ -1558,16 +1501,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 7. Section 5 — Hot Deals (Horizontal Snap Carousel, ~114px)
+  // 5. Hot Deals Section (Horizontal Snap Carousel, ~114px)
   // ---------------------------------------------------------------------------
-  Widget _buildOffersStrip(HomeData data) {
+  Widget _buildOffersStrip(HomeData data, HomePalette palette) {
     final s = AppStrings.of(context);
     if (data.offers.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header Row (margin-bottom: 4px)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -1580,7 +1522,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: HomeDesignTokens.text(
                   size: 11.5,
                   weight: FontWeight.w900,
-                  color: HomeDesignTokens.textPrimary,
+                  color: palette.textPrimary,
                   height: 1.15,
                 ),
               ),
@@ -1592,7 +1534,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: HomeDesignTokens.text(
                   size: 9.5,
                   weight: FontWeight.w700,
-                  color: HomeDesignTokens.gold,
+                  color: palette.goldText,
                   height: 1.15,
                 ),
               ),
@@ -1600,11 +1542,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        // Snap Carousel
         Expanded(
           child: OffersAutoScroller(
             offers: data.offers,
-            isDark: true,
+            isDark: palette.isDark,
             s: s,
             allVendors: data.products,
           ),
@@ -1614,12 +1555,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 8. Section 6 — Suggested Stores (Horizontal Scroll Row, ~106px)
+  // 6. Suggested Stores Section (Horizontal Scroll Row, ~106px)
   // ---------------------------------------------------------------------------
   Widget _buildSuggestedStoresSection(
     BuildContext context,
     HomeData data,
     List<Map<String, dynamic>> filtered,
+    HomePalette palette,
   ) {
     final s = AppStrings.of(context);
 
@@ -1642,7 +1584,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header Row (margin-bottom: 4px)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -1655,7 +1596,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: HomeDesignTokens.text(
                   size: 11.5,
                   weight: FontWeight.w900,
-                  color: HomeDesignTokens.textPrimary,
+                  color: palette.textPrimary,
                   height: 1.15,
                 ),
               ),
@@ -1668,7 +1609,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: HomeDesignTokens.text(
                   size: 10,
                   weight: FontWeight.w700,
-                  color: HomeDesignTokens.gold,
+                  color: palette.goldText,
                   height: 1.15,
                 ),
               ),
@@ -1676,25 +1617,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        // Horizontal Scroll Row
         Expanded(
           child: filtered.isEmpty
               ? Container(
                   decoration: BoxDecoration(
-                    color: HomeDesignTokens.cardSurface1,
+                    color: palette.cardSurface1,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: HomeDesignTokens.borderSubtle,
+                      color: palette.borderSubtle,
                       width: 1,
                     ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.search_off_rounded,
                         size: 20,
-                        color: HomeDesignTokens.textMuted,
+                        color: palette.textMuted,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -1702,7 +1642,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         style: HomeDesignTokens.text(
                           size: 11.5,
                           weight: FontWeight.w700,
-                          color: HomeDesignTokens.textMuted,
+                          color: palette.textMuted,
                         ),
                       ),
                     ],
@@ -1727,9 +1667,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 9. Fixed Bottom Navigation Bar (54px + blur + real cart badge)
+  // 7. Fixed Bottom Navigation Bar (54px + blur + theme-aware + real cart badge)
   // ---------------------------------------------------------------------------
-  Widget _buildBottomNav(BuildContext context, HomeData data) {
+  Widget _buildBottomNav(
+    BuildContext context,
+    HomeData data,
+    HomePalette palette,
+  ) {
     final s = AppStrings.of(context);
     final cartCount = ref.watch(cartProvider.select((c) => c.totalItems));
     final chatUnread = ref.watch(
@@ -1740,11 +1684,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          decoration: const BoxDecoration(
-            color: HomeDesignTokens.navBg,
+          decoration: BoxDecoration(
+            color: palette.navBg,
             border: Border(
               top: BorderSide(
-                color: HomeDesignTokens.borderNav,
+                color: palette.borderNav,
                 width: 1,
               ),
             ),
@@ -1759,6 +1703,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Expanded(
                       child: _buildNavItem(
+                        palette: palette,
                         index: 0,
                         icon: Icons.home_rounded,
                         label: s.navHome,
@@ -1767,6 +1712,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     Expanded(
                       child: _buildNavItem(
+                        palette: palette,
                         index: 1,
                         icon: LucideIcons.messageSquare,
                         label: s.navChat,
@@ -1776,6 +1722,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     Expanded(
                       child: _buildNavItem(
+                        palette: palette,
                         index: 2,
                         icon: LucideIcons.shoppingCart,
                         label: s.cart,
@@ -1785,6 +1732,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     Expanded(
                       child: _buildNavItem(
+                        palette: palette,
                         index: 3,
                         icon: LucideIcons.shoppingBag,
                         label: s.navOrders,
@@ -1793,6 +1741,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     Expanded(
                       child: _buildNavItem(
+                        palette: palette,
                         index: 4,
                         icon: LucideIcons.user,
                         label: s.navProfile,
@@ -1810,15 +1759,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildNavItem({
+    required HomePalette palette,
     required int index,
     required IconData icon,
     required String label,
     required bool isSelected,
     int badgeCount = 0,
   }) {
-    final color = isSelected
-        ? HomeDesignTokens.gold
-        : HomeDesignTokens.textMuted;
+    final color = isSelected ? palette.goldText : palette.textMuted;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1893,19 +1841,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Loading, Error, and Address Selection Bottom Sheet (Existing logic intact)
+  // Loading, Error, and Address Selection Bottom Sheet (Theme-aware)
   // ---------------------------------------------------------------------------
-  Widget _buildError(String message) {
+  Widget _buildError(String message, HomePalette palette) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.wifi_off_rounded,
               size: 56,
-              color: HomeDesignTokens.textMuted,
+              color: palette.textMuted,
             ),
             const SizedBox(height: 14),
             Text(
@@ -1914,7 +1862,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               style: HomeDesignTokens.text(
                 size: 13,
                 weight: FontWeight.w600,
-                color: HomeDesignTokens.textPrimary,
+                color: palette.textPrimary,
               ),
             ),
             const SizedBox(height: 16),
@@ -1955,6 +1903,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BuildContext context,
     WidgetRef ref,
     Map<String, dynamic>? activeAddress,
+    HomePalette palette,
   ) {
     final s = AppStrings.of(context);
     final profileState = ref.read(profileProvider);
@@ -1963,7 +1912,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: HomeDesignTokens.cardSurface1,
+      backgroundColor: palette.cardSurface1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1983,7 +1932,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: HomeDesignTokens.text(
                       size: 16,
                       weight: FontWeight.w900,
-                      color: HomeDesignTokens.gold,
+                      color: palette.goldText,
                     ),
                   ),
                 ),
@@ -2000,7 +1949,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           : 'No saved addresses.',
                       style: HomeDesignTokens.text(
                         size: 13,
-                        color: HomeDesignTokens.textMuted,
+                        color: palette.textMuted,
                       ),
                     ),
                   )
@@ -2018,8 +1967,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ? Icons.home_rounded
                             : Icons.work_rounded,
                         color: isSelected
-                            ? HomeDesignTokens.gold
-                            : HomeDesignTokens.textMuted,
+                            ? palette.goldText
+                            : palette.textMuted,
                       ),
                       title: Text(
                         addr['label'] ?? s.address,
@@ -2028,7 +1977,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           weight: isSelected
                               ? FontWeight.w800
                               : FontWeight.w600,
-                          color: HomeDesignTokens.textPrimary,
+                          color: palette.textPrimary,
                         ),
                       ),
                       subtitle: Text(
@@ -2037,13 +1986,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: HomeDesignTokens.text(
                           size: 11.5,
-                          color: HomeDesignTokens.textMuted,
+                          color: palette.textMuted,
                         ),
                       ),
                       trailing: isSelected
-                          ? const Icon(
+                          ? Icon(
                               Icons.check_circle_rounded,
-                              color: HomeDesignTokens.gold,
+                              color: palette.goldText,
                             )
                           : null,
                       onTap: () {
@@ -2054,9 +2003,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       },
                     );
                   }),
-                const Divider(
+                Divider(
                   height: 32,
-                  color: HomeDesignTokens.borderHeader,
+                  color: palette.borderHeader,
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -2067,21 +2016,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         Navigator.pop(ctx);
                         context.push('/addresses');
                       },
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.settings_outlined,
-                        color: HomeDesignTokens.gold,
+                        color: palette.goldText,
                       ),
                       label: Text(
                         s.isArabic ? 'إدارة العناوين' : 'Manage Addresses',
                         style: HomeDesignTokens.text(
                           size: 13,
                           weight: FontWeight.w800,
-                          color: HomeDesignTokens.gold,
+                          color: palette.goldText,
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                          color: HomeDesignTokens.borderSubtle,
+                        side: BorderSide(
+                          color: palette.borderSubtle,
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
