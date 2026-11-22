@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:otlob_customer/core/providers/platform_settings_provider.dart';
 import 'package:otlob_customer/features/auth/presentation/providers/auth_controller.dart';
 import 'package:otlob_customer/features/cart/presentation/providers/cart_controller.dart';
@@ -311,6 +312,7 @@ void main() {
         // Verify real dynamic data bindings are all rendered simultaneously
         expect(find.text('السكه الجديد'), findsOneWidget);
         expect(find.text('40'), findsOneWidget);
+        expect(find.text('ابحث عن ما تريد'), findsOneWidget);
         expect(find.text('الكل'), findsOneWidget);
         expect(find.text('مطاعم'), findsOneWidget);
         expect(find.text('صيدليات'), findsOneWidget);
@@ -350,8 +352,93 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
+    expect(find.text('Search for what you want'), findsOneWidget);
     expect(find.text('Double Cheese Burger'), findsOneWidget);
     expect(find.text('Burger King'), findsWidgets);
+  });
+
+  testWidgets('Tapping anywhere on Custom Courier banner opens /custom-delivery', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await EasyLocalization.ensureInitialized();
+
+    const viewport = Size(390, 844);
+    tester.view.physicalSize = viewport;
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const HomeScreen(),
+        ),
+        GoRoute(
+          path: '/custom-delivery',
+          builder: (_, _) => const Scaffold(body: Text('CUSTOM_DELIVERY_PAGE')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      EasyLocalization(
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        path: 'translations',
+        fallbackLocale: const Locale('en'),
+        startLocale: const Locale('ar'),
+        assetLoader: const _TestAssetLoader(),
+        child: ProviderScope(
+          overrides: [
+            homeControllerProvider.overrideWith(
+              () => _TestHomeController(_buildSampleHomeData()),
+            ),
+            platformSettingsProvider.overrideWith(
+              (ref) async => PlatformSettingsData(),
+            ),
+            authControllerProvider.overrideWith(() => _TestAuthController()),
+            coinHistoryProvider.overrideWith(() => _TestCoinHistory(40)),
+            inboxCountsProvider.overrideWith(() => _TestInboxCounts()),
+            cartProvider.overrideWith(
+              () => _TestCart(const CartState(vendorBaskets: {})),
+            ),
+            favoritesProvider.overrideWith(() => _TestFavorites()),
+            activeDeliveryAddressProvider.overrideWith(
+              (ref) => {'id': 'a1', 'label': 'Home', 'address': 'السكه الجديد'},
+            ),
+            effectiveCustomerLocationProvider.overrideWith(
+              (ref) async => const EffectiveLocation(
+                lat: 30.0444,
+                lng: 31.2357,
+                isGps: false,
+              ),
+            ),
+          ],
+          child: Builder(
+            builder: (context) => MaterialApp.router(
+              localizationsDelegates: context.localizationDelegates,
+              supportedLocales: context.supportedLocales,
+              locale: context.locale,
+              routerConfig: router,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Tap the banner badge/body (NOT the "اطلب الآن" button)
+    await tester.tap(find.text('24/7'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('CUSTOM_DELIVERY_PAGE'), findsOneWidget);
   });
 
   testWidgets('HomeScreen search dynamically filters suggested stores', (

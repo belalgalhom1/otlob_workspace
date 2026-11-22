@@ -1158,7 +1158,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return Container(
         width: 36,
         height: 36,
-        padding: const EdgeInsets.all(5),
+        padding: const EdgeInsets.all(2.5),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: HomeDesignTokens.selectedCategoryIconBg.withValues(
@@ -1186,7 +1186,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         realCategories[0]['iconUrl'],
                       ),
                       if (realCategories.length > 1) ...[
-                        const SizedBox(width: 2),
+                        const SizedBox(width: 1.5),
                         _buildMiniCategoryIcon(
                           realCategories[1]['type']?.toString() ?? '',
                           realCategories[1]['iconUrl'],
@@ -1195,7 +1195,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ],
                   ),
                   if (realCategories.length > 2) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1.5),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -1204,7 +1204,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           realCategories[2]['iconUrl'],
                         ),
                         if (realCategories.length > 3) ...[
-                          const SizedBox(width: 2),
+                          const SizedBox(width: 1.5),
                           _buildMiniCategoryIcon(
                             realCategories[3]['type']?.toString() ?? '',
                             realCategories[3]['iconUrl'],
@@ -1218,7 +1218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
-    // 3D-style radial dark circular badge (36x36)
+    // 3D-style radial dark circular badge (36x36) with full-bleed circular icon image
     final iconUrl = cat['iconUrl']?.toString();
     final hasImage = iconUrl != null && iconUrl.isNotEmpty;
 
@@ -1241,7 +1241,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
         color: isSelected ? HomeDesignTokens.selectedCategoryIconBg : null,
         border: Border.all(
-          color: HomeDesignTokens.gold.withValues(alpha: 0.25),
+          color: HomeDesignTokens.gold.withValues(alpha: 0.35),
           width: 1,
         ),
         boxShadow: [
@@ -1254,21 +1254,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       alignment: Alignment.center,
       child: hasImage
-          ? CachedNetworkImage(
-              imageUrl: ImageUtils.formatImageUrl(iconUrl),
-              width: 20,
-              height: 20,
-              fit: BoxFit.contain,
-              memCacheWidth: 80,
-              placeholder: (_, _) => Icon(
-                _getFallbackIconData(cat['type']?.toString() ?? ''),
-                color: HomeDesignTokens.gold,
-                size: 18,
-              ),
-              errorWidget: (_, _, _) => Icon(
-                _getFallbackIconData(cat['type']?.toString() ?? ''),
-                color: HomeDesignTokens.gold,
-                size: 18,
+          ? ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: ImageUtils.formatImageUrl(iconUrl),
+                width: 34,
+                height: 34,
+                fit: BoxFit.cover,
+                memCacheWidth: 144,
+                placeholder: (_, _) => Icon(
+                  _getFallbackIconData(cat['type']?.toString() ?? ''),
+                  color: HomeDesignTokens.gold,
+                  size: 18,
+                ),
+                errorWidget: (_, _, _) => Icon(
+                  _getFallbackIconData(cat['type']?.toString() ?? ''),
+                  color: HomeDesignTokens.gold,
+                  size: 18,
+                ),
               ),
             )
           : Icon(
@@ -1281,23 +1283,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildMiniCategoryIcon(String type, dynamic iconUrl) {
     if (iconUrl != null && iconUrl.toString().isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: ImageUtils.formatImageUrl(iconUrl as String?),
-        width: 10,
-        height: 10,
-        fit: BoxFit.contain,
-        memCacheWidth: 40,
-        errorWidget: (_, _, _) => Icon(
-          _getFallbackIconData(type),
-          color: HomeDesignTokens.gold,
-          size: 9,
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: ImageUtils.formatImageUrl(iconUrl as String?),
+          width: 13.5,
+          height: 13.5,
+          fit: BoxFit.cover,
+          memCacheWidth: 64,
+          errorWidget: (_, _, _) => Icon(
+            _getFallbackIconData(type),
+            color: HomeDesignTokens.gold,
+            size: 11,
+          ),
         ),
       );
     }
     return Icon(
       _getFallbackIconData(type),
       color: HomeDesignTokens.gold,
-      size: 9,
+      size: 11,
     );
   }
 
@@ -1337,27 +1341,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ? ImageUtils.formatImageUrl(iconUrl)
                 : '';
 
+        void openCustomDelivery() {
+          final authStatus = ref.read(authControllerProvider);
+          if (authStatus == AuthStatus.unauthenticated) {
+            AuthPromptDialog.show(context);
+            return;
+          }
+          context.push('/custom-delivery');
+        }
+
         return Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: verticalPad,
-          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: HomeDesignTokens.borderCourier,
-              width: 1,
-            ),
-            gradient: const RadialGradient(
-              center: Alignment(-0.6, -0.6),
-              radius: 1.35,
-              colors: [
-                HomeDesignTokens.courierGoldGlow,
-                HomeDesignTokens.courierBgMid,
-                HomeDesignTokens.courierBgDark,
-              ],
-              stops: [0.0, 0.55, 1.0],
-            ),
             boxShadow: [
               BoxShadow(
                 color: HomeDesignTokens.gold.withValues(alpha: 0.14),
@@ -1366,165 +1361,196 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Start Column (Right in RTL): Title + 24/7 pill, Description (2 lines, no ellipsis), CTA button
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            s.customDeliveryBannerTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: HomeDesignTokens.text(
-                              size: 14.5,
-                              weight: FontWeight.w900,
-                              color: HomeDesignTokens.gold,
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: HomeDesignTokens.gold.withValues(alpha: 0.20),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: HomeDesignTokens.borderCourier,
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Text(
-                            '24/7',
-                            style: HomeDesignTokens.numeric(
-                              size: 8.5,
-                              weight: FontWeight.w900,
-                              color: HomeDesignTokens.goldLight,
-                              height: 1.0,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: AlignmentDirectional.centerStart,
-                        child: SizedBox(
-                          width: MediaQuery.sizeOf(context).width - 178,
-                          child: Text(
-                            s.customDeliveryBannerSub,
-                            maxLines: 2,
-                            softWrap: true,
-                            style: HomeDesignTokens.text(
-                              size: 10.5,
-                              weight: FontWeight.w600,
-                              color: Colors.white.withValues(alpha: 0.95),
-                              height: 1.25,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Material(
-                      color: HomeDesignTokens.gold,
-                      borderRadius: BorderRadius.circular(12),
-                      child: InkWell(
-                        onTap: () {
-                          final authStatus = ref.read(authControllerProvider);
-                          if (authStatus == AuthStatus.unauthenticated) {
-                            AuthPromptDialog.show(context);
-                            return;
-                          }
-                          context.push('/custom-delivery');
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 4,
-                          ),
-                          child: Text(
-                            s.orderNow,
-                            style: HomeDesignTokens.text(
-                              size: 10.5,
-                              weight: FontWeight.w900,
-                              color: HomeDesignTokens.darkOnGold,
-                              height: 1.15,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: HomeDesignTokens.borderCourier,
+                  width: 1,
+                ),
+                gradient: const RadialGradient(
+                  center: Alignment(-0.6, -0.6),
+                  radius: 1.35,
+                  colors: [
+                    HomeDesignTokens.courierGoldGlow,
+                    HomeDesignTokens.courierBgMid,
+                    HomeDesignTokens.courierBgDark,
                   ],
+                  stops: [0.0, 0.55, 1.0],
                 ),
               ),
-
-              const SizedBox(width: 10),
-
-              // End Column (Left in RTL): Dedicated bright 114x78 Image Box (NO dark dimming overlay)
-              Container(
-                width: 114,
-                height: imageBoxHeight,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: HomeDesignTokens.borderCourierImage,
-                    width: 1,
+              child: InkWell(
+                onTap: openCustomDelivery,
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: verticalPad,
                   ),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF132945),
-                      Color(0xFF0A1424),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Start Column (Right in RTL): Title + 24/7 pill, Description (2 lines, no ellipsis), CTA button
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    s.customDeliveryBannerTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: HomeDesignTokens.text(
+                                      size: 14.5,
+                                      weight: FontWeight.w900,
+                                      color: HomeDesignTokens.gold,
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: HomeDesignTokens.gold.withValues(
+                                      alpha: 0.20,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: HomeDesignTokens.borderCourier,
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '24/7',
+                                    style: HomeDesignTokens.numeric(
+                                      size: 8.5,
+                                      weight: FontWeight.w900,
+                                      color: HomeDesignTokens.goldLight,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: AlignmentDirectional.centerStart,
+                                child: SizedBox(
+                                  width: MediaQuery.sizeOf(context).width - 178,
+                                  child: Text(
+                                    s.customDeliveryBannerSub,
+                                    maxLines: 2,
+                                    softWrap: true,
+                                    style: HomeDesignTokens.text(
+                                      size: 10.5,
+                                      weight: FontWeight.w600,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.95,
+                                      ),
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Material(
+                              color: HomeDesignTokens.gold,
+                              borderRadius: BorderRadius.circular(12),
+                              child: InkWell(
+                                onTap: openCustomDelivery,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 4,
+                                  ),
+                                  child: Text(
+                                    s.orderNow,
+                                    style: HomeDesignTokens.text(
+                                      size: 10.5,
+                                      weight: FontWeight.w900,
+                                      color: HomeDesignTokens.darkOnGold,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(width: 10),
+
+                      // End Column (Left in RTL): Dedicated bright 114x78 Image Box (NO dark dimming overlay)
+                      Container(
+                        width: 114,
+                        height: imageBoxHeight,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: HomeDesignTokens.borderCourierImage,
+                            width: 1,
+                          ),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF132945),
+                              Color(0xFF0A1424),
+                            ],
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: fullUrl.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: fullUrl,
+                                fit: BoxFit.cover,
+                                memCacheWidth: 300,
+                                placeholder: (_, _) => const Center(
+                                  child: Icon(
+                                    Icons.delivery_dining_rounded,
+                                    color: HomeDesignTokens.gold,
+                                    size: 32,
+                                  ),
+                                ),
+                                errorWidget: (_, _, _) => const Center(
+                                  child: Icon(
+                                    Icons.delivery_dining_rounded,
+                                    color: HomeDesignTokens.gold,
+                                    size: 32,
+                                  ),
+                                ),
+                              )
+                            : const Center(
+                                child: Icon(
+                                  Icons.delivery_dining_rounded,
+                                  color: HomeDesignTokens.gold,
+                                  size: 36,
+                                ),
+                              ),
+                      ),
                     ],
                   ),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: fullUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: fullUrl,
-                        fit: BoxFit.cover,
-                        memCacheWidth: 300,
-                        placeholder: (_, _) => const Center(
-                          child: Icon(
-                            Icons.delivery_dining_rounded,
-                            color: HomeDesignTokens.gold,
-                            size: 32,
-                          ),
-                        ),
-                        errorWidget: (_, _, _) => const Center(
-                          child: Icon(
-                            Icons.delivery_dining_rounded,
-                            color: HomeDesignTokens.gold,
-                            size: 32,
-                          ),
-                        ),
-                      )
-                    : const Center(
-                        child: Icon(
-                          Icons.delivery_dining_rounded,
-                          color: HomeDesignTokens.gold,
-                          size: 36,
-                        ),
-                      ),
               ),
-            ],
+            ),
           ),
         );
       },
