@@ -335,30 +335,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Start Side (Right in RTL): Circular TLOB Logo (36x36) + Address Picker
+          // Start Side (Right in RTL): Inverted Circular TLOB Logo (36x36) + Address Picker
           Container(
+            key: const ValueKey('home_header_logo'),
             width: 36,
             height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: HomeDesignTokens.logoBg,
+              color: palette.logoBg,
               border: Border.all(
                 color: HomeDesignTokens.gold,
                 width: 2,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: palette.cardShadowColor,
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              boxShadow: palette.logoShadows,
             ),
-            padding: const EdgeInsets.all(2.5),
-            clipBehavior: Clip.antiAlias,
-            child: Image.asset(
-              'assets/logo.png',
-              fit: BoxFit.contain,
+            alignment: Alignment.center,
+            child: _buildInvertedBrandMark(
+              palette: palette,
+              arabicSize: 6.5,
+              latinSize: 9.5,
             ),
           ),
           const SizedBox(width: 8),
@@ -1168,6 +1163,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Widget _buildInvertedBrandMark({
+    required HomePalette palette,
+    required double arabicSize,
+    required double latinSize,
+  }) {
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.0,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'أطلب',
+                maxLines: 1,
+                style: HomeDesignTokens.text(
+                  size: arabicSize,
+                  weight: FontWeight.w800,
+                  color: palette.logoArabicText,
+                  height: 1.05,
+                ),
+              ),
+              Text(
+                'TLOB',
+                maxLines: 1,
+                style: HomeDesignTokens.numeric(
+                  size: latinSize,
+                  weight: FontWeight.w900,
+                  color: palette.logoPrimaryText,
+                  height: 0.95,
+                  letterSpacing: -0.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildCategoryImageCard(
     Map<String, dynamic> cat,
     bool isSelected,
@@ -1177,58 +1215,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final iconUrl = cat['iconUrl']?.toString();
     final hasImage = iconUrl != null && iconUrl.isNotEmpty;
 
+    final List<BoxShadow> tileShadows;
+    if (isAll) {
+      tileShadows = [
+        ...palette.logoShadows,
+        if (isSelected)
+          const BoxShadow(
+            color: Color.fromRGBO(229, 169, 60, 0.35),
+            blurRadius: 14,
+            spreadRadius: 0,
+          ),
+      ];
+    } else if (isSelected) {
+      tileShadows = const [
+        BoxShadow(
+          color: Color.fromRGBO(229, 169, 60, 0.45),
+          blurRadius: 14,
+          spreadRadius: 0,
+        ),
+      ];
+    } else {
+      tileShadows = [
+        BoxShadow(
+          color: palette.cardShadowColor,
+          blurRadius: 10,
+          offset: const Offset(0, 3),
+        ),
+      ];
+    }
+
     return Container(
+      key: isAll ? const ValueKey('home_all_category_tile') : null,
       width: double.infinity,
       height: double.infinity,
       padding: EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: isAll ? HomeDesignTokens.darkOnGold : palette.cardSurface1,
+        color: isAll ? palette.logoBg : palette.cardSurface1,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected ? HomeDesignTokens.gold : palette.borderSubtle,
-          width: isSelected ? 2 : 1,
+          color: (isSelected || isAll)
+              ? HomeDesignTokens.gold
+              : palette.borderSubtle,
+          width: (isSelected || isAll) ? 2 : 1,
         ),
-        boxShadow: isSelected
-            ? const [
-                BoxShadow(
-                  color: Color.fromRGBO(229, 169, 60, 0.45),
-                  blurRadius: 14,
-                  spreadRadius: 0,
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: palette.cardShadowColor,
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+        boxShadow: tileShadows,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(isSelected ? 14 : 15),
+        borderRadius: BorderRadius.circular((isSelected || isAll) ? 14 : 15),
         child: isAll
             ? Container(
                 width: double.infinity,
                 height: double.infinity,
-                color: HomeDesignTokens.darkOnGold,
+                color: palette.logoBg,
                 alignment: Alignment.center,
-                padding: const EdgeInsets.all(5),
-                child: Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: HomeDesignTokens.logoBg,
-                    border: Border.all(
-                      color: HomeDesignTokens.gold,
-                      width: 1.8,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(3),
-                  child: Image.asset(
-                    'assets/logo.png',
-                    fit: BoxFit.contain,
-                  ),
+                child: _buildInvertedBrandMark(
+                  palette: palette,
+                  arabicSize: 10.5,
+                  latinSize: 15.0,
                 ),
               )
             : hasImage

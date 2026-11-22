@@ -11,7 +11,8 @@ class HomeDesignTokens {
   static const Color goldDark = Color(0xFFC88D26);
   static const Color goldTextLightMode = Color(0xFFB87B14);
   static const Color darkOnGold = Color(0xFF14120E);
-  static const Color logoBg = Color(0xFF12110E);
+  static const Color logoBlack = Color(0xFF11100E);
+  static const Color logoWhite = Color(0xFFFFFFFF);
 
   // Semantic Accents
   static const Color offerBadgeRed = Color(0xFFDC2626);
@@ -65,6 +66,7 @@ class HomeDesignTokens {
     double? height,
     TextDecoration? decoration,
     Color? decorationColor,
+    double? letterSpacing,
   }) {
     return TextStyle(
       fontFamily: numericFont,
@@ -75,13 +77,14 @@ class HomeDesignTokens {
       height: height,
       decoration: decoration,
       decorationColor: decorationColor,
+      letterSpacing: letterSpacing,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
   }
 }
 
 /// Theme-aware color palette for the Customer Home Screen supporting both
-/// Dark Mode and Light (White) Mode seamlessly via [Theme.of(context)].
+/// Dark Mode and airy, crisp Light (White) Mode via [Theme.of(context)].
 class HomePalette {
   final bool isDark;
   final Color bgMain;
@@ -95,6 +98,12 @@ class HomePalette {
   final Color textMuted;
   final Color goldText;
 
+  // Mandatory Logo Inversion Tokens (Header Circular Logo + "All / الكل" Tile)
+  final Color logoBg;
+  final Color logoPrimaryText;
+  final Color logoArabicText;
+  final List<BoxShadow> logoShadows;
+
   final Color borderSubtle;
   final Color borderHeader;
   final Color borderNav;
@@ -106,6 +115,7 @@ class HomePalette {
 
   final Color cardShadowColor;
   final List<Color> hotDealGradientColors;
+  final List<Color> storeFallbackCoverColors;
 
   final Color discountBgRed;
   final Color discountBorderRed;
@@ -132,6 +142,10 @@ class HomePalette {
     required this.textPrimary,
     required this.textMuted,
     required this.goldText,
+    required this.logoBg,
+    required this.logoPrimaryText,
+    required this.logoArabicText,
+    required this.logoShadows,
     required this.borderSubtle,
     required this.borderHeader,
     required this.borderNav,
@@ -142,6 +156,7 @@ class HomePalette {
     required this.borderHotDeal,
     required this.cardShadowColor,
     required this.hotDealGradientColors,
+    required this.storeFallbackCoverColors,
     required this.discountBgRed,
     required this.discountBorderRed,
     required this.discountTextRed,
@@ -166,6 +181,17 @@ class HomePalette {
     textPrimary: Color(0xFFF7F4EE),
     textMuted: Color(0xFF9E9689),
     goldText: HomeDesignTokens.gold,
+    // Dark Mode Logo Inversion: Pure WHITE bg, dark/black TLOB, warm gold أطلب, soft white glow
+    logoBg: HomeDesignTokens.logoWhite,
+    logoPrimaryText: HomeDesignTokens.logoBlack,
+    logoArabicText: HomeDesignTokens.goldTextLightMode,
+    logoShadows: [
+      BoxShadow(
+        color: Color.fromRGBO(255, 255, 255, 0.14),
+        blurRadius: 14,
+        offset: Offset(0, 4),
+      ),
+    ],
     borderSubtle: Color.fromRGBO(229, 169, 60, 0.28),
     borderHeader: Color.fromRGBO(229, 169, 60, 0.16),
     borderNav: Color.fromRGBO(229, 169, 60, 0.20),
@@ -176,6 +202,7 @@ class HomePalette {
     borderHotDeal: Color.fromRGBO(229, 169, 60, 0.40),
     cardShadowColor: Color.fromRGBO(0, 0, 0, 0.40),
     hotDealGradientColors: [Color(0xFF1E1B16), Color(0xFF161411)],
+    storeFallbackCoverColors: [Color(0xFF24211C), Color(0xFF1A1815)],
     discountBgRed: Color.fromRGBO(239, 68, 68, 0.20),
     discountBorderRed: Color.fromRGBO(239, 68, 68, 0.40),
     discountTextRed: Color(0xFFF87171),
@@ -200,44 +227,57 @@ class HomePalette {
 
   static const HomePalette light = HomePalette._(
     isDark: false,
-    bgMain: Color(0xFFF8F7F4),
-    headerBg: Color.fromRGBO(255, 255, 255, 0.96),
+    // Airy warm off-white scaffold + crisp #FFFFFF elevated cards + soft ambient shadow
+    bgMain: Color(0xFFF7F6F2),
+    headerBg: Color.fromRGBO(255, 255, 255, 0.97),
     cardSurface1: Color(0xFFFFFFFF),
-    cardSurface2: Color(0xFFF1EFEA),
+    cardSurface2: Color(0xFFFAF9F6),
     inputSurface: Color(0xFFFFFFFF),
-    navBg: Color.fromRGBO(255, 255, 255, 0.97),
+    navBg: Color.fromRGBO(255, 255, 255, 0.98),
     textPrimary: Color(0xFF181613),
     textMuted: Color(0xFF6E6A63),
     goldText: HomeDesignTokens.goldTextLightMode,
-    borderSubtle: Color.fromRGBO(200, 141, 38, 0.35),
-    borderHeader: Color.fromRGBO(200, 141, 38, 0.22),
-    borderNav: Color.fromRGBO(200, 141, 38, 0.26),
+    // Light Mode Logo Inversion: Pure BLACK bg, white TLOB, light gold أطلب, subtle dark shadow
+    logoBg: HomeDesignTokens.logoBlack,
+    logoPrimaryText: HomeDesignTokens.logoWhite,
+    logoArabicText: HomeDesignTokens.goldLight,
+    logoShadows: [
+      BoxShadow(
+        color: Color.fromRGBO(17, 16, 14, 0.22),
+        blurRadius: 12,
+        offset: Offset(0, 4),
+      ),
+    ],
+    borderSubtle: Color.fromRGBO(229, 169, 60, 0.28),
+    borderHeader: Color.fromRGBO(15, 14, 12, 0.06),
+    borderNav: Color.fromRGBO(15, 14, 12, 0.07),
     borderHighlight: HomeDesignTokens.gold,
-    borderBanner: Color.fromRGBO(200, 141, 38, 0.45),
-    borderCourier: Color.fromRGBO(200, 141, 38, 0.45),
-    borderCourierImage: Color.fromRGBO(200, 141, 38, 0.38),
-    borderHotDeal: Color.fromRGBO(200, 141, 38, 0.35),
-    cardShadowColor: Color.fromRGBO(24, 22, 19, 0.08),
-    hotDealGradientColors: [Color(0xFFFFFFFF), Color(0xFFF8F5EE)],
-    discountBgRed: Color.fromRGBO(220, 38, 38, 0.10),
-    discountBorderRed: Color.fromRGBO(220, 38, 38, 0.30),
+    borderBanner: Color.fromRGBO(229, 169, 60, 0.42),
+    borderCourier: Color.fromRGBO(229, 169, 60, 0.42),
+    borderCourierImage: Color.fromRGBO(229, 169, 60, 0.34),
+    borderHotDeal: Color.fromRGBO(229, 169, 60, 0.32),
+    cardShadowColor: Color.fromRGBO(15, 14, 12, 0.06),
+    hotDealGradientColors: [Color(0xFFFFFFFF), Color(0xFFFEFEFC)],
+    storeFallbackCoverColors: [Color(0xFFFCFBF7), Color(0xFFF6F1E4)],
+    discountBgRed: Color.fromRGBO(220, 38, 38, 0.09),
+    discountBorderRed: Color.fromRGBO(220, 38, 38, 0.26),
     discountTextRed: Color(0xFFDC2626),
     courierGradient: LinearGradient(
       begin: AlignmentDirectional.centerStart,
       end: AlignmentDirectional.centerEnd,
       colors: [
-        Color(0xFFFFFDF8),
-        Color(0xFFFFF5DC),
-        Color(0xFFFCE7B5),
+        Color(0xFFFFFFFF),
+        Color(0xFFFFFBF0),
+        Color(0xFFFFF2D1),
       ],
-      stops: [0.0, 0.52, 1.0],
+      stops: [0.0, 0.55, 1.0],
     ),
     courierTitleColor: HomeDesignTokens.goldTextLightMode,
     courierSubtitleColor: Color(0xFF3B362E),
-    courierBadgeBg: Color.fromRGBO(229, 169, 60, 0.22),
+    courierBadgeBg: Color.fromRGBO(229, 169, 60, 0.16),
     courierBadgeText: HomeDesignTokens.goldTextLightMode,
-    courierImageFallbackColors: [Color(0xFFFFF5DC), Color(0xFFF6DC9E)],
-    courierShadowColor: Color.fromRGBO(200, 141, 38, 0.16),
+    courierImageFallbackColors: [Color(0xFFFFFDF7), Color(0xFFFFF5DC)],
+    courierShadowColor: Color.fromRGBO(15, 14, 12, 0.06),
     systemOverlayStyle: SystemUiOverlayStyle.dark,
   );
 

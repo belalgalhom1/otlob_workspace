@@ -135,20 +135,14 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                               placeholder: (_, _) => DecoratedBox(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [
-                                      palette.cardSurface2,
-                                      palette.cardSurface1,
-                                    ],
+                                    colors: palette.storeFallbackCoverColors,
                                   ),
                                 ),
                               ),
                               errorWidget: (_, _, _) => DecoratedBox(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [
-                                      palette.cardSurface2,
-                                      palette.cardSurface1,
-                                    ],
+                                    colors: palette.storeFallbackCoverColors,
                                   ),
                                 ),
                               ),
@@ -159,30 +153,28 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                 gradient: LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
+                                  colors: palette.storeFallbackCoverColors,
+                                ),
+                              ),
+                            ),
+                          // Only apply subtle dark scrim over real cover photos so Light Mode fallbacks stay airy and crisp
+                          if (coverUrl.isNotEmpty)
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
                                   colors: [
-                                    palette.cardSurface2,
-                                    palette.cardSurface1,
+                                    Colors.black.withValues(
+                                      alpha: palette.isDark ? 0.30 : 0.14,
+                                    ),
+                                    Colors.black.withValues(
+                                      alpha: palette.isDark ? 0.42 : 0.24,
+                                    ),
                                   ],
                                 ),
                               ),
                             ),
-                          // Subtle scrim so pill, centered logo, and fav icon stay crisp
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withValues(
-                                    alpha: palette.isDark ? 0.32 : 0.18,
-                                  ),
-                                  Colors.black.withValues(
-                                    alpha: palette.isDark ? 0.45 : 0.28,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
                           // Strip controls: Status pill (start), Logo (center), Favorite (end)
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -226,7 +218,7 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: palette.isDark
-                                        ? HomeDesignTokens.logoBg
+                                        ? HomeDesignTokens.logoBlack
                                         : Colors.white,
                                     border: Border.all(
                                       color: HomeDesignTokens.gold.withValues(

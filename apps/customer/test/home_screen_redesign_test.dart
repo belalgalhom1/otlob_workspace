@@ -473,7 +473,7 @@ void main() {
   testWidgets('HomeScreen adapts dynamically to Dark Mode and Light Mode', (
     tester,
   ) async {
-    // Dark Mode check
+    // Dark Mode check: #0F0E0C bg + WHITE inverted logos with dark TLOB & warm gold أطلب
     await _pumpHome(
       tester,
       viewport: const Size(390, 844),
@@ -487,7 +487,32 @@ void main() {
     final darkAllLabel = tester.widget<Text>(find.text('الكل'));
     expect(darkAllLabel.style?.color, const Color(0xFFE5A93C));
 
-    // Light Mode check
+    final darkHeaderLogo = tester.widget<Container>(
+      find.byKey(const ValueKey('home_header_logo')),
+    );
+    expect(
+      (darkHeaderLogo.decoration as BoxDecoration).color,
+      const Color(0xFFFFFFFF),
+    );
+    final darkAllTile = tester.widget<Container>(
+      find.byKey(const ValueKey('home_all_category_tile')),
+    );
+    expect(
+      (darkAllTile.decoration as BoxDecoration).color,
+      const Color(0xFFFFFFFF),
+    );
+    final darkTlobTexts = tester.widgetList<Text>(find.text('TLOB')).toList();
+    expect(darkTlobTexts.length, 2);
+    for (final t in darkTlobTexts) {
+      expect(t.style?.color, const Color(0xFF11100E));
+    }
+    final darkOtlobTexts = tester.widgetList<Text>(find.text('أطلب')).toList();
+    expect(darkOtlobTexts.length, 2);
+    for (final t in darkOtlobTexts) {
+      expect(t.style?.color, const Color(0xFFB87B14));
+    }
+
+    // Light Mode check: #F7F6F2 airy bg + BLACK inverted logos with white TLOB & light gold أطلب
     await _pumpHome(
       tester,
       viewport: const Size(390, 844),
@@ -497,9 +522,34 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     final lightScaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-    expect(lightScaffold.backgroundColor, const Color(0xFFF8F7F4));
+    expect(lightScaffold.backgroundColor, const Color(0xFFF7F6F2));
     final lightAllLabel = tester.widget<Text>(find.text('الكل'));
     expect(lightAllLabel.style?.color, const Color(0xFFB87B14));
+
+    final lightHeaderLogo = tester.widget<Container>(
+      find.byKey(const ValueKey('home_header_logo')),
+    );
+    expect(
+      (lightHeaderLogo.decoration as BoxDecoration).color,
+      const Color(0xFF11100E),
+    );
+    final lightAllTile = tester.widget<Container>(
+      find.byKey(const ValueKey('home_all_category_tile')),
+    );
+    expect(
+      (lightAllTile.decoration as BoxDecoration).color,
+      const Color(0xFF11100E),
+    );
+    final lightTlobTexts = tester.widgetList<Text>(find.text('TLOB')).toList();
+    expect(lightTlobTexts.length, 2);
+    for (final t in lightTlobTexts) {
+      expect(t.style?.color, const Color(0xFFFFFFFF));
+    }
+    final lightOtlobTexts = tester.widgetList<Text>(find.text('أطلب')).toList();
+    expect(lightOtlobTexts.length, 2);
+    for (final t in lightOtlobTexts) {
+      expect(t.style?.color, const Color(0xFFF6C667));
+    }
   });
 
   testWidgets('HomeScreen handles empty offers gracefully with zero overflow', (
