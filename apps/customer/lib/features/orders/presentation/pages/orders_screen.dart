@@ -347,6 +347,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(4, (index) {
           final isActive = index <= currentStep;
@@ -355,6 +356,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
           return Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
@@ -405,14 +407,23 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: isActive ? FontWeight.w900 : FontWeight.bold,
-                    color: isActive
-                        ? AppColors.primary
-                        : (isDark ? Colors.white30 : Colors.grey.shade400),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isActive ? FontWeight.w900 : FontWeight.bold,
+                        color: isActive
+                            ? AppColors.primary
+                            : (isDark ? Colors.white30 : Colors.grey.shade400),
+                      ),
+                    ),
                   ),
                 ),
               ],

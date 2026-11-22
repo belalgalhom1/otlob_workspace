@@ -35,9 +35,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   bool _isExpanded = false;
   bool _useCoins = false;
   bool _isEstimating = false;
+  bool _estimateFailed = false;
   bool _isSubmitting = false;
   Map<String, dynamic>? _estimate;
   String? _lastEstimateKey;
+  int _estimateRequestSeq = 0;
   String? _clientOrderKey;
 
   String _clientOrderKeyForCheckout() =>
@@ -89,10 +91,19 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     return enabled.first;
   }
 
-  Future<void> _fetchEstimate() async {
-    if (_isEstimating) return;
+  Future<void> _fetchEstimate({bool force = false}) async {
     if (_pickupLocation == null || _dropoffLocation == null) {
-      _estimate = null;
+      if (_estimate != null || _estimateFailed || _isEstimating) {
+        _estimateRequestSeq++;
+        _lastEstimateKey = null;
+        if (mounted) {
+          setState(() {
+            _estimate = null;
+            _estimateFailed = false;
+            _isEstimating = false;
+          });
+        }
+      }
       return;
     }
 
@@ -102,6 +113,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       if (_estimate != null && mounted) {
         setState(() {
           _estimate = null;
+          _estimateFailed = false;
           _lastEstimateKey = null;
         });
       }
@@ -120,34 +132,48 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       final coinState = ref.read(coinHistoryProvider);
       if (settings != null &&
           coinState.currentBalance >= settings.minCoinsToUse) {
-        // Coins cover the whole bill; the backend caps the discount at the
-        // grand total and only consumes the coins actually needed.
         coinsToUse = coinState.currentBalance;
       }
     }
 
-    final estimateKey = '$_serviceType|$_selectedVehicle|$_paymentMethod|${_pickupLocation!.longitude},${_pickupLocation!.latitude}|${_dropoffLocation!.longitude},${_dropoffLocation!.latitude}|${coinsToUse ?? 0}';
-    if (estimateKey == _lastEstimateKey) return;
+    final estimateKey =
+        '$_serviceType|$_selectedVehicle|$_paymentMethod|${_pickupLocation!.longitude},${_pickupLocation!.latitude}|${_dropoffLocation!.longitude},${_dropoffLocation!.latitude}|${coinsToUse ?? 0}';
+    if (!force && estimateKey == _lastEstimateKey) return;
     _lastEstimateKey = estimateKey;
 
-    setState(() => _isEstimating = true);
+    final requestSeq = ++_estimateRequestSeq;
+    if (mounted) {
+      setState(() {
+        _isEstimating = true;
+        _estimateFailed = false;
+      });
+    }
+
     Map<String, dynamic>? result;
     try {
       result = await ref.read(ordersProvider.notifier).estimateCustomOrder(
         type: _serviceType,
-        pickup: _pickupController.text.trim().isEmpty ? 'Pickup' : _pickupController.text.trim(),
+        pickup: _pickupController.text.trim().isEmpty
+            ? 'Pickup'
+            : _pickupController.text.trim(),
         pickupLocation: [_pickupLocation!.longitude, _pickupLocation!.latitude],
-        dropoff: _dropoffController.text.trim().isEmpty ? 'Dropoff' : _dropoffController.text.trim(),
-        deliveryLocation: [_dropoffLocation!.longitude, _dropoffLocation!.latitude],
+        dropoff: _dropoffController.text.trim().isEmpty
+            ? 'Dropoff'
+            : _dropoffController.text.trim(),
+        deliveryLocation: [
+          _dropoffLocation!.longitude,
+          _dropoffLocation!.latitude,
+        ],
         vehicleType: _selectedVehicle,
         details: detailsText.isEmpty ? null : detailsText,
         paymentMethod: _paymentMethod,
         coinsToUse: coinsToUse,
       );
     } finally {
-      if (mounted) {
+      if (mounted && requestSeq == _estimateRequestSeq) {
         setState(() {
           _estimate = result;
+          _estimateFailed = result == null;
           if (result == null) {
             _lastEstimateKey = null;
           }
@@ -157,61 +183,12 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     }
   }
 
-  double _calculateDistance() {
-    if (_pickupLocation == null || _dropoffLocation == null) return 0.0;
-    const distance = Distance();
-    final meters = distance.as(LengthUnit.Meter, _pickupLocation!, _dropoffLocation!);
-    return meters / 1000.0;
-  }
-
-  double _calculateTotalFee() {
-    final settings = ref.read(platformSettingsProvider).value;
-    if (settings == null) return 0.0;
-    
-    if (_pickupLocation == null || _dropoffLocation == null) return 0.0;
-    final distanceKm = _calculateDistance();
-
-    final serviceFee = settings.customOrderPlatformFee;
-    final tax = (serviceFee * (settings.defaultTaxRate / 100.0)).roundToDouble();
-
-    if (settings.minOrderKm > 0 && distanceKm < settings.minOrderKm) {
-      final base = settings.minDistanceFixedPrice;
-      return base + serviceFee + tax;
-    }
-
-    final vehiclePricing = settings.pricingForVehicle(_selectedVehicle);
-    final perKm = vehiclePricing.perKm;
-    final minFee = vehiclePricing.minFee;
-    final maxFee = vehiclePricing.maxFee;
-
-    double deliveryFee = (settings.minOrderKm > 0 && distanceKm < settings.minOrderKm)
-        ? settings.minDistanceFixedPrice.toDouble()
-        : settings.baseDeliveryFee.toDouble() + (distanceKm * perKm);
-
-    if (minFee > 0 && deliveryFee < minFee) {
-      deliveryFee = minFee;
-    }
-    final effectiveMaxFee = maxFee > 0 ? maxFee : settings.maxDeliveryFee.toDouble();
-    if (effectiveMaxFee > 0 && deliveryFee > effectiveMaxFee) {
-      deliveryFee = effectiveMaxFee;
-    }
-
-    double driverBonusFee = 0;
-    final now = DateTime.now();
-    if (settings.driverBonusActive &&
-        settings.driverBonusAmount > 0 &&
-        settings.driverBonusStartDate != null &&
-        settings.driverBonusEndDate != null &&
-        now.isAfter(settings.driverBonusStartDate!) &&
-        now.isBefore(settings.driverBonusEndDate!)) {
-      driverBonusFee = settings.driverBonusAmount.toDouble();
-    }
-
-    double total = deliveryFee + serviceFee + tax;
-    if (settings.driverBonusPaidByCustomer && driverBonusFee > 0) {
-      total += driverBonusFee;
-    }
-    return total;
+  String _formatMoney(double amount, String currency) {
+    final rounded = amount.roundToDouble();
+    final formatted = (amount - rounded).abs() < 0.005
+        ? rounded.toStringAsFixed(0)
+        : amount.toStringAsFixed(2);
+    return '$formatted $currency';
   }
 
   @override
@@ -315,35 +292,17 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    if ((_pickupLocation != null || _dropoffLocation != null) && !_isEstimating) {
+    final hasBothLocations = _pickupLocation != null && _dropoffLocation != null;
+    if (hasBothLocations) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _fetchEstimate();
       });
     }
-    final est = _estimate;
-    final hasEstimate = est != null && (_pickupLocation != null) && (_dropoffLocation != null);
-    final estDiscount = hasEstimate ? ((est['discount'] as num?)?.toDouble() ?? 0.0) : 0.0;
-    final estGrandTotal = hasEstimate ? (est['grandTotal'] as num?)?.toDouble() : null;
-    final totalFee = estGrandTotal != null
-        ? (estGrandTotal + estDiscount)
-        : _calculateTotalFee();
+
     final isAr = s.isArabic;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
     final coinState = ref.watch(coinHistoryProvider);
     final settings = ref.watch(platformSettingsProvider).value;
-    double coinDiscount = 0;
-    
-    if (_useCoins && settings != null && coinState.currentBalance >= settings.minCoinsToUse) {
-      coinDiscount = estDiscount > 0 ? estDiscount : (coinState.currentBalance * settings.coinValue);
-      if (coinDiscount > totalFee) {
-        coinDiscount = totalFee;
-      }
-    }
-    
-    final finalTotal = (est != null && est['grandTotal'] != null)
-        ? (est['grandTotal'] as num).toDouble()
-        : (totalFee - coinDiscount);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FB),
@@ -374,12 +333,50 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: _buildForm(s, isAr, totalFee, coinState, settings, coinDiscount, finalTotal, isDark),
+        child: _buildForm(s, isAr, coinState, settings, isDark),
       ),
     );
   }
 
-  Widget _buildForm(AppStrings s, bool isAr, double totalFee, coinState, settings, double coinDiscount, double finalTotal, bool isDark) {
+  Widget _buildForm(
+    AppStrings s,
+    bool isAr,
+    CoinHistoryState coinState,
+    PlatformSettingsData? settings,
+    bool isDark,
+  ) {
+    final hasBothLocations = _pickupLocation != null && _dropoffLocation != null;
+    final est = _estimate;
+    final hasEstimate = est != null && hasBothLocations;
+    final estDistanceKm = hasEstimate
+        ? (est['distanceKm'] as num?)?.toDouble()
+        : null;
+    final estDeliveryFee = hasEstimate
+        ? ((est['deliveryFee'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estServiceFee = hasEstimate
+        ? ((est['serviceFee'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estTax = hasEstimate
+        ? ((est['tax'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estDriverBonusFee = hasEstimate
+        ? ((est['driverBonusFee'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estDriverBonusPaidByCustomer =
+        hasEstimate && est['driverBonusPaidByCustomer'] == true;
+    final estDiscount = hasEstimate
+        ? ((est['discount'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estGrandTotal = hasEstimate
+        ? (est['grandTotal'] as num?)?.toDouble()
+        : null;
+    final isRide = _serviceType == 'ride';
+    final canUseCoins =
+        coinState.currentBalance > 0 &&
+        settings != null &&
+        coinState.currentBalance >= settings.minCoinsToUse;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -500,45 +497,245 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
             
             const SizedBox(height: 32),
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: hasEstimate
+                      ? AppColors.primary.withValues(alpha: 0.30)
+                      : (isDark ? Colors.white10 : Colors.grey.shade200),
+                ),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 8))
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
                 ],
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _priceRow(
-                    _serviceType == 'ride'
-                        ? (isAr ? 'الأجرة المقدرة للرحلة' : 'Estimated Ride Fare')
-                        : (isAr ? 'رسوم التوصيل المقدرة' : 'Estimated Delivery Fare'),
-                    _isEstimating ? '...' : '${totalFee.toStringAsFixed(0)} ${s.egp}',
-                    isDark,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isRide
+                              ? (isAr ? 'الأجرة النهائية للرحلة' : 'Final Ride Fare')
+                              : (isAr ? 'الأجرة النهائية للتوصيل' : 'Final Delivery Fare'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                      if (hasEstimate &&
+                          estDistanceKm != null &&
+                          estDistanceKm > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(
+                              alpha: isDark ? 0.18 : 0.12,
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.route_rounded,
+                                size: 13,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${estDistanceKm.toStringAsFixed(1)} ${isAr ? 'كم' : 'km'}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.primary,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    isAr 
-                        ? 'الرسوم النهائية تشمل رسوم الخدمة والضرائب، وتُحتسب من مسافة الاستلام إلى التوصيل وتثبت عند تأكيد الطلب'
-                        : 'Final fare (including service fees and taxes) is calculated from the pickup-to-dropoff distance and confirmed at checkout.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                  ),
-                  if (coinState.currentBalance > 0 && settings != null && coinState.currentBalance >= settings.minCoinsToUse) ...[
-                    const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+                  if (!hasBothLocations)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : const Color(0xFFF5F6F8),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 18,
+                            color: Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              isRide
+                                  ? (isAr
+                                      ? 'حدد نقطة الركوب والوجهة لعرض الأجرة النهائية مباشرة'
+                                      : 'Select pickup and destination to see your final fare')
+                                  : (isAr
+                                      ? 'حدد موقع الاستلام والتسليم لعرض الأجرة النهائية مباشرة'
+                                      : 'Select pickup and dropoff locations to see your final fare'),
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Colors.grey.shade500,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (_isEstimating)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              isAr
+                                  ? 'جاري حساب الأجرة النهائية...'
+                                  : 'Calculating final fare...',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (_estimateFailed || !hasEstimate)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _fetchEstimate(force: true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.refresh_rounded,
+                              size: 18,
+                              color: Colors.redAccent,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                isAr
+                                    ? 'تعذر حساب الأجرة. اضغط لإعادة المحاولة'
+                                    : 'Could not calculate fare. Tap to retry',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.redAccent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else ...[
+                    _priceRow(
+                      isRide
+                          ? (isAr ? 'أجرة الرحلة' : 'Ride Fare')
+                          : (isAr ? 'رسوم التوصيل' : 'Delivery Fare'),
+                      _formatMoney(estDeliveryFee, s.egp),
+                      isDark,
+                    ),
+                    if (estServiceFee > 0) ...[
+                      const SizedBox(height: 8),
+                      _priceRow(
+                        isAr ? 'رسوم الخدمة' : 'Service Fee',
+                        _formatMoney(estServiceFee, s.egp),
+                        isDark,
+                      ),
+                    ],
+                    if (estDriverBonusPaidByCustomer &&
+                        estDriverBonusFee > 0) ...[
+                      const SizedBox(height: 8),
+                      _priceRow(
+                        isAr ? 'مكافأة إضافية للكابتن' : 'Driver Bonus',
+                        _formatMoney(estDriverBonusFee, s.egp),
+                        isDark,
+                      ),
+                    ],
+                    if (estTax > 0) ...[
+                      const SizedBox(height: 8),
+                      _priceRow(
+                        isAr ? 'الضرائب والرسوم' : 'Taxes & Fees',
+                        _formatMoney(estTax, s.egp),
+                        isDark,
+                      ),
+                    ],
+                  ],
+                  if (canUseCoins) ...[
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Row(
                             children: [
-                              const Icon(Icons.stars_rounded, color: Color(0xFFFFB300), size: 18),
-                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.stars_rounded,
+                                color: Color(0xFFFFB300),
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
                               Flexible(
                                 child: Text(
-                                  isAr ? 'استخدام ${coinState.currentBalance} عملة' : 'Use ${coinState.currentBalance} Coins',
-                                  style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 15),
+                                  isAr
+                                      ? 'استخدام ${coinState.currentBalance} عملة'
+                                      : 'Use ${coinState.currentBalance} Coins',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade500,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ),
                             ],
@@ -551,30 +748,47 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                           onChanged: (val) {
                             setState(() {
                               _useCoins = val;
+                              _invalidateOrderIntent();
                             });
                           },
                         ),
                       ],
                     ),
                   ],
-                  if (_useCoins && coinDiscount > 0) ...[
-                    const SizedBox(height: 8),
-                    _priceRow(isAr ? 'خصم العملات' : 'Coin Discount', '-${coinDiscount.toStringAsFixed(0)} ${s.egp}', isDark),
+                  if (_useCoins && estDiscount > 0) ...[
+                    const SizedBox(height: 6),
+                    _priceRow(
+                      isAr ? 'خصم العملات' : 'Coin Discount',
+                      '-${_formatMoney(estDiscount, s.egp)}',
+                      isDark,
+                      valueColor: AppColors.success,
+                    ),
                   ],
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: 14),
                     child: Divider(height: 1),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(s.total, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: isDark ? Colors.white : Colors.black87)),
+                        child: Text(
+                          s.total,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Flexible(
                         child: Text(
-                          '${finalTotal.toStringAsFixed(0)} ${s.egp}',
+                          _isEstimating
+                              ? '...'
+                              : (estGrandTotal != null
+                                  ? _formatMoney(estGrandTotal, s.egp)
+                                  : '—'),
                           textAlign: TextAlign.end,
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
@@ -586,6 +800,18 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                       ),
                     ],
                   ),
+                  if (hasEstimate) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      isAr
+                          ? 'الأجرة النهائية شاملة جميع الرسوم والضرائب ومؤكدة مباشرة دون خطوة دفع إضافية.'
+                          : 'Final fare includes all fees and taxes — confirmed directly with no extra checkout step.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1018,7 +1244,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         children: [
           chip(
             value: 'CASH_ON_DELIVERY',
-            label: isAr ? 'الدفع عند الاستلام' : 'Cash',
+            label: _serviceType == 'ride'
+                ? (isAr ? 'نقدي' : 'Cash')
+                : (isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'),
             icon: Icons.money_rounded,
           ),
           const SizedBox(width: 10),
@@ -1117,11 +1345,23 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     );
   }
 
-  Widget _priceRow(String label, String amount, bool isDark) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+  Widget _priceRow(
+    String label,
+    String amount,
+    bool isDark, {
+    Color? valueColor,
+  }) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
     children: [
       Expanded(
-        child: Text(label, style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600, fontSize: 15)),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey.shade500,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
       ),
       const SizedBox(width: 12),
       Flexible(
@@ -1129,13 +1369,13 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           amount,
           textAlign: TextAlign.end,
           style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 16,
-            color: isDark ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w800,
+            fontSize: 15,
+            color: valueColor ?? (isDark ? Colors.white : Colors.black87),
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ),
-    ]
+    ],
   );
 }

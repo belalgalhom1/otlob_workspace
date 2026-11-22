@@ -2,8 +2,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:otlob_customer/core/providers/platform_settings_provider.dart';
 import 'package:otlob_customer/features/home/presentation/pages/custom_delivery_screen.dart';
+import 'package:otlob_customer/features/orders/presentation/providers/custom_delivery_search_controller.dart';
+import 'package:otlob_customer/features/orders/presentation/providers/orders_provider.dart';
 import 'package:otlob_customer/features/profile/presentation/providers/coin_history_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -52,6 +55,39 @@ class _TestAssetLoader extends AssetLoader {
 class _FakeCoinHistoryNotifier extends CoinHistory {
   @override
   CoinHistoryState build() => CoinHistoryState();
+}
+
+class _FakeEstimateOrdersNotifier extends Orders {
+  @override
+  OrdersState build() => OrdersState();
+
+  @override
+  Future<Map<String, dynamic>?> estimateCustomOrder({
+    required String type,
+    required String pickup,
+    required List<double> pickupLocation,
+    required String dropoff,
+    required List<double> deliveryLocation,
+    String? details,
+    String? specialRequest,
+    String paymentMethod = 'CASH_ON_DELIVERY',
+    String? vehicleType,
+    int? coinsToUse,
+  }) async {
+    return {
+      'distanceKm': 4.5,
+      'deliveryFee': 32.0,
+      'serviceFee': 5.0,
+      'driverBonusFee': 0.0,
+      'driverBonusPaidByCustomer': false,
+      'tax': 2.0,
+      'coinsUsed': 0,
+      'discount': 0.0,
+      'coinsEarned': 0,
+      'grandTotal': 39.0,
+      'upfrontAmount': 0.0,
+    };
+  }
 }
 
 void main() {
@@ -210,6 +246,73 @@ void main() {
       expect(find.text('Tuk-tuk'), findsNothing);
       expect(find.text('Minibus'), findsOneWidget);
       expect(find.text('Private Car'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'CustomDeliveryScreen displays server-calculated final fare directly on the same page without checkout copy',
+    (tester) async {
+      // 1. Before locations are picked: shows prompt, no misleading 0 EGP or checkout copy
+      await pumpScreen(tester, locale: const Locale('en'));
+      expect(find.text('Final Delivery Fare'), findsOneWidget);
+      expect(
+        find.text('Select pickup and dropoff locations to see your final fare'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('confirmed at checkout'), findsNothing);
+      expect(find.text('0 EGP'), findsNothing);
+
+      // 2. With both pickup & dropoff locations: shows exact itemized final fare from backend
+      await tester.pumpWidget(
+        EasyLocalization(
+          key: const ValueKey('direct-final-fare'),
+          supportedLocales: const [Locale('en'), Locale('ar')],
+          path: 'unused',
+          assetLoader: const _TestAssetLoader(),
+          startLocale: const Locale('en'),
+          fallbackLocale: const Locale('en'),
+          saveLocale: false,
+          child: ProviderScope(
+            overrides: [
+              platformSettingsProvider.overrideWith(
+                (ref) async => PlatformSettingsData(),
+              ),
+              coinHistoryProvider.overrideWith(_FakeCoinHistoryNotifier.new),
+              ordersProvider.overrideWith(_FakeEstimateOrdersNotifier.new),
+            ],
+            child: Builder(
+              builder: (context) => MaterialApp(
+                locale: context.locale,
+                supportedLocales: context.supportedLocales,
+                localizationsDelegates: context.localizationDelegates,
+                home: const CustomDeliveryScreen(
+                  initialDraft: CustomDeliveryDraft(
+                    serviceType: 'delivery',
+                    pickupAddress: 'Tahrir Square',
+                    dropoffAddress: 'Maadi',
+                    pickupLocation: LatLng(30.0444, 31.2357),
+                    dropoffLocation: LatLng(29.9602, 31.2569),
+                    vehicleType: 'motorcycle',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Final Delivery Fare'), findsOneWidget);
+      expect(find.text('4.5 km'), findsOneWidget);
+      expect(find.text('Delivery Fare'), findsOneWidget);
+      expect(find.text('32 EGP'), findsOneWidget);
+      expect(find.text('Service Fee'), findsOneWidget);
+      expect(find.text('5 EGP'), findsOneWidget);
+      expect(find.text('Taxes & Fees'), findsOneWidget);
+      expect(find.text('2 EGP'), findsOneWidget);
+      expect(find.text('39 EGP'), findsOneWidget);
+      expect(find.textContaining('confirmed at checkout'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
