@@ -857,6 +857,7 @@ class VendorsProductsApi {
   /// * [categoryId] 
   /// * [isActive] 
   /// * [isFeatured] 
+  /// * [includeInactive] 
   /// * [search] 
   /// * [branchId] - When provided, only products available at this vendor branch are returned.
   /// * [page] 
@@ -875,6 +876,7 @@ class VendorsProductsApi {
     String? categoryId,
     bool? isActive,
     bool? isFeatured,
+    bool? includeInactive,
     String? search,
     String? branchId,
     num? page = 1,
@@ -903,6 +905,7 @@ class VendorsProductsApi {
       if (categoryId != null) r'categoryId': encodeQueryParameter(_serializers, categoryId, const FullType(String)),
       if (isActive != null) r'isActive': encodeQueryParameter(_serializers, isActive, const FullType(bool)),
       if (isFeatured != null) r'isFeatured': encodeQueryParameter(_serializers, isFeatured, const FullType(bool)),
+      if (includeInactive != null) r'includeInactive': encodeQueryParameter(_serializers, includeInactive, const FullType(bool)),
       if (search != null) r'search': encodeQueryParameter(_serializers, search, const FullType(String)),
       if (branchId != null) r'branchId': encodeQueryParameter(_serializers, branchId, const FullType(String)),
       if (page != null) r'page': encodeQueryParameter(_serializers, page, const FullType(num)),
@@ -955,6 +958,7 @@ class VendorsProductsApi {
   /// Parameters:
   /// * [vendorId] 
   /// * [productId] 
+  /// * [includeInactive] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -967,6 +971,7 @@ class VendorsProductsApi {
   Future<Response<ProductsControllerCreate200Response>> productsControllerFindOne({ 
     required String vendorId,
     required String productId,
+    bool? includeInactive,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -987,9 +992,14 @@ class VendorsProductsApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (includeInactive != null) r'includeInactive': encodeQueryParameter(_serializers, includeInactive, const FullType(bool)),
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,

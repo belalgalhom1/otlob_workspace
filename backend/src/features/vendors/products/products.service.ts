@@ -31,58 +31,68 @@ import {
   ProductErrors,
 } from '../../../common/constants/response.constants';
 
-// Detail include for single product fetch
-const PRODUCT_DETAIL_INCLUDE = {
-  category: { select: { id: true, name: true, nameAr: true } },
-  variants: {
-    where: { isActive: true },
-    orderBy: { name: 'asc' as const },
-    include: {
-      optionGroups: {
-        include: {
-          options: {
-            where: { isActive: true },
-            orderBy: { name: 'asc' as const },
+// Detail include builder for single product fetch
+function buildProductDetailInclude(includeInactive = false) {
+  return {
+    category: { select: { id: true, name: true, nameAr: true } },
+    variants: {
+      ...(includeInactive ? {} : { where: { isActive: true } }),
+      orderBy: { name: 'asc' as const },
+      include: {
+        optionGroups: {
+          include: {
+            options: {
+              ...(includeInactive ? {} : { where: { isActive: true } }),
+              orderBy: { name: 'asc' as const },
+            },
           },
         },
       },
     },
-  },
-  optionGroups: {
-    include: {
-      options: { where: { isActive: true }, orderBy: { name: 'asc' as const } },
+    optionGroups: {
+      include: {
+        options: {
+          ...(includeInactive ? {} : { where: { isActive: true } }),
+          orderBy: { name: 'asc' as const },
+        },
+      },
     },
-  },
-  branchAvailability: {
-    select: {
-      branchId: true,
-      branch: { select: { id: true, name: true, nameAr: true } },
+    branchAvailability: {
+      select: {
+        branchId: true,
+        branch: { select: { id: true, name: true, nameAr: true } },
+      },
+      orderBy: { createdAt: 'asc' as const },
     },
-    orderBy: { createdAt: 'asc' as const },
-  },
-  _count: { select: { favoritedBy: true } },
-};
+    _count: { select: { favoritedBy: true } },
+  };
+}
 
-// Lightweight list include to prevent N+1 query payload bloat
-const PRODUCT_LIST_INCLUDE = {
-  category: { select: { id: true, name: true, nameAr: true } },
-  variants: {
-    where: { isActive: true },
-    orderBy: { name: 'asc' as const },
-    select: {
-      id: true,
-      name: true,
-      nameAr: true,
-      imageUrl: true,
-      basePrice: true,
-      comparePrice: true,
-      stock: true,
-      tracksStock: true,
+// Lightweight list include builder to prevent N+1 query payload bloat
+function buildProductListInclude(includeInactive = false) {
+  return {
+    category: { select: { id: true, name: true, nameAr: true } },
+    variants: {
+      ...(includeInactive ? {} : { where: { isActive: true } }),
+      orderBy: { name: 'asc' as const },
+      select: {
+        id: true,
+        name: true,
+        nameAr: true,
+        imageUrl: true,
+        basePrice: true,
+        comparePrice: true,
+        stock: true,
+        tracksStock: true,
+        isActive: true,
+      },
     },
-  },
-  branchAvailability: { select: { branchId: true } },
-  _count: { select: { favoritedBy: true } },
-};
+    branchAvailability: { select: { branchId: true } },
+    _count: { select: { favoritedBy: true } },
+  };
+}
+
+const PRODUCT_DETAIL_INCLUDE = buildProductDetailInclude(false);
 
 @Injectable()
 export class ProductsService implements OnModuleInit {
@@ -168,7 +178,7 @@ export class ProductsService implements OnModuleInit {
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
-        include: PRODUCT_LIST_INCLUDE,
+        include: buildProductListInclude(dto.includeInactive ?? false),
       }),
       this.prisma.product.count({ where }),
     ]);
@@ -184,10 +194,14 @@ export class ProductsService implements OnModuleInit {
 
   // ─── Get single product ───────────────────────────────────────────────────
 
-  async findOne(vendorId: string, productId: string) {
+  async findOne(
+    vendorId: string,
+    productId: string,
+    includeInactive = false,
+  ) {
     const product = await this.prisma.product.findFirst({
       where: { id: productId, vendorId, deletedAt: null },
-      include: PRODUCT_DETAIL_INCLUDE,
+      include: buildProductDetailInclude(includeInactive),
     });
 
     if (!product) throw new NotFoundException(ProductErrors.NOT_FOUND);
@@ -280,7 +294,7 @@ export class ProductsService implements OnModuleInit {
 
     this.logger.log(`Product created: ${product.id} for vendor ${vendorId}`);
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, product.id);
+    return this.findOne(vendorId, product.id, true);
   }
 
   // ─── Update ───────────────────────────────────────────────────────────────
@@ -330,6 +344,9 @@ export class ProductsService implements OnModuleInit {
             }),
             ...(dto.descriptionAr !== undefined && {
               descriptionAr: dto.descriptionAr,
+            }),
+            ...(dto.hasVariants !== undefined && {
+              hasVariants: dto.hasVariants,
             }),
             ...(dto.basePrice !== undefined && { basePrice: dto.basePrice }),
             ...(dto.comparePrice !== undefined && {
@@ -382,7 +399,7 @@ export class ProductsService implements OnModuleInit {
     }
 
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    return this.findOne(vendorId, productId, true);
   }
 
   // ─── Upload product image ─────────────────────────────────────────────────
@@ -398,16 +415,20 @@ export class ProductsService implements OnModuleInit {
     });
     if (!product) throw new NotFoundException(ProductErrors.NOT_FOUND);
 
-    if (product.imageUrl) {
-      await this.storage.delete(product.imageUrl);
-    }
-
     const imageUrl = await this.storage.upload(file, 'products/images');
 
     await this.prisma.product.update({
       where: { id: productId },
       data: { imageUrl },
     });
+
+    if (product.imageUrl) {
+      await this.storage.delete(product.imageUrl).catch((err) => {
+        this.logger.warn(
+          `Failed to delete old product image for ${productId}: ${(err as Error).message}`,
+        );
+      });
+    }
 
     this.logger.log(`Image uploaded for product ${productId}: ${imageUrl}`);
     await this.invalidateVendorCaches(vendorId);
@@ -485,7 +506,7 @@ export class ProductsService implements OnModuleInit {
 
     this.logger.log(`Variant ${variant.id} added to product ${productId}`);
     await this.invalidateVendorCaches(vendorId);
-    const updatedProduct = await this.findOne(vendorId, productId);
+    const updatedProduct = await this.findOne(vendorId, productId, true);
     return {
       ...updatedProduct,
       createdVariantId: variant.id,
@@ -563,7 +584,7 @@ export class ProductsService implements OnModuleInit {
     }
 
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    return this.findOne(vendorId, productId, true);
   }
 
   async uploadVariantImage(
@@ -644,7 +665,30 @@ export class ProductsService implements OnModuleInit {
       vendorId,
     );
 
-    await this.prisma.productVariant.delete({ where: { id: variantId } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.productVariant.delete({ where: { id: variantId } });
+
+      const remainingVariants = await tx.productVariant.count({
+        where: { productId },
+      });
+
+      if (remainingVariants === 0) {
+        const parentProduct = await tx.product.findUnique({
+          where: { id: productId },
+          select: { basePrice: true },
+        });
+        await tx.product.update({
+          where: { id: productId },
+          data: {
+            hasVariants: false,
+            ...(parentProduct?.basePrice == null
+              ? { basePrice: existingVariant.basePrice }
+              : {}),
+            version: { increment: 1 },
+          },
+        });
+      }
+    });
 
     if (existingVariant.imageUrl) {
       await this.storage.delete(existingVariant.imageUrl).catch((err) => {
@@ -656,7 +700,7 @@ export class ProductsService implements OnModuleInit {
 
     this.logger.log(`Variant ${variantId} deleted from product ${productId}`);
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    return this.findOne(vendorId, productId, true);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -671,6 +715,10 @@ export class ProductsService implements OnModuleInit {
   ) {
     await this.assertVendorProductScope(vendorId, productId, variantId);
 
+    const minSelect = dto.minSelect ?? 0;
+    const maxSelect = dto.maxSelect ?? 1;
+    this.assertValidSelectionRange(minSelect, maxSelect);
+
     const group = await this.prisma.$transaction(async (tx) => {
       const created = await tx.productOptionGroup.create({
         data: {
@@ -679,8 +727,8 @@ export class ProductsService implements OnModuleInit {
           name: dto.name,
           nameAr: dto.nameAr ?? null,
           isRequired: dto.isRequired ?? false,
-          minSelect: dto.minSelect ?? 0,
-          maxSelect: dto.maxSelect ?? 1,
+          minSelect,
+          maxSelect,
         },
       });
 
@@ -701,7 +749,7 @@ export class ProductsService implements OnModuleInit {
 
     this.logger.log(`Option group ${group.id} added to product ${productId}`);
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    return this.findOne(vendorId, productId, true);
   }
 
   async updateOptionGroup(
@@ -710,7 +758,15 @@ export class ProductsService implements OnModuleInit {
     groupId: string,
     dto: UpdateOptionGroupDto,
   ) {
-    await this.assertGroupBelongsToProduct(groupId, productId, vendorId);
+    const existingGroup = await this.assertGroupBelongsToProduct(
+      groupId,
+      productId,
+      vendorId,
+    );
+
+    const effectiveMin = dto.minSelect ?? existingGroup.minSelect;
+    const effectiveMax = dto.maxSelect ?? existingGroup.maxSelect;
+    this.assertValidSelectionRange(effectiveMin, effectiveMax);
 
     await this.prisma.productOptionGroup.update({
       where: { id: groupId },
@@ -724,7 +780,7 @@ export class ProductsService implements OnModuleInit {
     });
 
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    return this.findOne(vendorId, productId, true);
   }
 
   async removeOptionGroup(
@@ -735,7 +791,7 @@ export class ProductsService implements OnModuleInit {
     await this.assertGroupBelongsToProduct(groupId, productId, vendorId);
     await this.prisma.productOptionGroup.delete({ where: { id: groupId } });
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    return this.findOne(vendorId, productId, true);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -761,7 +817,7 @@ export class ProductsService implements OnModuleInit {
     });
 
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    return this.findOne(vendorId, productId, true);
   }
 
   async updateOption(
@@ -785,7 +841,7 @@ export class ProductsService implements OnModuleInit {
     });
 
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    return this.findOne(vendorId, productId, true);
   }
 
   async removeOption(
@@ -798,12 +854,18 @@ export class ProductsService implements OnModuleInit {
     await this.assertOptionBelongsToGroup(optionId, groupId);
     await this.prisma.productOption.delete({ where: { id: optionId } });
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    return this.findOne(vendorId, productId, true);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
+
+  private assertValidSelectionRange(minSelect: number, maxSelect: number) {
+    if (minSelect > maxSelect) {
+      throw new BadRequestException(ProductErrors.INVALID_OPTION_GROUP_RANGE);
+    }
+  }
 
   private async createOptionGroups(
     tx: Prisma.TransactionClient,
@@ -812,6 +874,10 @@ export class ProductsService implements OnModuleInit {
     groups: CreateOptionGroupDto[],
   ) {
     for (const g of groups) {
+      const minSelect = g.minSelect ?? 0;
+      const maxSelect = g.maxSelect ?? 1;
+      this.assertValidSelectionRange(minSelect, maxSelect);
+
       const group = await tx.productOptionGroup.create({
         data: {
           productId,
@@ -819,8 +885,8 @@ export class ProductsService implements OnModuleInit {
           name: g.name,
           nameAr: g.nameAr ?? null,
           isRequired: g.isRequired ?? false,
-          minSelect: g.minSelect ?? 0,
-          maxSelect: g.maxSelect ?? 1,
+          minSelect,
+          maxSelect,
         },
       });
 
@@ -1002,7 +1068,7 @@ export class ProductsService implements OnModuleInit {
 
     const variant = await this.prisma.productVariant.findFirst({
       where: { id: variantId, productId },
-      select: { id: true, imageUrl: true },
+      select: { id: true, imageUrl: true, basePrice: true },
     });
     if (!variant) throw new NotFoundException(ProductErrors.VARIANT_NOT_FOUND);
     return variant;
@@ -1045,10 +1111,11 @@ export class ProductsService implements OnModuleInit {
         id: groupId,
         OR: [{ productId }, { variant: { productId } }],
       },
-      select: { id: true },
+      select: { id: true, minSelect: true, maxSelect: true },
     });
     if (!group)
       throw new NotFoundException(ProductErrors.OPTION_GROUP_NOT_FOUND);
+    return group;
   }
 
   private async assertOptionBelongsToGroup(optionId: string, groupId: string) {

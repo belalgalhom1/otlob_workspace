@@ -844,6 +844,26 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                           fontWeight: FontWeight.bold),
                                     ),
                                   ]),
+                                  if (item.selectedUnit == 'strip')
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 2, bottom: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 1.5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Text(
+                                        s.strip,
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
                                   if (item.selectedVariant != null)
                                     Text(
                                         item.selectedVariant!.localizedName(s.isArabic),
@@ -925,6 +945,26 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                       fontWeight: FontWeight.bold),
                                 ),
                               ]),
+                              if (item.selectedUnit == 'strip')
+                                Container(
+                                  margin: const EdgeInsets.only(top: 2, bottom: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 1.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    s.strip,
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
                               if (item.selectedVariant != null)
                                 Text(
                                     item.selectedVariant!.localizedName(s.isArabic),

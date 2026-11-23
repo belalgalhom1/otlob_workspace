@@ -81,7 +81,11 @@ class _AddProductInChatDialogState
       if (mounted) {
         setState(() {
           _categories = results[0] as List<dynamic>;
-          _products = (results[1] as dynamic)['items'];
+          _products = List<dynamic>.from(
+            (results[1] as Map?)?['products'] ??
+                (results[1] as Map?)?['items'] ??
+                const [],
+          );
           _isLoadingData = false;
         });
       }

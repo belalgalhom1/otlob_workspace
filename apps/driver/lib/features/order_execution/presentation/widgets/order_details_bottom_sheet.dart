@@ -550,11 +550,16 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                 final bool isMultiVendor = fulfillments.length > 1;
 
                 Widget buildSingleItem(dynamic item) {
+                  final isAr = l10n.localeName == 'ar';
                   final product =
                       item['product'] is Map ? item['product'] as Map : null;
+                  final variant =
+                      item['variant'] is Map ? item['variant'] as Map : null;
                   final menuItem =
                       item['menuItem'] is Map ? item['menuItem'] as Map : null;
                   final rawImg = [
+                    variant?['imageUrl'],
+                    variant?['image'],
                     product?['imageUrl'],
                     product?['image'],
                     item['imageUrl'],
@@ -563,17 +568,33 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                   ]
                       .map((e) => e?.toString().trim() ?? '')
                       .firstWhere((e) => e.isNotEmpty, orElse: () => '');
-                  final itemName = (item['productName'] ??
-                          (l10n.localeName == 'ar'
-                              ? (product?['nameAr'] ??
-                                  product?['name'] ??
-                                  menuItem?['nameAr'] ??
-                                  menuItem?['name'])
-                              : (product?['name'] ?? menuItem?['name'])) ??
-                          'Item')
-                      .toString();
-                  final variantName = item['variantName']?.toString();
-                  final selectedUnit = item['selectedUnit']?.toString();
+                  final itemName = (isAr
+                          ? (product?['nameAr'] ??
+                              item['productNameAr'] ??
+                              menuItem?['nameAr'] ??
+                              item['productName'] ??
+                              product?['name'] ??
+                              menuItem?['name'])
+                          : (item['productName'] ??
+                              product?['name'] ??
+                              menuItem?['name']))
+                      ?.toString() ??
+                      'Item';
+                  final variantName =
+                      (isAr &&
+                              variant?['nameAr']
+                                      ?.toString()
+                                      .trim()
+                                      .isNotEmpty ==
+                                  true
+                          ? variant!['nameAr']
+                          : (item['variantName'] ?? variant?['name']))
+                      ?.toString()
+                      .trim();
+                  final rawUnit = item['selectedUnit']?.toString().trim();
+                  final unitLabel = rawUnit == 'strip'
+                      ? (isAr ? 'شريط' : 'Strip')
+                      : null;
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12.0),
@@ -631,8 +652,8 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                               ),
                               if ((variantName != null &&
                                       variantName.isNotEmpty) ||
-                                  (selectedUnit != null &&
-                                      selectedUnit.isNotEmpty))
+                                  (unitLabel != null &&
+                                      unitLabel.isNotEmpty))
                                 Padding(
                                   padding: const EdgeInsets.only(top: 2),
                                   child: Text(
@@ -640,9 +661,9 @@ class OrderDetailsBottomSheet extends ConsumerWidget {
                                       if (variantName != null &&
                                           variantName.isNotEmpty)
                                         variantName,
-                                      if (selectedUnit != null &&
-                                          selectedUnit.isNotEmpty)
-                                        selectedUnit,
+                                      if (unitLabel != null &&
+                                          unitLabel.isNotEmpty)
+                                        unitLabel,
                                     ].join(' • '),
                                     style: TextStyle(
                                       fontSize: 12,

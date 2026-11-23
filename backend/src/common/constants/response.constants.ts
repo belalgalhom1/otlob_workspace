@@ -243,6 +243,7 @@ export const ProductErrors = {
   BRANCHES_REQUIRED: 'product.error.branches_required',
   BRANCH_NOT_IN_VENDOR: 'product.error.branch_not_in_vendor',
   BRANCH_AVAILABILITY_INVALID: 'product.error.branch_availability_invalid',
+  INVALID_OPTION_GROUP_RANGE: 'product.error.invalid_option_group_range',
 };
 
 export const DriverErrors = {

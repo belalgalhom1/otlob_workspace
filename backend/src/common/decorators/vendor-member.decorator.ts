@@ -1,9 +1,10 @@
 import { SetMetadata, applyDecorators, UseGuards } from '@nestjs/common';
-import { VendorMemberRole } from '@prisma/client';
+import { Permission, VendorMemberRole } from '@prisma/client';
 import { VendorMemberGuard } from '../guards/vendor-member.guard';
 
 export const VENDOR_MEMBER_ROLES_KEY = 'vendorMemberRoles';
 export const VENDOR_ID_PARAM_KEY = 'vendorIdParam';
+export const VENDOR_ADMIN_PERMISSIONS_KEY = 'vendorAdminPermissions';
 
 export interface VendorMemberOptions {
   /**
@@ -24,11 +25,18 @@ export interface VendorMemberOptions {
    * Example: @Param('id') → pass { vendorIdParam: 'id' }
    */
   vendorIdParam?: string;
+
+  /**
+   * Optional platform Admin permissions (in addition to MANAGE_VENDORS)
+   * that grant access to this vendor-scoped endpoint.
+   */
+  adminPermissions?: Permission[];
 }
 
 export const VendorMember = (options: VendorMemberOptions = {}) =>
   applyDecorators(
     SetMetadata(VENDOR_MEMBER_ROLES_KEY, options.roles ?? []),
     SetMetadata(VENDOR_ID_PARAM_KEY, options.vendorIdParam ?? 'vendorId'),
+    SetMetadata(VENDOR_ADMIN_PERMISSIONS_KEY, options.adminPermissions ?? []),
     UseGuards(VendorMemberGuard),
   );

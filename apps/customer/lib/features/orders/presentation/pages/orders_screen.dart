@@ -1181,7 +1181,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                             children: [
                               Flexible(
                                 child: Text(
-                                  '${i['quantity']}x $productName',
+                                  '${i['quantity']}x $productName${(i['variantName']?.toString().trim().isNotEmpty ?? false) ? ' (${i['variantName']})' : ''}',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -1192,6 +1192,20 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                                   ),
                                 ),
                               ),
+                              if (i['selectedUnit']?.toString() == 'strip') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    s.strip,
+                                    style: const TextStyle(fontSize: 9, color: AppColors.primary, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
                               if (isRejected) ...[
                                 const SizedBox(width: 6),
                                 Container(
@@ -1224,7 +1238,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                       ),
                     ),
                     Text(
-                      '${_parseDouble(i['price'] ?? i['unitPrice']).toStringAsFixed(0)} ${s.egp}',
+                      '${(i['totalPrice'] != null ? _parseDouble(i['totalPrice']) : (_parseDouble(i['price'] ?? i['unitPrice']) * (double.tryParse(i['quantity']?.toString() ?? '') ?? 1.0))).toStringAsFixed(0)} ${s.egp}',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,

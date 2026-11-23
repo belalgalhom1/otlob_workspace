@@ -85,6 +85,8 @@ class _$UpdateProductDto extends UpdateProductDto {
   @override
   final String? descriptionAr;
   @override
+  final bool? hasVariants;
+  @override
   final num? basePrice;
   @override
   final num? comparePrice;
@@ -119,6 +121,7 @@ class _$UpdateProductDto extends UpdateProductDto {
     this.nameAr,
     this.description,
     this.descriptionAr,
+    this.hasVariants,
     this.basePrice,
     this.comparePrice,
     this.sku,
@@ -149,6 +152,7 @@ class _$UpdateProductDto extends UpdateProductDto {
         nameAr == other.nameAr &&
         description == other.description &&
         descriptionAr == other.descriptionAr &&
+        hasVariants == other.hasVariants &&
         basePrice == other.basePrice &&
         comparePrice == other.comparePrice &&
         sku == other.sku &&
@@ -171,6 +175,7 @@ class _$UpdateProductDto extends UpdateProductDto {
     _$hash = $jc(_$hash, nameAr.hashCode);
     _$hash = $jc(_$hash, description.hashCode);
     _$hash = $jc(_$hash, descriptionAr.hashCode);
+    _$hash = $jc(_$hash, hasVariants.hashCode);
     _$hash = $jc(_$hash, basePrice.hashCode);
     _$hash = $jc(_$hash, comparePrice.hashCode);
     _$hash = $jc(_$hash, sku.hashCode);
@@ -195,6 +200,7 @@ class _$UpdateProductDto extends UpdateProductDto {
           ..add('nameAr', nameAr)
           ..add('description', description)
           ..add('descriptionAr', descriptionAr)
+          ..add('hasVariants', hasVariants)
           ..add('basePrice', basePrice)
           ..add('comparePrice', comparePrice)
           ..add('sku', sku)
@@ -235,6 +241,10 @@ class UpdateProductDtoBuilder
   String? get descriptionAr => _$this._descriptionAr;
   set descriptionAr(String? descriptionAr) =>
       _$this._descriptionAr = descriptionAr;
+
+  bool? _hasVariants;
+  bool? get hasVariants => _$this._hasVariants;
+  set hasVariants(bool? hasVariants) => _$this._hasVariants = hasVariants;
 
   num? _basePrice;
   num? get basePrice => _$this._basePrice;
@@ -302,6 +312,7 @@ class UpdateProductDtoBuilder
       _nameAr = $v.nameAr;
       _description = $v.description;
       _descriptionAr = $v.descriptionAr;
+      _hasVariants = $v.hasVariants;
       _basePrice = $v.basePrice;
       _comparePrice = $v.comparePrice;
       _sku = $v.sku;
@@ -343,6 +354,7 @@ class UpdateProductDtoBuilder
             nameAr: nameAr,
             description: description,
             descriptionAr: descriptionAr,
+            hasVariants: hasVariants,
             basePrice: basePrice,
             comparePrice: comparePrice,
             sku: sku,

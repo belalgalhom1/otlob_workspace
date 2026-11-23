@@ -327,13 +327,16 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           // ALWAYS create a product to avoid backend 500 error when ordering custom products.
           // If the user didn't want it in the menu, we don't assign it a category.
           final bool addToMenu = result['createProduct'] == true || result['pushToMenu'] == true;
+          final rawCategoryId = result['categoryId']?.toString().trim();
           final dto = CreateProductDto((b) {
             b.name = result['name'];
             b.nameAr = result['nameAr'] ?? result['name'];
             b.basePrice = result['basePrice'] ?? 0.0;
             b.description = result['description'] ?? '';
             b.descriptionAr = result['descriptionAr'] ?? '';
-            b.categoryId = addToMenu ? result['categoryId'] : null;
+            if (addToMenu && rawCategoryId != null && rawCategoryId.isNotEmpty) {
+              b.categoryId = rawCategoryId;
+            }
             b.sellByStrip = false;
             b.hasVariants = false;
             b.isActive = true;
@@ -344,7 +347,11 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
           });
           final createdProduct = await ref
               .read(adminVendorsRepositoryProvider)
-              .createProduct(widget.vendorId!, dto);
+              .createProduct(
+                widget.vendorId!,
+                dto,
+                isAdmin: _currentUserRole != 'VENDOR_MEMBER',
+              );
           productId = createdProduct is Map ? createdProduct['id']?.toString() : null;
 
           if (productId != null && result['imageFile'] != null) {

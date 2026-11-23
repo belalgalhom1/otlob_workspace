@@ -6,8 +6,8 @@
 import 'package:api/src/model/api_response_dto.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:api/src/model/driver_my_rank_summary_response_dto.dart';
-import 'package:built_value/built_value.dart';
 import 'package:built_value/json_object.dart';
+import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
 part 'driver_ranking_controller_get_my_rank_summary200_response.g.dart';

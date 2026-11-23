@@ -423,6 +423,17 @@ export class CartService {
       if (!product)
         throw new BadRequestException(CartErrors.PRODUCT_UNAVAILABLE);
 
+      if (cartItem.variantId) {
+        const activeVariant = product.variants.find(
+          (v) => v.id === cartItem.variantId,
+        );
+        if (!activeVariant) {
+          throw new BadRequestException(CartErrors.VARIANT_UNAVAILABLE);
+        }
+      } else if (product.hasVariants) {
+        throw new BadRequestException(OrderErrors.VARIANT_SELECTION_REQUIRED);
+      }
+
       const mergedOptionIds =
         dto.optionIds !== undefined
           ? dto.optionIds
@@ -438,6 +449,8 @@ export class CartService {
         mergedOptionIds,
         cartItem.variantId ?? undefined,
       );
+    } else if (dto.optionIds?.length) {
+      throw new BadRequestException(CartErrors.INVALID_OPTION);
     }
 
     const uniqueUpdateOptionIds =
@@ -588,22 +601,23 @@ export class CartService {
     const variantQuantities = new Map<string, number>();
     const productQuantities = new Map<string, number>();
 
-    // First pass: aggregate quantities
+    // First pass: aggregate quantities (normalized to strips when product sells by strip)
     for (const item of formatted.items) {
+      const isStripProduct =
+        Boolean(item.product?.sellByStrip) &&
+        Number(item.product?.stripsPerPackage ?? 0) >= 2;
+      const itemQty = isStripProduct
+        ? item.selectedUnit === 'strip'
+          ? item.quantity
+          : item.quantity * Number(item.product.stripsPerPackage)
+        : item.quantity;
+
       if (item.variantId) {
         variantQuantities.set(
           item.variantId,
-          (variantQuantities.get(item.variantId) ?? 0) + item.quantity,
+          (variantQuantities.get(item.variantId) ?? 0) + itemQty,
         );
       } else if (item.productId) {
-        const isStripProduct =
-          Boolean(item.product?.sellByStrip) &&
-          Number(item.product?.stripsPerPackage ?? 0) >= 2;
-        const itemQty = isStripProduct
-          ? item.selectedUnit === 'strip'
-            ? item.quantity
-            : item.quantity * Number(item.product.stripsPerPackage)
-          : item.quantity;
         productQuantities.set(
           item.productId,
           (productQuantities.get(item.productId) ?? 0) + itemQty,
@@ -673,7 +687,13 @@ export class CartService {
       if (item.variantId) {
         const variantQty = variantQuantities.get(item.variantId) ?? 0;
         if (item.variant?.tracksStock && item.variant.stock != null) {
-          if (item.variant.stock < variantQty) {
+          const isStripProduct =
+            Boolean(item.product?.sellByStrip) &&
+            Number(item.product?.stripsPerPackage ?? 0) >= 2;
+          const effectiveVariantStock = isStripProduct
+            ? Number(item.variant.stock) * Number(item.product.stripsPerPackage)
+            : Number(item.variant.stock);
+          if (effectiveVariantStock < variantQty) {
             throw new BadRequestException(CartErrors.NOT_ENOUGH_STOCK);
           }
         }
@@ -973,7 +993,7 @@ export class CartService {
             ? Number(variantOffer.originalPrice)
             : vOriginal;
         } else if (discountRatio > 0) {
-          basePrice = Math.max(0, Math.round(vOriginal * (1 - discountRatio)));
+          basePrice = Math.max(0, Math.round(vBase * (1 - discountRatio)));
           originalBasePrice = vOriginal;
         } else if (vCompare && vCompare > vBase) {
           basePrice = vBase;
@@ -1016,14 +1036,17 @@ export class CartService {
         : 1;
 
       const optionsTotal = item.selectedOptions.reduce(
-        (sum, so) => sum + Number(so.option.priceAdded),
+        (sum, so) => sum + Math.round(Number(so.option.priceAdded)),
         0,
       );
 
-      const unitPrice = basePrice / stripDivider + optionsTotal;
+      // OrderItem stores integer prices, so round the strip-divided unit base
+      // price first so totalPrice === unitPrice * quantity stays exact.
+      const unitBasePrice = Math.round(basePrice / stripDivider);
+      const unitPrice = unitBasePrice + optionsTotal;
       const compareUnitPrice =
         originalBasePrice > basePrice
-          ? originalBasePrice / stripDivider + optionsTotal
+          ? Math.round(originalBasePrice / stripDivider) + optionsTotal
           : null;
       const totalPrice = unitPrice * item.quantity;
 

@@ -14,9 +14,22 @@ import {
   IsEnum,
   ArrayUnique,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { ProductBranchAvailabilityMode } from '@prisma/client';
+
+const transformOptionalNullableInt = ({ value }: { value: unknown }) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  return Number(value);
+};
+
+const transformQueryBoolean = ({ value }: { value: unknown }) => {
+  if (value === undefined) return undefined;
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return value;
+};
 
 // ─── Option ───────────────────────────────────────────────────────────────────
 
@@ -211,26 +224,27 @@ export class UpdateProductVariantDto {
   @MaxLength(200)
   name?: string;
 
-  @ApiProperty({ example: 'اسم البديل المحدث', required: false })
+  @ApiProperty({ example: 'اسم البديل المحدث', required: false, nullable: true, type: String })
   @IsString()
   @IsOptional()
   @MaxLength(200)
-  nameAr?: string;
+  nameAr?: string | null;
 
   @ApiProperty({
     example: 'https://cdn.example.com/variant.jpg',
     required: false,
     nullable: true,
+    type: String,
   })
   @IsString()
   @IsOptional()
   @MaxLength(1000)
   imageUrl?: string | null;
 
-  @ApiProperty({ example: 'NEW-SKU-123', required: false })
+  @ApiProperty({ example: 'NEW-SKU-123', required: false, nullable: true, type: String })
   @IsString()
   @IsOptional()
-  sku?: string;
+  sku?: string | null;
 
   @ApiProperty({ example: 110, required: false })
   @IsInt()
@@ -239,18 +253,19 @@ export class UpdateProductVariantDto {
   @Type(() => Number)
   basePrice?: number;
 
-  @ApiProperty({ example: 130, required: false })
+  @ApiProperty({ example: 130, required: false, nullable: true, type: Number })
   @IsInt()
   @IsPositive()
   @IsOptional()
-  @Type(() => Number)
-  comparePrice?: number;
+  @Transform(transformOptionalNullableInt)
+  comparePrice?: number | null;
 
-  @ApiProperty({ example: 100, required: false })
+  @ApiProperty({ example: 100, required: false, nullable: true, type: Number })
   @IsInt()
   @Min(0)
   @IsOptional()
-  stock?: number;
+  @Transform(transformOptionalNullableInt)
+  stock?: number | null;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
@@ -411,6 +426,7 @@ export class UpdateProductDto {
     required: false,
     nullable: true,
   })
+  @Transform(({ value }) => (value === '' ? null : value))
   @IsUUID()
   @IsOptional()
   categoryId?: string | null;
@@ -421,48 +437,54 @@ export class UpdateProductDto {
   @MaxLength(300)
   name?: string;
 
-  @ApiProperty({ example: 'اسم المنتج المحدث', required: false })
+  @ApiProperty({ example: 'اسم المنتج المحدث', required: false, nullable: true, type: String })
   @IsString()
   @IsOptional()
   @MaxLength(300)
-  nameAr?: string;
+  nameAr?: string | null;
 
-  @ApiProperty({ example: 'Updated description', required: false })
+  @ApiProperty({ example: 'Updated description', required: false, nullable: true, type: String })
   @IsString()
   @IsOptional()
   @MaxLength(2000)
-  description?: string;
+  description?: string | null;
 
-  @ApiProperty({ example: 'وصف محدث', required: false })
+  @ApiProperty({ example: 'وصف محدث', required: false, nullable: true, type: String })
   @IsString()
   @IsOptional()
   @MaxLength(2000)
-  descriptionAr?: string;
+  descriptionAr?: string | null;
 
-  @ApiProperty({ example: 90, required: false })
+  @ApiProperty({ example: false, required: false })
+  @IsBoolean()
+  @IsOptional()
+  hasVariants?: boolean;
+
+  @ApiProperty({ example: 90, required: false, nullable: true, type: Number })
   @IsInt()
   @IsPositive()
   @IsOptional()
-  @Type(() => Number)
-  basePrice?: number;
+  @Transform(transformOptionalNullableInt)
+  basePrice?: number | null;
 
-  @ApiProperty({ example: 110, required: false })
+  @ApiProperty({ example: 110, required: false, nullable: true, type: Number })
   @IsInt()
   @IsPositive()
   @IsOptional()
-  @Type(() => Number)
-  comparePrice?: number;
+  @Transform(transformOptionalNullableInt)
+  comparePrice?: number | null;
 
-  @ApiProperty({ example: 'NEW-SKU-999', required: false })
+  @ApiProperty({ example: 'NEW-SKU-999', required: false, nullable: true, type: String })
   @IsString()
   @IsOptional()
-  sku?: string;
+  sku?: string | null;
 
-  @ApiProperty({ example: 200, required: false })
+  @ApiProperty({ example: 200, required: false, nullable: true, type: Number })
   @IsInt()
   @Min(0)
   @IsOptional()
-  stock?: number;
+  @Transform(transformOptionalNullableInt)
+  stock?: number | null;
 
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
@@ -484,12 +506,12 @@ export class UpdateProductDto {
   @IsOptional()
   sellByStrip?: boolean;
 
-  @ApiProperty({ example: 10, required: false })
+  @ApiProperty({ example: 10, required: false, nullable: true, type: Number })
   @IsInt()
   @Min(1)
   @IsOptional()
-  @Type(() => Number)
-  stripsPerPackage?: number;
+  @Transform(transformOptionalNullableInt)
+  stripsPerPackage?: number | null;
 
   @ApiProperty({
     enum: ProductBranchAvailabilityMode,
@@ -534,14 +556,20 @@ export class QueryProductsDto {
   @ApiProperty({ example: true, required: false })
   @IsBoolean()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(transformQueryBoolean)
   isActive?: boolean;
 
   @ApiProperty({ example: false, required: false })
   @IsBoolean()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(transformQueryBoolean)
   isFeatured?: boolean;
+
+  @ApiProperty({ example: false, required: false })
+  @IsBoolean()
+  @IsOptional()
+  @Transform(transformQueryBoolean)
+  includeInactive?: boolean;
 
   @ApiProperty({ example: 'burger', required: false })
   @IsString()

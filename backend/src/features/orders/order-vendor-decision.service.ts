@@ -196,12 +196,14 @@ export class OrderVendorDecisionService {
         id: true,
         productId: true,
         variantId: true,
+        variantName: true,
         quantity: true,
         selectedUnit: true,
         totalPrice: true,
         productName: true,
         product: {
           select: {
+            hasVariants: true,
             tracksStock: true,
             sellByStrip: true,
             stripsPerPackage: true,

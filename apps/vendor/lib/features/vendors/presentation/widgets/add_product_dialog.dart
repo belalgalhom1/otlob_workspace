@@ -637,14 +637,22 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                   child: _buildTextField(
                     controller: _priceController,
                     label: l10n.basePrice,
-                    isRequired: true,
+                    isRequired: _variants.isEmpty,
                     hint: '0.00',
                     icon: LucideIcons.dollarSign,
                     keyboardType: TextInputType.number,
                     textDirection: TextDirection.ltr,
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? l10n.fieldRequired
-                        : null,
+                    validator: (v) {
+                      final trimmed = v?.trim() ?? '';
+                      if (trimmed.isEmpty) {
+                        return _variants.isEmpty ? l10n.fieldRequired : null;
+                      }
+                      final parsed = num.tryParse(trimmed);
+                      if (parsed == null || parsed <= 0) {
+                        return l10n.fieldRequired;
+                      }
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -1062,11 +1070,38 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                       ),
                           ),
                         ),
-                        title: Text(
-                          variant['name'] ?? l10n.unknown,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                variant['name'] ?? l10n.unknown,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (variant['isActive'] == false) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  l10n.inactiveStatus,
+                                  style: const TextStyle(
+                                    color: AppColors.error,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         subtitle: Text(
                           hasCompare
@@ -1191,7 +1226,35 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                           ...options.map(
                             (opt) => ListTile(
                               dense: true,
-                              title: Text(opt['name'] ?? l10n.unknown),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(opt['name'] ?? l10n.unknown),
+                                  ),
+                                  if (opt['isActive'] == false) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.error
+                                            .withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        l10n.inactiveStatus,
+                                        style: const TextStyle(
+                                          color: AppColors.error,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                               subtitle: Text(
                                 '+${opt['priceAdded']} ${l10n.egp}',
                                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1287,6 +1350,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
 
   void _showAddVariantDialog({dynamic variant}) async {
     var tracksStock = variant?['tracksStock'] ?? true;
+    var isVariantActive = variant?['isActive'] ?? true;
     var isSaving = false;
     var isPickingVariantImage = false;
     XFile? variantImageFile =
@@ -1633,12 +1697,30 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                         horizontal: 6,
                         vertical: 2,
                       ),
-                      child: _buildSwitchTile(
-                        title: l10n.trackStock,
-                        subtitle: l10n.trackStockSubtitle,
-                        value: tracksStock,
-                        onChanged: (v) => setDialogState(() => tracksStock = v),
-                        icon: LucideIcons.boxes,
+                      child: Column(
+                        children: [
+                          _buildSwitchTile(
+                            title: l10n.trackStock,
+                            subtitle: l10n.trackStockSubtitle,
+                            value: tracksStock,
+                            onChanged: (v) =>
+                                setDialogState(() => tracksStock = v),
+                            icon: LucideIcons.boxes,
+                          ),
+                          Divider(
+                            color: AppDialogStyles.borderColor(dialogCtx),
+                            height: 1,
+                            indent: 48,
+                          ),
+                          _buildSwitchTile(
+                            title: l10n.activeStatus,
+                            subtitle: l10n.productVisibleToCustomers,
+                            value: isVariantActive,
+                            onChanged: (v) =>
+                                setDialogState(() => isVariantActive = v),
+                            icon: LucideIcons.eye,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1676,6 +1758,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                               ? null
                               : skuController.text.trim(),
                           'tracksStock': tracksStock,
+                          'isActive': isVariantActive,
                         };
                         bool success = false;
                         if (variant == null) {
@@ -1691,6 +1774,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                 'stock': data['stock'],
                                 'sku': data['sku'],
                                 'tracksStock': data['tracksStock'],
+                                'isActive': data['isActive'],
                                 'imageFile': variantImageFile,
                                 'imageBytes': variantImageBytes,
                                 'imageUrl': null,
@@ -1718,6 +1802,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                     b.tracksStock =
                                         data['tracksStock'] as bool;
                                   }
+                                  b.isActive = isVariantActive;
                                   if (data['sku'] != null &&
                                       (data['sku'] as String).isNotEmpty) {
                                     b.sku = data['sku'] as String;
@@ -1795,6 +1880,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                   'stock': data['stock'],
                                   'sku': data['sku'],
                                   'tracksStock': data['tracksStock'],
+                                  'isActive': data['isActive'],
                                   'imageFile': variantImageFile,
                                   'imageBytes': variantImageBytes,
                                   'imageUrl': removeExistingVariantImage
@@ -1808,6 +1894,11 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                             try {
                               final repo =
                                   ref.read(adminVendorsRepositoryProvider);
+                              final clearVariantFields = <String>{
+                                if (data['comparePrice'] == null) 'comparePrice',
+                                if (data['stock'] == null) 'stock',
+                                if (data['sku'] == null) 'sku',
+                              };
                               await repo.updateVariant(
                                 widget.vendorId,
                                 widget.product['id'],
@@ -1825,11 +1916,13 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                     b.tracksStock =
                                         data['tracksStock'] as bool;
                                   }
+                                  b.isActive = isVariantActive;
                                   if (data['sku'] != null &&
                                       (data['sku'] as String).isNotEmpty) {
                                     b.sku = data['sku'] as String;
                                   }
                                 }),
+                                clearFields: clearVariantFields,
                               );
                               if (variantImageFile != null) {
                                 final multipart = variantImageBytes != null
@@ -2041,12 +2134,23 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
               onConfirm: isSaving
                   ? null
                   : () async {
+                      final minSelect = int.tryParse(minController.text) ?? 0;
+                      final maxSelect = int.tryParse(maxController.text) ?? 1;
+                      if (minSelect > maxSelect) {
+                        _showNotice(
+                          Localizations.localeOf(context).languageCode == 'ar'
+                              ? 'لا يمكن أن يكون الحد الأدنى للاختيار أكبر من الحد الأقصى.'
+                              : 'Minimum selection cannot exceed maximum selection.',
+                          isError: true,
+                        );
+                        return;
+                      }
                       setDialogState(() => isSaving = true);
                       final data = {
                         'name': nameController.text,
                         'nameAr': nameArController.text,
-                        'minSelect': int.tryParse(minController.text) ?? 0,
-                        'maxSelect': int.tryParse(maxController.text) ?? 1,
+                        'minSelect': minSelect,
+                        'maxSelect': maxSelect,
                         'isRequired': isRequired,
                       };
                       bool success = false;
@@ -2204,6 +2308,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     final priceController = TextEditingController(
       text: option?['priceAdded']?.toString() ?? '0',
     );
+    bool isOptionActive = option?['isActive'] ?? true;
     bool isSaving = false;
 
     final result = await showDialog<bool>(
@@ -2251,6 +2356,20 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                   keyboardType: TextInputType.number,
                   textDirection: TextDirection.ltr,
                 ),
+                const SizedBox(height: 14),
+                AppDialogSectionCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  child: _buildSwitchTile(
+                    title: l10n.activeStatus,
+                    subtitle: l10n.productVisibleToCustomers,
+                    value: isOptionActive,
+                    onChanged: (v) => setDialogState(() => isOptionActive = v),
+                    icon: LucideIcons.eye,
+                  ),
+                ),
               ],
             ),
             footer: AppDialogFooter(
@@ -2269,6 +2388,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                         'nameAr': nameArController.text,
                         'priceAdded':
                             double.tryParse(priceController.text) ?? 0.0,
+                        'isActive': isOptionActive,
                       };
                       bool success = false;
                       if (option == null) {
@@ -2287,6 +2407,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                 'name': data['name'],
                                 'nameAr': data['nameAr'],
                                 'priceAdded': data['priceAdded'],
+                                'isActive': data['isActive'],
                               });
                               _optionGroups[idx]['options'] = options;
                             }
@@ -2304,6 +2425,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                     b.name = data['name'] as String;
                                     b.nameAr = data['nameAr'] as String;
                                     b.priceAdded = data['priceAdded'] as num;
+                                    b.isActive = isOptionActive;
                                   }),
                                 );
                             success = true;
@@ -2331,6 +2453,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                   'name': data['name'],
                                   'nameAr': data['nameAr'],
                                   'priceAdded': data['priceAdded'],
+                                  'isActive': data['isActive'],
                                 };
                               }
                               _optionGroups[idx]['options'] = options;
@@ -2350,6 +2473,7 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                     b.name = data['name'] as String;
                                     b.nameAr = data['nameAr'] as String;
                                     b.priceAdded = data['priceAdded'] as num;
+                                    b.isActive = isOptionActive;
                                   }),
                                 );
                             success = true;
@@ -2628,7 +2752,8 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     // `_formKey.currentState` null. So also check the truly-required fields
     // directly and treat a missing FormState as "no field errors".
     final hasName = _nameController.text.trim().isNotEmpty;
-    final hasPrice = _priceController.text.trim().isNotEmpty;
+    final hasPrice =
+        _variants.isNotEmpty || _priceController.text.trim().isNotEmpty;
     final formValid = _formKey.currentState?.validate() ?? true;
     if (!hasName || !hasPrice || !formValid) {
       _showNotice(

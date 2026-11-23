@@ -5,9 +5,11 @@ import { OrderErrors } from '../../../common/constants/response.constants';
 export interface StockLineItem {
   productId: string | null;
   variantId: string | null;
+  variantName?: string | null;
   quantity: number;
   selectedUnit: string | null;
   product?: {
+    hasVariants?: boolean;
     tracksStock: boolean;
     sellByStrip: boolean | null;
     stripsPerPackage: number | null;
@@ -116,10 +118,13 @@ export class StockService {
     tx: Prisma.TransactionClient,
     items: StockLineItem[],
   ) {
-    const variantQtyById = new Map<string, number>();
+    const packageQtyByVariantId = new Map<string, number>();
+    const stripQtyByVariantId = new Map<string, number>();
+    const variantProductIdMap = new Map<string, string>();
     const rawProductMeta = new Map<
       string,
       {
+        hasVariants?: boolean;
         tracksStock: boolean;
         sellByStrip: boolean | null;
         stripsPerPackage: number | null;
@@ -132,17 +137,36 @@ export class StockService {
 
     for (const item of items) {
       if (item.variantId) {
-        variantQtyById.set(
-          item.variantId,
-          (variantQtyById.get(item.variantId) ?? 0) + item.quantity,
-        );
         if (item.variant != null) {
           rawVariantTracked.set(
             item.variantId,
             Boolean(item.variant.tracksStock),
           );
         }
+        if (item.selectedUnit === 'strip') {
+          stripQtyByVariantId.set(
+            item.variantId,
+            (stripQtyByVariantId.get(item.variantId) ?? 0) + item.quantity,
+          );
+          if (item.productId) {
+            allProductIds.add(item.productId);
+            variantProductIdMap.set(item.variantId, item.productId);
+            if (item.product != null) {
+              rawProductMeta.set(item.productId, item.product);
+            }
+          }
+        } else {
+          packageQtyByVariantId.set(
+            item.variantId,
+            (packageQtyByVariantId.get(item.variantId) ?? 0) + item.quantity,
+          );
+        }
       } else if (item.productId) {
+        // If variantName is set while variantId is null, the variant was
+        // deleted after checkout; never fall back to parent Product.stock.
+        if (item.variantName != null) {
+          continue;
+        }
         allProductIds.add(item.productId);
         if (item.product != null) {
           rawProductMeta.set(item.productId, item.product);
@@ -161,16 +185,26 @@ export class StockService {
       }
     }
 
-    const missingVariantIds = [...variantQtyById.keys()]
+    const allVariantIds = new Set<string>([
+      ...packageQtyByVariantId.keys(),
+      ...stripQtyByVariantId.keys(),
+    ]);
+    const missingVariantIds = [...allVariantIds]
       .filter((id) => !rawVariantTracked.has(id))
       .sort();
     if (missingVariantIds.length > 0) {
       const variants = await tx.productVariant.findMany({
         where: { id: { in: missingVariantIds } },
-        select: { id: true, tracksStock: true },
+        select: { id: true, tracksStock: true, productId: true },
       });
       for (const v of variants) {
         rawVariantTracked.set(v.id, v.tracksStock);
+        if (v.productId && !variantProductIdMap.has(v.id)) {
+          variantProductIdMap.set(v.id, v.productId);
+          if (stripQtyByVariantId.has(v.id)) {
+            allProductIds.add(v.productId);
+          }
+        }
       }
     }
     const trackedVariantIds = new Set(
@@ -187,6 +221,7 @@ export class StockService {
         where: { id: { in: missingProductIds } },
         select: {
           id: true,
+          hasVariants: true,
           tracksStock: true,
           sellByStrip: true,
           stripsPerPackage: true,
@@ -200,13 +235,22 @@ export class StockService {
     const trackedProductIds = new Set<string>();
     const stripDividerById = new Map<string, number>();
     for (const [productId, meta] of rawProductMeta) {
-      if (!meta.tracksStock) continue;
-      trackedProductIds.add(productId);
       const divider =
         meta.sellByStrip === true && Number(meta.stripsPerPackage ?? 0) > 0
           ? Math.max(1, Number(meta.stripsPerPackage))
           : 1;
       stripDividerById.set(productId, divider);
+
+      if (!meta.tracksStock || meta.hasVariants === true) continue;
+      trackedProductIds.add(productId);
+    }
+
+    const variantQtyById = new Map(packageQtyByVariantId);
+    for (const [variantId, stripQty] of stripQtyByVariantId) {
+      const productId = variantProductIdMap.get(variantId);
+      const divider = productId ? (stripDividerById.get(productId) ?? 1) : 1;
+      const packages = Math.ceil(stripQty / divider);
+      variantQtyById.set(variantId, (variantQtyById.get(variantId) ?? 0) + packages);
     }
 
     const productPackageQtyById = new Map(packageQtyByProductId);

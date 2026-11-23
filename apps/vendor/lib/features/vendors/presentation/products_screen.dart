@@ -240,8 +240,37 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   Widget _buildProductCard(dynamic product) {
     final bool isActive = product['isActive'] ?? true;
-    final double price =
-        double.tryParse(product['basePrice']?.toString() ?? '') ?? 0.0;
+    final bool hasVariants = product['hasVariants'] == true;
+    final List<Map<dynamic, dynamic>> variants =
+        (product['variants'] as List?)?.whereType<Map>().toList() ?? const [];
+    final double? rawBasePrice =
+        double.tryParse(product['basePrice']?.toString() ?? '');
+    double? lowestVariantPrice;
+    for (final v in variants) {
+      if (v['isActive'] == false) continue;
+      final vp = double.tryParse(v['basePrice']?.toString() ?? '');
+      if (vp != null && (lowestVariantPrice == null || vp < lowestVariantPrice)) {
+        lowestVariantPrice = vp;
+      }
+    }
+    if (lowestVariantPrice == null && variants.isNotEmpty) {
+      for (final v in variants) {
+        final vp = double.tryParse(v['basePrice']?.toString() ?? '');
+        if (vp != null && (lowestVariantPrice == null || vp < lowestVariantPrice)) {
+          lowestVariantPrice = vp;
+        }
+      }
+    }
+    final double price = (hasVariants || variants.isNotEmpty)
+        ? (lowestVariantPrice ?? rawBasePrice ?? 0.0)
+        : (rawBasePrice ?? 0.0);
+    final bool showStartingFrom =
+        (hasVariants || variants.isNotEmpty) && lowestVariantPrice != null;
+    final int? stripsCount =
+        (product['stripsPerPackage'] as num?)?.toInt();
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final currencyLabel = isAr ? 'ج.م' : 'EGP';
+    final imageUrl = product['imageUrl']?.toString().trim() ?? '';
     final branchMode =
         product['branchAvailabilityMode']?.toString() ?? 'ALL';
     final branchCount =
@@ -279,28 +308,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Builder(
-                  builder: (context) {
-                    String? resolvedImageUrl =
-                        product['imageUrl']?.toString().trim();
-                    if (resolvedImageUrl == null || resolvedImageUrl.isEmpty) {
-                      final pVars = product['variants'];
-                      if (pVars is List) {
-                        for (final v in pVars) {
-                          if (v is Map) {
-                            final vi = v['imageUrl']?.toString().trim();
-                            if (vi != null && vi.isNotEmpty) {
-                              resolvedImageUrl = vi;
-                              break;
-                            }
-                          }
-                        }
-                      }
-                    }
-                    if (resolvedImageUrl != null &&
-                        resolvedImageUrl.isNotEmpty) {
-                      return CachedNetworkImage(
-                        imageUrl: ImageUtils.formatImageUrl(resolvedImageUrl),
+                child: imageUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: ImageUtils.formatImageUrl(
+                          imageUrl,
+                        ),
                         fit: BoxFit.cover,
                         placeholder: (context, url) => const Center(
                           child: SizedBox(
@@ -314,15 +326,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                           color: AppColors.primary,
                           size: 20,
                         ),
-                      );
-                    }
-                    return const Icon(
-                      LucideIcons.package,
-                      color: AppColors.primary,
-                      size: 24,
-                    );
-                  },
-                ),
+                      )
+                    : const Icon(
+                        LucideIcons.package,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
               ),
             ),
             title: Text(
@@ -343,15 +352,18 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      '${price.toStringAsFixed(2)} ${Localizations.localeOf(context).languageCode == 'ar' ? 'ج.م' : 'EGP'}',
+                      showStartingFrom
+                          ? (isAr
+                              ? 'يبدأ من ${price.toStringAsFixed(2)} $currencyLabel'
+                              : 'From ${price.toStringAsFixed(2)} $currencyLabel')
+                          : '${price.toStringAsFixed(2)} $currencyLabel',
                       style: const TextStyle(
                         color: AppColors.success,
                         fontWeight: FontWeight.bold,
                         fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
-                    if (product['sellByStrip'] == true &&
-                        product['stripsPerPackage'] != null)
+                    if (variants.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -362,7 +374,31 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          '${(price / (product['stripsPerPackage'] as int)).toStringAsFixed(2)} ${Localizations.localeOf(context).languageCode == 'ar' ? 'ج.م' : 'EGP'} / ${AppLocalizations.of(context)!.sellByStrip}',
+                          isAr
+                              ? '${variants.length} أصناف'
+                              : '${variants.length} ${variants.length == 1 ? 'variant' : 'variants'}',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    if (product['sellByStrip'] == true &&
+                        stripsCount != null &&
+                        stripsCount > 0 &&
+                        price > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${(price / stripsCount).toStringAsFixed(2)} $currencyLabel / ${AppLocalizations.of(context)!.sellByStrip}',
                           style: const TextStyle(
                             color: AppColors.primary,
                             fontSize: 10,
@@ -529,6 +565,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
       try {
         if (product != null) {
+          final hasVariants = result['hasVariants'] == true ||
+              (result['variants'] as List?)?.isNotEmpty == true;
+          final clearFields = <String>{
+            if (result['comparePrice'] == null) 'comparePrice',
+            if (result['stock'] == null) 'stock',
+            if (result['sku'] == null) 'sku',
+            if (result['categoryId'] == null) 'categoryId',
+            if (result['stripsPerPackage'] == null) 'stripsPerPackage',
+            if (result['basePrice'] == null && hasVariants) 'basePrice',
+          };
           final updateResult = await ref
               .read(adminVendorsRepositoryProvider)
               .updateProductWithBranchAvailability(
@@ -546,10 +592,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     b.sku = result['sku'].toString().trim();
                   }
                   if (result['isActive'] != null) b.isActive = result['isActive'];
+                  if (result['isFeatured'] != null) b.isFeatured = result['isFeatured'];
                   if (result['sellByStrip'] != null) b.sellByStrip = result['sellByStrip'];
                   if (result['tracksStock'] != null) b.tracksStock = result['tracksStock'];
                   if (result['stripsPerPackage'] != null) b.stripsPerPackage = num.tryParse(result['stripsPerPackage'].toString());
-                  if (result['categoryId'] != null) b.categoryId = JsonObject(result['categoryId']);
+                  if (result['categoryId'] != null &&
+                      result['categoryId'].toString().isNotEmpty) {
+                    b.categoryId = JsonObject(result['categoryId']);
+                  }
                 }),
                 branchAvailabilityMode:
                     result['branchAvailabilityMode']?.toString() ?? 'ALL',
@@ -557,10 +607,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   result['branchIds'] as List? ?? const [],
                 ),
                 isAdmin: widget.isAdmin,
+                clearFields: clearFields,
               );
           success = updateResult != null;
           productId = product['id'];
         } else {
+          final variants = (result['variants'] as List? ?? []);
+          final parsedBasePrice = result['basePrice'] != null
+              ? num.tryParse(result['basePrice'].toString())
+              : null;
+          final rawCatId = result['categoryId']?.toString().trim();
           final createdProduct = await ref
               .read(adminVendorsRepositoryProvider)
               .createProductWithBranchAvailability(
@@ -568,7 +624,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 CreateProductDto((b) {
                   b.name = result['name'] ?? '';
                   b.nameAr = result['nameAr'] ?? '';
-                  b.basePrice = num.tryParse(result['basePrice']?.toString() ?? '0') ?? 0;
+                  if (parsedBasePrice != null && parsedBasePrice > 0) {
+                    b.basePrice = parsedBasePrice;
+                  } else if (variants.isEmpty) {
+                    b.basePrice = 0;
+                  }
                   if (result['comparePrice'] != null) b.comparePrice = num.tryParse(result['comparePrice'].toString());
                   if (result['description'] != null) b.description = result['description'];
                   if (result['descriptionAr'] != null) b.descriptionAr = result['descriptionAr'];
@@ -577,11 +637,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     b.sku = result['sku'].toString().trim();
                   }
                   b.isActive = result['isActive'] ?? true;
+                  if (result['isFeatured'] != null) b.isFeatured = result['isFeatured'];
                   if (result['sellByStrip'] != null) b.sellByStrip = result['sellByStrip'];
                   if (result['tracksStock'] != null) b.tracksStock = result['tracksStock'];
                   if (result['stripsPerPackage'] != null) b.stripsPerPackage = num.tryParse(result['stripsPerPackage'].toString());
-                  b.categoryId = result['categoryId'] ?? '';
-                  final variants = (result['variants'] as List? ?? []);
+                  if (rawCatId != null && rawCatId.isNotEmpty) {
+                    b.categoryId = rawCatId;
+                  }
                   b.hasVariants = variants.isNotEmpty;
                   if (variants.isNotEmpty) {
                     b.variants.replace(_buildVariantDtos(variants));
@@ -707,6 +769,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         }
         if (v['stock'] != null) b.stock = num.tryParse(v['stock'].toString());
         if (v['tracksStock'] != null) b.tracksStock = v['tracksStock'] == true;
+        if (v['isActive'] != null) b.isActive = v['isActive'] == true;
         final variantGroups = (v['optionGroups'] as List? ?? []);
         if (variantGroups.isNotEmpty) {
           b.optionGroups.replace(_buildOptionGroupDtos(variantGroups));
@@ -739,6 +802,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               }
               if (o['priceAdded'] != null) {
                 b.priceAdded = num.tryParse(o['priceAdded'].toString());
+              }
+              if (o['isActive'] != null) {
+                b.isActive = o['isActive'] == true;
               }
             });
           }).toList());

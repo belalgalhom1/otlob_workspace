@@ -6,8 +6,8 @@
 import 'package:api/src/model/api_response_dto.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:api/src/model/order_search_status_dto.dart';
-import 'package:built_value/built_value.dart';
 import 'package:built_value/json_object.dart';
+import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
 part 'orders_controller_get_search_status200_response.g.dart';

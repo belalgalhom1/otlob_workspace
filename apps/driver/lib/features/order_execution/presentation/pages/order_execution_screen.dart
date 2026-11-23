@@ -1630,8 +1630,14 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                             item['product'] is Map
                                         ? item['product'] as Map
                                         : null;
+                                    final variantMap = item is Map &&
+                                            item['variant'] is Map
+                                        ? item['variant'] as Map
+                                        : null;
                                     final rawImg = item is Map
                                         ? ([
+                                              variantMap?['imageUrl'],
+                                              variantMap?['image'],
                                               prod?['imageUrl'],
                                               prod?['image'],
                                               item['imageUrl'],
@@ -1643,6 +1649,46 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                                     (e) => e.isNotEmpty,
                                                     orElse: () => ''))
                                         : '';
+                                    final baseName = (isAr
+                                            ? (prod?['nameAr'] ??
+                                                item['productName'] ??
+                                                item['name'])
+                                            : (item['productName'] ??
+                                                prod?['name'] ??
+                                                item['name']))
+                                        ?.toString() ??
+                                        'Item';
+                                    final variantName =
+                                        (isAr &&
+                                                variantMap?['nameAr']
+                                                        ?.toString()
+                                                        .trim()
+                                                        .isNotEmpty ==
+                                                    true
+                                            ? variantMap!['nameAr']
+                                            : item['variantName'])
+                                        ?.toString()
+                                        .trim();
+                                    final isStrip =
+                                        item['selectedUnit']?.toString() ==
+                                            'strip';
+                                    final optNames = ((item['selectedOptions']
+                                                as List?) ??
+                                            const [])
+                                        .whereType<Map>()
+                                        .map((o) =>
+                                            o['optionName']?.toString().trim() ??
+                                            '')
+                                        .where((s) => s.isNotEmpty)
+                                        .toList();
+                                    final details = <String>[
+                                      if (variantName != null &&
+                                          variantName.isNotEmpty)
+                                        variantName,
+                                      if (isStrip) (isAr ? 'شريط' : 'Strip'),
+                                      if (optNames.isNotEmpty)
+                                        optNames.join(', '),
+                                    ];
                                     return Container(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 6, vertical: 3),
@@ -1672,12 +1718,14 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
                                           const SizedBox(width: 5),
                                           Flexible(
                                             child: Text(
-                                              '${item['quantity'] ?? 1}x ${item['productName'] ?? item['name'] ?? 'Item'}',
+                                              details.isNotEmpty
+                                                  ? '${item['quantity'] ?? 1}x $baseName (${details.join(' • ')})'
+                                                  : '${item['quantity'] ?? 1}x $baseName',
                                               style: const TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
                                               ),
-                                              maxLines: 1,
+                                              maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),

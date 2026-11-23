@@ -30,7 +30,7 @@ import { Public } from '../../../common/decorators/public.decorator';
 import { Permission, VendorMemberRole } from '@prisma/client';
 import { ApiStandardResponse } from '../../../common/decorators/api-response.decorator';
 
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import {
   ProductResponseDto,
   ProductVariantResponseDto,
@@ -57,11 +57,15 @@ export class ProductsController {
   @ApiStandardResponse(ProductResponseDto)
   @Get(':productId')
   @ApiOperation({ summary: 'Get a specific product by ID' })
+  @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
   findOne(
     @Param('vendorId') vendorId: string,
     @Param('productId') productId: string,
+    @Query('includeInactive') includeInactive?: boolean | string,
   ) {
-    return this.service.findOne(vendorId, productId);
+    const showInactive =
+      includeInactive === true || includeInactive === 'true';
+    return this.service.findOne(vendorId, productId, showInactive);
   }
 
   // ─── Vendor member: any member can read; OWNER/MANAGER can write ──────────
@@ -75,6 +79,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Create a new product (Member)' })
   create(@Param('vendorId') vendorId: string, @Body() dto: CreateProductDto) {
@@ -90,6 +95,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Update a product (Member)' })
   update(
@@ -109,6 +115,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiFileUpload({ type: 'IMAGE', required: true })
   @ApiOperation({ summary: 'Upload product image' })
@@ -130,6 +137,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Delete a product (Member)' })
   remove(
@@ -150,6 +158,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Add a variant to a product' })
   addVariant(
@@ -169,6 +178,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Update a product variant' })
   updateVariant(
@@ -189,6 +199,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiFileUpload({ type: 'IMAGE', required: true })
   @ApiOperation({ summary: 'Upload product variant image' })
@@ -211,6 +222,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Remove product variant image' })
   removeVariantImage(
@@ -231,6 +243,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Delete a product variant' })
   removeVariant(
@@ -252,6 +265,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Add an option group to a product' })
   addOptionGroup(
@@ -271,6 +285,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Update a product option group' })
   updateOptionGroup(
@@ -292,6 +307,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Delete a product option group' })
   removeOptionGroup(
@@ -313,6 +329,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Add an option group to a product variant' })
   addVariantOptionGroup(
@@ -335,6 +352,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Add an option to a group' })
   addOption(
@@ -355,6 +373,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Update an option in a group' })
   updateOption(
@@ -383,6 +402,7 @@ export class ProductsController {
       VendorMemberRole.MANAGER,
       VendorMemberRole.STAFF,
     ],
+    adminPermissions: [Permission.MANAGE_PRODUCTS],
   })
   @ApiOperation({ summary: 'Delete an option from a group' })
   removeOption(

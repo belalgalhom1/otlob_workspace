@@ -145,13 +145,23 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
         final isOpen = vendorStatusOpen && branchOpen;
 
         final initialProductId = widget.restaurant['productId'];
+        final initialVariantId = widget.restaurant['variantId']?.toString();
         if (!_initialProductShown && initialProductId != null && allMenu.isNotEmpty) {
           final item = allMenu.where((i) => i['id']?.toString() == initialProductId.toString()).firstOrNull;
           if (item != null) {
             _initialProductShown = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (isOpen) {
-                _showProductBottomSheet(context, ref, item as Map<String, dynamic>, ref.read(cartProvider), s, isDark, isPharmacy);
+                _showProductBottomSheet(
+                  context,
+                  ref,
+                  item as Map<String, dynamic>,
+                  ref.read(cartProvider),
+                  s,
+                  isDark,
+                  isPharmacy,
+                  initialVariantId: initialVariantId,
+                );
               }
             });
           }
@@ -680,19 +690,37 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
   }
 
   Widget _buildMenuItem(BuildContext context, WidgetRef ref, Map<String, dynamic> item, CartState cartState, AppStrings s, bool isDark, bool isOpen, bool isPharmacy) {
-    final totalCartQty = cartState.allItems
-        .where((ci) => ci.product.id == item['id']?.toString())
-        .fold<int>(0, (sum, ci) => sum + ci.quantity);
-
     final bool tracksStock = item['tracksStock'] == null ? true : (item['tracksStock'] == true);
     final int? itemStock = item['stock'] == null ? null : int.tryParse(item['stock'].toString());
+    final bool sellByStrip = item['sellByStrip'] == true;
+    final int stripsPerPackage =
+        int.tryParse(item['stripsPerPackage']?.toString() ?? '') ?? 1;
+    final bool isStripProduct = sellByStrip && stripsPerPackage >= 2;
+
+    final cartProductLines = cartState.allItems
+        .where((ci) => ci.product.id == item['id']?.toString());
+    final int totalCartQty =
+        cartProductLines.fold<int>(0, (sum, ci) => sum + ci.quantity);
+    final int totalCartUnits = isStripProduct
+        ? cartProductLines.fold<int>(
+            0,
+            (sum, ci) =>
+                sum +
+                (ci.selectedUnit == 'strip'
+                    ? ci.quantity
+                    : ci.quantity * stripsPerPackage),
+          )
+        : totalCartQty;
+
     final List<dynamic> menuVariants = item['variants'] as List? ?? [];
     final bool hasMenuVariants = (item['hasVariants'] == true || menuVariants.isNotEmpty) && menuVariants.isNotEmpty;
-    // Subtract what's already in the cart: the menu snapshot goes stale the
-    // moment the first unit is added, and the backend rejects over-stock at
-    // checkout. Per-variant lines are gated inside the bottom sheet.
-    final int remainingSimpleStock = (tracksStock && itemStock != null)
-        ? itemStock - totalCartQty
+    // Subtract what's already in the cart (converted to strips when sellByStrip
+    // is enabled, mirroring backend checkout validation).
+    final int? effectiveItemStock = itemStock == null
+        ? null
+        : (isStripProduct ? itemStock * stripsPerPackage : itemStock);
+    final int remainingSimpleStock = (tracksStock && effectiveItemStock != null)
+        ? effectiveItemStock - totalCartUnits
         : 1;
     final bool isItemOutOfStock = (hasMenuVariants
         ? menuVariants.every((v) {
@@ -937,24 +965,8 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                     borderRadius: BorderRadius.circular(14),
                     child: Builder(
                       builder: (context) {
-                        String? resolvedImg =
+                        final resolvedImg =
                             (item['imageUrl'] ?? item['image'])?.toString().trim();
-                        if (resolvedImg == null || resolvedImg.isEmpty) {
-                          final itemVars = item['variants'];
-                          if (itemVars is List) {
-                            for (final v in itemVars) {
-                              if (v is Map) {
-                                final vi = (v['imageUrl'] ?? v['image'])
-                                    ?.toString()
-                                    .trim();
-                                if (vi != null && vi.isNotEmpty) {
-                                  resolvedImg = vi;
-                                  break;
-                                }
-                              }
-                            }
-                          }
-                        }
                         if (resolvedImg == null || resolvedImg.isEmpty) {
                           return Icon(
                             Icons.fastfood,
@@ -1019,7 +1031,16 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
 
 
 
-  void _showProductBottomSheet(BuildContext context, WidgetRef ref, Map<String, dynamic> item, CartState cartState, AppStrings s, bool isDark, bool isPharmacy) {
+  void _showProductBottomSheet(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> item,
+    CartState cartState,
+    AppStrings s,
+    bool isDark,
+    bool isPharmacy, {
+    String? initialVariantId,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1030,6 +1051,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
           item: item,
           restaurant: widget.restaurant,
           initialUnit: _selectedUnit,
+          initialVariantId: initialVariantId,
           s: s,
           isDark: isDark,
           isPharmacy: isPharmacy,

@@ -53,9 +53,10 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
     );
 
     _isActive = o?['isActive'] ?? true;
+    final isVendorRole =
+        widget.userRole == 'VENDOR_MEMBER' || widget.userRole == 'VENDOR';
     _selectedVendorId =
-        o?['vendorId'] ??
-        (widget.userRole == 'VENDOR' ? widget.vendorId : null);
+        o?['vendorId'] ?? (isVendorRole ? widget.vendorId : null);
     _selectedProductId = o?['productId'];
     _selectedVariantId = o?['variantId'];
 
@@ -66,7 +67,7 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
       _endDate = DateTime.tryParse(o['endDate'].toString());
     }
 
-    if (widget.userRole == 'VENDOR') {
+    if (isVendorRole) {
       _isLoadingVendors = false;
       if (_selectedVendorId != null) {
         _fetchProducts(_selectedVendorId!);
@@ -136,7 +137,8 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isEdit = widget.offer != null;
-    final isVendor = widget.userRole == 'VENDOR';
+    final isVendor =
+        widget.userRole == 'VENDOR_MEMBER' || widget.userRole == 'VENDOR';
 
     return AppDialog(
       maxWidth: 620,
@@ -256,6 +258,8 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
               setState(() {
                 _selectedVendorId = v;
                 _selectedProductId = null;
+                _selectedVariantId = null;
+                _originalPriceController.clear();
               });
               if (v != null) _fetchProducts(v);
             },
@@ -298,7 +302,10 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
       onChanged: widget.offer != null
           ? null
           : (v) {
-              setState(() => _selectedProductId = v);
+              setState(() {
+                _selectedProductId = v;
+                _selectedVariantId = null;
+              });
               // Auto-fill price
               if (v != null) {
                 final product = _products.firstWhere(
@@ -306,9 +313,19 @@ class _AddOfferDialogState extends ConsumerState<AddOfferDialog> {
                   orElse: () => null,
                 );
                 if (product != null) {
-                  final price = product['basePrice'] ?? product['price'];
+                  dynamic price = product['basePrice'] ?? product['price'];
+                  if (price == null && product['variants'] is List) {
+                    final vars = (product['variants'] as List)
+                        .whereType<Map>()
+                        .toList();
+                    if (vars.isNotEmpty) {
+                      price = vars.first['basePrice'] ?? vars.first['price'];
+                    }
+                  }
                   if (price != null) {
                     _originalPriceController.text = price.toString();
+                  } else {
+                    _originalPriceController.clear();
                   }
                 }
               }

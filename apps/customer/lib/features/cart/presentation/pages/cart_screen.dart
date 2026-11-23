@@ -1130,8 +1130,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final isInactive =
         !item.product.isActive ||
         (item.selectedVariant != null && !item.selectedVariant!.isActive);
+    final optionsTotal = item.selectedOptions.fold<double>(
+      0,
+      (sum, o) => sum + o.priceAdded,
+    );
+    // Server populates item.product.comparePrice as post-strip + post-options
+    // compareUnitPrice; only fall back to raw selectedVariant.comparePrice if absent.
     final comparePrice =
-        item.selectedVariant?.comparePrice ?? item.product.comparePrice;
+        item.product.comparePrice ??
+        (item.selectedVariant?.comparePrice != null
+            ? item.selectedVariant!.comparePrice! + optionsTotal
+            : null);
     final itemUnitPrice =
         item.totalPrice / (item.quantity > 0 ? item.quantity : 1);
     final hasDiscount = comparePrice != null && comparePrice > itemUnitPrice;
@@ -1351,6 +1360,50 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   ),
                 ),
                 _qtyBtn(Icons.add, isDark, () {
+                  final allCartItems = ref.read(cartProvider).allItems;
+                  final int? poolStock = item.selectedVariant != null
+                      ? (item.selectedVariant!.tracksStock
+                          ? item.selectedVariant!.stock
+                          : null)
+                      : (item.product.tracksStock ? item.product.stock : null);
+                  if (poolStock != null) {
+                    final isStripProduct =
+                        item.product.sellByStrip &&
+                        (item.product.stripsPerPackage ?? 0) >= 2;
+                    final stripsPerPkg = item.product.stripsPerPackage ?? 1;
+                    final effectiveStock =
+                        isStripProduct ? poolStock * stripsPerPkg : poolStock;
+                    final usedUnits = allCartItems
+                        .where((ci) => item.selectedVariant != null
+                            ? ci.selectedVariant?.id == item.selectedVariant!.id
+                            : (ci.product.id == item.product.id &&
+                                ci.selectedVariant == null))
+                        .fold<int>(
+                          0,
+                          (sum, ci) =>
+                              sum +
+                              (isStripProduct
+                                  ? (ci.selectedUnit == 'strip'
+                                      ? ci.quantity
+                                      : ci.quantity * stripsPerPkg)
+                                  : ci.quantity),
+                        );
+                    final deltaUnits =
+                        isStripProduct && item.selectedUnit != 'strip'
+                            ? stripsPerPkg
+                            : 1;
+                    if (usedUnits + deltaUnits > effectiveStock) {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(s.outOfStock),
+                          backgroundColor: Colors.red,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+                  }
                   final vid = item.product.vendorId;
                   if (vid != null) {
                     _estimates.remove(vid);

@@ -787,6 +787,7 @@ export class OrdersRepository {
         select: {
           productId: true,
           variantId: true,
+          variantName: true,
           quantity: true,
           selectedUnit: true,
         },

@@ -12,7 +12,7 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
   @override
   final String? nameAr;
   @override
-  final JsonObject? imageUrl;
+  final String? imageUrl;
   @override
   final String? sku;
   @override
@@ -116,9 +116,9 @@ class UpdateProductVariantDtoBuilder
   String? get nameAr => _$this._nameAr;
   set nameAr(String? nameAr) => _$this._nameAr = nameAr;
 
-  JsonObject? _imageUrl;
-  JsonObject? get imageUrl => _$this._imageUrl;
-  set imageUrl(JsonObject? imageUrl) => _$this._imageUrl = imageUrl;
+  String? _imageUrl;
+  String? get imageUrl => _$this._imageUrl;
+  set imageUrl(String? imageUrl) => _$this._imageUrl = imageUrl;
 
   String? _sku;
   String? get sku => _$this._sku;

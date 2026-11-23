@@ -14,6 +14,7 @@ class ProductBottomSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> item;
   final Map<String, dynamic> restaurant;
   final String initialUnit;
+  final String? initialVariantId;
   final AppStrings s;
   final bool isDark;
   final bool isPharmacy;
@@ -23,6 +24,7 @@ class ProductBottomSheet extends ConsumerStatefulWidget {
     required this.item,
     required this.restaurant,
     required this.initialUnit,
+    this.initialVariantId,
     required this.s,
     required this.isDark,
     required this.isPharmacy,
@@ -35,6 +37,7 @@ class ProductBottomSheet extends ConsumerStatefulWidget {
 class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
   late String _selectedUnit;
   Map<String, dynamic>? _selectedVariant;
+  bool _hasUserSelectedVariant = false;
   final Map<String, List<Map<String, dynamic>>> _selectedOptions = {};
 
   @override
@@ -45,7 +48,24 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     final variants = widget.item['variants'] as List<dynamic>? ?? [];
     final bool hasVariants = (widget.item['hasVariants'] == true || variants.isNotEmpty) && variants.isNotEmpty;
     if (hasVariants) {
-      _selectedVariant = variants.first as Map<String, dynamic>;
+      Map<String, dynamic>? initialSelected;
+      if (widget.initialVariantId != null && widget.initialVariantId!.isNotEmpty) {
+        initialSelected = variants
+            .whereType<Map>()
+            .map((v) => Map<String, dynamic>.from(v))
+            .where((v) => v['id']?.toString() == widget.initialVariantId)
+            .firstOrNull;
+      }
+      initialSelected ??= variants
+          .whereType<Map>()
+          .map((v) => Map<String, dynamic>.from(v))
+          .where((v) {
+            final vTracks = v['tracksStock'] == null ? true : (v['tracksStock'] == true);
+            final vStock = _parseStock(v['stock']);
+            return !(vTracks && vStock != null && vStock <= 0);
+          })
+          .firstOrNull;
+      _selectedVariant = initialSelected ?? Map<String, dynamic>.from(variants.first as Map);
     }
     
     final productOptionGroups = widget.item['optionGroups'] as List<dynamic>? ?? [];
@@ -159,40 +179,41 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     // across option combinations; product stock across units (converted to
     // strips when a strip unit is selected, mirroring the backend).
     final cartAllItems = ref.watch(cartProvider).allItems;
+    final bool sellByStrip = item['sellByStrip'] == true;
+    final int stripsPerPackage =
+        int.tryParse(item['stripsPerPackage']?.toString() ?? '') ?? 1;
+    final int divider =
+        (_selectedUnit == 'strip' && sellByStrip && stripsPerPackage > 1)
+            ? stripsPerPackage
+            : 1;
+    int convertedLineQty(CartItem ci) {
+      int lineQty = ci.quantity;
+      if (sellByStrip && stripsPerPackage > 1) {
+        if (_selectedUnit == 'strip' && ci.selectedUnit == 'package') {
+          lineQty = ci.quantity * stripsPerPackage;
+        } else if (_selectedUnit == 'package' && ci.selectedUnit == 'strip') {
+          lineQty = (ci.quantity / stripsPerPackage).ceil();
+        }
+      }
+      return lineQty;
+    }
+
     int stockPoolQty = 0;
     int? stockLimit;
     if (_selectedVariant != null) {
       if (variantTracksStock && variantStock != null) {
-        stockLimit = variantStock;
+        stockLimit = variantStock * divider;
         stockPoolQty = cartAllItems
             .where((ci) =>
                 ci.selectedVariant?.id == _selectedVariant!['id'])
-            .fold<int>(0, (sum, ci) => sum + ci.quantity);
+            .fold<int>(0, (sum, ci) => sum + convertedLineQty(ci));
       }
     } else if (productTracksStock && productStock != null) {
-      final bool sellByStrip = item['sellByStrip'] == true;
-      final int stripsPerPackage =
-          int.tryParse(item['stripsPerPackage']?.toString() ?? '') ?? 1;
-      final divider = (_selectedUnit == 'strip' &&
-              sellByStrip &&
-              stripsPerPackage > 0)
-          ? stripsPerPackage
-          : 1;
       stockLimit = productStock * divider;
       stockPoolQty = cartAllItems
           .where((ci) =>
               ci.product.id == item['id'] && ci.selectedVariant == null)
-          .fold<int>(0, (sum, ci) {
-        int lineQty = ci.quantity;
-        if (sellByStrip && stripsPerPackage > 1) {
-          if (_selectedUnit == 'strip' && ci.selectedUnit == 'package') {
-            lineQty = ci.quantity * stripsPerPackage;
-          } else if (_selectedUnit == 'package' && ci.selectedUnit == 'strip') {
-            lineQty = (ci.quantity / stripsPerPackage).ceil();
-          }
-        }
-        return sum + lineQty;
-      });
+          .fold<int>(0, (sum, ci) => sum + convertedLineQty(ci));
     }
     final bool isOutOfStock = stockLimit != null
         ? stockPoolQty >= stockLimit
@@ -249,16 +270,19 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
 
     final variants = item['variants'] as List<dynamic>? ?? [];
     final bool hasVariants = (item['hasVariants'] == true || variants.isNotEmpty) && variants.isNotEmpty;
+    final productMainImage =
+        (item['imageUrl'] ?? item['image'])?.toString().trim();
     final selectedVariantImage =
         (_selectedVariant?['imageUrl'] ?? _selectedVariant?['image'])
             ?.toString()
             .trim();
-    final productMainImage =
-        (item['imageUrl'] ?? item['image'])?.toString().trim();
-    final heroImageUrl =
-        (selectedVariantImage != null && selectedVariantImage.isNotEmpty)
-            ? selectedVariantImage
-            : productMainImage;
+    // Start with the product's own image when opened; only swap the hero image
+    // once the customer explicitly selects a variant that defines its own image.
+    final heroImageUrl = (_hasUserSelectedVariant &&
+            selectedVariantImage != null &&
+            selectedVariantImage.isNotEmpty)
+        ? selectedVariantImage
+        : productMainImage;
     final productOptionGroups = item['optionGroups'] as List<dynamic>? ?? [];
     final variantOptionGroups = _selectedVariant?['optionGroups'] as List<dynamic>? ?? [];
     final optionGroups = [...productOptionGroups, ...variantOptionGroups];
@@ -269,12 +293,16 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
       requiredMet = false;
     }
     for (final group in optionGroups) {
-      if (group['isRequired'] == true) {
-        final minSelect = (group['minSelect'] as num?)?.toInt() ?? 
-            int.tryParse(group['minSelect']?.toString() ?? '1') ?? 1;
+      final minSelect = (group['minSelect'] as num?)?.toInt() ??
+          int.tryParse(group['minSelect']?.toString() ?? '0') ??
+          0;
+      final effectiveMin = group['isRequired'] == true
+          ? (minSelect > 0 ? minSelect : 1)
+          : minSelect;
+      if (effectiveMin > 0) {
         final gId = group['id']?.toString() ?? '';
         final count = _selectedOptions[gId]?.length ?? 0;
-        if (count < (minSelect > 0 ? minSelect : 1)) {
+        if (count < effectiveMin) {
           requiredMet = false;
           break;
         }
@@ -308,36 +336,41 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        child: (heroImageUrl == null || heroImageUrl.isEmpty)
-                            ? Container(
-                                width: double.infinity,
-                                height: 250,
-                                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                                child: Icon(Icons.fastfood_rounded, size: 80, color: Colors.grey.shade300),
-                              )
-                            : Container(
-                                width: double.infinity,
-                                height: 250,
-                                color: Colors.transparent,
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: TransparentBgNetworkImage(
-                                    imageUrl: ImageUtils.formatImageUrl(heroImageUrl),
-                                    mode: BackgroundRemovalMode.autoUniform,
-                                    fit: BoxFit.contain,
-                                    maxCacheDimension: 480,
-                                    fallbackBuilder: (_) => Center(
-                                      child: Icon(
-                                        Icons.fastfood,
-                                        size: 40,
-                                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: (heroImageUrl == null || heroImageUrl.isEmpty)
+                              ? Container(
+                                  key: const ValueKey('empty_hero_image'),
+                                  width: double.infinity,
+                                  height: 250,
+                                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
+                                  child: Icon(Icons.fastfood_rounded, size: 80, color: Colors.grey.shade300),
+                                )
+                              : Container(
+                                  key: ValueKey(heroImageUrl),
+                                  width: double.infinity,
+                                  height: 250,
+                                  color: Colors.transparent,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: TransparentBgNetworkImage(
+                                      imageUrl: ImageUtils.formatImageUrl(heroImageUrl),
+                                      mode: BackgroundRemovalMode.autoUniform,
+                                      fit: BoxFit.contain,
+                                      maxCacheDimension: 480,
+                                      fallbackBuilder: (_) => Center(
+                                        child: Icon(
+                                          Icons.fastfood,
+                                          size: 40,
+                                          color: isDark ? Colors.white24 : Colors.grey.shade300,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
+                        ),
                       ),
-                      if (isOutOfStock)
+                      if (isOutOfStock && currentQty == 0)
                         Positioned(
                           right: 12,
                           bottom: 12,
@@ -504,6 +537,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
 
                       void selectVariant() {
                         setState(() {
+                          _hasUserSelectedVariant = true;
                           _selectedVariant = v as Map<String, dynamic>;
                           // Keep product-level option group selections intact, only reset variant option groups
                           final productGroupIds = (widget.item['optionGroups'] as List<dynamic>? ?? [])
@@ -858,7 +892,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
             ),
             child: SafeArea(
               top: false,
-              child: isOutOfStock
+              child: (isOutOfStock && currentQty == 0)
                   ? ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 56),
                       child: Container(
@@ -886,12 +920,15 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                         final isAr = Localizations.localeOf(context).languageCode == 'ar';
                         String? missingGroupName;
                         for (final g in optionGroups) {
-                          if (g['isRequired'] == true) {
-                            final minS = g['minSelect'] is int 
-                                ? g['minSelect'] as int 
-                                : int.tryParse(g['minSelect']?.toString() ?? '1') ?? 1;
+                          final minS = g['minSelect'] is int
+                              ? g['minSelect'] as int
+                              : int.tryParse(g['minSelect']?.toString() ?? '0') ?? 0;
+                          final effectiveMin = g['isRequired'] == true
+                              ? (minS > 0 ? minS : 1)
+                              : minS;
+                          if (effectiveMin > 0) {
                             final c = (_selectedOptions[g['id']?.toString()] ?? []).length;
-                            if (c < (minS > 0 ? minS : 1)) {
+                            if (c < effectiveMin) {
                               missingGroupName = isAr && g['nameAr'] != null && g['nameAr'].toString().isNotEmpty
                                   ? g['nameAr']
                                   : g['name'];
@@ -998,7 +1035,12 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
+                                icon: Icon(
+                                  Icons.add_circle_outline,
+                                  color: atStockLimit
+                                      ? AppColors.primary.withValues(alpha: 0.35)
+                                      : AppColors.primary,
+                                ),
                                 onPressed: () async {
                                   final authStatus = ref.read(authControllerProvider);
                                   if (authStatus == AuthStatus.unauthenticated) {

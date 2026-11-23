@@ -6,8 +6,8 @@
 import 'package:api/src/model/paginated_reviews_response_dto.dart';
 import 'package:api/src/model/api_response_dto.dart';
 import 'package:built_collection/built_collection.dart';
-import 'package:built_value/built_value.dart';
 import 'package:built_value/json_object.dart';
+import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
 part 'reviews_controller_get_vendor_reviews200_response.g.dart';

@@ -3,7 +3,6 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -31,7 +30,7 @@ abstract class UpdateProductVariantDto implements Built<UpdateProductVariantDto,
   String? get nameAr;
 
   @BuiltValueField(wireName: r'imageUrl')
-  JsonObject? get imageUrl;
+  String? get imageUrl;
 
   @BuiltValueField(wireName: r'sku')
   String? get sku;
@@ -88,21 +87,21 @@ class _$UpdateProductVariantDtoSerializer implements PrimitiveSerializer<UpdateP
       yield r'nameAr';
       yield serializers.serialize(
         object.nameAr,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType.nullable(String),
       );
     }
     if (object.imageUrl != null) {
       yield r'imageUrl';
       yield serializers.serialize(
         object.imageUrl,
-        specifiedType: const FullType.nullable(JsonObject),
+        specifiedType: const FullType.nullable(String),
       );
     }
     if (object.sku != null) {
       yield r'sku';
       yield serializers.serialize(
         object.sku,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType.nullable(String),
       );
     }
     if (object.basePrice != null) {
@@ -116,14 +115,14 @@ class _$UpdateProductVariantDtoSerializer implements PrimitiveSerializer<UpdateP
       yield r'comparePrice';
       yield serializers.serialize(
         object.comparePrice,
-        specifiedType: const FullType(num),
+        specifiedType: const FullType.nullable(num),
       );
     }
     if (object.stock != null) {
       yield r'stock';
       yield serializers.serialize(
         object.stock,
-        specifiedType: const FullType(num),
+        specifiedType: const FullType.nullable(num),
       );
     }
     if (object.tracksStock != null) {
@@ -180,23 +179,25 @@ class _$UpdateProductVariantDtoSerializer implements PrimitiveSerializer<UpdateP
         case r'nameAr':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
           result.nameAr = valueDes;
           break;
         case r'imageUrl':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType.nullable(JsonObject),
-          ) as JsonObject?;
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
           if (valueDes == null) continue;
           result.imageUrl = valueDes;
           break;
         case r'sku':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
           result.sku = valueDes;
           break;
         case r'basePrice':
@@ -209,15 +210,17 @@ class _$UpdateProductVariantDtoSerializer implements PrimitiveSerializer<UpdateP
         case r'comparePrice':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(num),
-          ) as num;
+            specifiedType: const FullType.nullable(num),
+          ) as num?;
+          if (valueDes == null) continue;
           result.comparePrice = valueDes;
           break;
         case r'stock':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(num),
-          ) as num;
+            specifiedType: const FullType.nullable(num),
+          ) as num?;
+          if (valueDes == null) continue;
           result.stock = valueDes;
           break;
         case r'tracksStock':

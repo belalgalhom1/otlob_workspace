@@ -19,6 +19,7 @@ import { JwtAccessPayload } from '../interfaces/jwt-payload.interface';
 import {
   VENDOR_MEMBER_ROLES_KEY,
   VENDOR_ID_PARAM_KEY,
+  VENDOR_ADMIN_PERMISSIONS_KEY,
 } from '../decorators/vendor-member.decorator';
 
 @Injectable()
@@ -41,15 +42,26 @@ export class VendorMemberGuard implements CanActivate {
     // SUPER_ADMIN always has full access across all vendors.
     if (user.role === Role.SUPER_ADMIN) return true;
 
-    // ADMIN users with the MANAGE_VENDORS permission have full access across
-    // all vendors without needing to be a member of any specific one.
+    // ADMIN users with MANAGE_VENDORS (or route-specific adminPermissions)
+    // have full access across all vendors without needing membership.
     if (user.role === Role.ADMIN) {
       const dbUser = await this.prisma.user.findUnique({
         where: { id: user.sub },
         select: { permissions: true },
       });
 
-      if (dbUser?.permissions.includes(Permission.MANAGE_VENDORS)) return true;
+      const extraAdminPermissions =
+        this.reflector.getAllAndOverride<Permission[]>(
+          VENDOR_ADMIN_PERMISSIONS_KEY,
+          [context.getHandler(), context.getClass()],
+        ) ?? [];
+
+      if (
+        dbUser?.permissions.includes(Permission.MANAGE_VENDORS) ||
+        extraAdminPermissions.some((p) => dbUser?.permissions.includes(p))
+      ) {
+        return true;
+      }
     }
 
     // Resolve which route param holds the vendor id.

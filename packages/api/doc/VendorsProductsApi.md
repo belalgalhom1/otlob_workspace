@@ -391,7 +391,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerFindAll**
-> ApiControllerRoot200Response productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, search, branchId, page, limit)
+> ApiControllerRoot200Response productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, includeInactive, search, branchId, page, limit)
 
 List all products for a vendor
 
@@ -404,13 +404,14 @@ final String vendorId = vendorId_example; // String |
 final String categoryId = 550e8400-e29b-41d4-a716-446655440000; // String | 
 final bool isActive = true; // bool | 
 final bool isFeatured = false; // bool | 
+final bool includeInactive = false; // bool | 
 final String search = burger; // String | 
 final String branchId = 550e8400-e29b-41d4-a716-446655440001; // String | When provided, only products available at this vendor branch are returned.
 final num page = 1; // num | 
 final num limit = 20; // num | 
 
 try {
-    final response = api.productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, search, branchId, page, limit);
+    final response = api.productsControllerFindAll(vendorId, categoryId, isActive, isFeatured, includeInactive, search, branchId, page, limit);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling VendorsProductsApi->productsControllerFindAll: $e\n');
@@ -425,6 +426,7 @@ Name | Type | Description  | Notes
  **categoryId** | **String**|  | [optional] 
  **isActive** | **bool**|  | [optional] 
  **isFeatured** | **bool**|  | [optional] 
+ **includeInactive** | **bool**|  | [optional] 
  **search** | **String**|  | [optional] 
  **branchId** | **String**| When provided, only products available at this vendor branch are returned. | [optional] 
  **page** | **num**|  | [optional] [default to 1]
@@ -446,7 +448,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **productsControllerFindOne**
-> ProductsControllerCreate200Response productsControllerFindOne(vendorId, productId)
+> ProductsControllerCreate200Response productsControllerFindOne(vendorId, productId, includeInactive)
 
 Get a specific product by ID
 
@@ -457,9 +459,10 @@ import 'package:api/api.dart';
 final api = Api().getVendorsProductsApi();
 final String vendorId = vendorId_example; // String | 
 final String productId = productId_example; // String | 
+final bool includeInactive = true; // bool | 
 
 try {
-    final response = api.productsControllerFindOne(vendorId, productId);
+    final response = api.productsControllerFindOne(vendorId, productId, includeInactive);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling VendorsProductsApi->productsControllerFindOne: $e\n');
@@ -472,6 +475,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **vendorId** | **String**|  | 
  **productId** | **String**|  | 
+ **includeInactive** | **bool**|  | [optional] 
 
 ### Return type
 

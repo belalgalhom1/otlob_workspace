@@ -212,6 +212,50 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
       expect(tx.$executeRaw.mock.calls[0]).toContain(2); // ceil(3/2)
     });
+
+    it('normalizes strip units for variants and skips deleted-variant lines without touching parent stock', async () => {
+      const stockService = new StockService();
+      const tx: any = {
+        productVariant: {
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'var-strip', tracksStock: true, productId: 'prod-pharma' },
+          ]),
+        },
+        product: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'prod-pharma',
+              hasVariants: true,
+              tracksStock: true,
+              sellByStrip: true,
+              stripsPerPackage: 3,
+            },
+          ]),
+        },
+        $executeRaw: jest.fn().mockResolvedValue(1),
+      };
+
+      await stockService.restoreForItems(tx, [
+        {
+          productId: 'prod-pharma',
+          variantId: 'var-strip',
+          quantity: 4,
+          selectedUnit: 'strip',
+        },
+        {
+          productId: 'prod-pharma',
+          variantId: null,
+          variantName: 'Deleted Variant',
+          quantity: 2,
+          selectedUnit: 'package',
+        },
+      ]);
+
+      // Only the variant row is restored (ceil(4/3) = 2 packages); deleted-variant line never touches products.stock.
+      expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(tx.$executeRaw.mock.calls[0]).toContain('var-strip');
+      expect(tx.$executeRaw.mock.calls[0]).toContain(2);
+    });
   });
 
   describe('OrderCancellationService', () => {

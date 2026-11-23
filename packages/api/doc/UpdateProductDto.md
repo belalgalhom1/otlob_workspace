@@ -13,6 +13,7 @@ Name | Type | Description | Notes
 **nameAr** | **String** |  | [optional] 
 **description** | **String** |  | [optional] 
 **descriptionAr** | **String** |  | [optional] 
+**hasVariants** | **bool** |  | [optional] 
 **basePrice** | **num** |  | [optional] 
 **comparePrice** | **num** |  | [optional] 
 **sku** | **String** |  | [optional] 

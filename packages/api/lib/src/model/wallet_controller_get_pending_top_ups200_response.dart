@@ -6,8 +6,8 @@
 import 'package:api/src/model/api_response_dto.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:api/src/model/wallet_top_up_request_response_dto.dart';
-import 'package:built_value/built_value.dart';
 import 'package:built_value/json_object.dart';
+import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
 part 'wallet_controller_get_pending_top_ups200_response.g.dart';

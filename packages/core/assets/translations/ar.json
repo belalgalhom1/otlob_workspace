@@ -1717,6 +1717,7 @@
   "product_error_branches_required": "اختر فرعًا واحدًا على الأقل للمنتج.",
   "product_error_branch_not_in_vendor": "في فروع مختارة مش تابعة للمتجر ده.",
   "product_error_branch_availability_invalid": "إعدادات توفر الفروع غير صحيحة.",
+  "product_error_invalid_option_group_range": "لا يمكن أن يكون الحد الأدنى للاختيار أكبر من الحد الأقصى.",
   "driver_error_profile_exists": "في ملف سائق مسجّل بالفعل للحساب ده.",
   "driver_error_profile_not_found": "ملف السائق مش موجود.",
   "driver_error_account_suspended": "حسابك كسائق موقوف، كلم الدعم.",

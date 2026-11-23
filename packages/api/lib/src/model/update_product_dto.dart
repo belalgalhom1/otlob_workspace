@@ -18,6 +18,7 @@ part 'update_product_dto.g.dart';
 /// * [nameAr] 
 /// * [description] 
 /// * [descriptionAr] 
+/// * [hasVariants] 
 /// * [basePrice] 
 /// * [comparePrice] 
 /// * [sku] 
@@ -46,6 +47,9 @@ abstract class UpdateProductDto implements Built<UpdateProductDto, UpdateProduct
 
   @BuiltValueField(wireName: r'descriptionAr')
   String? get descriptionAr;
+
+  @BuiltValueField(wireName: r'hasVariants')
+  bool? get hasVariants;
 
   @BuiltValueField(wireName: r'basePrice')
   num? get basePrice;
@@ -127,49 +131,56 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
       yield r'nameAr';
       yield serializers.serialize(
         object.nameAr,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType.nullable(String),
       );
     }
     if (object.description != null) {
       yield r'description';
       yield serializers.serialize(
         object.description,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType.nullable(String),
       );
     }
     if (object.descriptionAr != null) {
       yield r'descriptionAr';
       yield serializers.serialize(
         object.descriptionAr,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType.nullable(String),
+      );
+    }
+    if (object.hasVariants != null) {
+      yield r'hasVariants';
+      yield serializers.serialize(
+        object.hasVariants,
+        specifiedType: const FullType(bool),
       );
     }
     if (object.basePrice != null) {
       yield r'basePrice';
       yield serializers.serialize(
         object.basePrice,
-        specifiedType: const FullType(num),
+        specifiedType: const FullType.nullable(num),
       );
     }
     if (object.comparePrice != null) {
       yield r'comparePrice';
       yield serializers.serialize(
         object.comparePrice,
-        specifiedType: const FullType(num),
+        specifiedType: const FullType.nullable(num),
       );
     }
     if (object.sku != null) {
       yield r'sku';
       yield serializers.serialize(
         object.sku,
-        specifiedType: const FullType(String),
+        specifiedType: const FullType.nullable(String),
       );
     }
     if (object.stock != null) {
       yield r'stock';
       yield serializers.serialize(
         object.stock,
-        specifiedType: const FullType(num),
+        specifiedType: const FullType.nullable(num),
       );
     }
     if (object.tracksStock != null) {
@@ -204,7 +215,7 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
       yield r'stripsPerPackage';
       yield serializers.serialize(
         object.stripsPerPackage,
-        specifiedType: const FullType(num),
+        specifiedType: const FullType.nullable(num),
       );
     }
     if (object.branchAvailabilityMode != null) {
@@ -269,50 +280,64 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
         case r'nameAr':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
           result.nameAr = valueDes;
           break;
         case r'description':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
           result.description = valueDes;
           break;
         case r'descriptionAr':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
           result.descriptionAr = valueDes;
+          break;
+        case r'hasVariants':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.hasVariants = valueDes;
           break;
         case r'basePrice':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(num),
-          ) as num;
+            specifiedType: const FullType.nullable(num),
+          ) as num?;
+          if (valueDes == null) continue;
           result.basePrice = valueDes;
           break;
         case r'comparePrice':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(num),
-          ) as num;
+            specifiedType: const FullType.nullable(num),
+          ) as num?;
+          if (valueDes == null) continue;
           result.comparePrice = valueDes;
           break;
         case r'sku':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(String),
-          ) as String;
+            specifiedType: const FullType.nullable(String),
+          ) as String?;
+          if (valueDes == null) continue;
           result.sku = valueDes;
           break;
         case r'stock':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(num),
-          ) as num;
+            specifiedType: const FullType.nullable(num),
+          ) as num?;
+          if (valueDes == null) continue;
           result.stock = valueDes;
           break;
         case r'tracksStock':
@@ -346,8 +371,9 @@ class _$UpdateProductDtoSerializer implements PrimitiveSerializer<UpdateProductD
         case r'stripsPerPackage':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType(num),
-          ) as num;
+            specifiedType: const FullType.nullable(num),
+          ) as num?;
+          if (valueDes == null) continue;
           result.stripsPerPackage = valueDes;
           break;
         case r'branchAvailabilityMode':

@@ -14,13 +14,35 @@ class VendorCatalogRepository {
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> getProducts(String vendorId) async {
-    final response = await _api.productsControllerFindAll(vendorId: vendorId);
-    return ResponseParser.parseList(response);
+  Future<dynamic> getProducts(
+    String vendorId, {
+    String? search,
+    int page = 1,
+    int limit = 100,
+    bool includeInactive = true,
+  }) async {
+    final trimmedSearch = search?.trim();
+    final response = await _api.productsControllerFindAll(
+      vendorId: vendorId,
+      search:
+          (trimmedSearch != null && trimmedSearch.isNotEmpty) ? trimmedSearch : null,
+      page: page,
+      limit: limit,
+      includeInactive: includeInactive,
+    );
+    return ResponseParser.parse(response);
   }
 
-  Future<dynamic> getProduct(String vendorId, String productId) async {
-    final response = await _api.productsControllerFindOne(vendorId: vendorId, productId: productId);
+  Future<dynamic> getProduct(
+    String vendorId,
+    String productId, {
+    bool includeInactive = true,
+  }) async {
+    final response = await _api.productsControllerFindOne(
+      vendorId: vendorId,
+      productId: productId,
+      includeInactive: includeInactive,
+    );
     return ResponseParser.parse(response);
   }
 

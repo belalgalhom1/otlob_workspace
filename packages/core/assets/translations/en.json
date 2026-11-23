@@ -1717,6 +1717,7 @@
   "product_error_branches_required": "Select at least one branch for this product.",
   "product_error_branch_not_in_vendor": "One or more selected branches do not belong to this store.",
   "product_error_branch_availability_invalid": "Branch availability settings are invalid.",
+  "product_error_invalid_option_group_range": "Minimum selection cannot exceed maximum selection.",
   "driver_error_profile_exists": "A driver profile already exists for this account.",
   "driver_error_profile_not_found": "Driver profile not found.",
   "driver_error_account_suspended": "Your driver account is currently suspended. Please contact support.",

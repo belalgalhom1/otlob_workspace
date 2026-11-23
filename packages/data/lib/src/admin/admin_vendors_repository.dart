@@ -375,17 +375,34 @@ class AdminVendorsRepository {
   }
 
   // --- Products Proxy ---
-  Future<dynamic> getProducts(String vendorId, {String? search}) async {
+  Future<dynamic> getProducts(
+    String vendorId, {
+    String? search,
+    int page = 1,
+    int limit = 100,
+    bool includeInactive = true,
+  }) async {
+    final trimmedSearch = search?.trim();
     final response = await _productsApi.productsControllerFindAll(
       vendorId: vendorId,
+      search:
+          (trimmedSearch != null && trimmedSearch.isNotEmpty) ? trimmedSearch : null,
+      page: page,
+      limit: limit,
+      includeInactive: includeInactive,
     );
     return ResponseParser.parse(response);
   }
 
-  Future<dynamic> getVendorProduct(String vendorId, String productId) async {
+  Future<dynamic> getVendorProduct(
+    String vendorId,
+    String productId, {
+    bool includeInactive = true,
+  }) async {
     final response = await _productsApi.productsControllerFindOne(
       vendorId: vendorId,
       productId: productId,
+      includeInactive: includeInactive,
     );
     return ResponseParser.parse(response);
   }
@@ -412,7 +429,25 @@ class AdminVendorsRepository {
     String productId,
     UpdateProductDto updateProductDto, {
     bool isAdmin = true,
+    Set<String> clearFields = const {},
   }) async {
+    if (clearFields.isNotEmpty) {
+      final body = _serializeProductDto(
+        updateProductDto,
+        const FullType(UpdateProductDto),
+      );
+      for (final field in clearFields) {
+        body[field] = null;
+      }
+      final response = await _dio.patch(
+        isAdmin
+            ? '/vendors/$vendorId/products/admin/$productId'
+            : '/vendors/$vendorId/products/$productId',
+        data: body,
+      );
+      return ResponseParser.parse(response);
+    }
+
     final response = isAdmin
         ? await _productsApi.productsControllerAdminUpdate(
             vendorId: vendorId,
@@ -461,6 +496,7 @@ class AdminVendorsRepository {
     required String branchAvailabilityMode,
     required List<String> branchIds,
     bool isAdmin = true,
+    Set<String> clearFields = const {},
   }) async {
     final body = _serializeProductDto(
       updateProductDto,
@@ -468,6 +504,9 @@ class AdminVendorsRepository {
     );
     body['branchAvailabilityMode'] = branchAvailabilityMode;
     body['branchIds'] = branchIds;
+    for (final field in clearFields) {
+      body[field] = null;
+    }
 
     final response = await _dio.patch(
       isAdmin
@@ -533,8 +572,24 @@ class AdminVendorsRepository {
     String vendorId,
     String productId,
     String variantId,
-    UpdateProductVariantDto updateProductVariantDto,
-  ) async {
+    UpdateProductVariantDto updateProductVariantDto, {
+    Set<String> clearFields = const {},
+  }) async {
+    if (clearFields.isNotEmpty) {
+      final body = _serializeProductDto(
+        updateProductVariantDto,
+        const FullType(UpdateProductVariantDto),
+      );
+      for (final field in clearFields) {
+        body[field] = null;
+      }
+      final response = await _dio.patch(
+        '/vendors/$vendorId/products/$productId/variants/$variantId',
+        data: body,
+      );
+      return ResponseParser.parse(response);
+    }
+
     final response = await _productsApi.productsControllerUpdateVariant(
       vendorId: vendorId,
       productId: productId,

@@ -875,6 +875,7 @@ export class DeliveryGroupTransitionService {
                     select: {
                       productId: true,
                       variantId: true,
+                      variantName: true,
                       productName: true,
                       quantity: true,
                       selectedUnit: true,

@@ -472,6 +472,10 @@ export class VendorsService {
       },
       take: limit * 2,
       include: {
+        variants: {
+          where: { isActive: true },
+          select: { basePrice: true },
+        },
         vendor: {
           include: this.vendorIncludes(),
         },
@@ -488,12 +492,17 @@ export class VendorsService {
           matchingProducts: [],
         });
       }
+      const minVariantPrice =
+        p.hasVariants && p.variants.length > 0
+          ? Math.min(...p.variants.map((v) => Number(v.basePrice)))
+          : null;
       vendorMap.get(p.vendorId).matchingProducts.push({
         id: p.id,
         name: p.name,
         nameAr: p.nameAr,
         description: p.description,
-        price: p.basePrice,
+        price: minVariantPrice ?? p.basePrice,
+        hasVariants: p.hasVariants,
         image: p.imageUrl,
         sellByStrip:
           p.vendor.vertical?.slug?.toLowerCase().includes('pharmacy') ||
@@ -976,10 +985,11 @@ export class VendorsService {
                 ? Number(variantOffer.originalPrice)
                 : originalRef;
             } else if (productDiscountRatio > 0) {
-              // 2. Otherwise apply product-wide proportional discount ratio
+              // 2. Apply product-wide proportional discount against the variant's
+              // selling basePrice so an inflated comparePrice cannot raise the price.
               vEffectivePrice = Math.max(
                 0,
-                Math.round(originalRef * (1 - productDiscountRatio)),
+                Math.round(vBasePrice * (1 - productDiscountRatio)),
               );
               vEffectiveCompare = originalRef;
             }

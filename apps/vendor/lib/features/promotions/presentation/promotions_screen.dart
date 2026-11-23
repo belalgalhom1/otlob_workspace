@@ -197,7 +197,8 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
           builder: (context, ref, child) {
             final state = ref.watch(promotionProvider);
             var promotions = state.value ?? [];
-            if (_userRole == 'VENDOR' && _vendorId != null) {
+            if ((_userRole == 'VENDOR_MEMBER' || _userRole == 'VENDOR') &&
+                _vendorId != null) {
               promotions = promotions
                   .where((p) => p['vendorId']?.toString() == _vendorId)
                   .toList();
