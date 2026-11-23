@@ -381,20 +381,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Start Side (Right in RTL): User Profile Avatar (if uploaded) else Main App Logo (36x36)
+          // Start Side (Right in RTL): User Profile Avatar (if uploaded) else Main App Logo inside circular gold ring (36x36)
           Container(
             key: const ValueKey('home_header_logo'),
             width: 36,
             height: 36,
-            decoration: avatarUrl.isNotEmpty
-                ? BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: HomeDesignTokens.gold,
-                      width: 1.8,
-                    ),
-                  )
-                : null,
+            padding: avatarUrl.isNotEmpty
+                ? EdgeInsets.zero
+                : const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: HomeDesignTokens.gold,
+                width: 1.8,
+              ),
+            ),
             alignment: Alignment.center,
             child: avatarUrl.isNotEmpty
                 ? ClipOval(
@@ -405,26 +406,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       height: 36,
                       fit: BoxFit.cover,
                       memCacheWidth: 120,
-                      placeholder: (_, _) => Image.asset(
-                        'assets/home_logo.png',
-                        width: 36,
-                        height: 36,
-                        fit: BoxFit.contain,
+                      placeholder: (_, _) => Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Image.asset(
+                          'assets/home_logo.png',
+                          width: 30,
+                          height: 30,
+                          fit: BoxFit.contain,
+                        ),
                       ),
-                      errorWidget: (_, _, _) => Image.asset(
-                        'assets/home_logo.png',
-                        width: 36,
-                        height: 36,
-                        fit: BoxFit.contain,
+                      errorWidget: (_, _, _) => Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Image.asset(
+                          'assets/home_logo.png',
+                          width: 30,
+                          height: 30,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   )
-                : Image.asset(
-                    'assets/home_logo.png',
-                    key: const ValueKey('home_header_main_logo'),
-                    width: 36,
-                    height: 36,
-                    fit: BoxFit.contain,
+                : ClipOval(
+                    child: Image.asset(
+                      'assets/home_logo.png',
+                      key: const ValueKey('home_header_main_logo'),
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.contain,
+                    ),
                   ),
           ),
           const SizedBox(width: 8),
@@ -1253,24 +1262,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final iconUrl = cat['iconUrl']?.toString();
     final hasImage = iconUrl != null && iconUrl.isNotEmpty;
 
+    if (isAll) {
+      return Container(
+        key: const ValueKey('home_all_category_tile'),
+        width: double.infinity,
+        height: double.infinity,
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: HomeDesignTokens.gold,
+            width: isSelected ? 2.0 : 1.8,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: ClipOval(
+          child: Image.asset(
+            'assets/home_logo.png',
+            key: const ValueKey('home_all_main_logo'),
+            width: double.infinity,
+            height: double.infinity,
+            fit: BoxFit.contain,
+          ),
+        ),
+      );
+    }
+
     return Container(
-      key: isAll
-          ? const ValueKey('home_all_category_tile')
-          : ValueKey('home_category_tile_${cat['type']}'),
+      key: ValueKey('home_category_tile_${cat['type']}'),
       width: double.infinity,
       height: double.infinity,
       padding: EdgeInsets.zero,
       color: Colors.transparent,
       alignment: Alignment.center,
-      child: isAll
-          ? Image.asset(
-              'assets/home_logo.png',
-              key: const ValueKey('home_all_main_logo'),
-              width: double.infinity,
-              height: double.infinity,
-              fit: BoxFit.contain,
-            )
-          : hasImage
+      child: hasImage
           ? TransparentBgNetworkImage(
               imageUrl: ImageUtils.formatImageUrl(iconUrl),
               mode: BackgroundRemovalMode.black,

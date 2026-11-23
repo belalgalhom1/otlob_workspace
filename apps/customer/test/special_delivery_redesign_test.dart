@@ -1,8 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:api/api.dart' show OrdersApi, standardSerializers;
+import 'package:core/core.dart' show RoadRoutePoint;
+import 'package:data/data.dart'
+    show ResolvedRoadRoute, SharedRoutingRepository;
+import 'package:data/providers.dart' show sharedRoutingRepositoryProvider;
+import 'package:dio/dio.dart' show CancelToken, Dio;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -405,6 +412,118 @@ void main() {
       expect(find.text('35 ج.م'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'CustomDeliveryScreen renders street-following road route with dual-stroke NavigationRoutePolylines and real ETA',
+    (tester) async {
+      final recordedWaypoints = <List<RoadRoutePoint>>[];
+      final fakeRepo = _FakeRoutingRepository(
+        onCompute: (waypoints) {
+          recordedWaypoints.add(waypoints);
+          return ResolvedRoadRoute(
+            points: <RoadRoutePoint>[
+              waypoints.first,
+              const RoadRoutePoint(30.0472, 31.2361),
+              const RoadRoutePoint(30.0504, 31.2389),
+              const RoadRoutePoint(30.0536, 31.2378),
+              waypoints.last,
+            ],
+            waypoints: waypoints,
+            encodedPolyline: '',
+            distanceMeters: 3800,
+            durationSeconds: 480,
+            isRoadRoute: true,
+            source: 'osrm',
+          );
+        },
+      );
+
+      SharedPreferences.setMockInitialValues({});
+      await EasyLocalization.ensureInitialized();
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en'), Locale('ar')],
+          path: 'translations',
+          fallbackLocale: const Locale('en'),
+          startLocale: const Locale('ar'),
+          assetLoader: const _RealCatalogLoader(),
+          child: ProviderScope(
+            overrides: [
+              platformSettingsProvider.overrideWith(
+                (ref) async => PlatformSettingsData(),
+              ),
+              coinHistoryProvider.overrideWith(() => _TestCoins(0)),
+              ordersProvider.overrideWith(_TestEstimateOrders.new),
+              sharedRoutingRepositoryProvider.overrideWithValue(fakeRepo),
+            ],
+            child: Builder(
+              builder: (context) => MaterialApp(
+                localizationsDelegates: context.localizationDelegates,
+                supportedLocales: context.supportedLocales,
+                locale: context.locale,
+                theme: ThemeData.light(),
+                darkTheme: ThemeData.dark(),
+                themeMode: ThemeMode.dark,
+                home: const CustomDeliveryScreen(
+                  initialDraft: CustomDeliveryDraft(
+                    serviceType: 'delivery',
+                    pickupAddress: 'السكه الجديد',
+                    dropoffAddress: 'وسط البلد',
+                    pickupLocation: LatLng(30.0444, 31.2357),
+                    dropoffLocation: LatLng(30.0561, 31.2394),
+                    vehicleType: 'motorcycle',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Must fetch road route once and render dual-stroke NavigationRoutePolylines
+      // with all 5 street-following vertices (not a 2-point straight chord).
+      expect(recordedWaypoints.length, 1);
+      final polylineLayer = tester.widget<PolylineLayer>(
+        find.byType(PolylineLayer),
+      );
+      expect(polylineLayer.polylines.length, 2);
+      expect(polylineLayer.polylines.first.points.length, 5);
+      expect(polylineLayer.polylines.last.points.length, 5);
+
+      // Real ETA from road route is displayed in the bottom map status pill
+      expect(find.text('3.8 كم • ~8 د'), findsOneWidget);
+
+      // Swapping locations triggers a fresh road route request with reversed waypoints
+      await tester.tap(find.byKey(const ValueKey('swap_locations_btn')));
+      await tester.pumpAndSettle();
+      expect(recordedWaypoints.length, 2);
+      expect(recordedWaypoints.last.first.latitude, closeTo(30.0561, 0.0001));
+      expect(recordedWaypoints.last.last.latitude, closeTo(30.0444, 0.0001));
+    },
+  );
+}
+
+class _FakeRoutingRepository extends SharedRoutingRepository {
+  _FakeRoutingRepository({required this.onCompute})
+    : super(OrdersApi(Dio(), standardSerializers));
+
+  final ResolvedRoadRoute Function(List<RoadRoutePoint> waypoints) onCompute;
+
+  @override
+  Future<ResolvedRoadRoute> computeWaypointsRoute(
+    List<RoadRoutePoint> rawWaypoints, {
+    CancelToken? cancelToken,
+  }) async {
+    return onCompute(rawWaypoints);
+  }
 }
 
 class _RecordingOrders extends Orders {

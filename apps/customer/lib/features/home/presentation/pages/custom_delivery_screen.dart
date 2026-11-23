@@ -1,14 +1,19 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:core/core.dart' show ApiErrorMapper, VehicleTypeHelper;
+import 'package:core/core.dart'
+    show ApiErrorMapper, RoadRoutePoint, VehicleTypeHelper;
+import 'package:data/data.dart' show ResolvedRoadRoute;
+import 'package:data/providers.dart' show sharedRoutingRepositoryProvider;
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:ui_kit/ui_kit.dart' show AppMapTileLayer;
+import 'package:ui_kit/ui_kit.dart'
+    show AppMapStyle, AppMapTileLayer, NavigationRoutePolylines;
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/providers/platform_settings_provider.dart';
@@ -53,6 +58,14 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   String? _lastEstimateKey;
   int _estimateRequestSeq = 0;
   String? _clientOrderKey;
+
+  // Real street-following driving route (matching OrderTrackingScreen)
+  List<LatLng> _roadRoutePoints = const [];
+  int? _roadRouteDurationSeconds;
+  bool _isRoadRoute = false;
+  String? _lastRoadRouteKey;
+  CancelToken? _roadRouteCancelToken;
+  int _roadRouteRequestSeq = 0;
 
   LatLng? _pickupLocation;
   LatLng? _dropoffLocation;
@@ -260,8 +273,78 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     return '$formatted ${currency.trim()}';
   }
 
+  void _resetRoadRoute() {
+    _roadRouteCancelToken?.cancel('route_reset');
+    _roadRouteCancelToken = null;
+    _roadRouteRequestSeq++;
+    _lastRoadRouteKey = null;
+    _roadRoutePoints = const [];
+    _roadRouteDurationSeconds = null;
+    _isRoadRoute = false;
+  }
+
+  Future<void> _fetchRoadRoute({bool force = false}) async {
+    final pickup = _pickupLocation;
+    final dropoff = _dropoffLocation;
+    if (pickup == null || dropoff == null) {
+      if (_roadRoutePoints.isNotEmpty || _lastRoadRouteKey != null) {
+        if (mounted) {
+          setState(_resetRoadRoute);
+        } else {
+          _resetRoadRoute();
+        }
+      }
+      return;
+    }
+
+    final routeKey =
+        '${pickup.latitude.toStringAsFixed(5)},${pickup.longitude.toStringAsFixed(5)}->'
+        '${dropoff.latitude.toStringAsFixed(5)},${dropoff.longitude.toStringAsFixed(5)}';
+    if (!force && routeKey == _lastRoadRouteKey) return;
+
+    _roadRouteCancelToken?.cancel('route_inputs_changed');
+    final token = CancelToken();
+    _roadRouteCancelToken = token;
+    _lastRoadRouteKey = routeKey;
+    final requestSeq = ++_roadRouteRequestSeq;
+
+    try {
+      final repo = ref.read(sharedRoutingRepositoryProvider);
+      final ResolvedRoadRoute resolved = await repo.computeWaypointsRoute(
+        <RoadRoutePoint>[
+          RoadRoutePoint(pickup.latitude, pickup.longitude),
+          RoadRoutePoint(dropoff.latitude, dropoff.longitude),
+        ],
+        cancelToken: token,
+      );
+      if (!mounted ||
+          token.isCancelled ||
+          requestSeq != _roadRouteRequestSeq) {
+        return;
+      }
+
+      if (resolved.hasRenderablePath) {
+        final mappedPoints = resolved.points
+            .map((p) => LatLng(p.latitude, p.longitude))
+            .toList(growable: false);
+        setState(() {
+          _roadRoutePoints = mappedPoints;
+          _isRoadRoute = resolved.isRoadRoute;
+          _roadRouteDurationSeconds =
+              resolved.isRoadRoute && resolved.durationSeconds > 0
+              ? resolved.durationSeconds
+              : null;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _syncMapCamera());
+      }
+    } catch (_) {
+      // Keep graceful straight-chord fallback when offline or in isolated tests.
+    }
+  }
+
   @override
   void dispose() {
+    _roadRouteCancelToken?.cancel('disposed');
     _previewMapController.dispose();
     _pickupController.dispose();
     _dropoffController.dispose();
@@ -277,14 +360,18 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         if (_pickupLocation == _dropoffLocation) {
           _previewMapController.move(_pickupLocation!, 14.5);
         } else {
+          final boundPoints = _roadRoutePoints.length >= 2
+              ? <LatLng>[
+                  ..._roadRoutePoints,
+                  _pickupLocation!,
+                  _dropoffLocation!,
+                ]
+              : <LatLng>[_pickupLocation!, _dropoffLocation!];
           _previewMapController.fitCamera(
             CameraFit.bounds(
-              bounds: LatLngBounds.fromPoints([
-                _pickupLocation!,
-                _dropoffLocation!,
-              ]),
+              bounds: LatLngBounds.fromPoints(boundPoints),
               padding: const EdgeInsets.fromLTRB(52, 96, 52, 92),
-              maxZoom: 14.8,
+              maxZoom: 15.2,
             ),
           );
         }
@@ -319,6 +406,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       _estimateFailed = false;
       _estimateErrorKey = null;
       _lastEstimateKey = null;
+      _resetRoadRoute();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncMapCamera());
   }
@@ -360,6 +448,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         _dropoffLocation = result;
         _dropoffController.text = addressText;
       }
+      _resetRoadRoute();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncMapCamera());
   }
@@ -378,6 +467,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       _estimateFailed = false;
       _estimateErrorKey = null;
       _lastEstimateKey = null;
+      _resetRoadRoute();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncMapCamera());
   }
@@ -500,7 +590,10 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
 
     if (hasBothLocations) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _fetchEstimate();
+        if (mounted) {
+          _fetchEstimate();
+          _fetchRoadRoute();
+        }
       });
     }
 
@@ -706,6 +799,13 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     final initialCenter =
         _pickupLocation ?? _dropoffLocation ?? _fallbackMapCenter;
 
+    final int? realEtaMinutes =
+        (_isRoadRoute &&
+            _roadRouteDurationSeconds != null &&
+            _roadRouteDurationSeconds! > 0)
+        ? (_roadRouteDurationSeconds! / 60).ceil().clamp(1, 999)
+        : null;
+
     String statusPillText;
     if (!hasBothLocations) {
       statusPillText = isAr
@@ -718,9 +818,15 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           ? 'جاري حساب المسار والأجرة...'
           : 'Calculating route & fare...';
     } else if (distanceKm != null && distanceKm > 0) {
-      statusPillText = isAr
-          ? '${distanceKm.toStringAsFixed(1)} كم • المسار جاهز'
-          : '${distanceKm.toStringAsFixed(1)} km • Route ready';
+      if (realEtaMinutes != null) {
+        statusPillText = isAr
+            ? '${distanceKm.toStringAsFixed(1)} كم • ~$realEtaMinutes د'
+            : '${distanceKm.toStringAsFixed(1)} km • ~$realEtaMinutes min';
+      } else {
+        statusPillText = isAr
+            ? '${distanceKm.toStringAsFixed(1)} كم • المسار جاهز'
+            : '${distanceKm.toStringAsFixed(1)} km • Route ready';
+      }
     } else if (_estimateFailed) {
       final translated = _estimateErrorKey != null
           ? ApiErrorMapper.translate(_estimateErrorKey!, context: context)
@@ -731,6 +837,13 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     } else {
       statusPillText = isAr ? 'تم تحديد نقطتي المسار' : 'Route points selected';
     }
+
+    final List<LatLng> polylinePoints =
+        (_pickupLocation != null && _dropoffLocation != null)
+        ? (_roadRoutePoints.length >= 2
+              ? _roadRoutePoints
+              : <LatLng>[_pickupLocation!, _dropoffLocation!])
+        : const <LatLng>[];
 
     return Stack(
       key: const ValueKey('special_delivery_live_map_zone'),
@@ -753,9 +866,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                     ? const Color(0xFF171612)
                     : const Color(0xFFEAE7DF),
                 initialCenter: initialCenter,
-                initialZoom: 13.5,
+                initialZoom: 14.0,
+                minZoom: 4,
+                maxZoom: 18.5,
                 interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom,
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                 ),
                 onMapReady: () {
                   _mapReady = true;
@@ -766,20 +881,22 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
               ),
               children: [
                 const AppMapTileLayer(
+                  style: AppMapStyle.auto,
                   userAgentPackageName: 'com.otlob.customer',
                 ),
-                if (_pickupLocation != null && _dropoffLocation != null)
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(
-                        points: [_pickupLocation!, _dropoffLocation!],
-                        strokeWidth: 4.0,
-                        color: SpecialDeliveryTokens.gold,
-                        borderColor: SpecialDeliveryTokens.darkOnGold
-                            .withValues(alpha: 0.65),
-                        borderStrokeWidth: 1.2,
+                if (polylinePoints.length >= 2)
+                  RepaintBoundary(
+                    child: PolylineLayer(
+                      polylines: NavigationRoutePolylines.build(
+                        points: polylinePoints,
+                        foregroundColor: SpecialDeliveryTokens.gold,
+                        casingColor: palette.isDark
+                            ? const Color(0xFF0F172A).withValues(alpha: 0.88)
+                            : const Color(0xFF1E293B).withValues(alpha: 0.72),
+                        strokeWidth: 4.8,
+                        casingWidth: 8.2,
                       ),
-                    ],
+                    ),
                   ),
                 if (_pickupLocation != null || _dropoffLocation != null)
                   MarkerLayer(

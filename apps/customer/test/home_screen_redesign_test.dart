@@ -509,15 +509,25 @@ void main() {
     final darkAllLabel = tester.widget<Text>(find.text('الكل'));
     expect(darkAllLabel.style?.color, const Color(0xFFE5A93C));
 
-    // Header falls back to main app logo (assets/logo.png) when user has no uploaded avatar
+    // Header falls back to main app logo inside a circular gold ring when user has no uploaded avatar
     expect(find.byKey(const ValueKey('home_header_main_logo')), findsOneWidget);
-    // "All" tile renders main app logo (assets/logo.png) with NO background box
+    final darkHeaderLogo = tester.widget<Container>(
+      find.byKey(const ValueKey('home_header_logo')),
+    );
+    final darkHeaderDec = darkHeaderLogo.decoration as BoxDecoration?;
+    expect(darkHeaderDec?.shape, BoxShape.circle);
+    expect(darkHeaderDec?.color, isNull);
+    expect(darkHeaderDec?.border, isNotNull);
+
+    // "All" tile renders main app logo inside a circular gold ring with no background fill
     expect(find.byKey(const ValueKey('home_all_main_logo')), findsOneWidget);
     final darkAllTile = tester.widget<Container>(
       find.byKey(const ValueKey('home_all_category_tile')),
     );
-    expect(darkAllTile.color, Colors.transparent);
-    expect(darkAllTile.decoration, isNull);
+    final darkAllDec = darkAllTile.decoration as BoxDecoration?;
+    expect(darkAllDec?.shape, BoxShape.circle);
+    expect(darkAllDec?.color, isNull);
+    expect(darkAllDec?.border, isNotNull);
     for (final catType in const ['restaurants', 'pharmacy', 'produce', 'grocery']) {
       final tile = tester.widget<Container>(
         find.byKey(ValueKey('home_category_tile_$catType')),
@@ -526,7 +536,7 @@ void main() {
       expect(tile.decoration, isNull);
     }
 
-    // Light Mode check: #F7F6F2 airy bg + transparent category tiles + main app logo
+    // Light Mode check: #F7F6F2 airy bg + transparent category tiles + circular gold-ring All logo
     await _pumpHome(
       tester,
       viewport: const Size(390, 844),
@@ -545,8 +555,10 @@ void main() {
     final lightAllTile = tester.widget<Container>(
       find.byKey(const ValueKey('home_all_category_tile')),
     );
-    expect(lightAllTile.color, Colors.transparent);
-    expect(lightAllTile.decoration, isNull);
+    final lightAllDec = lightAllTile.decoration as BoxDecoration?;
+    expect(lightAllDec?.shape, BoxShape.circle);
+    expect(lightAllDec?.color, isNull);
+    expect(lightAllDec?.border, isNotNull);
     for (final catType in const ['restaurants', 'pharmacy', 'produce', 'grocery']) {
       final tile = tester.widget<Container>(
         find.byKey(ValueKey('home_category_tile_$catType')),
