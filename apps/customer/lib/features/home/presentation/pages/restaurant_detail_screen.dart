@@ -2192,6 +2192,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen>
                         ),
                         child: Text(
                           '-$discountPct%',
+                          textDirection: TextDirection.ltr,
                           style: StoreDetailsTokens.numeric(
                             size: 8.5,
                             weight: FontWeight.w900,
