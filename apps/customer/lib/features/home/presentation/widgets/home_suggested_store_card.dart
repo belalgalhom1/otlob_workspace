@@ -79,11 +79,6 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
         ? ImageUtils.thumbnailUrl(coverRaw)
         : '';
 
-    final logoRaw = (vendor['logo'] ?? vendor['image'])?.toString();
-    final logoUrl = (logoRaw != null && logoRaw.isNotEmpty)
-        ? ImageUtils.thumbnailUrl(logoRaw)
-        : '';
-
     final rating = double.tryParse(vendor['rating']?.toString() ?? '0') ?? 0.0;
     final metaText = _metaLine(vendor, isAr);
 
@@ -175,7 +170,7 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                          // Strip controls: Status pill (start), Logo (center), Favorite (end)
+                          // Strip controls: Status pill (start) and Favorite (end)
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             child: Row(
@@ -210,54 +205,6 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                       height: 1.1,
                                     ),
                                   ),
-                                ),
-                                // Centered Store Logo (36x36)
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: palette.isDark
-                                        ? HomeDesignTokens.logoBlack
-                                        : Colors.white,
-                                    border: Border.all(
-                                      color: HomeDesignTokens.gold.withValues(
-                                        alpha: 0.65,
-                                      ),
-                                      width: 1.2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.30,
-                                        ),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: logoUrl.isNotEmpty
-                                      ? CachedNetworkImage(
-                                          imageUrl: logoUrl,
-                                          fit: BoxFit.cover,
-                                          memCacheWidth: 120,
-                                          placeholder: (_, _) => Icon(
-                                            Icons.storefront_rounded,
-                                            size: 16,
-                                            color: palette.goldText,
-                                          ),
-                                          errorWidget: (_, _, _) => Icon(
-                                            Icons.storefront_rounded,
-                                            size: 16,
-                                            color: palette.goldText,
-                                          ),
-                                        )
-                                      : Icon(
-                                          Icons.storefront_rounded,
-                                          size: 16,
-                                          color: palette.goldText,
-                                        ),
                                 ),
                                 // Favorite Button (20x20)
                                 GestureDetector(
