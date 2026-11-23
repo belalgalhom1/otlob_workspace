@@ -252,6 +252,14 @@ void main() {
       (darkSheet.decoration as BoxDecoration?)?.color,
       const Color(0xFF13120F),
     );
+    final darkVehicleBox = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey('vehicle_image_box_delivery_motorcycle')),
+    );
+    expect(
+      (darkVehicleBox.decoration as BoxDecoration?)?.color,
+      const Color(0xFFFFFFFF),
+    );
+    expect(darkVehicleBox.padding, const EdgeInsets.all(4));
 
     await _pumpSpecialDelivery(
       tester,
@@ -270,6 +278,14 @@ void main() {
       (lightSheet.decoration as BoxDecoration?)?.color,
       const Color(0xFFF9F8F5),
     );
+    final lightVehicleBox = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey('vehicle_image_box_delivery_motorcycle')),
+    );
+    expect(
+      (lightVehicleBox.decoration as BoxDecoration?)?.color,
+      const Color(0xFFFFFFFF),
+    );
+    expect(lightVehicleBox.padding, const EdgeInsets.all(4));
   });
 
   testWidgets(

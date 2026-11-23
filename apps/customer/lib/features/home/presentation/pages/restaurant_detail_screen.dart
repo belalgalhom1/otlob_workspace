@@ -584,7 +584,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.white.withValues(alpha: 0.2) : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50),
+                      color: Colors.transparent,
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -592,12 +592,14 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                         child: catId == 'all' 
                           ? _buildAllCategoryIconCluster(categories, isSelected)
                           : (cat['iconUrl'] != null && cat['iconUrl'].toString().isNotEmpty
-                            ? CachedNetworkImage(
+                            ? TransparentBgNetworkImage(
                                 imageUrl: ImageUtils.formatImageUrl(cat['iconUrl'] as String?),
+                                mode: BackgroundRemovalMode.autoUniform,
                                 width: 72,
                                 height: 72,
-                                fit: BoxFit.cover,
-                                errorWidget: (context, url, error) => Icon(
+                                fit: BoxFit.contain,
+                                maxCacheDimension: 200,
+                                fallbackBuilder: (context) => Icon(
                                   Icons.category_rounded, 
                                   size: 32, 
                                   color: isSelected ? Colors.white : AppColors.primary
@@ -617,7 +619,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                     child: Text(
                       label, 
                       style: TextStyle(
-                        color: isSelected ? Colors.black : (isDark ? Colors.white : Colors.black87), 
+                        color: isSelected ? Colors.black : (isDark ? Colors.white : Colors.black87),
                         fontWeight: FontWeight.w900, 
                         fontSize: 9.5,
                         letterSpacing: Directionality.of(context) == TextDirection.rtl ? null : -0.3,
@@ -666,16 +668,18 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.white.withValues(alpha: 0.3) : AppColors.primary.withValues(alpha: 0.1),
+                      color: Colors.transparent,
                       shape: BoxShape.circle,
                       border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
                     ),
                     child: ClipOval(
                       child: (cat['iconUrl'] != null && cat['iconUrl'].toString().isNotEmpty)
-                        ? CachedNetworkImage(
+                        ? TransparentBgNetworkImage(
                             imageUrl: ImageUtils.formatImageUrl(cat['iconUrl'] as String?),
+                            mode: BackgroundRemovalMode.autoUniform,
                             fit: BoxFit.contain,
-                            errorWidget: (c, u, e) => Icon((cat['icon'] as IconData?) ?? Icons.category_rounded, size: 14, color: color),
+                            maxCacheDimension: 120,
+                            fallbackBuilder: (c) => Icon((cat['icon'] as IconData?) ?? Icons.category_rounded, size: 14, color: color),
                           )
                         : Icon((cat['icon'] as IconData?) ?? Icons.grid_view_rounded, size: 16, color: color),
                     ),

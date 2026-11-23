@@ -854,4 +854,154 @@ void main() {
       expect(pushedVendorExtra?['productId'], 'p_big_tasty');
     },
   );
+
+  testWidgets(
+    'Typing a single letter in Home search keeps keyboard focus uninterrupted as results panel opens',
+    (tester) async {
+      await _pumpHome(
+        tester,
+        viewport: const Size(390, 844),
+        safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+        locale: const Locale('ar'),
+      );
+
+      final textFieldFinder = find.byType(TextField);
+      await tester.tap(textFieldFinder);
+      await tester.pump();
+
+      // Type first letter and let debounce transition Home into search results view
+      tester.testTextInput.enterText('ب');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+
+      // Search TextField must stay focused without needing a second tap!
+      final editable = tester.widget<EditableText>(find.byType(EditableText));
+      expect(editable.focusNode.hasFocus, isTrue);
+
+      // Continue typing directly via active IME without tapping the search box again
+      tester.testTextInput.enterText('برجر');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+
+      expect(editable.controller.text, 'برجر');
+      expect(editable.focusNode.hasFocus, isTrue);
+    },
+  );
+
+  testWidgets(
+    'Pulling down from Home header triggers dashboard refresh while keeping zero vertical scroll',
+    (tester) async {
+      var homeBuildCount = 0;
+      final data = _buildSampleHomeData();
+
+      SharedPreferences.setMockInitialValues({});
+      await EasyLocalization.ensureInitialized();
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en'), Locale('ar')],
+          path: 'translations',
+          fallbackLocale: const Locale('en'),
+          startLocale: const Locale('ar'),
+          assetLoader: const _TestAssetLoader(),
+          child: ProviderScope(
+            overrides: [
+              homeControllerProvider.overrideWith(
+                () => _CountingHomeController(
+                  data,
+                  onBuild: () => homeBuildCount++,
+                ),
+              ),
+              platformSettingsProvider.overrideWith(
+                (ref) async => PlatformSettingsData(),
+              ),
+              coinHistoryProvider.overrideWith(() => _TestCoinHistory(10)),
+              inboxCountsProvider.overrideWith(() => _TestInboxCounts()),
+              cartProvider.overrideWith(
+                () => _TestCart(const CartState(vendorBaskets: {})),
+              ),
+              favoritesProvider.overrideWith(() => _TestFavorites()),
+              authControllerProvider.overrideWith(() => _TestAuthController()),
+              profileProvider.overrideWith(() => _TestProfile()),
+              activeDeliveryAddressProvider.overrideWith(
+                (ref) => {'address': 'السكه الجديد'},
+              ),
+              effectiveCustomerLocationProvider.overrideWith(
+                (ref) async => const EffectiveLocation(
+                  lat: 30.0444,
+                  lng: 31.2357,
+                  isGps: false,
+                ),
+              ),
+            ],
+            child: Builder(
+              builder: (context) => MaterialApp(
+                localizationsDelegates: context.localizationDelegates,
+                supportedLocales: context.supportedLocales,
+                locale: context.locale,
+                theme: ThemeData.light(),
+                darkTheme: ThemeData.dark(),
+                themeMode: ThemeMode.dark,
+                home: const MediaQuery(
+                  data: MediaQueryData(
+                    size: Size(390, 844),
+                    padding: EdgeInsets.only(top: 47, bottom: 34),
+                  ),
+                  child: HomeScreen(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(homeBuildCount, 1);
+
+      // Drag downward from the Home header past touch slop & refresh threshold
+      final headerDrag = await tester.startGesture(
+        tester.getCenter(
+          find.byKey(const ValueKey('home_header_pull_refresh_area')),
+        ),
+      );
+      await headerDrag.moveBy(const Offset(0, 30));
+      await tester.pump();
+      await headerDrag.moveBy(const Offset(0, 130));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('home_pull_refresh_indicator')),
+        findsOneWidget,
+      );
+
+      await headerDrag.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(homeBuildCount, greaterThanOrEqualTo(2));
+      expect(
+        tester
+            .widgetList<Scrollable>(find.byType(Scrollable))
+            .where((s) => s.axis == Axis.vertical),
+        isEmpty,
+      );
+    },
+  );
+}
+
+class _CountingHomeController extends HomeController {
+  final HomeData data;
+  final VoidCallback onBuild;
+  _CountingHomeController(this.data, {required this.onBuild});
+
+  @override
+  Future<HomeData> build() async {
+    onBuild();
+    return data;
+  }
 }

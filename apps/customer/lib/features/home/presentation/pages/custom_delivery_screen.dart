@@ -358,7 +358,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     try {
       if (_pickupLocation != null && _dropoffLocation != null) {
         if (_pickupLocation == _dropoffLocation) {
-          _previewMapController.move(_pickupLocation!, 14.5);
+          _previewMapController.move(_pickupLocation!, 15.5);
         } else {
           final boundPoints = _roadRoutePoints.length >= 2
               ? <LatLng>[
@@ -370,15 +370,15 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           _previewMapController.fitCamera(
             CameraFit.bounds(
               bounds: LatLngBounds.fromPoints(boundPoints),
-              padding: const EdgeInsets.fromLTRB(52, 96, 52, 92),
-              maxZoom: 15.2,
+              padding: const EdgeInsets.fromLTRB(34, 64, 34, 56),
+              maxZoom: 16.6,
             ),
           );
         }
       } else if (_pickupLocation != null) {
-        _previewMapController.move(_pickupLocation!, 14.5);
+        _previewMapController.move(_pickupLocation!, 15.5);
       } else if (_dropoffLocation != null) {
-        _previewMapController.move(_dropoffLocation!, 14.5);
+        _previewMapController.move(_dropoffLocation!, 15.5);
       }
     } catch (_) {
       // Map not yet attached to render tree; camera will sync onMapReady.
@@ -2062,12 +2062,13 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                   clipBehavior: Clip.none,
                   children: [
                     AnimatedContainer(
+                      key: ValueKey('vehicle_image_box_${_serviceType}_$code'),
                       duration: const Duration(milliseconds: 220),
                       width: double.infinity,
                       height: double.infinity,
-                      padding: EdgeInsets.zero,
+                      padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: palette.surface,
+                        color: const Color(0xFFFFFFFF),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSelected
@@ -2086,9 +2087,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                             : [palette.surfaceShadow],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(
-                          isSelected ? 14 : 14.5,
-                        ),
+                        borderRadius: BorderRadius.circular(12),
                         child: hasImage
                             ? CachedNetworkImage(
                                 imageUrl: ImageUtils.formatImageUrl(
@@ -2096,15 +2095,17 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                                 ),
                                 width: double.infinity,
                                 height: double.infinity,
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
+                                alignment: Alignment.center,
+                                filterQuality: FilterQuality.high,
                                 memCacheWidth: 240,
                                 placeholder: (_, _) => Center(
                                   child: Icon(
                                     fallbackIcon,
                                     size: isCompact ? 20 : 24,
                                     color: isSelected
-                                        ? palette.goldText
-                                        : palette.textMuted,
+                                        ? SpecialDeliveryTokens.goldDark
+                                        : SpecialDeliveryTokens.darkOnGold,
                                   ),
                                 ),
                                 errorWidget: (_, _, _) => Center(
@@ -2112,8 +2113,8 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                                     fallbackIcon,
                                     size: isCompact ? 20 : 24,
                                     color: isSelected
-                                        ? palette.goldText
-                                        : palette.textMuted,
+                                        ? SpecialDeliveryTokens.goldDark
+                                        : SpecialDeliveryTokens.darkOnGold,
                                   ),
                                 ),
                               )
@@ -2122,8 +2123,8 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                                   fallbackIcon,
                                   size: isCompact ? 20 : 24,
                                   color: isSelected
-                                      ? palette.goldText
-                                      : palette.textPrimary,
+                                      ? SpecialDeliveryTokens.goldDark
+                                      : SpecialDeliveryTokens.darkOnGold,
                                 ),
                               ),
                       ),

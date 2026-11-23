@@ -37,10 +37,16 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final GlobalKey _searchFieldKey = GlobalKey();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
   String _debouncedSearchQuery = '';
+
+  static const double _refreshTriggerDistance = 54.0;
+  static const double _maxPullDistance = 82.0;
+  double _pullRefreshOffset = 0.0;
+  bool _isRefreshing = false;
 
   final String _selectedType = 'all';
   bool _isFirstPromoSlide = true;
@@ -91,8 +97,73 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() {});
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
       if (!mounted) return;
+      final wasFocused = _searchFocusNode.hasFocus;
       setState(() => _debouncedSearchQuery = trimmed);
+      if (wasFocused) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_searchFocusNode.hasFocus) {
+            _searchFocusNode.requestFocus();
+          }
+        });
+      }
     });
+  }
+
+  void _onPullDragUpdate(DragUpdateDetails details) {
+    if (_isRefreshing) return;
+    final delta = details.delta.dy;
+    if (delta > 0 || _pullRefreshOffset > 0) {
+      final next = (_pullRefreshOffset + delta * 0.48).clamp(
+        0.0,
+        _maxPullDistance,
+      );
+      if (next != _pullRefreshOffset) {
+        setState(() => _pullRefreshOffset = next);
+      }
+    }
+  }
+
+  void _onPullDragEnd(DragEndDetails _) {
+    if (_isRefreshing) return;
+    if (_pullRefreshOffset >= _refreshTriggerDistance) {
+      _handleHomeRefresh();
+    } else if (_pullRefreshOffset > 0) {
+      setState(() => _pullRefreshOffset = 0.0);
+    }
+  }
+
+  void _onPullDragCancel() {
+    if (_isRefreshing) return;
+    if (_pullRefreshOffset > 0) {
+      setState(() => _pullRefreshOffset = 0.0);
+    }
+  }
+
+  Future<void> _handleHomeRefresh() async {
+    if (_isRefreshing) return;
+    setState(() {
+      _isRefreshing = true;
+      _pullRefreshOffset = _refreshTriggerDistance;
+    });
+    try {
+      final authStatus = ref.read(authControllerProvider);
+      ref.invalidate(homeControllerProvider);
+      await ref.read(homeControllerProvider.future);
+      if (authStatus == AuthStatus.authenticated) {
+        ref.invalidate(coinHistoryProvider);
+        ref.read(inboxCountsProvider.notifier).refresh();
+        ref.invalidate(profileProvider);
+      }
+    } catch (_) {
+      // Handled gracefully by provider state if fatal.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+          _pullRefreshOffset = 0.0;
+        });
+      }
+    }
   }
 
   void _nextPromoSlide() {
@@ -187,32 +258,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final viewportHeight = MediaQuery.sizeOf(context).height;
     final responsiveGap = (viewportHeight * 0.01).clamp(6.0, 10.0);
 
+    final isSearching = _debouncedSearchQuery.isNotEmpty;
+    final pullProgress = (_pullRefreshOffset / _refreshTriggerDistance).clamp(
+      0.0,
+      1.0,
+    );
+
     return Column(
       children: [
-        // 0. Fixed Top App Bar (48px)
-        _buildHeader(context, palette),
+        // 0. Fixed Top App Bar (48px) — drag down on header to refresh Home
+        GestureDetector(
+          key: const ValueKey('home_header_pull_refresh_area'),
+          behavior: HitTestBehavior.translucent,
+          onVerticalDragUpdate: _onPullDragUpdate,
+          onVerticalDragEnd: _onPullDragEnd,
+          onVerticalDragCancel: _onPullDragCancel,
+          child: _buildHeader(context, palette),
+        ),
 
         // Main Body Container (fills all remaining viewport space, ZERO vertical scroll in browse mode)
         Expanded(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(14, 8, 14, 58 + bottomInset),
-            child: _debouncedSearchQuery.isNotEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(height: 36.0, child: _buildSearch(palette)),
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: HomeSearchResultsPanel(
-                          query: _debouncedSearchQuery,
-                          palette: palette,
-                          fallbackVendors: filtered,
-                        ),
-                      ),
-                    ],
-                  )
-                : ClipRect(
-                    child: LayoutBuilder(
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedContainer(
+                duration: _pullRefreshOffset == 0
+                    ? const Duration(milliseconds: 220)
+                    : Duration.zero,
+                curve: Curves.easeOutCubic,
+                transform: Matrix4.translationValues(
+                  0,
+                  _pullRefreshOffset * 0.35,
+                  0,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(14, 8, 14, 58 + bottomInset),
+                  child: isSearching
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              height: 36.0,
+                              child: _buildSearch(palette),
+                            ),
+                            const SizedBox(height: 10),
+                            Expanded(
+                              child: HomeSearchResultsPanel(
+                                query: _debouncedSearchQuery,
+                                palette: palette,
+                                fallbackVendors: filtered,
+                              ),
+                            ),
+                          ],
+                        )
+                      : GestureDetector(
+                          key: const ValueKey('home_body_pull_refresh_area'),
+                          behavior: HitTestBehavior.translucent,
+                          onVerticalDragUpdate: _onPullDragUpdate,
+                          onVerticalDragEnd: _onPullDragEnd,
+                          onVerticalDragCancel: _onPullDragCancel,
+                          child: ClipRect(
+                            child: LayoutBuilder(
                 builder: (context, constraints) {
                   final availableHeight = constraints.maxHeight;
                   final hasOffers = data.offers.isNotEmpty;
@@ -332,6 +438,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 },
               ),
             ),
+          ),
+        ),
+              ),
+              if (_pullRefreshOffset > 2 || _isRefreshing)
+                Positioned(
+                  top: (_pullRefreshOffset * 0.55 - 12).clamp(4.0, 34.0),
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 120),
+                        opacity: _isRefreshing
+                            ? 1.0
+                            : pullProgress.clamp(0.25, 1.0),
+                        child: Container(
+                          key: const ValueKey('home_pull_refresh_indicator'),
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: palette.cardSurface1,
+                            border: Border.all(
+                              color: HomeDesignTokens.gold,
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                  alpha: palette.isDark ? 0.45 : 0.14,
+                                ),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: _isRefreshing
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: HomeDesignTokens.gold,
+                                  ),
+                                )
+                              : Transform.rotate(
+                                  angle: pullProgress * 6.283185,
+                                  child: Icon(
+                                    Icons.refresh_rounded,
+                                    size: 18,
+                                    color: palette.goldText,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
@@ -1067,6 +1233,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isFocused = _searchFocusNode.hasFocus;
 
     return Container(
+      key: _searchFieldKey,
       height: 36,
       decoration: BoxDecoration(
         color: palette.inputSurface,

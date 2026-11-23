@@ -155,12 +155,13 @@ Uint8List removeBlackBackgroundRgba({
 
 /// Pure-Dart pixel processor for product images.
 ///
-/// Samples the 4 image corners; if at least 3 corners share a uniform solid
-/// studio backdrop (such as solid white `#FFFFFF`, solid black `#000000`, or
-/// a flat light/dark gray studio background), strips the edge-connected
-/// exterior backdrop via BFS flood-fill with smooth anti-aliased edge
-/// feathering while keeping the product itself (and interior highlights/shadows)
-/// completely intact. Natural multi-colored lifestyle photos are left untouched.
+/// Samples a 16-point perimeter ring around the image (corners + edges, inset
+/// by 1px on larger images to avoid 1px JPEG border artifacts). When a dominant
+/// uniform studio backdrop is detected (white `#FFFFFF`, black `#000000`,
+/// off-white, gray, or softly shaded studio backdrop), strips the
+/// edge-connected exterior backdrop with gradient-aware BFS flood fill and
+/// smooth anti-aliased edge feathering while preserving the product itself and
+/// leaving natural multi-colored photos untouched.
 Uint8List removeUniformBackgroundRgba({
   required Uint8List rgbaBytes,
   required int width,
@@ -172,21 +173,47 @@ Uint8List removeUniformBackgroundRgba({
     return out;
   }
 
-  final cornerIndices = <int>[
-    0,
-    width - 1,
-    (height - 1) * width,
-    (height - 1) * width + (width - 1),
-  ];
+  final inset = (width >= 8 && height >= 8) ? 1 : 0;
+  final x0 = inset;
+  final y0 = inset;
+  final x1 = width - 1 - inset;
+  final y1 = height - 1 - inset;
+  final xm1 = x0 + ((x1 - x0) ~/ 3);
+  final xm2 = x0 + (((x1 - x0) * 2) ~/ 3);
+  final ym1 = y0 + ((y1 - y0) ~/ 3);
+  final ym2 = y0 + (((y1 - y0) * 2) ~/ 3);
 
-  // If 3+ corners are already transparent, the image is already a PNG cutout.
-  var transparentCorners = 0;
-  for (final idx in cornerIndices) {
-    if (out[idx * 4 + 3] < 20) transparentCorners++;
+  final sampleIndices = <int>{
+    // 4 corners
+    y0 * width + x0,
+    y0 * width + x1,
+    y1 * width + x0,
+    y1 * width + x1,
+    // top & bottom edges
+    y0 * width + xm1,
+    y0 * width + xm2,
+    y1 * width + xm1,
+    y1 * width + xm2,
+    // left & right edges
+    ym1 * width + x0,
+    ym2 * width + x0,
+    ym1 * width + x1,
+    ym2 * width + x1,
+  }.toList(growable: false);
+
+  // If 75%+ of perimeter samples are already transparent, it's already a cutout.
+  var transparentSamples = 0;
+  final opaqueSamples = <int>[];
+  for (final idx in sampleIndices) {
+    if (out[idx * 4 + 3] < 20) {
+      transparentSamples++;
+    } else if (out[idx * 4 + 3] >= 200) {
+      opaqueSamples.add(idx);
+    }
   }
-  if (transparentCorners >= 3) return out;
+  if (transparentSamples * 4 >= sampleIndices.length * 3) return out;
+  if (opaqueSamples.length < 3) return out;
 
-  // Check if at least 3 of 4 opaque corners agree on a uniform backdrop color.
   double colorDist(int r1, int g1, int b1, int r2, int g2, int b2) {
     final dr = r1 - r2;
     final dg = g1 - g2;
@@ -194,56 +221,82 @@ Uint8List removeUniformBackgroundRgba({
     return math.sqrt((dr * dr + dg * dg + db * db).toDouble());
   }
 
-  List<int>? matchedCluster;
-  for (var i = 0; i < cornerIndices.length; i++) {
-    final offI = cornerIndices[i] * 4;
-    if (out[offI + 3] < 200) continue;
+  // Find the largest perimeter cluster agreeing within a studio tolerance.
+  List<int> bestCluster = const [];
+  for (var i = 0; i < opaqueSamples.length; i++) {
+    final offI = opaqueSamples[i] * 4;
     final rI = out[offI];
     final gI = out[offI + 1];
     final bI = out[offI + 2];
 
-    final cluster = <int>[cornerIndices[i]];
-    for (var j = 0; j < cornerIndices.length; j++) {
+    final cluster = <int>[opaqueSamples[i]];
+    for (var j = 0; j < opaqueSamples.length; j++) {
       if (i == j) continue;
-      final offJ = cornerIndices[j] * 4;
-      if (out[offJ + 3] < 200) continue;
+      final offJ = opaqueSamples[j] * 4;
       if (colorDist(rI, gI, bI, out[offJ], out[offJ + 1], out[offJ + 2]) <=
-          26.0) {
-        cluster.add(cornerIndices[j]);
+          42.0) {
+        cluster.add(opaqueSamples[j]);
       }
     }
-    if (cluster.length >= 3) {
-      matchedCluster = cluster;
-      break;
+    if (cluster.length > bestCluster.length) {
+      bestCluster = cluster;
     }
   }
 
-  if (matchedCluster == null) {
-    // Corners do not share a uniform backdrop (likely a full-bleed photo).
+  final cornerSet = <int>{
+    y0 * width + x0,
+    y0 * width + x1,
+    y1 * width + x0,
+    y1 * width + x1,
+  };
+
+  // Require at least 50% of opaque perimeter samples AND at least 2 of the 4
+  // corners to share the backdrop color so studio backdrops (even with soft
+  // bottom shadows) are stripped while natural photos stay untouched.
+  final cornersInCluster =
+      bestCluster.where((idx) => cornerSet.contains(idx)).length;
+  if (bestCluster.length < 3 ||
+      cornersInCluster < 2 ||
+      bestCluster.length * 2 < opaqueSamples.length) {
     return out;
   }
 
   var sumR = 0;
   var sumG = 0;
   var sumB = 0;
-  for (final idx in matchedCluster) {
+  for (final idx in bestCluster) {
     final off = idx * 4;
     sumR += out[off];
     sumG += out[off + 1];
     sumB += out[off + 2];
   }
-  final bgR = (sumR / matchedCluster.length).round();
-  final bgG = (sumG / matchedCluster.length).round();
-  final bgB = (sumB / matchedCluster.length).round();
+  final bgR = (sumR / bestCluster.length).round();
+  final bgG = (sumG / bestCluster.length).round();
+  final bgB = (sumB / bestCluster.length).round();
 
-  const double hardDist = 26.0;
-  const double featherStart = 22.0;
-  const double featherEnd = 52.0;
-  const double traverseLimit = 54.0;
+  const double hardDist = 34.0;
+  const double featherStart = 28.0;
+  const double featherEnd = 66.0;
+  const double directTraverseLimit = 62.0;
+  const double gradientMaxDist = 82.0;
+  const double gradientStepLimit = 18.0;
 
   double distToBg(int pixelIdx) {
     final off = pixelIdx * 4;
     return colorDist(out[off], out[off + 1], out[off + 2], bgR, bgG, bgB);
+  }
+
+  double distBetween(int aIdx, int bIdx) {
+    final aOff = aIdx * 4;
+    final bOff = bIdx * 4;
+    return colorDist(
+      out[aOff],
+      out[aOff + 1],
+      out[aOff + 2],
+      out[bOff],
+      out[bOff + 1],
+      out[bOff + 2],
+    );
   }
 
   final visited = Uint8List(pixelCount);
@@ -256,7 +309,7 @@ Uint8List removeUniformBackgroundRgba({
     final idx = y * width + x;
     if (visited[idx] != 0) return;
     final a = out[idx * 4 + 3];
-    if (a == 0 || distToBg(idx) <= traverseLimit) {
+    if (a == 0 || distToBg(idx) <= directTraverseLimit) {
       visited[idx] = 1;
       queue[tail++] = idx;
     }
@@ -273,47 +326,35 @@ Uint8List removeUniformBackgroundRgba({
 
   if (tail == 0) return out;
 
+  void tryVisitNeighbor(int fromIdx, int nIdx) {
+    if (visited[nIdx] != 0) return;
+    if (out[nIdx * 4 + 3] == 0) {
+      visited[nIdx] = 1;
+      queue[tail++] = nIdx;
+      return;
+    }
+    final d = distToBg(nIdx);
+    if (d <= directTraverseLimit ||
+        (d <= gradientMaxDist &&
+            distBetween(fromIdx, nIdx) <= gradientStepLimit)) {
+      visited[nIdx] = 1;
+      queue[tail++] = nIdx;
+    }
+  }
+
   while (head < tail) {
     final idx = queue[head++];
     isBackground[idx] = 1;
     final a = out[idx * 4 + 3];
-    if (a > 0 && distToBg(idx) >= featherEnd) continue;
+    if (a > 0 && distToBg(idx) >= gradientMaxDist) continue;
 
     final x = idx % width;
     final y = idx ~/ width;
 
-    if (x + 1 < width) {
-      final n = idx + 1;
-      if (visited[n] == 0 &&
-          (out[n * 4 + 3] == 0 || distToBg(n) <= traverseLimit)) {
-        visited[n] = 1;
-        queue[tail++] = n;
-      }
-    }
-    if (x > 0) {
-      final n = idx - 1;
-      if (visited[n] == 0 &&
-          (out[n * 4 + 3] == 0 || distToBg(n) <= traverseLimit)) {
-        visited[n] = 1;
-        queue[tail++] = n;
-      }
-    }
-    if (y + 1 < height) {
-      final n = idx + width;
-      if (visited[n] == 0 &&
-          (out[n * 4 + 3] == 0 || distToBg(n) <= traverseLimit)) {
-        visited[n] = 1;
-        queue[tail++] = n;
-      }
-    }
-    if (y > 0) {
-      final n = idx - width;
-      if (visited[n] == 0 &&
-          (out[n * 4 + 3] == 0 || distToBg(n) <= traverseLimit)) {
-        visited[n] = 1;
-        queue[tail++] = n;
-      }
-    }
+    if (x + 1 < width) tryVisitNeighbor(idx, idx + 1);
+    if (x > 0) tryVisitNeighbor(idx, idx - 1);
+    if (y + 1 < height) tryVisitNeighbor(idx, idx + width);
+    if (y > 0) tryVisitNeighbor(idx, idx - width);
   }
 
   for (var idx = 0; idx < pixelCount; idx++) {
@@ -329,8 +370,13 @@ Uint8List removeUniformBackgroundRgba({
         final t = ((d - featherStart) / (featherEnd - featherStart))
             .clamp(0.0, 1.0);
         out[off + 3] = (a * t).round();
+      } else {
+        // Soft gradient shadow region inside connected backdrop: fade strongly.
+        final t = ((d - featherStart) / (gradientMaxDist - featherStart))
+            .clamp(0.0, 1.0);
+        out[off + 3] = (a * t * 0.55).round();
       }
-    } else if (d < 68.0) {
+    } else if (d < 82.0) {
       final x = idx % width;
       final y = idx ~/ width;
       final touchesBg =
@@ -339,7 +385,7 @@ Uint8List removeUniformBackgroundRgba({
           (y + 1 < height && isBackground[idx + width] != 0) ||
           (y > 0 && isBackground[idx - width] != 0);
       if (touchesBg) {
-        final t = ((d - featherStart) / (68.0 - featherStart)).clamp(0.0, 1.0);
+        final t = ((d - featherStart) / (82.0 - featherStart)).clamp(0.0, 1.0);
         out[off + 3] = (a * t).round();
       }
     }
@@ -567,7 +613,7 @@ class _TransparentBgNetworkImageState extends State<TransparentBgNetworkImage> {
       height: widget.height,
       fit: widget.fit,
       alignment: Alignment.center,
-      filterQuality: FilterQuality.medium,
+      filterQuality: FilterQuality.high,
     );
   }
 }
