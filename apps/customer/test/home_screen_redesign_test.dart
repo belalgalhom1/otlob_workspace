@@ -13,6 +13,7 @@ import 'package:otlob_customer/features/cart/presentation/providers/cart_control
 import 'package:otlob_customer/features/chat/presentation/providers/inbox_counts_provider.dart';
 import 'package:otlob_customer/features/home/presentation/pages/home_screen.dart';
 import 'package:otlob_customer/features/home/presentation/providers/customer_location_provider.dart';
+import 'package:otlob_customer/features/home/presentation/providers/discovery_search_controller.dart';
 import 'package:otlob_customer/features/home/presentation/providers/favorites_provider.dart';
 import 'package:otlob_customer/features/home/presentation/providers/home_controller.dart';
 import 'package:otlob_customer/features/home/presentation/providers/home_state.dart';
@@ -21,6 +22,7 @@ import 'package:otlob_customer/features/home/presentation/widgets/home_suggested
 import 'package:otlob_customer/features/home/presentation/widgets/offers_auto_scroller.dart';
 import 'package:otlob_customer/features/profile/presentation/providers/coin_history_provider.dart';
 import 'package:otlob_customer/features/profile/presentation/providers/delivery_address_provider.dart';
+import 'package:otlob_customer/features/profile/presentation/providers/profile_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _TestAssetLoader extends AssetLoader {
@@ -48,6 +50,21 @@ class _TestHomeController extends HomeController {
 class _TestAuthController extends AuthController {
   @override
   AuthStatus build() => AuthStatus.authenticated;
+}
+
+class _TestProfile extends Profile {
+  final String avatarUrl;
+  _TestProfile([this.avatarUrl = '']);
+
+  @override
+  ProfileState build() => ProfileState(
+    name: 'Test User',
+    email: 'test@otlob.app',
+    phone: '01000000000',
+    avatar: avatarUrl,
+    isArabic: true,
+    addresses: const [],
+  );
 }
 
 class _TestCoinHistory extends CoinHistory {
@@ -186,6 +203,7 @@ Future<void> _pumpHome(
   ThemeMode themeMode = ThemeMode.dark,
   HomeData? data,
   int cartItemsCount = 3,
+  String userAvatar = '',
 }) async {
   SharedPreferences.setMockInitialValues({});
   await EasyLocalization.ensureInitialized();
@@ -234,6 +252,7 @@ Future<void> _pumpHome(
             (ref) async => PlatformSettingsData(),
           ),
           authControllerProvider.overrideWith(() => _TestAuthController()),
+          profileProvider.overrideWith(() => _TestProfile(userAvatar)),
           coinHistoryProvider.overrideWith(() => _TestCoinHistory(40)),
           inboxCountsProvider.overrideWith(
             () => _TestInboxCounts(chatUnread: 1, notificationsUnread: 2),
@@ -407,6 +426,7 @@ void main() {
               (ref) async => PlatformSettingsData(),
             ),
             authControllerProvider.overrideWith(() => _TestAuthController()),
+            profileProvider.overrideWith(() => _TestProfile()),
             coinHistoryProvider.overrideWith(() => _TestCoinHistory(40)),
             inboxCountsProvider.overrideWith(() => _TestInboxCounts()),
             cartProvider.overrideWith(
@@ -489,41 +509,24 @@ void main() {
     final darkAllLabel = tester.widget<Text>(find.text('الكل'));
     expect(darkAllLabel.style?.color, const Color(0xFFE5A93C));
 
-    final darkHeaderLogo = tester.widget<Container>(
-      find.byKey(const ValueKey('home_header_logo')),
-    );
-    expect(
-      (darkHeaderLogo.decoration as BoxDecoration).color,
-      const Color(0xFFFFFFFF),
-    );
+    // Header falls back to main app logo (assets/logo.png) when user has no uploaded avatar
+    expect(find.byKey(const ValueKey('home_header_main_logo')), findsOneWidget);
+    // "All" tile renders main app logo (assets/logo.png) with NO background box
+    expect(find.byKey(const ValueKey('home_all_main_logo')), findsOneWidget);
     final darkAllTile = tester.widget<Container>(
       find.byKey(const ValueKey('home_all_category_tile')),
     );
-    expect(
-      (darkAllTile.decoration as BoxDecoration).color,
-      const Color(0xFFFFFFFF),
-    );
+    expect(darkAllTile.color, Colors.transparent);
+    expect(darkAllTile.decoration, isNull);
     for (final catType in const ['restaurants', 'pharmacy', 'produce', 'grocery']) {
       final tile = tester.widget<Container>(
         find.byKey(ValueKey('home_category_tile_$catType')),
       );
-      expect(
-        (tile.decoration as BoxDecoration).color,
-        const Color(0xFFFFFFFF),
-      );
-    }
-    final darkTlobTexts = tester.widgetList<Text>(find.text('TLOB')).toList();
-    expect(darkTlobTexts.length, 2);
-    for (final t in darkTlobTexts) {
-      expect(t.style?.color, const Color(0xFF11100E));
-    }
-    final darkOtlobTexts = tester.widgetList<Text>(find.text('أطلب')).toList();
-    expect(darkOtlobTexts.length, 2);
-    for (final t in darkOtlobTexts) {
-      expect(t.style?.color, const Color(0xFFB87B14));
+      expect(tile.color, Colors.transparent);
+      expect(tile.decoration, isNull);
     }
 
-    // Light Mode check: #F7F6F2 airy bg + BLACK inverted logos with white TLOB & light gold أطلب
+    // Light Mode check: #F7F6F2 airy bg + transparent category tiles + main app logo
     await _pumpHome(
       tester,
       viewport: const Size(390, 844),
@@ -537,64 +540,44 @@ void main() {
     final lightAllLabel = tester.widget<Text>(find.text('الكل'));
     expect(lightAllLabel.style?.color, const Color(0xFFB87B14));
 
-    final lightHeaderLogo = tester.widget<Container>(
-      find.byKey(const ValueKey('home_header_logo')),
-    );
-    expect(
-      (lightHeaderLogo.decoration as BoxDecoration).color,
-      const Color(0xFF11100E),
-    );
-    // All 5 Business Type tiles (including "الكل") stay pure #FFFFFF in Light Mode too
+    expect(find.byKey(const ValueKey('home_header_main_logo')), findsOneWidget);
+    expect(find.byKey(const ValueKey('home_all_main_logo')), findsOneWidget);
     final lightAllTile = tester.widget<Container>(
       find.byKey(const ValueKey('home_all_category_tile')),
     );
-    expect(
-      (lightAllTile.decoration as BoxDecoration).color,
-      const Color(0xFFFFFFFF),
-    );
-    final lightAllCircle = tester.widget<Container>(
-      find.byKey(const ValueKey('home_all_category_circle_logo')),
-    );
-    expect(
-      (lightAllCircle.decoration as BoxDecoration).color,
-      const Color(0xFFFFFFFF),
-    );
-    expect(
-      (lightAllCircle.decoration as BoxDecoration).shape,
-      BoxShape.circle,
-    );
+    expect(lightAllTile.color, Colors.transparent);
+    expect(lightAllTile.decoration, isNull);
     for (final catType in const ['restaurants', 'pharmacy', 'produce', 'grocery']) {
       final tile = tester.widget<Container>(
         find.byKey(ValueKey('home_category_tile_$catType')),
       );
-      expect(
-        (tile.decoration as BoxDecoration).color,
-        const Color(0xFFFFFFFF),
-      );
+      expect(tile.color, Colors.transparent);
+      expect(tile.decoration, isNull);
     }
-    // Header TLOB is inverted white-on-black in Light Mode; "الكل" tile TLOB is dark #11100E on #FFFFFF
-    final headerTlob = tester.widget<Text>(
-      find.descendant(
-        of: find.byKey(const ValueKey('home_header_logo')),
-        matching: find.text('TLOB'),
-      ),
-    );
-    expect(headerTlob.style?.color, const Color(0xFFFFFFFF));
-    final allTileTlob = tester.widget<Text>(
-      find.descendant(
-        of: find.byKey(const ValueKey('home_all_category_tile')),
-        matching: find.text('TLOB'),
-      ),
-    );
-    expect(allTileTlob.style?.color, const Color(0xFF11100E));
-    final allTileOtlob = tester.widget<Text>(
-      find.descendant(
-        of: find.byKey(const ValueKey('home_all_category_tile')),
-        matching: find.text('أطلب'),
-      ),
-    );
-    expect(allTileOtlob.style?.color, const Color(0xFFB87B14));
   });
+
+  testWidgets(
+    'HomeScreen top header shows user profile avatar automatically when uploaded instead of main logo',
+    (tester) async {
+      await _pumpHome(
+        tester,
+        viewport: const Size(390, 844),
+        safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+        locale: const Locale('ar'),
+        userAvatar: 'https://api.otlob-egy.online/uploads/avatar_123.jpg',
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('home_header_main_logo')), findsNothing);
+      expect(
+        find.byKey(
+          const ValueKey(
+            'home_header_avatar_https://api.otlob-egy.online/uploads/avatar_123.jpg',
+          ),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('HomeScreen handles empty offers gracefully with zero overflow', (
     tester,
@@ -616,11 +599,6 @@ void main() {
   test(
     'removeBlackBackgroundRgba strips exterior near-black pixels with feathering while preserving interior dark details',
     () {
-      // 7x7 RGBA test image:
-      // - Outer border (ring 0): pure black (5, 5, 5, 255) -> must become alpha 0
-      // - Ring 1: anti-aliased dark feather (34, 34, 34, 255) -> 0 < alpha < 255
-      // - Ring 2: bright red artwork boundary (220, 40, 40, 255) -> alpha 255
-      // - Center pixel (3,3): interior dark detail (8, 8, 8, 255) -> must stay alpha 255!
       const w = 7;
       const h = 7;
       final bytes = Uint8List(w * h * 4);
@@ -656,15 +634,212 @@ void main() {
 
       int alphaAt(int x, int y) => processed[(y * w + x) * 4 + 3];
 
-      // Exterior corner black pixel -> fully transparent
       expect(alphaAt(0, 0), 0);
-      // Feather band pixel (34,34,34) -> smooth partial alpha
       expect(alphaAt(1, 1), greaterThan(0));
       expect(alphaAt(1, 1), lessThan(255));
-      // Bright artwork pixel -> fully opaque
       expect(alphaAt(2, 2), 255);
-      // Interior dark detail surrounded by artwork -> preserved fully opaque!
       expect(alphaAt(3, 3), 255);
+    },
+  );
+
+  test(
+    'removeUniformBackgroundRgba strips solid white product studio backdrop while preserving interior highlights and natural photos',
+    () {
+      const w = 7;
+      const h = 7;
+      final whiteBgProduct = Uint8List(w * h * 4);
+
+      void setPx(Uint8List buf, int x, int y, int r, int g, int b, int a) {
+        final off = (y * w + x) * 4;
+        buf[off] = r;
+        buf[off + 1] = g;
+        buf[off + 2] = b;
+        buf[off + 3] = a;
+      }
+
+      // Product on pure white (#FFFFFF) studio backdrop with white highlight inside red product
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          final ring = [x, y, w - 1 - x, h - 1 - y].reduce((a, b) => a < b ? a : b);
+          if (ring == 0) {
+            setPx(whiteBgProduct, x, y, 252, 252, 252, 255);
+          } else if (ring == 1) {
+            setPx(whiteBgProduct, x, y, 232, 232, 232, 255);
+          } else if (ring == 2) {
+            setPx(whiteBgProduct, x, y, 200, 50, 30, 255);
+          } else {
+            // Interior white label on the product -> must stay fully opaque!
+            setPx(whiteBgProduct, x, y, 255, 255, 255, 255);
+          }
+        }
+      }
+
+      final cleaned = removeUniformBackgroundRgba(
+        rgbaBytes: whiteBgProduct,
+        width: w,
+        height: h,
+      );
+      int alphaAt(Uint8List buf, int x, int y) => buf[(y * w + x) * 4 + 3];
+
+      expect(alphaAt(cleaned, 0, 0), 0);
+      expect(alphaAt(cleaned, 2, 2), 255);
+      expect(alphaAt(cleaned, 3, 3), 255);
+
+      // Multi-colored natural photo (distinct corners) -> left completely untouched
+      final naturalPhoto = Uint8List(w * h * 4);
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          setPx(naturalPhoto, x, y, 120, 90, 60, 255);
+        }
+      }
+      setPx(naturalPhoto, 0, 0, 20, 200, 40, 255);
+      setPx(naturalPhoto, w - 1, 0, 220, 30, 20, 255);
+      setPx(naturalPhoto, 0, h - 1, 30, 50, 230, 255);
+      setPx(naturalPhoto, w - 1, h - 1, 240, 220, 20, 255);
+
+      final untouched = removeUniformBackgroundRgba(
+        rgbaBytes: naturalPhoto,
+        width: w,
+        height: h,
+      );
+      expect(alphaAt(untouched, 0, 0), 255);
+      expect(alphaAt(untouched, 3, 3), 255);
+    },
+  );
+
+  testWidgets(
+    'HomeScreen product search displays matching product with its vendor and navigates to vendor product on tap',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await EasyLocalization.ensureInitialized();
+
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      Map<String, dynamic>? pushedVendorExtra;
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          GoRoute(
+            path: '/home',
+            builder: (_, _) => const MediaQuery(
+              data: MediaQueryData(
+                size: Size(390, 844),
+                padding: EdgeInsets.only(top: 47, bottom: 34),
+              ),
+              child: HomeScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/vendor',
+            builder: (_, state) {
+              pushedVendorExtra = state.extra as Map<String, dynamic>?;
+              return const Scaffold(body: Center(child: Text('VENDOR_PAGE')));
+            },
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en'), Locale('ar')],
+          path: 'translations',
+          fallbackLocale: const Locale('en'),
+          startLocale: const Locale('ar'),
+          assetLoader: const _TestAssetLoader(),
+          child: ProviderScope(
+            overrides: [
+              homeControllerProvider.overrideWith(
+                () => _TestHomeController(_buildSampleHomeData()),
+              ),
+              platformSettingsProvider.overrideWith(
+                (ref) async => PlatformSettingsData(),
+              ),
+              authControllerProvider.overrideWith(() => _TestAuthController()),
+              profileProvider.overrideWith(() => _TestProfile()),
+              coinHistoryProvider.overrideWith(() => _TestCoinHistory(40)),
+              inboxCountsProvider.overrideWith(() => _TestInboxCounts()),
+              cartProvider.overrideWith(
+                () => _TestCart(const CartState(vendorBaskets: {})),
+              ),
+              favoritesProvider.overrideWith(() => _TestFavorites()),
+              activeDeliveryAddressProvider.overrideWith(
+                (ref) => {'id': 'a1', 'label': 'Home', 'address': 'السكه الجديد'},
+              ),
+              effectiveCustomerLocationProvider.overrideWith(
+                (ref) async => const EffectiveLocation(
+                  lat: 30.0444,
+                  lng: 31.2357,
+                  isGps: false,
+                ),
+              ),
+              discoverySearchControllerProvider.overrideWith((ref, arg) async {
+                if (arg.query == 'بيج تيستي') {
+                  return [
+                    {
+                      'id': 'v1',
+                      'name': 'Burger King',
+                      'nameAr': 'برجر كينج',
+                      'rating': 4.8,
+                      'distanceKm': 0.4,
+                      'deliveryTime': '16-26 دقيقة',
+                      'status': 'OPEN',
+                      'matchingProducts': [
+                        {
+                          'id': 'p_big_tasty',
+                          'name': 'Big Tasty',
+                          'nameAr': 'بيج تيستي',
+                          'description': 'ساندوتش لحم مشوي مع صوص',
+                          'price': 120,
+                          'image': '',
+                        },
+                      ],
+                    },
+                  ];
+                }
+                return [];
+              }),
+            ],
+            child: Builder(
+              builder: (context) => MaterialApp.router(
+                localizationsDelegates: context.localizationDelegates,
+                supportedLocales: context.supportedLocales,
+                locale: context.locale,
+                theme: ThemeData.light(),
+                darkTheme: ThemeData.dark(),
+                themeMode: ThemeMode.dark,
+                routerConfig: router,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Enter a product name in the Home search bar & wait past debounce
+      await tester.enterText(find.byType(TextField), 'بيج تيستي');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      // Shows BOTH the matching product & its vendor details
+      expect(find.text('برجر كينج'), findsOneWidget);
+      expect(find.text('بيج تيستي'), findsWidgets);
+      expect(find.text('120 ج.م'), findsOneWidget);
+      expect(find.text('4.8'), findsOneWidget);
+
+      // Tapping the product opens the vendor page with productId
+      await tester.tap(
+        find.byKey(const ValueKey('home_search_product_p_big_tasty')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('VENDOR_PAGE'), findsOneWidget);
+      expect(pushedVendorExtra?['id'], 'v1');
+      expect(pushedVendorExtra?['productId'], 'p_big_tasty');
     },
   );
 }

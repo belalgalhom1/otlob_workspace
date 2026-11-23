@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
 import '../../../cart/presentation/providers/cart_controller.dart';
 import '../../../../core/widgets/auth_prompt_dialog.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
+import 'category_icon_image.dart';
 
 import 'package:core/core.dart';
 import 'package:otlob_customer/core/utils/error_utils.dart';
@@ -318,16 +318,21 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                             : Container(
                                 width: double.infinity,
                                 height: 250,
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                                color: Colors.transparent,
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: CachedNetworkImage(
+                                  child: TransparentBgNetworkImage(
                                     imageUrl: ImageUtils.formatImageUrl(heroImageUrl),
+                                    mode: BackgroundRemovalMode.autoUniform,
                                     fit: BoxFit.contain,
-                                    errorWidget: (context, url, error) => Icon(Icons.fastfood, size: 40, color: isDark ? Colors.white24 : Colors.grey.shade300),
+                                    maxCacheDimension: 480,
+                                    fallbackBuilder: (_) => Center(
+                                      child: Icon(
+                                        Icons.fastfood,
+                                        size: 40,
+                                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -570,17 +575,21 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(9),
-                                      child: CachedNetworkImage(
+                                      child: TransparentBgNetworkImage(
                                         imageUrl: ImageUtils.thumbnailUrl(vImageUrl),
+                                        mode: BackgroundRemovalMode.autoUniform,
                                         width: 46,
                                         height: 46,
-                                        fit: BoxFit.cover,
-                                        errorWidget: (_, _, _) => Icon(
-                                          Icons.fastfood_rounded,
-                                          size: 20,
-                                          color: isDark
-                                              ? Colors.white38
-                                              : Colors.grey.shade400,
+                                        fit: BoxFit.contain,
+                                        maxCacheDimension: 140,
+                                        fallbackBuilder: (_) => Center(
+                                          child: Icon(
+                                            Icons.fastfood_rounded,
+                                            size: 20,
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey.shade400,
+                                          ),
                                         ),
                                       ),
                                     ),

@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/utils/image_utils.dart';
+import 'category_icon_image.dart';
 import 'home_design_tokens.dart';
 
 class OffersAutoScroller extends StatefulWidget {
@@ -208,59 +208,49 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Product Image Container (Start / Right in RTL): 96x80
+            // Product Image Container (Start / Right in RTL): 96x80, transparent background
             SizedBox(
               width: 96,
               height: 80,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: palette.cardSurface2,
-                    border: Border.all(
-                      color: palette.isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : palette.borderSubtle,
-                      width: 1,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (imageUrl.isNotEmpty)
-                        CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.cover,
-                          memCacheWidth: 280,
-                          placeholder: (_, _) => const Center(
-                            child: SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.8,
-                                color: HomeDesignTokens.gold,
-                              ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (imageUrl.isNotEmpty)
+                      TransparentBgNetworkImage(
+                        imageUrl: imageUrl,
+                        mode: BackgroundRemovalMode.autoUniform,
+                        fit: BoxFit.contain,
+                        maxCacheDimension: 280,
+                        placeholderBuilder: (_) => const Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.8,
+                              color: HomeDesignTokens.gold,
                             ),
                           ),
-                          errorWidget: (_, _, _) => Center(
-                            child: Icon(
-                              Icons.local_offer_rounded,
-                              color: palette.goldText,
-                              size: 26,
-                            ),
-                          ),
-                        )
-                      else
-                        Center(
+                        ),
+                        fallbackBuilder: (_) => Center(
                           child: Icon(
                             Icons.local_offer_rounded,
                             color: palette.goldText,
                             size: 26,
                           ),
                         ),
-                      // Red Offer Badge at Top-Start (Top-Right in RTL)
-                      PositionedDirectional(
+                      )
+                    else
+                      Center(
+                        child: Icon(
+                          Icons.local_offer_rounded,
+                          color: palette.goldText,
+                          size: 26,
+                        ),
+                      ),
+                    // Red Offer Badge at Top-Start (Top-Right in RTL)
+                    PositionedDirectional(
                         top: 6,
                         start: 6,
                         child: Container(
@@ -301,8 +291,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),

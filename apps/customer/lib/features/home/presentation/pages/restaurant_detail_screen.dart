@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart' show AppExpandableText;
 import '../../../../core/widgets/custom_chat_icon.dart';
+import '../widgets/category_icon_image.dart';
 import '../widgets/product_bottom_sheet.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/l10n/app_strings.dart';
@@ -961,11 +962,20 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                             size: 36,
                           );
                         }
-                        return CachedNetworkImage(
+                        return TransparentBgNetworkImage(
                           imageUrl: ImageUtils.thumbnailUrl(resolvedImg),
-                          fit: BoxFit.cover,
+                          mode: BackgroundRemovalMode.autoUniform,
+                          fit: BoxFit.contain,
                           width: 110,
                           height: 110,
+                          maxCacheDimension: 280,
+                          fallbackBuilder: (_) => Center(
+                            child: Icon(
+                              Icons.fastfood,
+                              color: Colors.grey.shade400,
+                              size: 36,
+                            ),
+                          ),
                         );
                       },
                     ),

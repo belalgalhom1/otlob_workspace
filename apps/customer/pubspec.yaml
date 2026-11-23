@@ -116,6 +116,7 @@ flutter:
   assets:
     - .env
     - assets/logo.png
+    - assets/home_logo.png
     - assets/logo_without_background.png
     - assets/home_cover.jpg
 

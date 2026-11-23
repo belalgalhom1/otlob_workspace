@@ -25,6 +25,7 @@ import '../providers/home_controller.dart';
 import '../providers/home_state.dart';
 import '../widgets/category_icon_image.dart';
 import '../widgets/home_design_tokens.dart';
+import '../widgets/home_search_results_panel.dart';
 import '../widgets/home_suggested_store_card.dart';
 import '../widgets/offers_auto_scroller.dart';
 
@@ -38,6 +39,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  Timer? _searchDebounce;
+  String _debouncedSearchQuery = '';
 
   final String _selectedType = 'all';
   bool _isFirstPromoSlide = true;
@@ -74,6 +77,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (mounted) setState(() {});
   }
 
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      if (_debouncedSearchQuery.isNotEmpty) {
+        setState(() => _debouncedSearchQuery = '');
+      } else {
+        setState(() {});
+      }
+      return;
+    }
+    setState(() {});
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() => _debouncedSearchQuery = trimmed);
+    });
+  }
+
   void _nextPromoSlide() {
     if (!_promoPageController.hasClients) return;
     _currentPromoPage++;
@@ -100,6 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchFocusNode.removeListener(_onSearchFocusChanged);
     _searchFocusNode.dispose();
     _searchController.dispose();
@@ -170,12 +192,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // 0. Fixed Top App Bar (48px)
         _buildHeader(context, palette),
 
-        // Main Body Container (fills all remaining viewport space, ZERO vertical scroll)
+        // Main Body Container (fills all remaining viewport space, ZERO vertical scroll in browse mode)
         Expanded(
           child: Padding(
             padding: EdgeInsets.fromLTRB(14, 8, 14, 58 + bottomInset),
-            child: ClipRect(
-              child: LayoutBuilder(
+            child: _debouncedSearchQuery.isNotEmpty
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(height: 36.0, child: _buildSearch(palette)),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: HomeSearchResultsPanel(
+                          query: _debouncedSearchQuery,
+                          palette: palette,
+                          fallbackVendors: filtered,
+                        ),
+                      ),
+                    ],
+                  )
+                : ClipRect(
+                    child: LayoutBuilder(
                 builder: (context, constraints) {
                   final availableHeight = constraints.maxHeight;
                   final hasOffers = data.offers.isNotEmpty;
@@ -321,6 +358,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       displayAddress = s.addAddress;
     }
 
+    final authStatus = ref.watch(authControllerProvider);
+    final rawAvatar = authStatus == AuthStatus.authenticated
+        ? ref.watch(profileProvider.select((p) => p.avatar)).trim()
+        : '';
+    final avatarUrl = rawAvatar.isNotEmpty
+        ? ImageUtils.formatImageUrl(rawAvatar)
+        : '';
+
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -336,26 +381,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Start Side (Right in RTL): Inverted Circular TLOB Logo (36x36) + Address Picker
+          // Start Side (Right in RTL): User Profile Avatar (if uploaded) else Main App Logo (36x36)
           Container(
             key: const ValueKey('home_header_logo'),
             width: 36,
             height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: palette.logoBg,
-              border: Border.all(
-                color: HomeDesignTokens.gold,
-                width: 2,
-              ),
-              boxShadow: palette.logoShadows,
-            ),
+            decoration: avatarUrl.isNotEmpty
+                ? BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: HomeDesignTokens.gold,
+                      width: 1.8,
+                    ),
+                  )
+                : null,
             alignment: Alignment.center,
-            child: _buildInvertedBrandMark(
-              palette: palette,
-              arabicSize: 6.5,
-              latinSize: 9.5,
-            ),
+            child: avatarUrl.isNotEmpty
+                ? ClipOval(
+                    child: CachedNetworkImage(
+                      key: ValueKey('home_header_avatar_$avatarUrl'),
+                      imageUrl: avatarUrl,
+                      width: 36,
+                      height: 36,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 120,
+                      placeholder: (_, _) => Image.asset(
+                        'assets/home_logo.png',
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.contain,
+                      ),
+                      errorWidget: (_, _, _) => Image.asset(
+                        'assets/home_logo.png',
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  )
+                : Image.asset(
+                    'assets/home_logo.png',
+                    key: const ValueKey('home_header_main_logo'),
+                    width: 36,
+                    height: 36,
+                    fit: BoxFit.contain,
+                  ),
           ),
           const SizedBox(width: 8),
 
@@ -1022,7 +1092,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           TextField(
             controller: _searchController,
             focusNode: _searchFocusNode,
-            onChanged: (_) => setState(() {}),
+            onChanged: _onSearchChanged,
+            onSubmitted: (value) {
+              _searchDebounce?.cancel();
+              setState(() => _debouncedSearchQuery = value.trim());
+            },
+            textInputAction: TextInputAction.search,
             textAlign: TextAlign.start,
             textAlignVertical: TextAlignVertical.center,
             cursorColor: HomeDesignTokens.gold,
@@ -1058,8 +1133,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               end: 8,
               child: GestureDetector(
                 onTap: () {
+                  _searchDebounce?.cancel();
                   _searchController.clear();
-                  setState(() {});
+                  setState(() => _debouncedSearchQuery = '');
                 },
                 child: Icon(
                   Icons.close_rounded,
@@ -1168,51 +1244,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildInvertedBrandMark({
-    required HomePalette palette,
-    required double arabicSize,
-    required double latinSize,
-    Color? arabicColorOverride,
-    Color? primaryColorOverride,
-  }) {
-    return MediaQuery.withClampedTextScaling(
-      maxScaleFactor: 1.0,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 3),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'أطلب',
-                maxLines: 1,
-                style: HomeDesignTokens.text(
-                  size: arabicSize,
-                  weight: FontWeight.w800,
-                  color: arabicColorOverride ?? palette.logoArabicText,
-                  height: 1.05,
-                ),
-              ),
-              Text(
-                'TLOB',
-                maxLines: 1,
-                style: HomeDesignTokens.numeric(
-                  size: latinSize,
-                  weight: FontWeight.w900,
-                  color: primaryColorOverride ?? palette.logoPrimaryText,
-                  height: 0.95,
-                  letterSpacing: -0.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildCategoryImageCard(
     Map<String, dynamic> cat,
     bool isSelected,
@@ -1222,29 +1253,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final iconUrl = cat['iconUrl']?.toString();
     final hasImage = iconUrl != null && iconUrl.isNotEmpty;
 
-    final List<BoxShadow> tileShadows = isSelected
-        ? const [
-            BoxShadow(
-              color: Color.fromRGBO(229, 169, 60, 0.42),
-              blurRadius: 14,
-              spreadRadius: 0,
-            ),
-          ]
-        : const [
-            BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.12),
-              blurRadius: 14,
-              offset: Offset(0, 4),
-            ),
-          ];
-
-    final Color borderColor = isSelected
-        ? HomeDesignTokens.gold
-        : (palette.isDark
-              ? const Color.fromRGBO(229, 169, 60, 0.22)
-              : const Color.fromRGBO(217, 155, 38, 0.24));
-    final double borderWidth = isSelected ? 2.0 : 1.0;
-
     return Container(
       key: isAll
           ? const ValueKey('home_all_category_tile')
@@ -1252,72 +1260,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       width: double.infinity,
       height: double.infinity,
       padding: EdgeInsets.zero,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: tileShadows,
-      ),
-      foregroundDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: borderColor,
-          width: borderWidth,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: isAll
-            ? ColoredBox(
-                color: Colors.white,
-                child: Center(
-                  child: FractionallySizedBox(
-                    widthFactor: 0.82,
-                    heightFactor: 0.82,
-                    child: Container(
-                      key: const ValueKey('home_all_category_circle_logo'),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        border: Border.all(
-                          color: HomeDesignTokens.gold,
-                          width: 1.6,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: _buildInvertedBrandMark(
-                        palette: palette,
-                        arabicSize: 9.5,
-                        latinSize: 13.0,
-                        arabicColorOverride: const Color(0xFFB87B14),
-                        primaryColorOverride: const Color(0xFF11100E),
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            : hasImage
-            ? CategoryWhiteBgImage(
-                imageUrl: ImageUtils.formatImageUrl(iconUrl),
-                fallbackBuilder: (_) => Center(
-                  child: Icon(
-                    _getFallbackIconData(cat['type']?.toString() ?? ''),
-                    color: HomeDesignTokens.goldDark,
-                    size: 24,
-                  ),
-                ),
-              )
-            : ColoredBox(
-                color: Colors.white,
-                child: Center(
-                  child: Icon(
-                    _getFallbackIconData(cat['type']?.toString() ?? ''),
-                    color: HomeDesignTokens.goldDark,
-                    size: 24,
-                  ),
+      color: Colors.transparent,
+      alignment: Alignment.center,
+      child: isAll
+          ? Image.asset(
+              'assets/home_logo.png',
+              key: const ValueKey('home_all_main_logo'),
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.contain,
+            )
+          : hasImage
+          ? TransparentBgNetworkImage(
+              imageUrl: ImageUtils.formatImageUrl(iconUrl),
+              mode: BackgroundRemovalMode.black,
+              fit: BoxFit.contain,
+              maxCacheDimension: 240,
+              fallbackBuilder: (_) => Center(
+                child: Icon(
+                  _getFallbackIconData(cat['type']?.toString() ?? ''),
+                  color: palette.goldText,
+                  size: 28,
                 ),
               ),
-      ),
+            )
+          : Center(
+              child: Icon(
+                _getFallbackIconData(cat['type']?.toString() ?? ''),
+                color: palette.goldText,
+                size: 28,
+              ),
+            ),
     );
   }
 

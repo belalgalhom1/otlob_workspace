@@ -13,6 +13,7 @@ import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../../../../core/widgets/floating_cart_overlay.dart';
 import '../providers/home_controller.dart';
 import '../providers/discovery_search_controller.dart';
+import '../widgets/category_icon_image.dart';
 import '../widgets/vendor_card.dart';
 
 class AllVendorsScreen extends ConsumerStatefulWidget {
@@ -338,22 +339,25 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   child: (p['image']?.toString().isNotEmpty ?? false)
-                      ? CachedNetworkImage(
+                      ? TransparentBgNetworkImage(
                           imageUrl: ImageUtils.formatImageUrl(p['image']?.toString()),
+                          mode: BackgroundRemovalMode.autoUniform,
                           height: 120,
                           width: 150,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) => Container(
+                          fit: BoxFit.contain,
+                          maxCacheDimension: 260,
+                          fallbackBuilder: (_) => const SizedBox(
                             height: 120,
                             width: 150,
-                            color: Colors.grey.shade200,
-                            child: const Icon(Icons.fastfood, size: 28, color: Colors.grey),
+                            child: Center(
+                              child: Icon(Icons.fastfood, size: 28, color: Colors.grey),
+                            ),
                           ),
                         )
                       : Container(
                           height: 120,
                           width: 150,
-                          color: Colors.grey.shade200,
+                          color: Colors.transparent,
                           child: const Icon(Icons.fastfood, size: 28, color: Colors.grey),
                         ),
                 ),

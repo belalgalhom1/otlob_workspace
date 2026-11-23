@@ -11,6 +11,7 @@ import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/providers/platform_settings_provider.dart';
 import '../providers/cart_controller.dart';
 import '../../../home/presentation/providers/vendor_detail_controller.dart';
+import '../../../home/presentation/widgets/category_icon_image.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 import '../../../profile/presentation/providers/delivery_address_provider.dart';
 
@@ -1152,13 +1153,18 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         color: isDark ? Colors.white12 : Colors.grey.shade100,
                         child: const Icon(Icons.fastfood, color: Colors.grey),
                       )
-                    : CachedNetworkImage(
+                    : TransparentBgNetworkImage(
                         imageUrl: ImageUtils.thumbnailUrl(
                           item.displayImageUrl,
                         ),
+                        mode: BackgroundRemovalMode.autoUniform,
                         height: 80,
                         width: 80,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
+                        maxCacheDimension: 220,
+                        fallbackBuilder: (_) => const Center(
+                          child: Icon(Icons.fastfood, color: Colors.grey),
+                        ),
                       ),
               ),
               PositionedDirectional(
