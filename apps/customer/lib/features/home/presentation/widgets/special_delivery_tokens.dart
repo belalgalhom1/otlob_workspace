@@ -73,6 +73,10 @@ class SpecialDeliveryPalette {
   final Color headerBorder;
   final BoxShadow headerShadow;
 
+  final Color sheetBg;
+  final Color sheetBorder;
+  final BoxShadow sheetShadow;
+
   final Color surface;
   final Color surfaceBorder;
   final BoxShadow surfaceShadow;
@@ -99,6 +103,9 @@ class SpecialDeliveryPalette {
     required this.headerBg,
     required this.headerBorder,
     required this.headerShadow,
+    required this.sheetBg,
+    required this.sheetBorder,
+    required this.sheetShadow,
     required this.surface,
     required this.surfaceBorder,
     required this.surfaceShadow,
@@ -126,22 +133,29 @@ class SpecialDeliveryPalette {
       blurRadius: 16,
       offset: Offset(0, 4),
     ),
-    surface: Color(0xFF1A1815),
-    surfaceBorder: Color.fromRGBO(229, 169, 60, 0.28),
-    surfaceShadow: BoxShadow(
+    sheetBg: Color(0xFF13120F),
+    sheetBorder: Color.fromRGBO(229, 169, 60, 0.34),
+    sheetShadow: BoxShadow(
       color: Color.fromRGBO(0, 0, 0, 0.42),
-      blurRadius: 18,
-      offset: Offset(0, 6),
+      blurRadius: 28,
+      offset: Offset(0, -10),
+    ),
+    surface: Color(0xFF1B1915),
+    surfaceBorder: Color.fromRGBO(229, 169, 60, 0.25),
+    surfaceShadow: BoxShadow(
+      color: Color.fromRGBO(0, 0, 0, 0.36),
+      blurRadius: 16,
+      offset: Offset(0, 4),
     ),
     surface2: Color(0xFF24211C),
-    inputBg: Color(0xFF1E1C18),
+    inputBg: Color(0xFF221F1A),
     textPrimary: Color(0xFFF7F4EE),
     textMuted: Color(0xFF9E9689),
     goldText: SpecialDeliveryTokens.gold,
-    infoBg: Color.fromRGBO(229, 169, 60, 0.10),
-    infoBorder: Color.fromRGBO(229, 169, 60, 0.30),
-    disabledBg: Color.fromRGBO(158, 150, 137, 0.20),
-    disabledText: Color(0xFF8D8579),
+    infoBg: Color.fromRGBO(229, 169, 60, 0.09),
+    infoBorder: Color.fromRGBO(229, 169, 60, 0.28),
+    disabledBg: Color(0xFF26231D),
+    disabledText: Color(0xFF847D71),
     selectedTint: Color.fromRGBO(229, 169, 60, 0.15),
     pinHaloColor: Color.fromRGBO(229, 169, 60, 0.35),
     systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -157,20 +171,27 @@ class SpecialDeliveryPalette {
       blurRadius: 10,
       offset: Offset(0, 2),
     ),
+    sheetBg: Color(0xFFF9F8F5),
+    sheetBorder: Color.fromRGBO(200, 141, 38, 0.34),
+    sheetShadow: BoxShadow(
+      color: Color.fromRGBO(15, 14, 12, 0.09),
+      blurRadius: 24,
+      offset: Offset(0, -8),
+    ),
     surface: Color(0xFFFFFFFF),
-    surfaceBorder: Color.fromRGBO(200, 141, 38, 0.30),
+    surfaceBorder: Color.fromRGBO(200, 141, 38, 0.28),
     surfaceShadow: BoxShadow(
       color: Color.fromRGBO(24, 22, 19, 0.06),
       blurRadius: 14,
       offset: Offset(0, 4),
     ),
     surface2: Color(0xFFF1EFEA),
-    inputBg: Color(0xFFF3F2EE),
+    inputBg: Color(0xFFF4F2EC),
     textPrimary: Color(0xFF181613),
     textMuted: Color(0xFF6E6A63),
     goldText: SpecialDeliveryTokens.goldDark,
     infoBg: Color(0xFFFFF9EC),
-    infoBorder: Color.fromRGBO(200, 141, 38, 0.42),
+    infoBorder: Color.fromRGBO(200, 141, 38, 0.40),
     disabledBg: Color(0xFFE5E2DA),
     disabledText: Color(0xFF8A847A),
     selectedTint: Color.fromRGBO(229, 169, 60, 0.15),

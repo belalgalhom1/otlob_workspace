@@ -176,15 +176,35 @@ void main() {
             .where((s) => s.axis == Axis.vertical);
         expect(verticalScrollables, isEmpty);
 
-        // All sections visible inside viewport including bottom CTA
+        // All sections visible inside viewport including Live Map & bottom CTA
         expect(find.text('توصيل خاص'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('special_delivery_live_map_zone')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('special_delivery_bottom_sheet')),
+          findsOneWidget,
+        );
         expect(find.text('السكه الجديد'), findsOneWidget);
         expect(find.text('وسط البلد'), findsOneWidget);
         expect(find.text('3.8 كم'), findsOneWidget);
         expect(find.text('35 ج.م'), findsWidgets);
-        expect(find.text('الإجمالي النهائي'), findsOneWidget);
+        expect(find.text('الإجمالي شامل الخدمة'), findsOneWidget);
+        expect(find.text('طلب مندوب الآن'), findsOneWidget);
 
-        final ctaRect = tester.getRect(find.text('طلب مندوب'));
+        // Live map absorbs remaining vertical height cleanly (zero dead space)
+        final mapRect = tester.getRect(
+          find.byKey(const ValueKey('special_delivery_live_map_zone')),
+        );
+        expect(mapRect.height, greaterThan(40));
+        if (entry.value.size.height >= 800) {
+          expect(mapRect.height, greaterThanOrEqualTo(120));
+        }
+
+        final ctaRect = tester.getRect(
+          find.byKey(const ValueKey('special_delivery_submit_cta')),
+        );
         expect(ctaRect.bottom, lessThanOrEqualTo(entry.value.size.height));
 
         // Expand info banner and confirm zero overflow & CTA still inside viewport
@@ -193,7 +213,9 @@ void main() {
           await tester.tap(readMore);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
-          final expandedCtaRect = tester.getRect(find.text('طلب مندوب'));
+          final expandedCtaRect = tester.getRect(
+            find.byKey(const ValueKey('special_delivery_submit_cta')),
+          );
           expect(
             expandedCtaRect.bottom,
             lessThanOrEqualTo(entry.value.size.height),
@@ -216,6 +238,13 @@ void main() {
       tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
       const Color(0xFF0F0E0C),
     );
+    final darkSheet = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey('special_delivery_bottom_sheet')),
+    );
+    expect(
+      (darkSheet.decoration as BoxDecoration?)?.color,
+      const Color(0xFF13120F),
+    );
 
     await _pumpSpecialDelivery(
       tester,
@@ -227,10 +256,17 @@ void main() {
       tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
       const Color(0xFFF7F6F2),
     );
+    final lightSheet = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey('special_delivery_bottom_sheet')),
+    );
+    expect(
+      (lightSheet.decoration as BoxDecoration?)?.color,
+      const Color(0xFFF9F8F5),
+    );
   });
 
   testWidgets(
-    'Mode switcher toggles title, hides item details in ride mode, and clear button removes location',
+    'Mode switcher toggles title, swap button exchanges pickup/dropoff, and clear button removes location',
     (tester) async {
       await _pumpSpecialDelivery(
         tester,
@@ -250,17 +286,31 @@ void main() {
       expect(find.byType(TextFormField), findsNWidgets(2));
       expect(find.text('3.8 كم'), findsOneWidget);
 
-      // Tap clear icon on pickup location -> clears address & hides distance pill
+      // Verify RTL pickup is to the right of dropoff before swap
+      final pickupXBefore = tester.getCenter(find.text('السكه الجديد')).dx;
+      final dropoffXBefore = tester.getCenter(find.text('وسط البلد')).dx;
+      expect(pickupXBefore, greaterThan(dropoffXBefore));
+
+      // Tap Swap button (⇄) -> exchanges pickup and dropoff positions
+      await tester.tap(find.byKey(const ValueKey('swap_locations_btn')));
+      await tester.pumpAndSettle();
+      final pickupXAfter = tester.getCenter(find.text('السكه الجديد')).dx;
+      final dropoffXAfter = tester.getCenter(find.text('وسط البلد')).dx;
+      expect(dropoffXAfter, greaterThan(pickupXAfter));
+
+      // Tap clear icon on pickup location (now 'وسط البلد') -> clears address & hides distance pill
       await tester.tap(find.byIcon(Icons.close_rounded).first);
       await tester.pumpAndSettle();
-      expect(find.text('السكه الجديد'), findsNothing);
+      expect(find.text('وسط البلد'), findsNothing);
       expect(find.text('3.8 كم'), findsNothing);
+      expect(find.text('حدد المواقع للطلب'), findsOneWidget);
 
       // Switch to Ride mode -> header updates & item details inputs hidden
       await tester.tap(find.text('رحلة'));
       await tester.pumpAndSettle();
       expect(find.text('طلب رحلة'), findsOneWidget);
       expect(find.byType(TextFormField), findsNothing);
+      expect(find.text('حدد المواقع للرحلة'), findsOneWidget);
     },
   );
 

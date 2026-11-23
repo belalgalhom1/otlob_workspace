@@ -1,10 +1,14 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core/core.dart' show ApiErrorMapper, VehicleTypeHelper;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:ui_kit/ui_kit.dart' show AppMapTileLayer;
 
 import '../../../../core/l10n/app_strings.dart';
 import '../../../../core/providers/platform_settings_provider.dart';
@@ -31,7 +35,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   final _dropoffController = TextEditingController();
   final _detailsController = TextEditingController();
   final _specialRequestController = TextEditingController();
+  final MapController _previewMapController = MapController();
 
+  static const LatLng _fallbackMapCenter = LatLng(30.0444, 31.2357);
+
+  bool _mapReady = false;
   String _selectedVehicle = 'motorcycle';
   String _serviceType = 'delivery'; // 'delivery' or 'ride'
   String _paymentMethod = 'CASH_ON_DELIVERY';
@@ -254,11 +262,65 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
 
   @override
   void dispose() {
+    _previewMapController.dispose();
     _pickupController.dispose();
     _dropoffController.dispose();
     _detailsController.dispose();
     _specialRequestController.dispose();
     super.dispose();
+  }
+
+  void _syncMapCamera() {
+    if (!_mapReady || !mounted) return;
+    try {
+      if (_pickupLocation != null && _dropoffLocation != null) {
+        if (_pickupLocation == _dropoffLocation) {
+          _previewMapController.move(_pickupLocation!, 14.5);
+        } else {
+          _previewMapController.fitCamera(
+            CameraFit.bounds(
+              bounds: LatLngBounds.fromPoints([
+                _pickupLocation!,
+                _dropoffLocation!,
+              ]),
+              padding: const EdgeInsets.fromLTRB(52, 96, 52, 92),
+              maxZoom: 14.8,
+            ),
+          );
+        }
+      } else if (_pickupLocation != null) {
+        _previewMapController.move(_pickupLocation!, 14.5);
+      } else if (_dropoffLocation != null) {
+        _previewMapController.move(_dropoffLocation!, 14.5);
+      }
+    } catch (_) {
+      // Map not yet attached to render tree; camera will sync onMapReady.
+    }
+  }
+
+  void _swapLocations() {
+    if (_pickupLocation == null &&
+        _dropoffLocation == null &&
+        _pickupController.text.isEmpty &&
+        _dropoffController.text.isEmpty) {
+      return;
+    }
+    setState(() {
+      _invalidateOrderIntent();
+      final tmpLoc = _pickupLocation;
+      _pickupLocation = _dropoffLocation;
+      _dropoffLocation = tmpLoc;
+
+      final tmpText = _pickupController.text;
+      _pickupController.text = _dropoffController.text;
+      _dropoffController.text = tmpText;
+
+      _estimate = null;
+      _estimateFailed = false;
+      _estimateErrorKey = null;
+      _lastEstimateKey = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncMapCamera());
   }
 
   Future<void> _openLocationPicker({required bool isPickup}) async {
@@ -299,6 +361,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         _dropoffController.text = addressText;
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncMapCamera());
   }
 
   void _clearLocation({required bool isPickup}) {
@@ -316,6 +379,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       _estimateErrorKey = null;
       _lastEstimateKey = null;
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncMapCamera());
   }
 
   void _submitOrder() async {
@@ -446,6 +510,47 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     final settings = settingsAsync.value;
     final isSettingsLoading = settingsAsync.isLoading && settings == null;
 
+    final est = _estimate;
+    final hasEstimate = est != null && hasBothLocations;
+    final estDistanceKm = hasEstimate
+        ? (est['distanceKm'] as num?)?.toDouble()
+        : null;
+    final estDeliveryFee = hasEstimate
+        ? ((est['deliveryFee'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estServiceFee = hasEstimate
+        ? ((est['serviceFee'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estTax = hasEstimate ? ((est['tax'] as num?)?.toDouble() ?? 0.0) : 0.0;
+    final estDriverBonusFee = hasEstimate
+        ? ((est['driverBonusFee'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estDriverBonusPaidByCustomer =
+        hasEstimate && est['driverBonusPaidByCustomer'] == true;
+    final estDiscount = hasEstimate
+        ? ((est['discount'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estUpfrontAmount = hasEstimate
+        ? ((est['upfrontAmount'] as num?)?.toDouble() ?? 0.0)
+        : 0.0;
+    final estGrandTotal = hasEstimate
+        ? (est['grandTotal'] as num?)?.toDouble()
+        : null;
+    final isWalletPayment = _paymentMethod == 'MOBILE_WALLET';
+    final isRide = _serviceType == 'ride';
+    final canUseCoins =
+        coinState.currentBalance > 0 &&
+        settings != null &&
+        coinState.currentBalance >= settings.minCoinsToUse;
+
+    final enabledVehicles = _enabledVehicles(_serviceType, settings);
+    final isSubmitEnabled =
+        !_isSubmitting &&
+        !_isEstimating &&
+        _estimate != null &&
+        hasBothLocations &&
+        enabledVehicles.isNotEmpty;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: palette.systemOverlayStyle,
       child: Scaffold(
@@ -455,34 +560,65 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 430),
-              child: Column(
-                children: [
-                  // A. Top Header (50px fixed)
-                  _buildHeader(s, isAr, palette),
+              child: LayoutBuilder(
+                builder: (context, viewportConstraints) {
+                  final totalH = viewportConstraints.maxHeight;
+                  final isCompact = totalH < 700;
+                  final isUltraCompact = totalH < 630;
 
-                  // Zero-Scroll Body Container (flex-col justify-between overflow-hidden)
-                  Expanded(
-                    child: ClipRect(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        child: Form(
-                          key: _formKey,
-                          child: _buildZeroScrollBody(
+                  return Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Zone 1: Compact Top Header (50px, shrink-0)
+                        _buildHeader(s, isAr, palette),
+
+                        // Zone 2: Flexible Live Map Preview (flex: 1, absorbs all extra vertical space)
+                        Expanded(
+                          child: _buildLiveMapZone(
                             s: s,
                             isAr: isAr,
-                            coinState: coinState,
-                            settings: settings,
-                            isSettingsLoading: isSettingsLoading,
+                            isRide: isRide,
+                            hasBothLocations: hasBothLocations,
+                            distanceKm: estDistanceKm,
                             palette: palette,
+                            isUltraCompact: isUltraCompact,
                           ),
                         ),
-                      ),
+
+                        // Zone 3: Docked Compact Bottom Sheet (shrink-0, rounded-t-24, overlaps map edge cleanly)
+                        _buildDockedBottomSheet(
+                          s: s,
+                          isAr: isAr,
+                          isRide: isRide,
+                          hasBothLocations: hasBothLocations,
+                          hasEstimate: hasEstimate,
+                          estDistanceKm: estDistanceKm,
+                          estDeliveryFee: estDeliveryFee,
+                          estServiceFee: estServiceFee,
+                          estTax: estTax,
+                          estDriverBonusFee: estDriverBonusFee,
+                          estDriverBonusPaidByCustomer:
+                              estDriverBonusPaidByCustomer,
+                          estDiscount: estDiscount,
+                          estUpfrontAmount: estUpfrontAmount,
+                          estGrandTotal: estGrandTotal,
+                          isWalletPayment: isWalletPayment,
+                          canUseCoins: canUseCoins,
+                          coinState: coinState,
+                          settings: settings,
+                          isSettingsLoading: isSettingsLoading,
+                          enabledVehicles: enabledVehicles,
+                          isSubmitEnabled: isSubmitEnabled,
+                          palette: palette,
+                          isCompact: isCompact,
+                          isUltraCompact: isUltraCompact,
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -492,7 +628,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // A. Top Header (50px)
+  // Zone 1: Compact Top Header (height: 50px)
   // ---------------------------------------------------------------------------
   Widget _buildHeader(AppStrings s, bool isAr, SpecialDeliveryPalette palette) {
     final title = _serviceType == 'ride'
@@ -556,167 +692,310 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Zero-Scroll Body Column (Sections B, C, D, E, F)
+  // Zone 2: Flexible Live Map Preview (flex: 1, min-height: 120px)
   // ---------------------------------------------------------------------------
-  Widget _buildZeroScrollBody({
+  Widget _buildLiveMapZone({
     required AppStrings s,
     required bool isAr,
-    required CoinHistoryState coinState,
-    required PlatformSettingsData? settings,
-    required bool isSettingsLoading,
+    required bool isRide,
+    required bool hasBothLocations,
+    required double? distanceKm,
     required SpecialDeliveryPalette palette,
+    required bool isUltraCompact,
   }) {
-    final hasBothLocations =
-        _pickupLocation != null && _dropoffLocation != null;
-    final est = _estimate;
-    final hasEstimate = est != null && hasBothLocations;
-    final estDistanceKm = hasEstimate
-        ? (est['distanceKm'] as num?)?.toDouble()
-        : null;
-    final estDeliveryFee = hasEstimate
-        ? ((est['deliveryFee'] as num?)?.toDouble() ?? 0.0)
-        : 0.0;
-    final estServiceFee = hasEstimate
-        ? ((est['serviceFee'] as num?)?.toDouble() ?? 0.0)
-        : 0.0;
-    final estTax = hasEstimate ? ((est['tax'] as num?)?.toDouble() ?? 0.0) : 0.0;
-    final estDriverBonusFee = hasEstimate
-        ? ((est['driverBonusFee'] as num?)?.toDouble() ?? 0.0)
-        : 0.0;
-    final estDriverBonusPaidByCustomer =
-        hasEstimate && est['driverBonusPaidByCustomer'] == true;
-    final estDiscount = hasEstimate
-        ? ((est['discount'] as num?)?.toDouble() ?? 0.0)
-        : 0.0;
-    final estUpfrontAmount = hasEstimate
-        ? ((est['upfrontAmount'] as num?)?.toDouble() ?? 0.0)
-        : 0.0;
-    final estGrandTotal = hasEstimate
-        ? (est['grandTotal'] as num?)?.toDouble()
-        : null;
-    final isWalletPayment = _paymentMethod == 'MOBILE_WALLET';
-    final isRide = _serviceType == 'ride';
-    final canUseCoins =
-        coinState.currentBalance > 0 &&
-        settings != null &&
-        coinState.currentBalance >= settings.minCoinsToUse;
+    final initialCenter =
+        _pickupLocation ?? _dropoffLocation ?? _fallbackMapCenter;
 
-    final enabledVehicles = _enabledVehicles(_serviceType, settings);
-    final isSubmitEnabled =
-        !_isSubmitting &&
-        !_isEstimating &&
-        _estimate != null &&
-        hasBothLocations &&
-        enabledVehicles.isNotEmpty;
+    String statusPillText;
+    if (!hasBothLocations) {
+      statusPillText = isAr
+          ? 'اضغط لتحديد المواقع على الخريطة'
+          : (isRide
+                ? 'Select pickup and destination to see your final fare'
+                : 'Select pickup and dropoff locations to see your final fare');
+    } else if (_isEstimating) {
+      statusPillText = isAr
+          ? 'جاري حساب المسار والأجرة...'
+          : 'Calculating route & fare...';
+    } else if (distanceKm != null && distanceKm > 0) {
+      statusPillText = isAr
+          ? '${distanceKm.toStringAsFixed(1)} كم • المسار جاهز'
+          : '${distanceKm.toStringAsFixed(1)} km • Route ready';
+    } else if (_estimateFailed) {
+      final translated = _estimateErrorKey != null
+          ? ApiErrorMapper.translate(_estimateErrorKey!, context: context)
+          : null;
+      statusPillText = (translated != null && translated.trim().isNotEmpty)
+          ? translated
+          : (isAr ? 'تعذر حساب المسار' : 'Route estimate unavailable');
+    } else {
+      statusPillText = isAr ? 'تم تحديد نقطتي المسار' : 'Route points selected';
+    }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availH = constraints.maxHeight;
-        final isCompact = availH < 610;
-        final isUltraCompact = availH < 560;
-        final viewportHeight = MediaQuery.sizeOf(context).height;
-        final adaptiveGap = (viewportHeight * 0.0125).clamp(6.0, 12.0);
-        final sectionGap = isUltraCompact
-            ? 5.0
-            : (isCompact ? 6.0 : adaptiveGap);
-
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // B. Mode Switcher (Segmented Control)
-            _buildTypeSwitcher(s, palette, isCompact: isCompact),
-
-            // C. Expandable Info Banner
-            _buildInfoBanner(s, isAr, palette, isCompact: isCompact),
-
-            // D. Locations, Item Details & Payment Card
-            _buildMainFormCard(
-              s,
-              isAr,
-              isRide,
-              palette,
-              isCompact: isCompact,
-              isUltraCompact: isUltraCompact,
-            ),
-
-            // E. Vehicle Selection Grid (Backend-Driven, 4-Column Grid)
-            _buildVehicleSection(
-              s: s,
-              isAr: isAr,
-              settings: settings,
-              isSettingsLoading: isSettingsLoading,
-              enabledVehicles: enabledVehicles,
-              distanceKm: estDistanceKm,
-              palette: palette,
-              isCompact: isCompact,
-              isUltraCompact: isUltraCompact,
-            ),
-
-            // F. Final Fare Card + Primary CTA Button (Always visible without scroll)
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Stack(
+      key: const ValueKey('special_delivery_live_map_zone'),
+      clipBehavior: Clip.none,
+      children: [
+        // Extend live map 20px downward behind the rounded-t-[24px] Bottom Sheet for seamless -mt-3 overlap
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: -20,
+          child: ColoredBox(
+            color: palette.isDark
+                ? const Color(0xFF171612)
+                : const Color(0xFFEAE7DF),
+            child: FlutterMap(
+              mapController: _previewMapController,
+              options: MapOptions(
+                backgroundColor: palette.isDark
+                    ? const Color(0xFF171612)
+                    : const Color(0xFFEAE7DF),
+                initialCenter: initialCenter,
+                initialZoom: 13.5,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom,
+                ),
+                onMapReady: () {
+                  _mapReady = true;
+                  _syncMapCamera();
+                },
+                onTap: (_, _) =>
+                    _openLocationPicker(isPickup: _pickupLocation == null),
+              ),
               children: [
-                _buildFinalFareCard(
-                  s: s,
-                  isAr: isAr,
-                  isRide: isRide,
-                  hasBothLocations: hasBothLocations,
-                  hasEstimate: hasEstimate,
-                  estDeliveryFee: estDeliveryFee,
-                  estServiceFee: estServiceFee,
-                  estTax: estTax,
-                  estDriverBonusFee: estDriverBonusFee,
-                  estDriverBonusPaidByCustomer: estDriverBonusPaidByCustomer,
-                  estDiscount: estDiscount,
-                  estUpfrontAmount: estUpfrontAmount,
-                  estGrandTotal: estGrandTotal,
-                  isWalletPayment: isWalletPayment,
-                  canUseCoins: canUseCoins,
-                  coinState: coinState,
-                  palette: palette,
-                  isCompact: isCompact,
+                const AppMapTileLayer(
+                  userAgentPackageName: 'com.otlob.customer',
                 ),
-                SizedBox(height: sectionGap),
-                _buildSubmitButton(
-                  s: s,
-                  isAr: isAr,
-                  isEnabled: isSubmitEnabled,
-                  palette: palette,
-                  isCompact: isCompact,
-                ),
+                if (_pickupLocation != null && _dropoffLocation != null)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: [_pickupLocation!, _dropoffLocation!],
+                        strokeWidth: 4.0,
+                        color: SpecialDeliveryTokens.gold,
+                        borderColor: SpecialDeliveryTokens.darkOnGold
+                            .withValues(alpha: 0.65),
+                        borderStrokeWidth: 1.2,
+                      ),
+                    ],
+                  ),
+                if (_pickupLocation != null || _dropoffLocation != null)
+                  MarkerLayer(
+                    markers: [
+                      if (_pickupLocation != null)
+                        Marker(
+                          point: _pickupLocation!,
+                          width: 34,
+                          height: 34,
+                          alignment: Alignment.center,
+                          child: _buildMapPinMarker(
+                            color: SpecialDeliveryTokens.gold,
+                            icon: Icons.my_location_rounded,
+                            iconColor: SpecialDeliveryTokens.darkOnGold,
+                          ),
+                        ),
+                      if (_dropoffLocation != null)
+                        Marker(
+                          point: _dropoffLocation!,
+                          width: 34,
+                          height: 34,
+                          alignment: Alignment.center,
+                          child: _buildMapPinMarker(
+                            color: SpecialDeliveryTokens.successGreen,
+                            icon: Icons.location_on_rounded,
+                            iconColor: Colors.white,
+                          ),
+                        ),
+                    ],
+                  ),
               ],
             ),
-          ],
-        );
-      },
+          ),
+        ),
+
+        // Subtle dark bottom gradient transitioning seamlessly behind the rounded Bottom Sheet
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: -20,
+          height: 68,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: palette.isDark ? 0.62 : 0.22),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Floating Frosted Mode Switcher (top: 10px, horizontal: 14px)
+        Positioned(
+          top: isUltraCompact ? 6 : 10,
+          left: 14,
+          right: 14,
+          child: _buildFloatingModeSwitcher(
+            s,
+            palette,
+            isCompact: isUltraCompact,
+          ),
+        ),
+
+        // Floating Bottom Map Controls: Status Pill (Start/Right in RTL) + 32x32 Expand Map Button (End/Left in RTL)
+        Positioned(
+          left: 14,
+          right: 14,
+          bottom: isUltraCompact ? 6 : 10,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                child: GestureDetector(
+                  onTap: () =>
+                      _openLocationPicker(isPickup: _pickupLocation == null),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: const Color.fromRGBO(229, 169, 60, 0.40),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: SpecialDeliveryTokens.gold,
+                            boxShadow: [
+                              BoxShadow(
+                                color: SpecialDeliveryTokens.gold.withValues(
+                                  alpha: 0.75,
+                                ),
+                                blurRadius: 6,
+                                spreadRadius: 1.5,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            statusPillText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: SpecialDeliveryTokens.text(
+                              size: 10,
+                              weight: FontWeight.w700,
+                              color: Colors.white,
+                              height: 1.15,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TactileScaleTap(
+                tapKey: const ValueKey('expand_map_picker_btn'),
+                pressedScale: 0.94,
+                onTap: () =>
+                    _openLocationPicker(isPickup: _pickupLocation == null),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(
+                      color: const Color.fromRGBO(229, 169, 60, 0.40),
+                      width: 1,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.open_in_full_rounded,
+                    size: 15,
+                    color: SpecialDeliveryTokens.gold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // B. Mode Switcher (Segmented Control)
-  // ---------------------------------------------------------------------------
-  Widget _buildTypeSwitcher(
+  Widget _buildMapPinMarker({
+    required Color color,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.50),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, size: 15, color: iconColor),
+    );
+  }
+
+  Widget _buildFloatingModeSwitcher(
     AppStrings s,
     SpecialDeliveryPalette palette, {
     bool isCompact = false,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      height: isCompact ? 36 : 40,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.surfaceBorder),
-        boxShadow: [palette.surfaceShadow],
-      ),
-      child: Row(
-        children: [
-          _switcherButton(s.delivery, 'delivery', palette),
-          _switcherButton(s.ride, 'ride', palette),
-        ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          height: isCompact ? 36 : 40,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: palette.surface.withValues(alpha: palette.isDark ? 0.88 : 0.92),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: palette.surfaceBorder),
+            boxShadow: [palette.surfaceShadow],
+          ),
+          child: Row(
+            children: [
+              _switcherButton(s.delivery, 'delivery', palette),
+              _switcherButton(s.ride, 'ride', palette),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -747,7 +1026,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           });
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
+          duration: const Duration(milliseconds: 220),
           decoration: BoxDecoration(
             color: isSelected ? SpecialDeliveryTokens.gold : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
@@ -782,11 +1061,144 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // C. Expandable Info Banner (tlob-info-box)
+  // Zone 3: Docked Compact Bottom Sheet (shrink-0, rounded-t-24)
   // ---------------------------------------------------------------------------
-  Widget _buildInfoBanner(
+  Widget _buildDockedBottomSheet({
+    required AppStrings s,
+    required bool isAr,
+    required bool isRide,
+    required bool hasBothLocations,
+    required bool hasEstimate,
+    required double? estDistanceKm,
+    required double estDeliveryFee,
+    required double estServiceFee,
+    required double estTax,
+    required double estDriverBonusFee,
+    required bool estDriverBonusPaidByCustomer,
+    required double estDiscount,
+    required double estUpfrontAmount,
+    required double? estGrandTotal,
+    required bool isWalletPayment,
+    required bool canUseCoins,
+    required CoinHistoryState coinState,
+    required PlatformSettingsData? settings,
+    required bool isSettingsLoading,
+    required List<String> enabledVehicles,
+    required bool isSubmitEnabled,
+    required SpecialDeliveryPalette palette,
+    required bool isCompact,
+    required bool isUltraCompact,
+  }) {
+    final gap = isUltraCompact ? 6.0 : (isCompact ? 8.0 : 10.0);
+
+    return AnimatedContainer(
+      key: const ValueKey('special_delivery_bottom_sheet'),
+      duration: const Duration(milliseconds: 250),
+      padding: EdgeInsets.fromLTRB(
+        14,
+        isUltraCompact ? 6 : 8,
+        14,
+        isUltraCompact ? 8 : 12,
+      ),
+      decoration: BoxDecoration(
+        color: palette.sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(color: palette.sheetBorder, width: 1.5),
+        ),
+        boxShadow: [palette.sheetShadow],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. Top Drag Handle (36x4 pill)
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: palette.textMuted.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          SizedBox(height: isUltraCompact ? 5 : 7),
+
+          // 2. Compact 1-Line Expandable Info Bar
+          _buildCompactInfoBar(s, palette, isCompact: isCompact),
+          SizedBox(height: gap),
+
+          // 3. Locations (with Swap), Delivery Item Details & Payment Card
+          _buildMainFormCard(
+            s,
+            isAr,
+            isRide,
+            palette,
+            isCompact: isCompact,
+            isUltraCompact: isUltraCompact,
+          ),
+          SizedBox(height: gap),
+
+          // 4. Vehicle Type Selector — Full-Bleed Business-Type Style
+          _buildVehicleSection(
+            s: s,
+            isAr: isAr,
+            settings: settings,
+            isSettingsLoading: isSettingsLoading,
+            enabledVehicles: enabledVehicles,
+            distanceKm: estDistanceKm,
+            palette: palette,
+            isCompact: isCompact,
+            isUltraCompact: isUltraCompact,
+          ),
+
+          // 5. Optional Compact Fee Breakdown + Coins / Deposit Strip (only when real backend data exists)
+          if (hasEstimate || canUseCoins) ...[
+            SizedBox(height: isUltraCompact ? 6 : 9),
+            _buildCompactFeesAndCoinsStrip(
+              s: s,
+              isAr: isAr,
+              isRide: isRide,
+              hasEstimate: hasEstimate,
+              estDeliveryFee: estDeliveryFee,
+              estServiceFee: estServiceFee,
+              estTax: estTax,
+              estDriverBonusFee: estDriverBonusFee,
+              estDriverBonusPaidByCustomer: estDriverBonusPaidByCustomer,
+              estDiscount: estDiscount,
+              estUpfrontAmount: estUpfrontAmount,
+              isWalletPayment: isWalletPayment,
+              canUseCoins: canUseCoins,
+              coinState: coinState,
+              palette: palette,
+            ),
+          ],
+
+          SizedBox(height: gap),
+
+          // 6. Combined Total Fare + Primary Submit CTA Bar
+          _buildCombinedFareAndCtaBar(
+            s: s,
+            isAr: isAr,
+            isRide: isRide,
+            hasBothLocations: hasBothLocations,
+            hasEstimate: hasEstimate,
+            estGrandTotal: estGrandTotal,
+            isSubmitEnabled: isSubmitEnabled,
+            palette: palette,
+            isUltraCompact: isUltraCompact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Compact 1-Line Expandable Info Bar (tlob-info-box)
+  // ---------------------------------------------------------------------------
+  Widget _buildCompactInfoBar(
     AppStrings s,
-    bool isAr,
     SpecialDeliveryPalette palette, {
     bool isCompact = false,
   }) {
@@ -795,57 +1207,89 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         : s.rideServiceDesc;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 220),
       padding: EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: isCompact ? 5 : 8,
+        horizontal: 10,
+        vertical: isCompact ? 5 : 6,
       ),
       decoration: BoxDecoration(
         color: palette.infoBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: palette.infoBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            description,
-            maxLines: _isExpanded ? (isCompact ? 3 : 4) : 2,
-            overflow: TextOverflow.ellipsis,
-            style: SpecialDeliveryTokens.text(
-              size: 10.5,
-              weight: FontWeight.w600,
-              color: palette.textPrimary,
-              height: isCompact ? 1.25 : 1.35,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => setState(() => _isExpanded = !_isExpanded),
-              child: Text(
-                _isExpanded ? s.readLess : s.readMore,
-                style: SpecialDeliveryTokens.text(
-                  size: 10,
-                  weight: FontWeight.w800,
-                  color: palette.goldText,
-                  decoration: TextDecoration.underline,
-                  decorationColor: palette.goldText,
-                  height: 1.2,
+      child: _isExpanded
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  description,
+                  maxLines: isCompact ? 2 : 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: SpecialDeliveryTokens.text(
+                    size: 10,
+                    weight: FontWeight.w600,
+                    color: palette.textPrimary,
+                    height: 1.3,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _isExpanded = false),
+                    child: Text(
+                      s.readLess,
+                      style: SpecialDeliveryTokens.text(
+                        size: 9.5,
+                        weight: FontWeight.w800,
+                        color: palette.goldText,
+                        decoration: TextDecoration.underline,
+                        decorationColor: palette.goldText,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: SpecialDeliveryTokens.text(
+                      size: 10,
+                      weight: FontWeight.w600,
+                      color: palette.textPrimary,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _isExpanded = true),
+                  child: Text(
+                    s.readMore,
+                    style: SpecialDeliveryTokens.text(
+                      size: 9.5,
+                      weight: FontWeight.w800,
+                      color: palette.goldText,
+                      decoration: TextDecoration.underline,
+                      decorationColor: palette.goldText,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
   // ---------------------------------------------------------------------------
-  // D. Locations, Item Details & Payment Card (tlob-surface)
+  // Locations (with Centered Swap), Item Details & Payment Card (tlob-surface)
   // ---------------------------------------------------------------------------
   Widget _buildMainFormCard(
     AppStrings s,
@@ -861,7 +1305,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
-      padding: EdgeInsets.all(isCompact ? 8 : 10),
+      padding: EdgeInsets.all(isUltraCompact ? 8 : 10),
       decoration: BoxDecoration(
         color: palette.surface,
         borderRadius: BorderRadius.circular(16),
@@ -871,34 +1315,64 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Pickup & Dropoff Row (2-col grid, gap: 8px)
-          Row(
+          // Pickup & Dropoff Row with Centered Circular Swap Button (⇄)
+          Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
             children: [
-              Expanded(
-                child: _buildLocationPickerButton(
-                  isPickup: true,
-                  placeholder: isRide ? s.yourLocation : s.pickupLocation,
-                  addressText: _pickupController.text.trim(),
-                  hasLocation: _pickupLocation != null,
-                  icon: isRide
-                      ? Icons.my_location_rounded
-                      : Icons.gps_fixed_rounded,
-                  isAr: isAr,
-                  palette: palette,
-                  height: locHeight,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildLocationPickerButton(
+                      isPickup: true,
+                      placeholder: isRide ? s.yourLocation : s.pickupLocation,
+                      addressText: _pickupController.text.trim(),
+                      hasLocation: _pickupLocation != null,
+                      icon: isRide
+                          ? Icons.my_location_rounded
+                          : Icons.gps_fixed_rounded,
+                      isAr: isAr,
+                      palette: palette,
+                      height: locHeight,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildLocationPickerButton(
+                      isPickup: false,
+                      placeholder: isRide ? s.destination : s.dropoffLocation,
+                      addressText: _dropoffController.text.trim(),
+                      hasLocation: _dropoffLocation != null,
+                      icon: Icons.location_on_rounded,
+                      isAr: isAr,
+                      palette: palette,
+                      height: locHeight,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildLocationPickerButton(
-                  isPickup: false,
-                  placeholder: isRide ? s.destination : s.dropoffLocation,
-                  addressText: _dropoffController.text.trim(),
-                  hasLocation: _dropoffLocation != null,
-                  icon: Icons.location_on_rounded,
-                  isAr: isAr,
-                  palette: palette,
-                  height: locHeight,
+              TactileScaleTap(
+                tapKey: const ValueKey('swap_locations_btn'),
+                pressedScale: 0.90,
+                onTap: _swapLocations,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: palette.surface,
+                    border: Border.all(
+                      color: SpecialDeliveryTokens.gold,
+                      width: 1.2,
+                    ),
+                    boxShadow: [palette.surfaceShadow],
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.swap_horiz_rounded,
+                    size: 14,
+                    color: palette.goldText,
+                  ),
                 ),
               ),
             ],
@@ -963,7 +1437,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             height: height,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: isPickup
+                ? const EdgeInsetsDirectional.fromSTEB(10, 0, 14, 0)
+                : const EdgeInsetsDirectional.fromSTEB(14, 0, 10, 0),
             decoration: BoxDecoration(
               color: hasLocation ? palette.selectedTint : palette.inputBg,
               borderRadius: BorderRadius.circular(12),
@@ -987,9 +1463,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: SpecialDeliveryTokens.text(
-                            size: 8.5,
+                            size: 8.0,
                             weight: FontWeight.w800,
-                            color: palette.goldText,
+                            color: isPickup
+                                ? palette.goldText
+                                : SpecialDeliveryTokens.successGreen,
                             height: 1.05,
                           ),
                         ),
@@ -1017,7 +1495,11 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                 Icon(
                   icon,
                   size: 15,
-                  color: palette.goldText,
+                  color: isPickup
+                      ? palette.goldText
+                      : (hasLocation
+                            ? SpecialDeliveryTokens.successGreen
+                            : palette.goldText),
                 ),
               ],
             ),
@@ -1025,8 +1507,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         ),
         if (hasLocation)
           PositionedDirectional(
-            top: -5,
-            end: -5,
+            top: -6,
+            start: isPickup ? -5 : null,
+            end: isPickup ? null : -5,
             child: GestureDetector(
               onTap: () => _clearLocation(isPickup: isPickup),
               child: Container(
@@ -1190,7 +1673,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // E. Vehicle Selection Grid (Backend-Driven, 4-Column Grid)
+  // Vehicle Type Selector — Full-Bleed Business-Type Style (4-Column Grid)
   // ---------------------------------------------------------------------------
   Widget _buildVehicleSection({
     required AppStrings s,
@@ -1221,7 +1704,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     final activeSelection = enabledVehicles.contains(_selectedVehicle)
         ? _selectedVehicle
         : (enabledVehicles.isNotEmpty ? enabledVehicles.first : '');
-    final boxSize = isUltraCompact ? 54.0 : (isCompact ? 60.0 : 68.0);
+    final boxSize = isUltraCompact ? 50.0 : (isCompact ? 56.0 : 64.0);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1272,9 +1755,8 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
               ),
           ],
         ),
-        SizedBox(height: isCompact ? 6 : 8),
+        SizedBox(height: isUltraCompact ? 4 : 6),
 
-        // Loading Skeleton / Empty / 4-Column Grid
         if (isSettingsLoading)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1296,7 +1778,10 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                             decoration: BoxDecoration(
                               color: palette.surface,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: palette.surfaceBorder),
+                              border: Border.all(
+                                color: palette.surfaceBorder,
+                                width: 1.5,
+                              ),
                             ),
                             child: Center(
                               child: SizedBox(
@@ -1311,10 +1796,10 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                           ),
                         ),
                       ),
-                      SizedBox(height: isCompact ? 5 : 6),
+                      const SizedBox(height: 4),
                       Container(
-                        width: 40,
-                        height: 10,
+                        width: 38,
+                        height: 9,
                         decoration: BoxDecoration(
                           color: palette.surface2,
                           borderRadius: BorderRadius.circular(4),
@@ -1328,7 +1813,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           )
         else if (enabledVehicles.isEmpty)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: palette.surface,
               borderRadius: BorderRadius.circular(16),
@@ -1383,7 +1868,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     for (var start = 0; start < enabledVehicles.length; start += 4) {
       final chunk = enabledVehicles.skip(start).take(4).toList(growable: false);
       if (rows.isNotEmpty) {
-        rows.add(const SizedBox(height: 8));
+        rows.add(const SizedBox(height: 6));
       }
       rows.add(
         Row(
@@ -1422,7 +1907,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     required String? customIconUrl,
     required bool isSelected,
     required SpecialDeliveryPalette palette,
-    double boxSize = 68,
+    double boxSize = 64,
     bool isCompact = false,
   }) {
     final hasImage = customIconUrl != null && customIconUrl.isNotEmpty;
@@ -1445,7 +1930,6 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 1:1 Rounded Square Icon Box (Full-bleed edge-to-edge image, zero inner padding)
           AnimatedScale(
             scale: isSelected ? 1.03 : 1.0,
             duration: const Duration(milliseconds: 220),
@@ -1472,7 +1956,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                           color: isSelected
                               ? SpecialDeliveryTokens.gold
                               : palette.surfaceBorder,
-                          width: isSelected ? 2 : 1,
+                          width: isSelected ? 2.0 : 1.5,
                         ),
                         boxShadow: isSelected
                             ? const [
@@ -1486,7 +1970,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(
-                          isSelected ? 14 : 15,
+                          isSelected ? 14 : 14.5,
                         ),
                         child: hasImage
                             ? CachedNetworkImage(
@@ -1500,7 +1984,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                                 placeholder: (_, _) => Center(
                                   child: Icon(
                                     fallbackIcon,
-                                    size: isCompact ? 22 : 26,
+                                    size: isCompact ? 20 : 24,
                                     color: isSelected
                                         ? palette.goldText
                                         : palette.textMuted,
@@ -1509,7 +1993,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                                 errorWidget: (_, _, _) => Center(
                                   child: Icon(
                                     fallbackIcon,
-                                    size: isCompact ? 22 : 26,
+                                    size: isCompact ? 20 : 24,
                                     color: isSelected
                                         ? palette.goldText
                                         : palette.textMuted,
@@ -1519,7 +2003,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                             : Center(
                                 child: Icon(
                                   fallbackIcon,
-                                  size: isCompact ? 22 : 26,
+                                  size: isCompact ? 20 : 24,
                                   color: isSelected
                                       ? palette.goldText
                                       : palette.textPrimary,
@@ -1528,9 +2012,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                       ),
                     ),
                     if (isSelected)
-                      PositionedDirectional(
+                      Positioned(
                         top: -4,
-                        start: -4,
+                        right: -4,
                         child: Container(
                           width: 18,
                           height: 18,
@@ -1538,7 +2022,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
                             shape: BoxShape.circle,
                             color: SpecialDeliveryTokens.gold,
                             border: Border.all(
-                              color: palette.bgMain,
+                              color: palette.sheetBg,
                               width: 1.5,
                             ),
                             boxShadow: const [
@@ -1562,24 +2046,19 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
               ),
             ),
           ),
-          SizedBox(height: isCompact ? 5 : 6),
-          // Vehicle Name Label below the icon box (matches Home Business Types)
+          SizedBox(height: isCompact ? 4 : 5),
           MediaQuery.withClampedTextScaling(
-            maxScaleFactor: 1.10,
+            maxScaleFactor: 1.08,
             child: Text(
               label,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: SpecialDeliveryTokens.text(
-                size: isSelected ? 10.5 : 10.0,
+                size: 10,
                 weight: isSelected ? FontWeight.w900 : FontWeight.w700,
-                color: isSelected
-                    ? palette.goldText
-                    : (palette.isDark
-                          ? const Color(0xFFC9C1B4)
-                          : palette.textMuted),
-                height: 1.15,
+                color: isSelected ? palette.goldText : palette.textPrimary,
+                height: 1.12,
               ),
             ),
           ),
@@ -1589,13 +2068,12 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // F1. Final Fare Card (tlob-surface)
+  // Optional Compact Fee Breakdown + Coins + Upfront Deposit Strip
   // ---------------------------------------------------------------------------
-  Widget _buildFinalFareCard({
+  Widget _buildCompactFeesAndCoinsStrip({
     required AppStrings s,
     required bool isAr,
     required bool isRide,
-    required bool hasBothLocations,
     required bool hasEstimate,
     required double estDeliveryFee,
     required double estServiceFee,
@@ -1604,250 +2082,127 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     required bool estDriverBonusPaidByCustomer,
     required double estDiscount,
     required double estUpfrontAmount,
-    required double? estGrandTotal,
     required bool isWalletPayment,
     required bool canUseCoins,
     required CoinHistoryState coinState,
     required SpecialDeliveryPalette palette,
-    bool isCompact = false,
   }) {
-    final fareTitle = isAr
-        ? 'الإجمالي النهائي'
-        : (isRide ? 'Final Ride Fare' : 'Final Delivery Fare');
-
-    String subtitle;
-    if (!hasBothLocations) {
-      subtitle = isRide
-          ? (isAr
-                ? 'حدد نقطة الركوب والوجهة لعرض الأجرة النهائية'
-                : 'Select pickup and destination to see your final fare')
-          : (isAr
-                ? 'حدد موقع الاستلام والتسليم لعرض الأجرة النهائية'
-                : 'Select pickup and dropoff locations to see your final fare');
-    } else if (_isEstimating) {
-      subtitle = isAr ? 'جاري حساب الأجرة...' : 'Calculating final fare...';
-    } else if (_estimateFailed) {
-      subtitle = _estimateErrorKey != null
-          ? '${ApiErrorMapper.translate(_estimateErrorKey!, context: context)} • ${isAr ? 'اضغط لإعادة المحاولة' : 'Tap to retry'}'
-          : (isAr
-                ? 'تعذر حساب الأجرة • اضغط لإعادة المحاولة'
-                : 'Could not calculate fare • Tap to retry');
-    } else {
-      subtitle = isAr
-          ? 'الرسوم المقدرة تشمل الخدمة'
-          : 'Estimated fare includes service & fees';
-    }
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      padding: EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: isCompact ? 7 : 10,
-      ),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: hasEstimate
-              ? SpecialDeliveryTokens.gold.withValues(alpha: 0.55)
-              : palette.surfaceBorder,
-        ),
-        boxShadow: [palette.surfaceShadow],
-      ),
-      child: MediaQuery.withClampedTextScaling(
-        maxScaleFactor: 1.12,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _estimateFailed ? () => _fetchEstimate(force: true) : null,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: SpecialDeliveryTokens.text(
-                            size: 10,
-                            weight: _estimateFailed
-                                ? FontWeight.w700
-                                : FontWeight.w600,
-                            color: _estimateFailed
-                                ? SpecialDeliveryTokens.errorRed
-                                : palette.textMuted,
-                            height: 1.15,
-                          ),
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          fareTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: SpecialDeliveryTokens.text(
-                            size: 12,
-                            weight: FontWeight.w900,
-                            color: palette.textPrimary,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  if (_isEstimating)
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: SpecialDeliveryTokens.gold,
-                      ),
-                    )
-                  else
-                    Text(
-                      estGrandTotal != null
-                          ? _formatMoney(estGrandTotal, s.egp)
-                          : '—',
-                      style: SpecialDeliveryTokens.numeric(
-                        size: 17,
-                        weight: FontWeight.w900,
-                        color: estGrandTotal != null
-                            ? palette.goldText
-                            : palette.textMuted,
-                        height: 1.1,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // Compact Backend Itemized Breakdown Strip (only when server estimate exists)
-            if (hasEstimate) ...[
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 2,
-                children: [
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.08,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (hasEstimate)
+            Wrap(
+              spacing: 8,
+              runSpacing: 2,
+              children: [
+                _miniFeeChip(
+                  isRide
+                      ? (isAr ? 'الرحلة' : 'Ride Fare')
+                      : (isAr ? 'التوصيل' : 'Delivery Fare'),
+                  _formatMoney(estDeliveryFee, s.egp),
+                  palette,
+                ),
+                if (estServiceFee > 0)
                   _miniFeeChip(
-                    isRide
-                        ? (isAr ? 'الرحلة' : 'Ride Fare')
-                        : (isAr ? 'التوصيل' : 'Delivery Fare'),
-                    _formatMoney(estDeliveryFee, s.egp),
+                    isAr ? 'الخدمة' : 'Service Fee',
+                    _formatMoney(estServiceFee, s.egp),
                     palette,
                   ),
-                  if (estServiceFee > 0)
-                    _miniFeeChip(
-                      isAr ? 'الخدمة' : 'Service Fee',
-                      _formatMoney(estServiceFee, s.egp),
-                      palette,
-                    ),
-                  if (estDriverBonusPaidByCustomer && estDriverBonusFee > 0)
-                    _miniFeeChip(
-                      isAr ? 'مكافأة' : 'Driver Bonus',
-                      _formatMoney(estDriverBonusFee, s.egp),
-                      palette,
-                    ),
-                  if (estTax > 0)
-                    _miniFeeChip(
-                      isAr ? 'ضريبة' : 'Taxes & Fees',
-                      _formatMoney(estTax, s.egp),
-                      palette,
-                    ),
-                  if (_useCoins && estDiscount > 0)
-                    _miniFeeChip(
-                      isAr ? 'خصم عملات' : 'Coin Discount',
-                      '-${_formatMoney(estDiscount, s.egp)}',
-                      palette,
-                      valueColor: SpecialDeliveryTokens.successGreen,
-                    ),
-                ],
-              ),
-            ],
-
-            // Compact Coins Toggle (only if user has eligible balance)
-            if (canUseCoins) ...[
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.stars_rounded,
-                        size: 14,
-                        color: SpecialDeliveryTokens.gold,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isAr
-                            ? 'استخدام ${coinState.currentBalance} عملة'
-                            : 'Use ${coinState.currentBalance} Coins',
-                        style: SpecialDeliveryTokens.text(
-                          size: 10.5,
-                          weight: FontWeight.w700,
-                          color: palette.textMuted,
-                        ),
-                      ),
-                    ],
+                if (estDriverBonusPaidByCustomer && estDriverBonusFee > 0)
+                  _miniFeeChip(
+                    isAr ? 'مكافأة' : 'Driver Bonus',
+                    _formatMoney(estDriverBonusFee, s.egp),
+                    palette,
                   ),
-                  SizedBox(
-                    height: 24,
-                    child: Transform.scale(
-                      scale: 0.78,
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: Switch(
-                        value: _useCoins,
-                        activeThumbColor: SpecialDeliveryTokens.darkOnGold,
-                        activeTrackColor: SpecialDeliveryTokens.gold,
-                        inactiveThumbColor: palette.textMuted,
-                        inactiveTrackColor: palette.surface2,
-                        trackOutlineColor: WidgetStateProperty.resolveWith(
-                          (states) => states.contains(WidgetState.selected)
-                              ? SpecialDeliveryTokens.gold
-                              : palette.surfaceBorder,
-                        ),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        onChanged: (val) {
-                          setState(() {
-                            _useCoins = val;
-                            _invalidateOrderIntent();
-                          });
-                        },
+                if (estTax > 0)
+                  _miniFeeChip(
+                    isAr ? 'ضريبة' : 'Taxes & Fees',
+                    _formatMoney(estTax, s.egp),
+                    palette,
+                  ),
+                if (_useCoins && estDiscount > 0)
+                  _miniFeeChip(
+                    isAr ? 'خصم عملات' : 'Coin Discount',
+                    '-${_formatMoney(estDiscount, s.egp)}',
+                    palette,
+                    valueColor: SpecialDeliveryTokens.successGreen,
+                  ),
+              ],
+            ),
+          if (canUseCoins) ...[
+            if (hasEstimate) const SizedBox(height: 3),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.stars_rounded,
+                      size: 13,
+                      color: SpecialDeliveryTokens.gold,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isAr
+                          ? 'استخدام ${coinState.currentBalance} عملة'
+                          : 'Use ${coinState.currentBalance} Coins',
+                      style: SpecialDeliveryTokens.text(
+                        size: 10,
+                        weight: FontWeight.w700,
+                        color: palette.textMuted,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-
-            // Compact Upfront Deposit Notice (only when required by backend)
-            if (hasEstimate && !isWalletPayment && estUpfrontAmount > 0) ...[
-              const SizedBox(height: 5),
-              Text(
-                isAr
-                    ? 'مطلوب تحويل مقدم ${_formatMoney(estUpfrontAmount, s.egp)} لمحفظة الكابتن بعد القبول.'
-                    : 'Upfront deposit of ${_formatMoney(estUpfrontAmount, s.egp)} required after acceptance.',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: SpecialDeliveryTokens.text(
-                  size: 9.5,
-                  weight: FontWeight.w700,
-                  color: palette.goldText,
+                  ],
                 ),
-              ),
-            ],
+                SizedBox(
+                  height: 22,
+                  child: Transform.scale(
+                    scale: 0.74,
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Switch(
+                      value: _useCoins,
+                      activeThumbColor: SpecialDeliveryTokens.darkOnGold,
+                      activeTrackColor: SpecialDeliveryTokens.gold,
+                      inactiveThumbColor: palette.textMuted,
+                      inactiveTrackColor: palette.surface2,
+                      trackOutlineColor: WidgetStateProperty.resolveWith(
+                        (states) => states.contains(WidgetState.selected)
+                            ? SpecialDeliveryTokens.gold
+                            : palette.surfaceBorder,
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onChanged: (val) {
+                        setState(() {
+                          _useCoins = val;
+                          _invalidateOrderIntent();
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
-        ),
+          if (hasEstimate && !isWalletPayment && estUpfrontAmount > 0) ...[
+            const SizedBox(height: 3),
+            Text(
+              isAr
+                  ? 'مطلوب تحويل مقدم ${_formatMoney(estUpfrontAmount, s.egp)} لمحفظة الكابتن بعد القبول.'
+                  : 'Upfront deposit of ${_formatMoney(estUpfrontAmount, s.egp)} required after acceptance.',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: SpecialDeliveryTokens.text(
+                size: 9,
+                weight: FontWeight.w700,
+                color: palette.goldText,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1883,60 +2238,177 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // F2. Primary CTA Button (w-full py-3.5 rounded-2xl)
+  // Combined Total Fare + Submit CTA Bar (tlob-surface, rounded-2xl, p-1.5 pr-3)
   // ---------------------------------------------------------------------------
-  Widget _buildSubmitButton({
+  Widget _buildCombinedFareAndCtaBar({
     required AppStrings s,
     required bool isAr,
-    required bool isEnabled,
+    required bool isRide,
+    required bool hasBothLocations,
+    required bool hasEstimate,
+    required double? estGrandTotal,
+    required bool isSubmitEnabled,
     required SpecialDeliveryPalette palette,
-    bool isCompact = false,
+    required bool isUltraCompact,
   }) {
-    final ctaLabel = _serviceType == 'ride'
-        ? (isAr ? 'اطلب الآن' : 'Request Now')
-        : s.requestCourier;
+    final String fareSubtitle;
+    if (_estimateFailed) {
+      fareSubtitle = isAr ? 'اضغط لإعادة المحاولة' : 'Tap to retry';
+    } else if (isAr) {
+      fareSubtitle = hasEstimate ? 'الإجمالي شامل الخدمة' : 'الإجمالي المقدر';
+    } else {
+      fareSubtitle = isRide ? 'Final Ride Fare' : 'Final Delivery Fare';
+    }
 
-    return TactileScaleTap(
-      pressedScale: 0.98,
-      onTap: isEnabled ? _submitOrder : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(vertical: isCompact ? 11 : 14),
-        decoration: BoxDecoration(
-          color: isEnabled ? SpecialDeliveryTokens.gold : palette.disabledBg,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: isEnabled
-              ? [
-                  BoxShadow(
-                    color: SpecialDeliveryTokens.gold.withValues(alpha: 0.30),
-                    blurRadius: 14,
-                    offset: const Offset(0, 5),
-                  ),
-                ]
-              : const [],
+    final String ctaLabel;
+    if (!hasBothLocations) {
+      ctaLabel = isRide
+          ? (isAr ? 'حدد المواقع للرحلة' : 'Select Locations')
+          : (isAr ? 'حدد المواقع للطلب' : 'Select Locations');
+    } else {
+      ctaLabel = isRide
+          ? (isAr ? 'اطلب الرحلة الآن' : 'Request Ride Now')
+          : (isAr ? 'طلب مندوب الآن' : 'Request Courier Now');
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: hasEstimate
+              ? SpecialDeliveryTokens.gold.withValues(alpha: 0.50)
+              : palette.surfaceBorder,
         ),
-        alignment: Alignment.center,
-        child: _isSubmitting
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  color: SpecialDeliveryTokens.darkOnGold,
-                ),
-              )
-            : Text(
-                ctaLabel,
-                style: SpecialDeliveryTokens.text(
-                  size: 14,
-                  weight: FontWeight.w900,
-                  color: isEnabled
-                      ? SpecialDeliveryTokens.darkOnGold
-                      : palette.disabledText,
-                  height: 1.1,
+        boxShadow: [palette.surfaceShadow],
+      ),
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.08,
+        child: Row(
+          children: [
+            // Start Side (Right in RTL): Total Fare
+            Expanded(
+              flex: 38,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _estimateFailed
+                    ? () => _fetchEstimate(force: true)
+                    : null,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fareSubtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SpecialDeliveryTokens.text(
+                        size: 9,
+                        weight: _estimateFailed
+                            ? FontWeight.w800
+                            : FontWeight.w700,
+                        color: _estimateFailed
+                            ? SpecialDeliveryTokens.errorRed
+                            : palette.textMuted,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    if (_isEstimating)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 3),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: SpecialDeliveryTokens.gold,
+                          ),
+                        ),
+                      )
+                    else
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          estGrandTotal != null
+                              ? _formatMoney(estGrandTotal, s.egp)
+                              : '—',
+                          maxLines: 1,
+                          style: SpecialDeliveryTokens.numeric(
+                            size: 17,
+                            weight: FontWeight.w900,
+                            color: estGrandTotal != null
+                                ? palette.goldText
+                                : palette.textMuted,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+
+            // End Side (Left in RTL): Primary CTA (flex: 62%, height: 44px)
+            Expanded(
+              flex: 62,
+              child: TactileScaleTap(
+                tapKey: const ValueKey('special_delivery_submit_cta'),
+                pressedScale: 0.98,
+                onTap: isSubmitEnabled ? _submitOrder : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  height: isUltraCompact ? 40 : 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: isSubmitEnabled
+                        ? SpecialDeliveryTokens.gold
+                        : palette.disabledBg,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: isSubmitEnabled
+                        ? [
+                            BoxShadow(
+                              color: SpecialDeliveryTokens.gold.withValues(
+                                alpha: 0.30,
+                              ),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : const [],
+                  ),
+                  alignment: Alignment.center,
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: SpecialDeliveryTokens.darkOnGold,
+                          ),
+                        )
+                      : Text(
+                          ctaLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SpecialDeliveryTokens.text(
+                            size: 13,
+                            weight: FontWeight.w900,
+                            color: isSubmitEnabled
+                                ? SpecialDeliveryTokens.darkOnGold
+                                : palette.disabledText,
+                            height: 1.1,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
