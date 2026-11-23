@@ -16,16 +16,25 @@ class GoogleSignInService {
     _initialized = true;
   }
 
-  static String _mapFailureKey({String? code, String? message}) {
-    final text = '${code ?? ''} ${message ?? ''}'.toLowerCase();
-    if (text.contains('clientconfigurationerror') ||
+  static bool _isConfigurationOrReauthFailure(String text) {
+    return text.contains('reauth') ||
+        text.contains('[16]') ||
+        text.contains('[28444]') ||
+        text.contains('developer console') ||
+        text.contains('clientconfigurationerror') ||
         text.contains('providerconfigurationerror') ||
         text.contains('gidclientid') ||
         text.contains('client_id') ||
         text.contains('clientid') ||
         text.contains('url scheme') ||
         text.contains('active configuration') ||
-        text.contains('configuration')) {
+        text.contains('configuration') ||
+        text.contains('sha');
+  }
+
+  static String _mapFailureKey({String? code, String? message}) {
+    final text = '${code ?? ''} ${message ?? ''}'.toLowerCase();
+    if (_isConfigurationOrReauthFailure(text)) {
       return 'auth.error.google_not_configured';
     }
     return 'auth.error.google_sign_in_failed';
@@ -40,37 +49,47 @@ class GoogleSignInService {
       final account = await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
-        throw Exception('google.sign_in.no_token');
+        debugPrint(
+          'GoogleSignIn returned account (${account.email}) with empty idToken',
+        );
+        throw Exception('auth.error.google_sign_in_failed');
       }
       return idToken;
     } on GoogleSignInException catch (e) {
-      if (e.code == GoogleSignInExceptionCode.canceled ||
-          e.code == GoogleSignInExceptionCode.interrupted) {
-        throw Exception('google.sign_in.no_token');
-      }
+      final rawMessage = '${e.description ?? ''} ${e.details ?? ''}';
       debugPrint(
         'GoogleSignInException: code=${e.code}, description=${e.description}, details=${e.details}',
       );
+      final lowerMessage = rawMessage.toLowerCase();
+      if (e.code == GoogleSignInExceptionCode.canceled &&
+          !_isConfigurationOrReauthFailure(lowerMessage)) {
+        throw Exception('google.sign_in.no_token');
+      }
       throw Exception(
         _mapFailureKey(
           code: e.code.name,
-          message: '${e.description ?? ''} ${e.details ?? ''}',
+          message: rawMessage,
         ),
       );
     } on PlatformException catch (e) {
       final str = '${e.code} ${e.message ?? ''}'.toLowerCase();
-      if (str.contains('canceled') || str.contains('cancelled')) {
-        throw Exception('google.sign_in.no_token');
-      }
       debugPrint(
         'GoogleSignIn PlatformException: code=${e.code}, message=${e.message}, details=${e.details}',
       );
+      if ((str.contains('canceled') || str.contains('cancelled')) &&
+          !_isConfigurationOrReauthFailure(str)) {
+        throw Exception('google.sign_in.no_token');
+      }
       throw Exception(_mapFailureKey(code: e.code, message: e.message));
     } catch (e) {
       final str = e.toString();
-      if (str.contains('google.sign_in.no_token')) rethrow;
+      if (str.contains('google.sign_in.no_token') ||
+          str.contains('auth.error.')) {
+        rethrow;
+      }
       final lower = str.toLowerCase();
-      if (lower.contains('canceled') || lower.contains('cancelled')) {
+      if ((lower.contains('canceled') || lower.contains('cancelled')) &&
+          !_isConfigurationOrReauthFailure(lower)) {
         throw Exception('google.sign_in.no_token');
       }
       debugPrint('GoogleSignIn unexpected error (${e.runtimeType}): $e');
