@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'package:otlob_customer/features/home/presentation/providers/customer_loc
 import 'package:otlob_customer/features/home/presentation/providers/favorites_provider.dart';
 import 'package:otlob_customer/features/home/presentation/providers/home_controller.dart';
 import 'package:otlob_customer/features/home/presentation/providers/home_state.dart';
+import 'package:otlob_customer/features/home/presentation/widgets/category_icon_image.dart';
 import 'package:otlob_customer/features/home/presentation/widgets/home_suggested_store_card.dart';
 import 'package:otlob_customer/features/home/presentation/widgets/offers_auto_scroller.dart';
 import 'package:otlob_customer/features/profile/presentation/providers/coin_history_provider.dart';
@@ -542,12 +544,24 @@ void main() {
       (lightHeaderLogo.decoration as BoxDecoration).color,
       const Color(0xFF11100E),
     );
+    // All 5 Business Type tiles (including "الكل") stay pure #FFFFFF in Light Mode too
     final lightAllTile = tester.widget<Container>(
       find.byKey(const ValueKey('home_all_category_tile')),
     );
     expect(
       (lightAllTile.decoration as BoxDecoration).color,
-      const Color(0xFF11100E),
+      const Color(0xFFFFFFFF),
+    );
+    final lightAllCircle = tester.widget<Container>(
+      find.byKey(const ValueKey('home_all_category_circle_logo')),
+    );
+    expect(
+      (lightAllCircle.decoration as BoxDecoration).color,
+      const Color(0xFFFFFFFF),
+    );
+    expect(
+      (lightAllCircle.decoration as BoxDecoration).shape,
+      BoxShape.circle,
     );
     for (final catType in const ['restaurants', 'pharmacy', 'produce', 'grocery']) {
       final tile = tester.widget<Container>(
@@ -558,16 +572,28 @@ void main() {
         const Color(0xFFFFFFFF),
       );
     }
-    final lightTlobTexts = tester.widgetList<Text>(find.text('TLOB')).toList();
-    expect(lightTlobTexts.length, 2);
-    for (final t in lightTlobTexts) {
-      expect(t.style?.color, const Color(0xFFFFFFFF));
-    }
-    final lightOtlobTexts = tester.widgetList<Text>(find.text('أطلب')).toList();
-    expect(lightOtlobTexts.length, 2);
-    for (final t in lightOtlobTexts) {
-      expect(t.style?.color, const Color(0xFFF6C667));
-    }
+    // Header TLOB is inverted white-on-black in Light Mode; "الكل" tile TLOB is dark #11100E on #FFFFFF
+    final headerTlob = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('home_header_logo')),
+        matching: find.text('TLOB'),
+      ),
+    );
+    expect(headerTlob.style?.color, const Color(0xFFFFFFFF));
+    final allTileTlob = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('home_all_category_tile')),
+        matching: find.text('TLOB'),
+      ),
+    );
+    expect(allTileTlob.style?.color, const Color(0xFF11100E));
+    final allTileOtlob = tester.widget<Text>(
+      find.descendant(
+        of: find.byKey(const ValueKey('home_all_category_tile')),
+        matching: find.text('أطلب'),
+      ),
+    );
+    expect(allTileOtlob.style?.color, const Color(0xFFB87B14));
   });
 
   testWidgets('HomeScreen handles empty offers gracefully with zero overflow', (
@@ -586,4 +612,59 @@ void main() {
     expect(find.byType(OffersAutoScroller), findsNothing);
     expect(find.byType(HomeSuggestedStoreCard), findsNWidgets(2));
   });
+
+  test(
+    'removeBlackBackgroundRgba strips exterior near-black pixels with feathering while preserving interior dark details',
+    () {
+      // 7x7 RGBA test image:
+      // - Outer border (ring 0): pure black (5, 5, 5, 255) -> must become alpha 0
+      // - Ring 1: anti-aliased dark feather (34, 34, 34, 255) -> 0 < alpha < 255
+      // - Ring 2: bright red artwork boundary (220, 40, 40, 255) -> alpha 255
+      // - Center pixel (3,3): interior dark detail (8, 8, 8, 255) -> must stay alpha 255!
+      const w = 7;
+      const h = 7;
+      final bytes = Uint8List(w * h * 4);
+
+      void setPx(int x, int y, int r, int g, int b, int a) {
+        final off = (y * w + x) * 4;
+        bytes[off] = r;
+        bytes[off + 1] = g;
+        bytes[off + 2] = b;
+        bytes[off + 3] = a;
+      }
+
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          final ring = [x, y, w - 1 - x, h - 1 - y].reduce((a, b) => a < b ? a : b);
+          if (ring == 0) {
+            setPx(x, y, 5, 5, 5, 255);
+          } else if (ring == 1) {
+            setPx(x, y, 34, 34, 34, 255);
+          } else if (ring == 2) {
+            setPx(x, y, 220, 40, 40, 255);
+          } else {
+            setPx(x, y, 8, 8, 8, 255);
+          }
+        }
+      }
+
+      final processed = removeBlackBackgroundRgba(
+        rgbaBytes: bytes,
+        width: w,
+        height: h,
+      );
+
+      int alphaAt(int x, int y) => processed[(y * w + x) * 4 + 3];
+
+      // Exterior corner black pixel -> fully transparent
+      expect(alphaAt(0, 0), 0);
+      // Feather band pixel (34,34,34) -> smooth partial alpha
+      expect(alphaAt(1, 1), greaterThan(0));
+      expect(alphaAt(1, 1), lessThan(255));
+      // Bright artwork pixel -> fully opaque
+      expect(alphaAt(2, 2), 255);
+      // Interior dark detail surrounded by artwork -> preserved fully opaque!
+      expect(alphaAt(3, 3), 255);
+    },
+  );
 }

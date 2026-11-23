@@ -23,6 +23,7 @@ import '../../../profile/presentation/providers/profile_controller.dart';
 import '../providers/customer_location_provider.dart';
 import '../providers/home_controller.dart';
 import '../providers/home_state.dart';
+import '../widgets/category_icon_image.dart';
 import '../widgets/home_design_tokens.dart';
 import '../widgets/home_suggested_store_card.dart';
 import '../widgets/offers_auto_scroller.dart';
@@ -1128,7 +1129,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  // Category Label below image (10px black active gold / 9.5px bold inactive primary)
+                  // Category Label below image (10px w900 active / 9.5px w700 inactive)
                   MediaQuery.withClampedTextScaling(
                     maxScaleFactor: 1.12,
                     child: SizedBox(
@@ -1146,8 +1147,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ? FontWeight.w900
                                 : FontWeight.w700,
                             color: isSelected
-                                ? palette.goldText
-                                : palette.textPrimary,
+                                ? (palette.isDark
+                                      ? const Color(0xFFE5A93C)
+                                      : const Color(0xFFB87B14))
+                                : (palette.isDark
+                                      ? const Color(0xFFF7F4EE)
+                                      : const Color(0xFF14120E)),
                             height: 1.05,
                           ),
                         ),
@@ -1167,6 +1172,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required HomePalette palette,
     required double arabicSize,
     required double latinSize,
+    Color? arabicColorOverride,
+    Color? primaryColorOverride,
   }) {
     return MediaQuery.withClampedTextScaling(
       maxScaleFactor: 1.0,
@@ -1184,7 +1191,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: HomeDesignTokens.text(
                   size: arabicSize,
                   weight: FontWeight.w800,
-                  color: palette.logoArabicText,
+                  color: arabicColorOverride ?? palette.logoArabicText,
                   height: 1.05,
                 ),
               ),
@@ -1194,7 +1201,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: HomeDesignTokens.numeric(
                   size: latinSize,
                   weight: FontWeight.w900,
-                  color: palette.logoPrimaryText,
+                  color: primaryColorOverride ?? palette.logoPrimaryText,
                   height: 0.95,
                   letterSpacing: -0.4,
                 ),
@@ -1215,38 +1222,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final iconUrl = cat['iconUrl']?.toString();
     final hasImage = iconUrl != null && iconUrl.isNotEmpty;
 
-    final List<BoxShadow> tileShadows;
-    if (isAll) {
-      tileShadows = [
-        ...palette.logoShadows,
-        if (isSelected)
-          const BoxShadow(
-            color: Color.fromRGBO(229, 169, 60, 0.35),
-            blurRadius: 14,
-            spreadRadius: 0,
-          ),
-      ];
-    } else if (isSelected) {
-      tileShadows = const [
-        BoxShadow(
-          color: Color.fromRGBO(229, 169, 60, 0.45),
-          blurRadius: 14,
-          spreadRadius: 0,
-        ),
-      ];
-    } else {
-      tileShadows = [
-        BoxShadow(
-          color: palette.cardShadowColor,
-          blurRadius: 10,
-          offset: const Offset(0, 3),
-        ),
-      ];
-    }
+    final List<BoxShadow> tileShadows = isSelected
+        ? const [
+            BoxShadow(
+              color: Color.fromRGBO(229, 169, 60, 0.42),
+              blurRadius: 14,
+              spreadRadius: 0,
+            ),
+          ]
+        : const [
+            BoxShadow(
+              color: Color.fromRGBO(0, 0, 0, 0.12),
+              blurRadius: 14,
+              offset: Offset(0, 4),
+            ),
+          ];
 
-    final unselectedBorderColor = palette.isDark
-        ? const Color.fromRGBO(229, 169, 60, 0.25)
-        : palette.borderSubtle;
+    final Color borderColor = isSelected
+        ? HomeDesignTokens.gold
+        : (palette.isDark
+              ? const Color.fromRGBO(229, 169, 60, 0.22)
+              : const Color.fromRGBO(217, 155, 38, 0.24));
+    final double borderWidth = isSelected ? 2.0 : 1.0;
 
     return Container(
       key: isAll
@@ -1256,61 +1253,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       height: double.infinity,
       padding: EdgeInsets.zero,
       decoration: BoxDecoration(
-        color: isAll ? palette.logoBg : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: (isSelected || isAll)
-              ? HomeDesignTokens.gold
-              : unselectedBorderColor,
-          width: (isSelected || isAll) ? 2 : 1,
-        ),
         boxShadow: tileShadows,
       ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: borderColor,
+          width: borderWidth,
+        ),
+      ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular((isSelected || isAll) ? 14 : 15),
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
         child: isAll
-            ? Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: palette.logoBg,
-                alignment: Alignment.center,
-                child: _buildInvertedBrandMark(
-                  palette: palette,
-                  arabicSize: 10.5,
-                  latinSize: 15.0,
+            ? ColoredBox(
+                color: Colors.white,
+                child: Center(
+                  child: FractionallySizedBox(
+                    widthFactor: 0.82,
+                    heightFactor: 0.82,
+                    child: Container(
+                      key: const ValueKey('home_all_category_circle_logo'),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(
+                          color: HomeDesignTokens.gold,
+                          width: 1.6,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: _buildInvertedBrandMark(
+                        palette: palette,
+                        arabicSize: 9.5,
+                        latinSize: 13.0,
+                        arabicColorOverride: const Color(0xFFB87B14),
+                        primaryColorOverride: const Color(0xFF11100E),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : hasImage
+            ? CategoryWhiteBgImage(
+                imageUrl: ImageUtils.formatImageUrl(iconUrl),
+                fallbackBuilder: (_) => Center(
+                  child: Icon(
+                    _getFallbackIconData(cat['type']?.toString() ?? ''),
+                    color: HomeDesignTokens.goldDark,
+                    size: 24,
+                  ),
                 ),
               )
             : ColoredBox(
                 color: Colors.white,
-                child: hasImage
-                    ? CachedNetworkImage(
-                        imageUrl: ImageUtils.formatImageUrl(iconUrl),
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.cover,
-                        memCacheWidth: 240,
-                        placeholder: (_, _) => Center(
-                          child: Icon(
-                            _getFallbackIconData(cat['type']?.toString() ?? ''),
-                            color: HomeDesignTokens.goldDark,
-                            size: 24,
-                          ),
-                        ),
-                        errorWidget: (_, _, _) => Center(
-                          child: Icon(
-                            _getFallbackIconData(cat['type']?.toString() ?? ''),
-                            color: HomeDesignTokens.goldDark,
-                            size: 24,
-                          ),
-                        ),
-                      )
-                    : Center(
-                        child: Icon(
-                          _getFallbackIconData(cat['type']?.toString() ?? ''),
-                          color: HomeDesignTokens.goldDark,
-                          size: 24,
-                        ),
-                      ),
+                child: Center(
+                  child: Icon(
+                    _getFallbackIconData(cat['type']?.toString() ?? ''),
+                    color: HomeDesignTokens.goldDark,
+                    size: 24,
+                  ),
+                ),
               ),
       ),
     );
