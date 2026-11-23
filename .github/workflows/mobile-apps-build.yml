@@ -321,6 +321,28 @@ jobs:
           echo "ERROR: CMake installation failed." >&2
           exit 1
 
+      - name: Restore Android debug keystore
+        env:
+          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${ANDROID_DEBUG_KEYSTORE_BASE64:-}" ]; then
+            echo "::warning::ANDROID_DEBUG_KEYSTORE_BASE64 secret is not set. Gradle will generate a random debug keystore SHA-1 and Google Sign-In will fail on this APK."
+            exit 0
+          fi
+
+          mkdir -p "$HOME/.android"
+          printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$HOME/.android/debug.keystore"
+
+          echo "Restored consistent Android debug keystore:"
+          keytool -list -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -alias androiddebugkey \
+            -storepass android \
+            -keypass android | grep -E "SHA1:|SHA256:"
+
       - name: Build release APK
         working-directory: ${{ matrix.app_path }}
         env:
