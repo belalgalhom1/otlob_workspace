@@ -1,4 +1,4 @@
-{
+﻿{
   "project_info": {
     "project_number": "316215692691",
     "project_id": "otlob-egytest",
@@ -7,9 +7,47 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:316215692691:android:customer",
+        "mobilesdk_app_id": "1:316215692691:android:70e8201b20e55985452c66",
         "android_client_info": {
           "package_name": "com.otlobegy.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJzj3sGtCwr3_6F0GpFK9h9bM3vk_avl0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:316215692691:android:a32020ef6770ddb8452c66",
+        "android_client_info": {
+          "package_name": "com.otlobegy.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJzj3sGtCwr3_6F0GpFK9h9bM3vk_avl0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:316215692691:android:bc46fd123c263c12452c66",
+        "android_client_info": {
+          "package_name": "com.otlobegy.vendor"
         }
       },
       "oauth_client": [],
