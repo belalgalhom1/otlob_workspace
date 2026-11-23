@@ -14,6 +14,9 @@ export class ProductVariant {
   nameAr?: string;
 
   @ApiPropertyOptional({ type: String })
+  imageUrl?: string;
+
+  @ApiPropertyOptional({ type: String })
   sku?: string;
 
   @ApiProperty({ type: Number })

@@ -2336,7 +2336,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   ) {
     final firstItem = items.first;
     final product = firstItem['product'] is Map ? firstItem['product'] as Map : const {};
+    final variant = firstItem['variant'] is Map ? firstItem['variant'] as Map : const {};
     final productImgUrl = _firstNonEmptyMedia([
+      variant['imageUrl'],
+      variant['image'],
       product['imageUrl'],
       product['image'],
       firstItem['imageUrl'],
@@ -3137,7 +3140,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               final quantity = item['quantity'] ?? 1;
               final price = double.tryParse(item['unitPrice']?.toString() ?? item['price']?.toString() ?? '0') ?? 0.0;
               final product = item['product'] is Map ? item['product'] as Map : null;
+              final variant = item['variant'] is Map ? item['variant'] as Map : null;
               final imgUrl = _firstNonEmptyMedia([
+                    variant?['imageUrl'],
+                    variant?['image'],
                     product?['imageUrl'],
                     product?['image'],
                     item['imageUrl'],

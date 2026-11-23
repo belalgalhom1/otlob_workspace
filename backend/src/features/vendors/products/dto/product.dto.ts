@@ -217,6 +217,16 @@ export class UpdateProductVariantDto {
   @MaxLength(200)
   nameAr?: string;
 
+  @ApiProperty({
+    example: 'https://cdn.example.com/variant.jpg',
+    required: false,
+    nullable: true,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  imageUrl?: string | null;
+
   @ApiProperty({ example: 'NEW-SKU-123', required: false })
   @IsString()
   @IsOptional()

@@ -249,6 +249,16 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
 
     final variants = item['variants'] as List<dynamic>? ?? [];
     final bool hasVariants = (item['hasVariants'] == true || variants.isNotEmpty) && variants.isNotEmpty;
+    final selectedVariantImage =
+        (_selectedVariant?['imageUrl'] ?? _selectedVariant?['image'])
+            ?.toString()
+            .trim();
+    final productMainImage =
+        (item['imageUrl'] ?? item['image'])?.toString().trim();
+    final heroImageUrl =
+        (selectedVariantImage != null && selectedVariantImage.isNotEmpty)
+            ? selectedVariantImage
+            : productMainImage;
     final productOptionGroups = item['optionGroups'] as List<dynamic>? ?? [];
     final variantOptionGroups = _selectedVariant?['optionGroups'] as List<dynamic>? ?? [];
     final optionGroups = [...productOptionGroups, ...variantOptionGroups];
@@ -298,7 +308,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        child: ((item['imageUrl'] ?? item['image'])?.toString().isEmpty ?? true)
+                        child: (heroImageUrl == null || heroImageUrl.isEmpty)
                             ? Container(
                                 width: double.infinity,
                                 height: 250,
@@ -315,7 +325,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
                                   child: CachedNetworkImage(
-                                    imageUrl: ImageUtils.formatImageUrl((item['imageUrl'] ?? item['image']) as String?),
+                                    imageUrl: ImageUtils.formatImageUrl(heroImageUrl),
                                     fit: BoxFit.contain,
                                     errorWidget: (context, url, error) => Icon(Icons.fastfood, size: 40, color: isDark ? Colors.white24 : Colors.grey.shade300),
                                   ),
@@ -484,6 +494,8 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                           : 0;
                       final vId = v['id']?.toString() ?? '';
                       final isVSelected = _selectedVariant?['id']?.toString() == vId;
+                      final vImageUrl =
+                          (v['imageUrl'] ?? v['image'])?.toString().trim() ?? '';
 
                       void selectVariant() {
                         setState(() {
@@ -539,6 +551,42 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
+                                if (vImageUrl.isNotEmpty) ...[
+                                  Container(
+                                    width: 46,
+                                    height: 46,
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.06)
+                                          : Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isVSelected
+                                            ? AppColors.primary
+                                            : (isDark
+                                                ? Colors.white.withValues(alpha: 0.1)
+                                                : Colors.grey.shade300),
+                                      ),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(9),
+                                      child: CachedNetworkImage(
+                                        imageUrl: ImageUtils.thumbnailUrl(vImageUrl),
+                                        width: 46,
+                                        height: 46,
+                                        fit: BoxFit.cover,
+                                        errorWidget: (_, _, _) => Icon(
+                                          Icons.fastfood_rounded,
+                                          size: 20,
+                                          color: isDark
+                                              ? Colors.white38
+                                              : Colors.grey.shade400,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                ],
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,

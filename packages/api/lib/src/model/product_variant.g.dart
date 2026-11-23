@@ -16,6 +16,8 @@ class _$ProductVariant extends ProductVariant {
   @override
   final String? nameAr;
   @override
+  final String? imageUrl;
+  @override
   final String? sku;
   @override
   final num basePrice;
@@ -38,6 +40,7 @@ class _$ProductVariant extends ProductVariant {
     required this.productId,
     required this.name,
     this.nameAr,
+    this.imageUrl,
     this.sku,
     required this.basePrice,
     this.comparePrice,
@@ -61,6 +64,7 @@ class _$ProductVariant extends ProductVariant {
         productId == other.productId &&
         name == other.name &&
         nameAr == other.nameAr &&
+        imageUrl == other.imageUrl &&
         sku == other.sku &&
         basePrice == other.basePrice &&
         comparePrice == other.comparePrice &&
@@ -77,6 +81,7 @@ class _$ProductVariant extends ProductVariant {
     _$hash = $jc(_$hash, productId.hashCode);
     _$hash = $jc(_$hash, name.hashCode);
     _$hash = $jc(_$hash, nameAr.hashCode);
+    _$hash = $jc(_$hash, imageUrl.hashCode);
     _$hash = $jc(_$hash, sku.hashCode);
     _$hash = $jc(_$hash, basePrice.hashCode);
     _$hash = $jc(_$hash, comparePrice.hashCode);
@@ -95,6 +100,7 @@ class _$ProductVariant extends ProductVariant {
           ..add('productId', productId)
           ..add('name', name)
           ..add('nameAr', nameAr)
+          ..add('imageUrl', imageUrl)
           ..add('sku', sku)
           ..add('basePrice', basePrice)
           ..add('comparePrice', comparePrice)
@@ -125,6 +131,10 @@ class ProductVariantBuilder
   String? _nameAr;
   String? get nameAr => _$this._nameAr;
   set nameAr(String? nameAr) => _$this._nameAr = nameAr;
+
+  String? _imageUrl;
+  String? get imageUrl => _$this._imageUrl;
+  set imageUrl(String? imageUrl) => _$this._imageUrl = imageUrl;
 
   String? _sku;
   String? get sku => _$this._sku;
@@ -165,6 +175,7 @@ class ProductVariantBuilder
       _productId = $v.productId;
       _name = $v.name;
       _nameAr = $v.nameAr;
+      _imageUrl = $v.imageUrl;
       _sku = $v.sku;
       _basePrice = $v.basePrice;
       _comparePrice = $v.comparePrice;
@@ -210,6 +221,7 @@ class ProductVariantBuilder
             'name',
           ),
           nameAr: nameAr,
+          imageUrl: imageUrl,
           sku: sku,
           basePrice: BuiltValueNullFieldError.checkNotNull(
             basePrice,

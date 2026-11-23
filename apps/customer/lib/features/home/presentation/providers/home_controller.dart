@@ -130,7 +130,13 @@ class HomeController extends _$HomeController {
           'isActive': offer['isActive'],
           'sortOrder': offer['sortOrder'],
           // Enriched from relations
-          'productImageUrl': offer['product']?['imageUrl'],
+          'productImageUrl': (offer['variant']?['imageUrl']
+                      ?.toString()
+                      .trim()
+                      .isNotEmpty ??
+                  false)
+              ? offer['variant']!['imageUrl']
+              : offer['product']?['imageUrl'],
           'productName': offer['product']?['name'],
           'productNameAr': offer['product']?['nameAr'],
           'productBasePrice': offer['product']?['basePrice'],

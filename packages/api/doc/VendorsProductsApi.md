@@ -23,11 +23,13 @@ Method | HTTP request | Description
 [**productsControllerRemoveOption**](VendorsProductsApi.md#productscontrollerremoveoption) | **DELETE** /vendors/{vendorId}/products/{productId}/option-groups/{groupId}/options/{optionId} | Delete an option from a group
 [**productsControllerRemoveOptionGroup**](VendorsProductsApi.md#productscontrollerremoveoptiongroup) | **DELETE** /vendors/{vendorId}/products/{productId}/option-groups/{groupId} | Delete a product option group
 [**productsControllerRemoveVariant**](VendorsProductsApi.md#productscontrollerremovevariant) | **DELETE** /vendors/{vendorId}/products/{productId}/variants/{variantId} | Delete a product variant
+[**productsControllerRemoveVariantImage**](VendorsProductsApi.md#productscontrollerremovevariantimage) | **DELETE** /vendors/{vendorId}/products/{productId}/variants/{variantId}/image | Remove product variant image
 [**productsControllerUpdate**](VendorsProductsApi.md#productscontrollerupdate) | **PATCH** /vendors/{vendorId}/products/{productId} | Update a product (Member)
 [**productsControllerUpdateOption**](VendorsProductsApi.md#productscontrollerupdateoption) | **PATCH** /vendors/{vendorId}/products/{productId}/option-groups/{groupId}/options/{optionId} | Update an option in a group
 [**productsControllerUpdateOptionGroup**](VendorsProductsApi.md#productscontrollerupdateoptiongroup) | **PATCH** /vendors/{vendorId}/products/{productId}/option-groups/{groupId} | Update a product option group
 [**productsControllerUpdateVariant**](VendorsProductsApi.md#productscontrollerupdatevariant) | **PATCH** /vendors/{vendorId}/products/{productId}/variants/{variantId} | Update a product variant
 [**productsControllerUploadImage**](VendorsProductsApi.md#productscontrolleruploadimage) | **POST** /vendors/{vendorId}/products/{productId}/image | Upload product image
+[**productsControllerUploadVariantImage**](VendorsProductsApi.md#productscontrolleruploadvariantimage) | **POST** /vendors/{vendorId}/products/{productId}/variants/{variantId}/image | Upload product variant image
 
 
 # **productsControllerAddOption**
@@ -666,6 +668,51 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **productsControllerRemoveVariantImage**
+> ApiControllerRoot200Response productsControllerRemoveVariantImage(vendorId, productId, variantId)
+
+Remove product variant image
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getVendorsProductsApi();
+final String vendorId = vendorId_example; // String | 
+final String productId = productId_example; // String | 
+final String variantId = variantId_example; // String | 
+
+try {
+    final response = api.productsControllerRemoveVariantImage(vendorId, productId, variantId);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling VendorsProductsApi->productsControllerRemoveVariantImage: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **vendorId** | **String**|  | 
+ **productId** | **String**|  | 
+ **variantId** | **String**|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **productsControllerUpdate**
 > ProductsControllerCreate200Response productsControllerUpdate(vendorId, productId, updateProductDto)
 
@@ -882,6 +929,53 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **vendorId** | **String**|  | 
  **productId** | **String**|  | 
+ **file** | **MultipartFile**|  | [optional] 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: multipart/form-data
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **productsControllerUploadVariantImage**
+> ApiControllerRoot200Response productsControllerUploadVariantImage(vendorId, productId, variantId, file)
+
+Upload product variant image
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getVendorsProductsApi();
+final String vendorId = vendorId_example; // String | 
+final String productId = productId_example; // String | 
+final String variantId = variantId_example; // String | 
+final MultipartFile file = BINARY_DATA_HERE; // MultipartFile | 
+
+try {
+    final response = api.productsControllerUploadVariantImage(vendorId, productId, variantId, file);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling VendorsProductsApi->productsControllerUploadVariantImage: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **vendorId** | **String**|  | 
+ **productId** | **String**|  | 
+ **variantId** | **String**|  | 
  **file** | **MultipartFile**|  | [optional] 
 
 ### Return type

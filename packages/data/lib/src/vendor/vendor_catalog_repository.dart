@@ -92,4 +92,32 @@ class VendorCatalogRepository {
     final response = await _api.productsControllerUploadImage(vendorId: vendorId, productId: productId, file: file);
     return ResponseParser.parse(response);
   }
+
+  Future<dynamic> uploadVariantImage(
+    String vendorId,
+    String productId,
+    String variantId,
+    MultipartFile? file,
+  ) async {
+    final response = await _api.productsControllerUploadVariantImage(
+      vendorId: vendorId,
+      productId: productId,
+      variantId: variantId,
+      file: file,
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> removeVariantImage(
+    String vendorId,
+    String productId,
+    String variantId,
+  ) async {
+    final response = await _api.productsControllerRemoveVariantImage(
+      vendorId: vendorId,
+      productId: productId,
+      variantId: variantId,
+    );
+    return ResponseParser.parse(response);
+  }
 }

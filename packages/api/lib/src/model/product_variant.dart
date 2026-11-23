@@ -15,6 +15,7 @@ part 'product_variant.g.dart';
 /// * [productId] 
 /// * [name] 
 /// * [nameAr] 
+/// * [imageUrl] 
 /// * [sku] 
 /// * [basePrice] 
 /// * [comparePrice] 
@@ -35,6 +36,9 @@ abstract class ProductVariant implements Built<ProductVariant, ProductVariantBui
 
   @BuiltValueField(wireName: r'nameAr')
   String? get nameAr;
+
+  @BuiltValueField(wireName: r'imageUrl')
+  String? get imageUrl;
 
   @BuiltValueField(wireName: r'sku')
   String? get sku;
@@ -99,6 +103,13 @@ class _$ProductVariantSerializer implements PrimitiveSerializer<ProductVariant> 
       yield r'nameAr';
       yield serializers.serialize(
         object.nameAr,
+        specifiedType: const FullType(String),
+      );
+    }
+    if (object.imageUrl != null) {
+      yield r'imageUrl';
+      yield serializers.serialize(
+        object.imageUrl,
         specifiedType: const FullType(String),
       );
     }
@@ -193,6 +204,13 @@ class _$ProductVariantSerializer implements PrimitiveSerializer<ProductVariant> 
             specifiedType: const FullType(String),
           ) as String;
           result.nameAr = valueDes;
+          break;
+        case r'imageUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.imageUrl = valueDes;
           break;
         case r'sku':
           final valueDes = serializers.deserialize(

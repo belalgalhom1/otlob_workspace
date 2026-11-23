@@ -232,6 +232,7 @@ const ORDER_DRIVER_SELECT = {
 const ORDER_ITEMS_INCLUDE = {
   selectedOptions: true,
   product: { select: { imageUrl: true } },
+  variant: { select: { imageUrl: true } },
 } as const;
 
 const ORDER_VENDOR_FULFILLMENTS_INCLUDE = {

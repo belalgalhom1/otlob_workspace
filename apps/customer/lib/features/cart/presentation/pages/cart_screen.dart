@@ -1145,7 +1145,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: (item.product.imageUrl?.isEmpty ?? true)
+                child: (item.displayImageUrl?.isEmpty ?? true)
                     ? Container(
                         height: 80,
                         width: 80,
@@ -1154,7 +1154,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       )
                     : CachedNetworkImage(
                         imageUrl: ImageUtils.thumbnailUrl(
-                          item.product.imageUrl,
+                          item.displayImageUrl,
                         ),
                         height: 80,
                         width: 80,

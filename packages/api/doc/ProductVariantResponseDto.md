@@ -12,6 +12,7 @@ Name | Type | Description | Notes
 **productId** | **String** |  | 
 **name** | **String** |  | 
 **nameAr** | **String** |  | [optional] 
+**imageUrl** | **String** |  | [optional] 
 **sku** | **String** |  | [optional] 
 **basePrice** | **num** |  | 
 **comparePrice** | **num** |  | [optional] 

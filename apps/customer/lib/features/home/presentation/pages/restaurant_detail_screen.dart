@@ -934,14 +934,41 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
-                    child: ((item['imageUrl'] ?? item['image'])?.toString().isEmpty ?? true)
-                        ? Icon(Icons.fastfood, color: Colors.grey.shade400, size: 36)
-                        : CachedNetworkImage(
-                            imageUrl: ImageUtils.thumbnailUrl((item['imageUrl'] ?? item['image']) as String?),
-                            fit: BoxFit.cover,
-                            width: 110,
-                            height: 110,
-                          ),
+                    child: Builder(
+                      builder: (context) {
+                        String? resolvedImg =
+                            (item['imageUrl'] ?? item['image'])?.toString().trim();
+                        if (resolvedImg == null || resolvedImg.isEmpty) {
+                          final itemVars = item['variants'];
+                          if (itemVars is List) {
+                            for (final v in itemVars) {
+                              if (v is Map) {
+                                final vi = (v['imageUrl'] ?? v['image'])
+                                    ?.toString()
+                                    .trim();
+                                if (vi != null && vi.isNotEmpty) {
+                                  resolvedImg = vi;
+                                  break;
+                                }
+                              }
+                            }
+                          }
+                        }
+                        if (resolvedImg == null || resolvedImg.isEmpty) {
+                          return Icon(
+                            Icons.fastfood,
+                            color: Colors.grey.shade400,
+                            size: 36,
+                          );
+                        }
+                        return CachedNetworkImage(
+                          imageUrl: ImageUtils.thumbnailUrl(resolvedImg),
+                          fit: BoxFit.cover,
+                          width: 110,
+                          height: 110,
+                        );
+                      },
+                    ),
                   ),
                 ),
                 if (item['comparePrice'] != null && (item['comparePrice'] as num) > (item['price'] as num))

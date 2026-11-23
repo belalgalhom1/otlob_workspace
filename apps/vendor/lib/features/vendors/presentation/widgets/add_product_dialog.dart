@@ -7,7 +7,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:api/api.dart';
-import 'package:core/core.dart' show ImageUtils;
+import 'package:core/core.dart' show ImageUtils, MultipartFile;
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
@@ -1016,6 +1016,11 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                     final stockText = variant['tracksStock'] == false
                         ? l10n.notTracked
                         : '${variant['stock'] ?? 0}';
+                    final variantBytes = variant['imageBytes'] is Uint8List
+                        ? variant['imageBytes'] as Uint8List
+                        : null;
+                    final variantImageUrl =
+                        variant['imageUrl']?.toString().trim() ?? '';
                     return AppDialogSectionCard(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -1023,6 +1028,40 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                       ),
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppDialogStyles.borderColor(context),
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(9),
+                            child: variantBytes != null
+                                ? Image.memory(
+                                    variantBytes,
+                                    fit: BoxFit.cover,
+                                  )
+                                : variantImageUrl.isNotEmpty
+                                    ? Image.network(
+                                        _formatImageUrl(variantImageUrl),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) => const Icon(
+                                          LucideIcons.layers,
+                                          color: AppColors.primary,
+                                          size: 20,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        LucideIcons.layers,
+                                        color: AppColors.primary,
+                                        size: 20,
+                                      ),
+                          ),
+                        ),
                         title: Text(
                           variant['name'] ?? l10n.unknown,
                           style: theme.textTheme.bodyMedium?.copyWith(
@@ -1249,6 +1288,17 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
   void _showAddVariantDialog({dynamic variant}) async {
     var tracksStock = variant?['tracksStock'] ?? true;
     var isSaving = false;
+    var isPickingVariantImage = false;
+    XFile? variantImageFile =
+        variant?['imageFile'] is XFile ? variant['imageFile'] as XFile : null;
+    Uint8List? variantImageBytes = variant?['imageBytes'] is Uint8List
+        ? variant['imageBytes'] as Uint8List
+        : null;
+    String? existingVariantImageUrl =
+        variant?['imageUrl']?.toString().trim().isNotEmpty == true
+            ? variant['imageUrl'].toString().trim()
+            : null;
+    var removeExistingVariantImage = false;
     final nameController = TextEditingController(text: variant?['name'] ?? '');
     final nameArController = TextEditingController(
       text: variant?['nameAr'] ?? '',
@@ -1264,216 +1314,376 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
     );
     final skuController = TextEditingController(text: variant?['sku'] ?? '');
 
+    Future<void> pickVariantImage(StateSetter setDialogState) async {
+      if (isPickingVariantImage) return;
+      setDialogState(() => isPickingVariantImage = true);
+      try {
+        final picker = ImagePicker();
+        final XFile? picked = await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 85,
+        );
+        if (picked != null) {
+          XFile? finalImg;
+          try {
+            final cropped = await ImageCropper().cropImage(
+              sourcePath: picked.path,
+              aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+              compressQuality: 85,
+              maxWidth: 1080,
+              maxHeight: 1080,
+              uiSettings: [
+                AndroidUiSettings(
+                  toolbarTitle: 'Crop Variant Photo',
+                  toolbarColor: const Color(0xFFD4920E),
+                  toolbarWidgetColor: Colors.white,
+                  activeControlsWidgetColor: const Color(0xFFD4920E),
+                  initAspectRatio: CropAspectRatioPreset.square,
+                  lockAspectRatio: true,
+                ),
+                IOSUiSettings(
+                  title: 'Crop Variant Photo',
+                  aspectRatioLockEnabled: true,
+                  resetAspectRatioEnabled: false,
+                ),
+              ],
+            );
+            if (cropped == null) return;
+            finalImg = XFile(cropped.path);
+          } catch (_) {
+            finalImg = picked;
+          }
+          final bytes = await finalImg.readAsBytes();
+          setDialogState(() {
+            variantImageFile = finalImg;
+            variantImageBytes = bytes;
+            removeExistingVariantImage = false;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error picking variant image: $e');
+        if (mounted) {
+          if (MediaPermissionHelper.isAccessDeniedError(e)) {
+            MediaPermissionHelper.handlePickerError(e, context: context);
+          } else {
+            _showNotice(
+              AppLocalizations.of(context)!.failedToPickImage,
+              isError: true,
+            );
+          }
+        }
+      } finally {
+        setDialogState(() => isPickingVariantImage = false);
+      }
+    }
+
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) {
         final l10n = AppLocalizations.of(dialogCtx)!;
+        final theme = Theme.of(dialogCtx);
         return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) => AppDialog(
-            maxWidth: 520,
-            canPop: !isSaving,
-            header: AppDialogHeader(
-              icon: LucideIcons.layers,
-              title: variant == null ? l10n.addVariant : l10n.editVariant,
-              isCloseDisabled: isSaving,
-              onClose: () => Navigator.pop(dialogCtx),
-            ),
-            body: Form(
-              key: _variantFormKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildTextField(
-                    controller: nameController,
-                    label: l10n.nameEn,
-                    languageTag: 'EN',
-                    isRequired: true,
-                    hint: 'e.g. Cheese Pizza, Tuna Pizza',
-                    icon: LucideIcons.type,
-                    textDirection: TextDirection.ltr,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? l10n.fieldRequired : null,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildTextField(
-                    controller: nameArController,
-                    label: l10n.nameAr,
-                    languageTag: 'عربي',
-                    languageTagColor: AppColors.info,
-                    hint: 'مثال: بيتزا جبنة، بيتزا تونة',
-                    icon: LucideIcons.languages,
-                    textDirection: TextDirection.rtl,
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          controller: priceController,
-                          label: l10n.price,
-                          isRequired: true,
-                          hint: '0.00',
-                          icon: LucideIcons.dollarSign,
-                          keyboardType: TextInputType.number,
-                          textDirection: TextDirection.ltr,
-                          validator: (v) {
-                            final p = double.tryParse(v ?? '');
-                            if (p == null || p <= 0) {
-                              return l10n.fieldRequired;
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildTextField(
-                          controller: comparePriceController,
-                          label: l10n.comparePrice,
-                          hint: '0.00',
-                          icon: LucideIcons.tag,
-                          keyboardType: TextInputType.number,
-                          textDirection: TextDirection.ltr,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          controller: stockController,
-                          label: l10n.stock,
-                          hint: '0',
-                          icon: LucideIcons.box,
-                          keyboardType: TextInputType.number,
-                          textDirection: TextDirection.ltr,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildTextField(
-                          controller: skuController,
-                          label: l10n.sku,
-                          hint: l10n.optional,
-                          icon: LucideIcons.hash,
-                          textDirection: TextDirection.ltr,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  AppDialogSectionCard(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    child: _buildSwitchTile(
-                      title: l10n.trackStock,
-                      subtitle: l10n.trackStockSubtitle,
-                      value: tracksStock,
-                      onChanged: (v) => setDialogState(() => tracksStock = v),
-                      icon: LucideIcons.boxes,
-                    ),
-                  ),
-                ],
+          builder: (dialogCtx, setDialogState) {
+            final hasVariantImage = variantImageFile != null ||
+                variantImageBytes != null ||
+                (!removeExistingVariantImage &&
+                    existingVariantImageUrl != null &&
+                    existingVariantImageUrl.isNotEmpty);
+            return AppDialog(
+              maxWidth: 520,
+              canPop: !isSaving,
+              header: AppDialogHeader(
+                icon: LucideIcons.layers,
+                title: variant == null ? l10n.addVariant : l10n.editVariant,
+                isCloseDisabled: isSaving,
+                onClose: () => Navigator.pop(dialogCtx),
               ),
-            ),
-            footer: AppDialogFooter(
-              cancelLabel: l10n.cancel,
-              onCancel: () => Navigator.pop(dialogCtx),
-              confirmLabel: variant == null ? l10n.add : l10n.save,
-              confirmIcon:
-                  variant == null ? LucideIcons.plus : LucideIcons.check,
-              isLoading: isSaving,
-              onConfirm: isSaving
-                  ? null
-                  : () async {
-                      if (!(_variantFormKey.currentState?.validate() ?? false)) {
-                        return;
-                      }
-                      setDialogState(() => isSaving = true);
-                      final comparePriceVal =
-                          comparePriceController.text.trim().isNotEmpty
-                              ? double.tryParse(
-                                  comparePriceController.text.trim(),
-                                )
-                              : null;
-                      final data = {
-                        'name': nameController.text,
-                        'nameAr': nameArController.text,
-                        'basePrice':
-                            double.tryParse(priceController.text) ?? 0.0,
-                        'comparePrice': comparePriceVal,
-                        'stock': int.tryParse(stockController.text),
-                        'sku': skuController.text.trim().isEmpty
-                            ? null
-                            : skuController.text.trim(),
-                        'tracksStock': tracksStock,
-                      };
-                      bool success = false;
-                      if (variant == null) {
-                        if (widget.product == null) {
-                          setState(() {
-                            _variants.add({
-                              'id':
-                                  'temp_${DateTime.now().millisecondsSinceEpoch}',
-                              'name': data['name'],
-                              'nameAr': data['nameAr'],
-                              'basePrice': data['basePrice'],
-                              'comparePrice': data['comparePrice'],
-                              'stock': data['stock'],
-                              'sku': data['sku'],
-                              'tracksStock': data['tracksStock'],
-                              'optionGroups': [],
-                            });
-                          });
-                          success = true;
-                        } else {
-                          try {
-                            await ref
-                                .read(adminVendorsRepositoryProvider)
-                                .addVariant(
-                                  widget.vendorId,
-                                  widget.product['id'],
-                                  CreateProductVariantDto((b) {
-                                    b.name = data['name'] as String;
-                                    b.nameAr = data['nameAr'] as String;
-                                    b.basePrice = data['basePrice'] as num;
-                                    if (data['comparePrice'] != null) {
-                                      b.comparePrice =
-                                          data['comparePrice'] as num;
-                                    }
-                                    b.stock = data['stock'] as num?;
-                                    if (data['tracksStock'] != null) {
-                                      b.tracksStock =
-                                          data['tracksStock'] as bool;
-                                    }
-                                    if (data['sku'] != null &&
-                                        (data['sku'] as String).isNotEmpty) {
-                                      b.sku = data['sku'] as String;
-                                    }
-                                  }),
-                                );
-                            success = true;
-                          } catch (e) {
-                            success = false;
-                            debugPrint(e.toString());
-                          }
+              body: Form(
+                key: _variantFormKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppFieldLabel(label: l10n.productImage),
+                    Stack(
+                      children: [
+                        GestureDetector(
+                          onTap: isPickingVariantImage
+                              ? null
+                              : () => pickVariantImage(setDialogState),
+                          child: Container(
+                            height: 132,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color:
+                                  AppDialogStyles.subtleSurfaceColor(dialogCtx),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppDialogStyles.borderColor(dialogCtx),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: variantImageBytes != null
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(13),
+                                    child: Image.memory(
+                                      variantImageBytes!,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : variantImageFile != null
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(13),
+                                        child: kIsWeb
+                                            ? Image.network(
+                                                variantImageFile!.path,
+                                                fit: BoxFit.cover,
+                                              )
+                                            : Image.file(
+                                                File(variantImageFile!.path),
+                                                fit: BoxFit.cover,
+                                              ),
+                                      )
+                                    : (!removeExistingVariantImage &&
+                                            existingVariantImageUrl != null &&
+                                            existingVariantImageUrl.isNotEmpty)
+                                        ? ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(13),
+                                            child: Image.network(
+                                              _formatImageUrl(
+                                                existingVariantImageUrl,
+                                              ),
+                                              fit: BoxFit.cover,
+                                            ),
+                                          )
+                                        : Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.all(10),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.primary
+                                                      .withValues(alpha: 0.12),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: AppColors.primary
+                                                        .withValues(
+                                                          alpha: 0.25,
+                                                        ),
+                                                  ),
+                                                ),
+                                                child: const Icon(
+                                                  LucideIcons.image,
+                                                  color: AppColors.primary,
+                                                  size: 22,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                l10n.uploadProductImage,
+                                                style: theme
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurface,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      fontSize: 13,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                l10n.imageFormatSupport,
+                                                style: theme
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      fontSize: 11.5,
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                          ),
+                        ),
+                        if (hasVariantImage)
+                          PositionedDirectional(
+                            end: 10,
+                            top: 10,
+                            child: Row(
+                              children: [
+                                _buildImageActionButton(
+                                  icon: LucideIcons.camera,
+                                  onTap: () => pickVariantImage(setDialogState),
+                                  tooltip: l10n.changeImage,
+                                ),
+                                const SizedBox(width: 8),
+                                _buildImageActionButton(
+                                  icon: LucideIcons.trash2,
+                                  onTap: () {
+                                    setDialogState(() {
+                                      variantImageFile = null;
+                                      variantImageBytes = null;
+                                      removeExistingVariantImage = true;
+                                    });
+                                  },
+                                  backgroundColor:
+                                      AppColors.error.withValues(alpha: 0.9),
+                                  tooltip: l10n.removeImage,
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _buildTextField(
+                      controller: nameController,
+                      label: l10n.nameEn,
+                      languageTag: 'EN',
+                      isRequired: true,
+                      hint: 'e.g. Cheese Pizza, Tuna Pizza',
+                      icon: LucideIcons.type,
+                      textDirection: TextDirection.ltr,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? l10n.fieldRequired
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+                    _buildTextField(
+                      controller: nameArController,
+                      label: l10n.nameAr,
+                      languageTag: 'عربي',
+                      languageTagColor: AppColors.info,
+                      hint: 'مثال: بيتزا جبنة، بيتزا تونة',
+                      icon: LucideIcons.languages,
+                      textDirection: TextDirection.rtl,
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: priceController,
+                            label: l10n.price,
+                            isRequired: true,
+                            hint: '0.00',
+                            icon: LucideIcons.dollarSign,
+                            keyboardType: TextInputType.number,
+                            textDirection: TextDirection.ltr,
+                            validator: (v) {
+                              final p = double.tryParse(v ?? '');
+                              if (p == null || p <= 0) {
+                                return l10n.fieldRequired;
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: comparePriceController,
+                            label: l10n.comparePrice,
+                            hint: '0.00',
+                            icon: LucideIcons.tag,
+                            keyboardType: TextInputType.number,
+                            textDirection: TextDirection.ltr,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: stockController,
+                            label: l10n.stock,
+                            hint: '0',
+                            icon: LucideIcons.box,
+                            keyboardType: TextInputType.number,
+                            textDirection: TextDirection.ltr,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: skuController,
+                            label: l10n.sku,
+                            hint: l10n.optional,
+                            icon: LucideIcons.hash,
+                            textDirection: TextDirection.ltr,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    AppDialogSectionCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      child: _buildSwitchTile(
+                        title: l10n.trackStock,
+                        subtitle: l10n.trackStockSubtitle,
+                        value: tracksStock,
+                        onChanged: (v) => setDialogState(() => tracksStock = v),
+                        icon: LucideIcons.boxes,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              footer: AppDialogFooter(
+                cancelLabel: l10n.cancel,
+                onCancel: () => Navigator.pop(dialogCtx),
+                confirmLabel: variant == null ? l10n.add : l10n.save,
+                confirmIcon:
+                    variant == null ? LucideIcons.plus : LucideIcons.check,
+                isLoading: isSaving,
+                onConfirm: isSaving
+                    ? null
+                    : () async {
+                        if (!(_variantFormKey.currentState?.validate() ??
+                            false)) {
+                          return;
                         }
-                      } else {
-                        if (widget.product == null) {
-                          setState(() {
-                            final idx = _variants.indexWhere(
-                              (v) => v['id'] == variant['id'],
-                            );
-                            if (idx != -1) {
-                              _variants[idx] = {
-                                ..._variants[idx],
+                        setDialogState(() => isSaving = true);
+                        final comparePriceVal =
+                            comparePriceController.text.trim().isNotEmpty
+                                ? double.tryParse(
+                                    comparePriceController.text.trim(),
+                                  )
+                                : null;
+                        final data = {
+                          'name': nameController.text,
+                          'nameAr': nameArController.text,
+                          'basePrice':
+                              double.tryParse(priceController.text) ?? 0.0,
+                          'comparePrice': comparePriceVal,
+                          'stock': int.tryParse(stockController.text),
+                          'sku': skuController.text.trim().isEmpty
+                              ? null
+                              : skuController.text.trim(),
+                          'tracksStock': tracksStock,
+                        };
+                        bool success = false;
+                        if (variant == null) {
+                          if (widget.product == null) {
+                            setState(() {
+                              _variants.add({
+                                'id':
+                                    'temp_${DateTime.now().millisecondsSinceEpoch}',
                                 'name': data['name'],
                                 'nameAr': data['nameAr'],
                                 'basePrice': data['basePrice'],
@@ -1481,49 +1691,184 @@ class _AddProductDialogState extends ConsumerState<AddProductDialog> {
                                 'stock': data['stock'],
                                 'sku': data['sku'],
                                 'tracksStock': data['tracksStock'],
-                              };
-                            }
-                          });
-                          success = true;
-                        } else {
-                          try {
-                            await ref
-                                .read(adminVendorsRepositoryProvider)
-                                .updateVariant(
-                                  widget.vendorId,
-                                  widget.product['id'],
-                                  variant['id'],
-                                  UpdateProductVariantDto((b) {
-                                    b.name = data['name'] as String;
-                                    b.nameAr = data['nameAr'] as String;
-                                    b.basePrice = data['basePrice'] as num;
-                                    if (data['comparePrice'] != null) {
-                                      b.comparePrice =
-                                          data['comparePrice'] as num;
-                                    }
-                                    b.stock = data['stock'] as num?;
-                                    if (data['tracksStock'] != null) {
-                                      b.tracksStock =
-                                          data['tracksStock'] as bool;
-                                    }
-                                    if (data['sku'] != null &&
-                                        (data['sku'] as String).isNotEmpty) {
-                                      b.sku = data['sku'] as String;
-                                    }
-                                  }),
-                                );
+                                'imageFile': variantImageFile,
+                                'imageBytes': variantImageBytes,
+                                'imageUrl': null,
+                                'optionGroups': [],
+                              });
+                            });
                             success = true;
-                          } catch (e) {
-                            success = false;
-                            debugPrint(e.toString());
+                          } else {
+                            try {
+                              final repo =
+                                  ref.read(adminVendorsRepositoryProvider);
+                              final addRes = await repo.addVariant(
+                                widget.vendorId,
+                                widget.product['id'],
+                                CreateProductVariantDto((b) {
+                                  b.name = data['name'] as String;
+                                  b.nameAr = data['nameAr'] as String;
+                                  b.basePrice = data['basePrice'] as num;
+                                  if (data['comparePrice'] != null) {
+                                    b.comparePrice =
+                                        data['comparePrice'] as num;
+                                  }
+                                  b.stock = data['stock'] as num?;
+                                  if (data['tracksStock'] != null) {
+                                    b.tracksStock =
+                                        data['tracksStock'] as bool;
+                                  }
+                                  if (data['sku'] != null &&
+                                      (data['sku'] as String).isNotEmpty) {
+                                    b.sku = data['sku'] as String;
+                                  }
+                                }),
+                              );
+                              if (variantImageFile != null) {
+                                String? createdVarId = addRes is Map
+                                    ? addRes['createdVariantId']?.toString()
+                                    : null;
+                                if ((createdVarId == null ||
+                                        createdVarId.isEmpty) &&
+                                    addRes is Map &&
+                                    addRes['variants'] is List) {
+                                  final existingIds = _variants
+                                      .map((v) => v['id']?.toString() ?? '')
+                                      .toSet();
+                                  for (final v in addRes['variants'] as List) {
+                                    if (v is Map &&
+                                        v['id'] != null &&
+                                        !existingIds
+                                            .contains(v['id'].toString())) {
+                                      createdVarId = v['id'].toString();
+                                      break;
+                                    }
+                                  }
+                                  createdVarId ??= (addRes['variants'] as List)
+                                      .whereType<Map>()
+                                      .where(
+                                        (v) =>
+                                            v['name']?.toString() ==
+                                            data['name'],
+                                      )
+                                      .map((v) => v['id']?.toString())
+                                      .firstOrNull;
+                                }
+                                if (createdVarId != null &&
+                                    createdVarId.isNotEmpty) {
+                                  final multipart = variantImageBytes != null
+                                      ? MultipartFile.fromBytes(
+                                          variantImageBytes!,
+                                          filename: variantImageFile!.name,
+                                        )
+                                      : await MultipartFile.fromFile(
+                                          variantImageFile!.path,
+                                          filename: variantImageFile!.name,
+                                        );
+                                  await repo.uploadVariantImage(
+                                    widget.vendorId,
+                                    widget.product['id'].toString(),
+                                    createdVarId,
+                                    multipart,
+                                  );
+                                }
+                              }
+                              success = true;
+                            } catch (e) {
+                              success = false;
+                              debugPrint(e.toString());
+                            }
+                          }
+                        } else {
+                          if (widget.product == null) {
+                            setState(() {
+                              final idx = _variants.indexWhere(
+                                (v) => v['id'] == variant['id'],
+                              );
+                              if (idx != -1) {
+                                _variants[idx] = {
+                                  ..._variants[idx],
+                                  'name': data['name'],
+                                  'nameAr': data['nameAr'],
+                                  'basePrice': data['basePrice'],
+                                  'comparePrice': data['comparePrice'],
+                                  'stock': data['stock'],
+                                  'sku': data['sku'],
+                                  'tracksStock': data['tracksStock'],
+                                  'imageFile': variantImageFile,
+                                  'imageBytes': variantImageBytes,
+                                  'imageUrl': removeExistingVariantImage
+                                      ? null
+                                      : existingVariantImageUrl,
+                                };
+                              }
+                            });
+                            success = true;
+                          } else {
+                            try {
+                              final repo =
+                                  ref.read(adminVendorsRepositoryProvider);
+                              await repo.updateVariant(
+                                widget.vendorId,
+                                widget.product['id'],
+                                variant['id'],
+                                UpdateProductVariantDto((b) {
+                                  b.name = data['name'] as String;
+                                  b.nameAr = data['nameAr'] as String;
+                                  b.basePrice = data['basePrice'] as num;
+                                  if (data['comparePrice'] != null) {
+                                    b.comparePrice =
+                                        data['comparePrice'] as num;
+                                  }
+                                  b.stock = data['stock'] as num?;
+                                  if (data['tracksStock'] != null) {
+                                    b.tracksStock =
+                                        data['tracksStock'] as bool;
+                                  }
+                                  if (data['sku'] != null &&
+                                      (data['sku'] as String).isNotEmpty) {
+                                    b.sku = data['sku'] as String;
+                                  }
+                                }),
+                              );
+                              if (variantImageFile != null) {
+                                final multipart = variantImageBytes != null
+                                    ? MultipartFile.fromBytes(
+                                        variantImageBytes!,
+                                        filename: variantImageFile!.name,
+                                      )
+                                    : await MultipartFile.fromFile(
+                                        variantImageFile!.path,
+                                        filename: variantImageFile!.name,
+                                      );
+                                await repo.uploadVariantImage(
+                                  widget.vendorId,
+                                  widget.product['id'].toString(),
+                                  variant['id'].toString(),
+                                  multipart,
+                                );
+                              } else if (removeExistingVariantImage &&
+                                  existingVariantImageUrl != null &&
+                                  existingVariantImageUrl.isNotEmpty) {
+                                await repo.removeVariantImage(
+                                  widget.vendorId,
+                                  widget.product['id'].toString(),
+                                  variant['id'].toString(),
+                                );
+                              }
+                              success = true;
+                            } catch (e) {
+                              success = false;
+                              debugPrint(e.toString());
+                            }
                           }
                         }
-                      }
-                      if (!dialogCtx.mounted) return;
-                      Navigator.pop(dialogCtx, success);
-                    },
-            ),
-          ),
+                        if (!dialogCtx.mounted) return;
+                        Navigator.pop(dialogCtx, success);
+                      },
+              ),
+            );
+          },
         );
       },
     );

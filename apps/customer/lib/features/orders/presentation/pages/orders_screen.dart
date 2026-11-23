@@ -1145,11 +1145,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
           ] else
             ...items.map((i) {
               final product = i['product'] is Map ? i['product'] as Map : null;
-              final productImgUrl = (product?['imageUrl'] ??
-                      product?['image'] ??
-                      i['imageUrl'] ??
-                      i['image'])
-                  ?.toString();
+              final variant = i['variant'] is Map ? i['variant'] as Map : null;
+              final variantImg =
+                  (variant?['imageUrl'] ?? variant?['image'])?.toString().trim();
+              final productImgUrl = (variantImg != null && variantImg.isNotEmpty)
+                  ? variantImg
+                  : (product?['imageUrl'] ??
+                          product?['image'] ??
+                          i['imageUrl'] ??
+                          i['image'])
+                      ?.toString();
               final productName = i['productName'] ?? i['name'] ?? '';
               final bool isRejected = i['rejectedAt'] != null;
 

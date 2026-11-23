@@ -181,6 +181,47 @@ export class ProductsController {
   }
 
   @ApiStandardResponse()
+  @Post(':productId/variants/:variantId/image')
+  @ApiBearerAuth()
+  @VendorMember({
+    roles: [
+      VendorMemberRole.OWNER,
+      VendorMemberRole.MANAGER,
+      VendorMemberRole.STAFF,
+    ],
+  })
+  @ApiFileUpload({ type: 'IMAGE', required: true })
+  @ApiOperation({ summary: 'Upload product variant image' })
+  uploadVariantImage(
+    @Param('vendorId') vendorId: string,
+    @Param('productId') productId: string,
+    @Param('variantId') variantId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.service.uploadVariantImage(vendorId, productId, variantId, file);
+  }
+
+  @ApiStandardResponse()
+  @Delete(':productId/variants/:variantId/image')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @VendorMember({
+    roles: [
+      VendorMemberRole.OWNER,
+      VendorMemberRole.MANAGER,
+      VendorMemberRole.STAFF,
+    ],
+  })
+  @ApiOperation({ summary: 'Remove product variant image' })
+  removeVariantImage(
+    @Param('vendorId') vendorId: string,
+    @Param('productId') productId: string,
+    @Param('variantId') variantId: string,
+  ) {
+    return this.service.removeVariantImage(vendorId, productId, variantId);
+  }
+
+  @ApiStandardResponse()
   @Delete(':productId/variants/:variantId')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()

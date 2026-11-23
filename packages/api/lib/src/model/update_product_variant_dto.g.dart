@@ -12,6 +12,8 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
   @override
   final String? nameAr;
   @override
+  final JsonObject? imageUrl;
+  @override
   final String? sku;
   @override
   final num? basePrice;
@@ -33,6 +35,7 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
   _$UpdateProductVariantDto._({
     this.name,
     this.nameAr,
+    this.imageUrl,
     this.sku,
     this.basePrice,
     this.comparePrice,
@@ -56,6 +59,7 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
     return other is UpdateProductVariantDto &&
         name == other.name &&
         nameAr == other.nameAr &&
+        imageUrl == other.imageUrl &&
         sku == other.sku &&
         basePrice == other.basePrice &&
         comparePrice == other.comparePrice &&
@@ -70,6 +74,7 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
     var _$hash = 0;
     _$hash = $jc(_$hash, name.hashCode);
     _$hash = $jc(_$hash, nameAr.hashCode);
+    _$hash = $jc(_$hash, imageUrl.hashCode);
     _$hash = $jc(_$hash, sku.hashCode);
     _$hash = $jc(_$hash, basePrice.hashCode);
     _$hash = $jc(_$hash, comparePrice.hashCode);
@@ -86,6 +91,7 @@ class _$UpdateProductVariantDto extends UpdateProductVariantDto {
     return (newBuiltValueToStringHelper(r'UpdateProductVariantDto')
           ..add('name', name)
           ..add('nameAr', nameAr)
+          ..add('imageUrl', imageUrl)
           ..add('sku', sku)
           ..add('basePrice', basePrice)
           ..add('comparePrice', comparePrice)
@@ -109,6 +115,10 @@ class UpdateProductVariantDtoBuilder
   String? _nameAr;
   String? get nameAr => _$this._nameAr;
   set nameAr(String? nameAr) => _$this._nameAr = nameAr;
+
+  JsonObject? _imageUrl;
+  JsonObject? get imageUrl => _$this._imageUrl;
+  set imageUrl(JsonObject? imageUrl) => _$this._imageUrl = imageUrl;
 
   String? _sku;
   String? get sku => _$this._sku;
@@ -147,6 +157,7 @@ class UpdateProductVariantDtoBuilder
     if ($v != null) {
       _name = $v.name;
       _nameAr = $v.nameAr;
+      _imageUrl = $v.imageUrl;
       _sku = $v.sku;
       _basePrice = $v.basePrice;
       _comparePrice = $v.comparePrice;
@@ -178,6 +189,7 @@ class UpdateProductVariantDtoBuilder
         _$UpdateProductVariantDto._(
           name: name,
           nameAr: nameAr,
+          imageUrl: imageUrl,
           sku: sku,
           basePrice: basePrice,
           comparePrice: comparePrice,

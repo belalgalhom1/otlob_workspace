@@ -279,11 +279,28 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: product['imageUrl'] != null
-                    ? CachedNetworkImage(
-                        imageUrl: ImageUtils.formatImageUrl(
-                          product['imageUrl'],
-                        ),
+                child: Builder(
+                  builder: (context) {
+                    String? resolvedImageUrl =
+                        product['imageUrl']?.toString().trim();
+                    if (resolvedImageUrl == null || resolvedImageUrl.isEmpty) {
+                      final pVars = product['variants'];
+                      if (pVars is List) {
+                        for (final v in pVars) {
+                          if (v is Map) {
+                            final vi = v['imageUrl']?.toString().trim();
+                            if (vi != null && vi.isNotEmpty) {
+                              resolvedImageUrl = vi;
+                              break;
+                            }
+                          }
+                        }
+                      }
+                    }
+                    if (resolvedImageUrl != null &&
+                        resolvedImageUrl.isNotEmpty) {
+                      return CachedNetworkImage(
+                        imageUrl: ImageUtils.formatImageUrl(resolvedImageUrl),
                         fit: BoxFit.cover,
                         placeholder: (context, url) => const Center(
                           child: SizedBox(
@@ -297,12 +314,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                           color: AppColors.primary,
                           size: 20,
                         ),
-                      )
-                    : const Icon(
-                        LucideIcons.package,
-                        color: AppColors.primary,
-                        size: 24,
-                      ),
+                      );
+                    }
+                    return const Icon(
+                      LucideIcons.package,
+                      color: AppColors.primary,
+                      size: 24,
+                    );
+                  },
+                ),
               ),
             ),
             title: Text(
@@ -580,6 +600,48 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               );
           productId = createdProduct?['id'];
           success = productId != null;
+
+          if (success &&
+              productId != 'success' &&
+              createdProduct is Map &&
+              createdProduct['variants'] is List) {
+            final createdVariants = List<Map<dynamic, dynamic>>.from(
+              (createdProduct['variants'] as List).whereType<Map>(),
+            );
+            final localVariants =
+                (result['variants'] as List? ?? const []).whereType<Map>();
+            final usedCreatedIds = <String>{};
+            for (final localVar in localVariants) {
+              final imgFile = localVar['imageFile'];
+              if (imgFile is! XFile) continue;
+              final localName = localVar['name']?.toString().trim() ?? '';
+              Map<dynamic, dynamic>? matchedCreated;
+              for (final cv in createdVariants) {
+                final cvId = cv['id']?.toString() ?? '';
+                if (cvId.isEmpty || usedCreatedIds.contains(cvId)) continue;
+                if (cv['name']?.toString().trim() == localName) {
+                  matchedCreated = cv;
+                  break;
+                }
+              }
+              final createdVarId = matchedCreated?['id']?.toString();
+              if (createdVarId != null && createdVarId.isNotEmpty) {
+                usedCreatedIds.add(createdVarId);
+                final multipart = await dio.MultipartFile.fromFile(
+                  imgFile.path,
+                  filename: imgFile.name,
+                );
+                await ref
+                    .read(adminVendorsRepositoryProvider)
+                    .uploadVariantImage(
+                      widget.vendorId,
+                      productId,
+                      createdVarId,
+                      multipart,
+                    );
+              }
+            }
+          }
         }
 
         if (success &&

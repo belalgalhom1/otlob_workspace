@@ -76,6 +76,7 @@ type CartItemInclude = {
     comparePrice?: number | null;
     name: string | null;
     nameAr?: string | null;
+    imageUrl?: string | null;
     isActive: boolean;
     stock: number | null;
     tracksStock: boolean;
@@ -885,6 +886,7 @@ export class CartService {
               id: true,
               name: true,
               nameAr: true,
+              imageUrl: true,
               basePrice: true,
               comparePrice: true,
               isActive: true,

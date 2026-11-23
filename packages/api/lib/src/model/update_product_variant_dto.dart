@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -13,6 +14,7 @@ part 'update_product_variant_dto.g.dart';
 /// Properties:
 /// * [name] 
 /// * [nameAr] 
+/// * [imageUrl] 
 /// * [sku] 
 /// * [basePrice] 
 /// * [comparePrice] 
@@ -27,6 +29,9 @@ abstract class UpdateProductVariantDto implements Built<UpdateProductVariantDto,
 
   @BuiltValueField(wireName: r'nameAr')
   String? get nameAr;
+
+  @BuiltValueField(wireName: r'imageUrl')
+  JsonObject? get imageUrl;
 
   @BuiltValueField(wireName: r'sku')
   String? get sku;
@@ -84,6 +89,13 @@ class _$UpdateProductVariantDtoSerializer implements PrimitiveSerializer<UpdateP
       yield serializers.serialize(
         object.nameAr,
         specifiedType: const FullType(String),
+      );
+    }
+    if (object.imageUrl != null) {
+      yield r'imageUrl';
+      yield serializers.serialize(
+        object.imageUrl,
+        specifiedType: const FullType.nullable(JsonObject),
       );
     }
     if (object.sku != null) {
@@ -171,6 +183,14 @@ class _$UpdateProductVariantDtoSerializer implements PrimitiveSerializer<UpdateP
             specifiedType: const FullType(String),
           ) as String;
           result.nameAr = valueDes;
+          break;
+        case r'imageUrl':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(JsonObject),
+          ) as JsonObject?;
+          if (valueDes == null) continue;
+          result.imageUrl = valueDes;
           break;
         case r'sku':
           final valueDes = serializers.deserialize(

@@ -59,6 +59,7 @@ class CartVariantRef {
   final String id;
   final String name;
   final String? nameAr;
+  final String? imageUrl;
   final double basePrice;
   final double? comparePrice;
   final bool isActive;
@@ -69,6 +70,7 @@ class CartVariantRef {
     required this.id,
     required this.name,
     this.nameAr,
+    this.imageUrl,
     required this.basePrice,
     this.comparePrice,
     required this.isActive,
@@ -80,6 +82,7 @@ class CartVariantRef {
         id: json['id']?.toString() ?? '',
         name: json['name']?.toString() ?? '',
         nameAr: json['nameAr']?.toString(),
+        imageUrl: json['imageUrl']?.toString() ?? json['image']?.toString(),
         basePrice: _asDouble(json['price'] ?? json['basePrice']),
         comparePrice: json['comparePrice'] == null
             ? null
@@ -200,6 +203,11 @@ class CartItem {
 
   String get productId => product.id;
   String? get variantId => selectedVariant?.id;
+  String? get displayImageUrl {
+    final vImg = selectedVariant?.imageUrl?.trim();
+    if (vImg != null && vImg.isNotEmpty) return vImg;
+    return product.imageUrl;
+  }
 
   /// Canonical key for the option selection (order-independent).
   String get optionsKey {

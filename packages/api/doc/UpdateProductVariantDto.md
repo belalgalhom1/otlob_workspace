@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **name** | **String** |  | [optional] 
 **nameAr** | **String** |  | [optional] 
+**imageUrl** | [**JsonObject**](.md) |  | [optional] 
 **sku** | **String** |  | [optional] 
 **basePrice** | **num** |  | [optional] 
 **comparePrice** | **num** |  | [optional] 

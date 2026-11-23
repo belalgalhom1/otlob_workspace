@@ -73,6 +73,7 @@ const PRODUCT_LIST_INCLUDE = {
       id: true,
       name: true,
       nameAr: true,
+      imageUrl: true,
       basePrice: true,
       comparePrice: true,
       stock: true,
@@ -95,8 +96,12 @@ export class ProductsService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Sanitize any existing empty string SKUs to NULL so they do not collide with unique constraints
+    // Ensure product_variants.imageUrl column exists and sanitize any existing
+    // empty string SKUs to NULL so they do not collide with unique constraints.
     try {
+      await this.prisma.$executeRawUnsafe?.(
+        'ALTER TABLE "product_variants" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;',
+      );
       await this.prisma.product.updateMany({
         where: { sku: '' },
         data: { sku: null },
@@ -107,7 +112,7 @@ export class ProductsService implements OnModuleInit {
       });
     } catch (err) {
       this.logger.warn(
-        `Failed to sanitize empty string SKUs on startup: ${err}`,
+        `Failed to run startup product schema/SKU maintenance: ${err}`,
       );
     }
   }
@@ -480,7 +485,11 @@ export class ProductsService implements OnModuleInit {
 
     this.logger.log(`Variant ${variant.id} added to product ${productId}`);
     await this.invalidateVendorCaches(vendorId);
-    return this.findOne(vendorId, productId);
+    const updatedProduct = await this.findOne(vendorId, productId);
+    return {
+      ...updatedProduct,
+      createdVariantId: variant.id,
+    };
   }
 
   async updateVariant(
@@ -489,7 +498,11 @@ export class ProductsService implements OnModuleInit {
     variantId: string,
     dto: UpdateProductVariantDto,
   ) {
-    await this.assertVariantBelongsToProduct(variantId, productId, vendorId);
+    const existingVariant = await this.assertVariantBelongsToProduct(
+      variantId,
+      productId,
+      vendorId,
+    );
 
     const sku =
       dto.sku !== undefined
@@ -502,6 +515,10 @@ export class ProductsService implements OnModuleInit {
       await this.assertVariantSkuAvailable(sku, variantId);
     }
 
+    const clearImage =
+      dto.imageUrl !== undefined &&
+      (dto.imageUrl === null || dto.imageUrl.trim() === '');
+
     try {
       await this.prisma.productVariant.update({
         where: {
@@ -511,6 +528,9 @@ export class ProductsService implements OnModuleInit {
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.nameAr !== undefined && { nameAr: dto.nameAr }),
+          ...(clearImage
+            ? { imageUrl: null }
+            : dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
           ...(sku !== undefined && { sku }),
           ...(dto.basePrice !== undefined && { basePrice: dto.basePrice }),
           ...(dto.comparePrice !== undefined && {
@@ -534,14 +554,105 @@ export class ProductsService implements OnModuleInit {
       throw error;
     }
 
+    if (clearImage && existingVariant.imageUrl) {
+      await this.storage.delete(existingVariant.imageUrl).catch((err) => {
+        this.logger.warn(
+          `Failed to delete cleared variant image for ${variantId}: ${(err as Error).message}`,
+        );
+      });
+    }
+
     await this.invalidateVendorCaches(vendorId);
     return this.findOne(vendorId, productId);
   }
 
+  async uploadVariantImage(
+    vendorId: string,
+    productId: string,
+    variantId: string,
+    file: Express.Multer.File,
+  ) {
+    const existingVariant = await this.assertVariantBelongsToProduct(
+      variantId,
+      productId,
+      vendorId,
+    );
+
+    const imageUrl = await this.storage.upload(file, 'products/variants');
+
+    await this.prisma.productVariant.update({
+      where: { id: variantId },
+      data: {
+        imageUrl,
+        version: { increment: 1 },
+      },
+    });
+
+    if (existingVariant.imageUrl) {
+      await this.storage.delete(existingVariant.imageUrl).catch((err) => {
+        this.logger.warn(
+          `Failed to delete old variant image for ${variantId}: ${(err as Error).message}`,
+        );
+      });
+    }
+
+    this.logger.log(
+      `Image uploaded for product ${productId} variant ${variantId}: ${imageUrl}`,
+    );
+    await this.invalidateVendorCaches(vendorId);
+    return { imageUrl };
+  }
+
+  async removeVariantImage(
+    vendorId: string,
+    productId: string,
+    variantId: string,
+  ) {
+    const existingVariant = await this.assertVariantBelongsToProduct(
+      variantId,
+      productId,
+      vendorId,
+    );
+
+    await this.prisma.productVariant.update({
+      where: { id: variantId },
+      data: {
+        imageUrl: null,
+        version: { increment: 1 },
+      },
+    });
+
+    if (existingVariant.imageUrl) {
+      await this.storage.delete(existingVariant.imageUrl).catch((err) => {
+        this.logger.warn(
+          `Failed to delete removed variant image for ${variantId}: ${(err as Error).message}`,
+        );
+      });
+    }
+
+    this.logger.log(
+      `Image removed for product ${productId} variant ${variantId}`,
+    );
+    await this.invalidateVendorCaches(vendorId);
+    return { imageUrl: null };
+  }
+
   async removeVariant(vendorId: string, productId: string, variantId: string) {
-    await this.assertVariantBelongsToProduct(variantId, productId, vendorId);
+    const existingVariant = await this.assertVariantBelongsToProduct(
+      variantId,
+      productId,
+      vendorId,
+    );
 
     await this.prisma.productVariant.delete({ where: { id: variantId } });
+
+    if (existingVariant.imageUrl) {
+      await this.storage.delete(existingVariant.imageUrl).catch((err) => {
+        this.logger.warn(
+          `Failed to delete variant image on delete for ${variantId}: ${(err as Error).message}`,
+        );
+      });
+    }
 
     this.logger.log(`Variant ${variantId} deleted from product ${productId}`);
     await this.invalidateVendorCaches(vendorId);
@@ -891,9 +1002,10 @@ export class ProductsService implements OnModuleInit {
 
     const variant = await this.prisma.productVariant.findFirst({
       where: { id: variantId, productId },
-      select: { id: true },
+      select: { id: true, imageUrl: true },
     });
     if (!variant) throw new NotFoundException(ProductErrors.VARIANT_NOT_FOUND);
+    return variant;
   }
 
   private async assertVendorProductScope(

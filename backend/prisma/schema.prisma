@@ -775,6 +775,7 @@ model ProductVariant {
   productId    String
   name         String
   nameAr       String?
+  imageUrl     String?
   sku          String?              @unique
   basePrice    Int
   comparePrice Int?
