@@ -467,30 +467,29 @@ void main() {
     expect(find.text('CUSTOM_DELIVERY_PAGE'), findsOneWidget);
   });
 
-  testWidgets('HomeScreen search dynamically filters suggested stores', (
-    tester,
-  ) async {
-    await _pumpHome(
-      tester,
-      viewport: const Size(390, 844),
-      safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
-      locale: const Locale('ar'),
-    );
+  testWidgets(
+    'HomeScreen search redirects directly to results panel without touching Suggested for you',
+    (tester) async {
+      await _pumpHome(
+        tester,
+        viewport: const Size(390, 844),
+        safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+        locale: const Locale('ar'),
+      );
 
-    expect(find.byType(HomeSuggestedStoreCard), findsNWidgets(2));
+      expect(find.byType(HomeSuggestedStoreCard), findsNWidgets(2));
 
-    await tester.enterText(find.byType(TextField), 'العزبي');
-    await tester.pump();
+      // Typing immediately redirects to the search results panel (no mutation of Suggested for you)
+      await tester.enterText(find.byType(TextField), 'العزبي');
+      await tester.pump();
+      expect(find.byType(HomeSuggestedStoreCard), findsNothing);
 
-    expect(find.byType(HomeSuggestedStoreCard), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(HomeSuggestedStoreCard),
-        matching: find.text('صيدلية العزبي'),
-      ),
-      findsOneWidget,
-    );
-  });
+      // Clearing search restores the original untouched Suggested for you cards
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+      expect(find.byType(HomeSuggestedStoreCard), findsNWidgets(2));
+    },
+  );
 
   testWidgets('HomeScreen adapts dynamically to Dark Mode and Light Mode', (
     tester,
@@ -694,6 +693,8 @@ void main() {
       int alphaAt(Uint8List buf, int x, int y) => buf[(y * w + x) * 4 + 3];
 
       expect(alphaAt(cleaned, 0, 0), 0);
+      // Light-gray product box edge (ring 1, rgb 232) must NOT be eaten into!
+      expect(alphaAt(cleaned, 1, 1), 255);
       expect(alphaAt(cleaned, 2, 2), 255);
       expect(alphaAt(cleaned, 3, 3), 255);
 

@@ -49,12 +49,9 @@ class HomeSearchResultsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = AppStrings.of(context);
     final isAr = s.isArabic;
-    final searchAsync = ref.watch(
-      discoverySearchControllerProvider((query: query, verticalId: null)),
-    );
 
-    return searchAsync.when(
-      loading: () => Center(
+    Widget buildSearchingIndicator() {
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -68,7 +65,9 @@ class HomeSearchResultsPanel extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              isAr ? 'جاري البحث عن المنتجات والمتاجر...' : 'Searching products & stores...',
+              isAr
+                  ? 'جاري البحث عن المنتجات والمتاجر...'
+                  : 'Searching products & stores...',
               style: HomeDesignTokens.text(
                 size: 11.5,
                 weight: FontWeight.w700,
@@ -77,7 +76,19 @@ class HomeSearchResultsPanel extends ConsumerWidget {
             ),
           ],
         ),
-      ),
+      );
+    }
+
+    if (query.trim().isEmpty) {
+      return buildSearchingIndicator();
+    }
+
+    final searchAsync = ref.watch(
+      discoverySearchControllerProvider((query: query, verticalId: null)),
+    );
+
+    return searchAsync.when(
+      loading: buildSearchingIndicator,
       error: (_, _) => _buildResultsBody(
         context,
         s,

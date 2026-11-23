@@ -86,19 +86,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     final trimmed = value.trim();
+    final wasFocused = _searchFocusNode.hasFocus;
     if (trimmed.isEmpty) {
       if (_debouncedSearchQuery.isNotEmpty) {
         setState(() => _debouncedSearchQuery = '');
       } else {
         setState(() {});
       }
-      return;
-    }
-    setState(() {});
-    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-      if (!mounted) return;
-      final wasFocused = _searchFocusNode.hasFocus;
-      setState(() => _debouncedSearchQuery = trimmed);
       if (wasFocused) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_searchFocusNode.hasFocus) {
@@ -106,6 +100,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           }
         });
       }
+      return;
+    }
+    setState(() {});
+    if (wasFocused) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_searchFocusNode.hasFocus) {
+          _searchFocusNode.requestFocus();
+        }
+      });
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() => _debouncedSearchQuery = trimmed);
     });
   }
 
@@ -243,22 +250,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     HomeData data,
     HomePalette palette,
   ) {
-    final searchQuery = _searchController.text.toLowerCase();
+    final rawQuery = _searchController.text.trim();
+    final isSearching = rawQuery.isNotEmpty;
+    final searchQuery = rawQuery.toLowerCase();
 
-    final filtered = data.products.where((v) {
-      final matchSearch =
-          searchQuery.isEmpty ||
-          (v['name']?.toString() ?? '').toLowerCase().contains(searchQuery) ||
-          (v['nameAr']?.toString() ?? '').toLowerCase().contains(searchQuery) ||
-          (v['vendor']?.toString() ?? '').toLowerCase().contains(searchQuery);
-      return matchSearch;
-    }).toList();
+    final searchFallbackVendors = isSearching
+        ? data.products.where((v) {
+            return (v['name']?.toString() ?? '').toLowerCase().contains(
+                  searchQuery,
+                ) ||
+                (v['nameAr']?.toString() ?? '').toLowerCase().contains(
+                  searchQuery,
+                ) ||
+                (v['vendor']?.toString() ?? '').toLowerCase().contains(
+                  searchQuery,
+                );
+          }).toList()
+        : const <Map<String, dynamic>>[];
 
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final viewportHeight = MediaQuery.sizeOf(context).height;
     final responsiveGap = (viewportHeight * 0.01).clamp(6.0, 10.0);
 
-    final isSearching = _debouncedSearchQuery.isNotEmpty;
     final pullProgress = (_pullRefreshOffset / _refreshTriggerDistance).clamp(
       0.0,
       1.0,
@@ -306,7 +319,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               child: HomeSearchResultsPanel(
                                 query: _debouncedSearchQuery,
                                 palette: palette,
-                                fallbackVendors: filtered,
+                                fallbackVendors: searchFallbackVendors,
                               ),
                             ),
                           ],
@@ -429,7 +442,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: _buildSuggestedStoresSection(
                           context,
                           data,
-                          filtered,
+                          data.products,
                           palette,
                         ),
                       ),
@@ -1508,8 +1521,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ---------------------------------------------------------------------------
   Widget _buildCustomCourierBanner(double cardHeight, HomePalette palette) {
     final s = AppStrings.of(context);
-    final verticalPad = cardHeight >= 104 ? 10.0 : 6.0;
-    final imageBoxHeight = (cardHeight - verticalPad * 2).clamp(60.0, 78.0);
+    final verticalPad = cardHeight >= 104 ? 7.0 : 5.0;
+    final imageBoxHeight = (cardHeight - verticalPad * 2).clamp(66.0, 96.0);
+    final imageBoxWidth = cardHeight >= 96 ? 136.0 : 122.0;
 
     return Consumer(
       builder: (context, ref, child) {
@@ -1559,9 +1573,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onTap: openCustomDelivery,
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: verticalPad,
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    14,
+                    verticalPad,
+                    8,
+                    verticalPad,
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -1664,11 +1680,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
 
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
 
-                      // End Column (Left in RTL): Dedicated bright 114x78 Image Box (NO dark dimming overlay)
+                      // End Column (Left in RTL): Larger bright Image Box inside unchanged outer card
                       Container(
-                        width: 114,
+                        width: imageBoxWidth,
                         height: imageBoxHeight,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
@@ -1687,7 +1703,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ? CachedNetworkImage(
                                 imageUrl: fullUrl,
                                 fit: BoxFit.cover,
-                                memCacheWidth: 300,
+                                filterQuality: FilterQuality.high,
+                                memCacheWidth: 420,
                                 placeholder: (_, _) => Center(
                                   child: Icon(
                                     Icons.delivery_dining_rounded,
