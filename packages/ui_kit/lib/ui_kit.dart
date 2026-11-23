@@ -45,6 +45,7 @@ export 'src/widgets/statistics/statistics_config.dart';
 export 'src/widgets/statistics/statistics_screen.dart';
 export 'src/widgets/location_required_gate.dart';
 export 'src/widgets/app_window_constraint_guard.dart';
+export 'src/widgets/app_text_interaction_scope.dart';
 
 export 'src/services/data_export_service.dart';
 

@@ -31,8 +31,8 @@ class App extends ConsumerWidget {
       supportedLocales: context.supportedLocales,
       locale: context.locale,
 
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: AppTextInteractionScope.applySelectionTheme(AppTheme.lightTheme),
+      darkTheme: AppTextInteractionScope.applySelectionTheme(AppTheme.darkTheme),
       themeMode: appSettings.themeMode,
       scrollBehavior: const AppScrollBehavior(),
 
@@ -46,11 +46,7 @@ class App extends ConsumerWidget {
             title: context.tr('location_required_title'),
             message: context.tr('location_required_message'),
             buttonLabel: context.tr('location_required_button'),
-            child: Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) {
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
+            child: AppTextInteractionScope(
               child: Column(
                 children: [
                   Consumer(

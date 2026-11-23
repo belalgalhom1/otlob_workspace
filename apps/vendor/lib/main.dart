@@ -166,8 +166,12 @@ class OtlobAdminApp extends ConsumerWidget {
         title: 'Otlob Admin',
         scaffoldMessengerKey: rootScaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
+        theme: AppTextInteractionScope.applySelectionTheme(
+          AppTheme.lightTheme,
+        ),
+        darkTheme: AppTextInteractionScope.applySelectionTheme(
+          AppTheme.darkTheme,
+        ),
         themeMode: themeMode,
         routerConfig: router,
         scrollBehavior: const AppScrollBehavior(),
@@ -177,11 +181,7 @@ class OtlobAdminApp extends ConsumerWidget {
             minHeight: 600.0,
             minTextScaleFactor: 0.85,
             maxTextScaleFactor: 1.3,
-            child: Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) {
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
+            child: AppTextInteractionScope(
               child: Column(
                 children: [
                   Consumer(

@@ -265,11 +265,16 @@ class _DriverFormDialogState extends ConsumerState<DriverFormDialog> {
           AppFieldLabel(label: label, isRequired: isRequired && !widget.readOnly),
           TextField(
             controller: controller,
-            enabled: !widget.readOnly && !_isLoading,
+            enabled: !_isLoading,
             readOnly: widget.readOnly,
             obscureText: isPassword,
             keyboardType: keyboardType,
             textDirection: textDirection,
+            style: widget.readOnly
+                ? TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  )
+                : null,
             decoration: AppDialogStyles.inputDecoration(
               context,
               hintText: hint ?? label,

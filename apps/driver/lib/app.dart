@@ -27,8 +27,8 @@ class App extends ConsumerWidget {
       supportedLocales: AppLocalizations.supportedLocales,
       locale: appPreferences.locale,
 
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: AppTextInteractionScope.applySelectionTheme(AppTheme.lightTheme),
+      darkTheme: AppTextInteractionScope.applySelectionTheme(AppTheme.darkTheme),
       themeMode: appPreferences.themeMode,
       scrollBehavior: const AppScrollBehavior(),
 
@@ -43,11 +43,7 @@ class App extends ConsumerWidget {
             title: l10n.locationRequiredTitle,
             message: l10n.locationRequiredMessage,
             buttonLabel: l10n.locationRequiredButton,
-            child: Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) {
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
+            child: AppTextInteractionScope(
               child: child ?? const SizedBox.shrink(),
             ),
           ),
