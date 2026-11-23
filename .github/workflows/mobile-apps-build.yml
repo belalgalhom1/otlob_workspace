@@ -338,15 +338,32 @@ jobs:
             exit 0
           fi
 
-          mkdir -p "$HOME/.android"
-          printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$HOME/.android/debug.keystore"
+          KEYSTORE_DIR="$HOME/.android"
+          KEYSTORE_PATH="$KEYSTORE_DIR/debug.keystore"
+          mkdir -p "$KEYSTORE_DIR"
+          printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$KEYSTORE_PATH"
+
+          # GitHub Ubuntu runners set XDG_CONFIG_HOME=$HOME/.config, causing AGP 8+
+          # to ignore $HOME/.android/debug.keystore and generate a random keystore
+          # unless ANDROID_USER_HOME and an explicit storeFile are provided.
+          echo "ANDROID_USER_HOME=$KEYSTORE_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_DEBUG_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
           echo "Restored consistent Android debug keystore:"
-          keytool -list -v \
-            -keystore "$HOME/.android/debug.keystore" \
+          KEYTOOL_OUT=$(keytool -list -v \
+            -keystore "$KEYSTORE_PATH" \
             -alias androiddebugkey \
             -storepass android \
-            -keypass android | grep -E "SHA1:|SHA256:"
+            -keypass android)
+          echo "$KEYTOOL_OUT" | grep -E "SHA1:|SHA256:"
+
+          EXPECTED_SHA1=$(printf '%s\n' "$KEYTOOL_OUT" \
+            | awk -F'SHA1:' '/SHA1:/ {gsub(/[^0-9A-Fa-f]/, "", $2); print tolower($2); exit}')
+          if [ -z "$EXPECTED_SHA1" ]; then
+            echo "ERROR: Could not extract SHA-1 from restored debug.keystore." >&2
+            exit 1
+          fi
+          echo "EXPECTED_APK_SHA1=$EXPECTED_SHA1" >> "$GITHUB_ENV"
 
       - name: Build release APK
         working-directory: ${{ matrix.app_path }}
@@ -372,6 +389,24 @@ jobs:
           if [ ! -s "$APK_PATH" ]; then
             echo "ERROR: Release APK was not created." >&2
             exit 1
+          fi
+
+          if [ -n "${EXPECTED_APK_SHA1:-}" ]; then
+            APKSIGNER="$(find "$ANDROID_HOME/build-tools" \( -type f -o -type l \) -name apksigner | sort -V | tail -n 1)"
+            if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
+              echo "ERROR: apksigner not found under $ANDROID_HOME/build-tools." >&2
+              exit 1
+            fi
+
+            ACTUAL_SHA1=$("$APKSIGNER" verify --print-certs "$APK_PATH" \
+              | awk -F'SHA-1 digest:' '/SHA-1 digest:/ {gsub(/[^0-9A-Fa-f]/, "", $2); print tolower($2); exit}')
+
+            echo "Built APK SHA-1: $ACTUAL_SHA1"
+            if [ "$ACTUAL_SHA1" != "$EXPECTED_APK_SHA1" ]; then
+              echo "::error::APK signing SHA-1 mismatch! Expected $EXPECTED_APK_SHA1, got $ACTUAL_SHA1." >&2
+              exit 1
+            fi
+            echo "Verified APK signing SHA-1 matches restored debug keystore."
           fi
 
           cp "$APK_PATH" "$OUTPUT_PATH"
