@@ -61,6 +61,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   bool _syncedEmptyCart = false;
   bool _useCoins = false;
   bool _isEstimating = false;
+  bool _pendingReEstimate = false;
   Map<String, dynamic>? _estimate;
   String? _lastEstimateKey;
   String? _estimateError;
@@ -77,7 +78,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 
   Future<void> _fetchEstimate({bool force = false}) async {
-    if (_orderPlaced || _isEstimating) return;
+    if (_orderPlaced) return;
+    if (_isEstimating) {
+      _pendingReEstimate = true;
+      return;
+    }
     final vendorIds = activeVendorIds;
     if (vendorIds.isEmpty) return;
 
@@ -172,6 +177,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         if (resolvedError.contains('cart.error.is_empty')) {
           await _recoverFromEmptyCartError(vendorIds);
         }
+      }
+    } finally {
+      if (mounted && _pendingReEstimate && !_orderPlaced) {
+        _pendingReEstimate = false;
+        Future.microtask(() => _fetchEstimate(force: true));
       }
     }
   }
@@ -641,9 +651,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   else ...[
                     RadioGroup<String>(
                       groupValue: selectedAddress?['id']?.toString(),
-                      onChanged: (val) => ref
-                          .read(manualSelectedAddressIdProvider.notifier)
-                          .setAddressId(val),
+                      onChanged: (val) {
+                        ref
+                            .read(manualSelectedAddressIdProvider.notifier)
+                            .setAddressId(val);
+                        setState(() {
+                          _estimateError = null;
+                          _estimate = null;
+                          _lastEstimateKey = null;
+                        });
+                        _fetchEstimate(force: true);
+                      },
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: profileState.addresses
@@ -685,7 +703,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   RadioGroup<String>(
                     groupValue: _selectedPayment,
                     onChanged: (v) {
-                      if (v != null) setState(() => _selectedPayment = v);
+                      if (v != null && v != _selectedPayment) {
+                        setState(() {
+                          _selectedPayment = v;
+                          _estimateError = null;
+                          _estimate = null;
+                          _lastEstimateKey = null;
+                        });
+                        _fetchEstimate(force: true);
+                      }
                     },
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1014,7 +1040,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           onChanged: (val) {
                             setState(() {
                               _useCoins = val;
+                              _estimateError = null;
+                              _estimate = null;
+                              _lastEstimateKey = null;
                             });
+                            _fetchEstimate(force: true);
                           },
                         ),
                       ],
@@ -1293,7 +1323,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     return Material(
       type: MaterialType.transparency,
       child: ListTile(
-        onTap: () => setState(() => _selectedPayment = val),
+        onTap: () {
+          if (_selectedPayment != val) {
+            setState(() {
+              _selectedPayment = val;
+              _estimateError = null;
+              _estimate = null;
+              _lastEstimateKey = null;
+            });
+            _fetchEstimate(force: true);
+          }
+        },
         contentPadding: EdgeInsets.zero,
         leading: Icon(icon, color: isSelected ? AppColors.primary : Colors.grey),
         title: Text(title),

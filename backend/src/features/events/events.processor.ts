@@ -141,9 +141,11 @@ export class EventsProcessor extends WorkerHost {
           ]),
         );
         if (ids.length === 0) return { skipped: true };
-        for (const vId of ids) {
-          await this.cartService.clearCart(data.customerUserId, vId);
-        }
+        await Promise.all(
+          ids.map((vId) =>
+            this.cartService.clearCart(data.customerUserId, vId),
+          ),
+        );
         return { cleared: ids.length };
       }
       case EVENT_JOBS.NOTIFY: {

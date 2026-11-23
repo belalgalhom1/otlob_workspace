@@ -320,7 +320,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     final newStatus = eventData['newStatus']?.toString() ?? eventData['status']?.toString() ?? '';
 
     if (newStatus == 'CANCELLED' || newStatus == 'DELIVERED') {
-      ref.invalidate(orderExecutionProvider);
+      ref.read(orderExecutionProvider.notifier).refresh();
       ref.invalidate(driverProfileProvider);
     } else {
       if (newStatus.isNotEmpty) {

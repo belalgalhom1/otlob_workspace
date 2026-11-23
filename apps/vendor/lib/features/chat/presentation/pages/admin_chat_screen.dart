@@ -59,6 +59,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
   final List<double> _waveformSamples = [];
 
   Map<String, dynamic>? _orderDetails;
+  Map<String, dynamic>? _activeTicket;
   bool _isOrderExpanded = false;
   bool _isConversationClosed = false;
 
@@ -117,6 +118,7 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
         _isLoadingMore = false;
         _replyingTo = null;
         _orderDetails = null;
+        _activeTicket = null;
         _isOrderExpanded = false;
       });
       _loadMessages();
@@ -429,13 +431,8 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
     try {
       // 1. Fetch active ticket details
+      final activeTicket = await _resolveActiveTicket();
       final ticketRepo = ref.read(sharedSupportTicketsRepositoryProvider);
-      final result = await ticketRepo.getTickets(limit: 50);
-      final tickets = result['tickets'] as List? ?? [];
-      final activeTicket = tickets.firstWhere(
-        (t) => t['conversationId'] == widget.conversationId,
-        orElse: () => null,
-      );
 
       if (activeTicket == null) {
         if (mounted) {
@@ -526,15 +523,9 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
     // 1. Fetch active ticket to get the ticket ID
     setState(() => _isLoading = true);
-    dynamic activeTicket;
+    Map<String, dynamic>? activeTicket;
     try {
-      final ticketRepo = ref.read(sharedSupportTicketsRepositoryProvider);
-      final result = await ticketRepo.getTickets(limit: 50);
-      final tickets = result['tickets'] as List? ?? [];
-      activeTicket = tickets.firstWhere(
-        (t) => t['conversationId'] == widget.conversationId,
-        orElse: () => null,
-      );
+      activeTicket = await _resolveActiveTicket();
     } catch (e) {
       debugPrint('Error fetching ticket: $e');
     } finally {
@@ -746,15 +737,9 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
 
     // 1. Fetch active ticket to get the ticket ID and current status
     setState(() => _isLoading = true);
-    dynamic activeTicket;
+    Map<String, dynamic>? activeTicket;
     try {
-      final ticketRepo = ref.read(sharedSupportTicketsRepositoryProvider);
-      final result = await ticketRepo.getTickets(limit: 50);
-      final tickets = result['tickets'] as List? ?? [];
-      activeTicket = tickets.firstWhere(
-        (t) => t['conversationId'] == widget.conversationId,
-        orElse: () => null,
-      );
+      activeTicket = await _resolveActiveTicket(forceRefresh: true);
     } catch (e) {
       debugPrint('Error fetching ticket: $e');
     } finally {
@@ -949,17 +934,65 @@ class _AdminChatScreenState extends ConsumerState<AdminChatScreen> {
     );
   }
 
+  Future<Map<String, dynamic>?> _resolveActiveTicket({
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh && _activeTicket != null && _activeTicket!['id'] != null) {
+      return _activeTicket;
+    }
+
+    // 1. Check inline supportTicket / ticketId from inbox conversations
+    final inboxItems = ref.read(sharedInboxProvider).conversations;
+    for (final item in inboxItems) {
+      if (item['id']?.toString() == widget.conversationId) {
+        final st = item['supportTicket'];
+        if (st is Map && st['id'] != null) {
+          final resolved = <String, dynamic>{
+            ...Map<String, dynamic>.from(st),
+            'conversationId': widget.conversationId,
+            'orderId': st['orderId'] ?? item['orderId'],
+            'order': st['order'] ?? item['order'],
+          };
+          _activeTicket = resolved;
+          return resolved;
+        }
+        final inlineTicketId = item['ticketId']?.toString();
+        if (inlineTicketId != null && inlineTicketId.isNotEmpty) {
+          final resolved = <String, dynamic>{
+            'id': inlineTicketId,
+            'conversationId': widget.conversationId,
+            'status': item['ticketStatus'] ?? 'OPEN',
+            'category': item['ticketCategory'],
+            'subCategory': item['ticketSubCategory'],
+            'orderId': item['orderId'],
+            'order': item['order'],
+          };
+          _activeTicket = resolved;
+          return resolved;
+        }
+      }
+    }
+
+    // 2. Fallback to support tickets repository
+    final ticketRepo = ref.read(sharedSupportTicketsRepositoryProvider);
+    final result = await ticketRepo.getTickets(limit: 50);
+    final tickets = result['tickets'] as List? ?? [];
+    final active = tickets.firstWhere(
+      (t) => t is Map && t['conversationId'] == widget.conversationId,
+      orElse: () => null,
+    );
+    if (active is Map) {
+      _activeTicket = Map<String, dynamic>.from(active);
+      return _activeTicket;
+    }
+    return _activeTicket;
+  }
+
   Future<void> _loadTicketAndOrderDetails() async {
     if (widget.type != 'SUPPORT') return;
 
     try {
-      final ticketRepo = ref.read(sharedSupportTicketsRepositoryProvider);
-      final result = await ticketRepo.getTickets(limit: 50);
-      final tickets = result['tickets'] as List? ?? [];
-      final active = tickets.firstWhere(
-        (t) => t['conversationId'] == widget.conversationId,
-        orElse: () => null,
-      );
+      final active = await _resolveActiveTicket();
 
       if (active != null) {
         final orderId = active['order']?['id'] ?? active['orderId'];

@@ -46,10 +46,10 @@ export class DriverTrackingService {
       );
     }
 
-    await this.trackDriverLocation(driverId, lng, lat);
-
-    const activeOrderRaw =
-      await this.locationRepository.getCachedDriverActiveOrderRaw(driverId);
+    const [, activeOrderRaw] = await Promise.all([
+      this.trackDriverLocation(driverId, lng, lat),
+      this.locationRepository.getCachedDriverActiveOrderRaw(driverId),
+    ]);
     if (!activeOrderRaw) {
       // No active order: still emit so admin live-tracking map can follow the driver
       this.eventEmitter.emit(

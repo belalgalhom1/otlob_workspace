@@ -21,6 +21,7 @@ import { OrderActivePolicyHelper } from './helpers/order-active-policy.helper';
 import {
   applyOrderCoinsAndUpfront,
   resolveActiveDriverBonusFee,
+  resolveGoldSurchargeAmount,
 } from './helpers/order-pricing.helper';
 import { BranchAllocatorHelper } from './helpers/branch-allocator.helper';
 import {
@@ -29,10 +30,6 @@ import {
   GroupingResult,
   haversineKm,
 } from './order-grouping.service';
-import {
-  centsToWholeEgp,
-  toMoneyCents,
-} from '../../common/orders/money.helper';
 import { CustomerErrors } from '../../common/constants/response.constants';
 import { OrderErrors } from '../../common/constants/response.constants';
 import { JwtAccessPayload } from '../../common/interfaces/jwt-payload.interface';
@@ -51,19 +48,6 @@ export interface PlaceMultiVendorOrderDto {
   deliveryLocation: [number, number];
   specialRequest?: string;
   coinsToUse?: number;
-}
-
-export interface MultiVendorFeeBreakdown {
-  /** Sequence the customer sees. */
-  sequence: number;
-  vendorIds: string[];
-  vendorNames: string[];
-  deliveryFee: number;
-  /** Straight-line distance of the group's farthest pickup to the customer. */
-  distanceKm: number;
-  /** Vendors beyond the first (each adds half the minimum delivery fee). */
-  extraVendors: number;
-  splitReason: string;
 }
 
 /**
@@ -175,7 +159,7 @@ export class OrdersMultiVendorService {
         vendorBranchIds: g.stops
           .map((s) => s.vendorBranchId)
           .filter((id): id is string => Boolean(id)),
-        deliveryFee: this.feeFor(plan, g.farthestToCustomerKm, g.sequence - 1),
+        deliveryFee: this.feeFor(plan, g.sequence - 1),
         distanceKm: this.round2(g.farthestToCustomerKm),
         extraVendors: g.extraVendorCount,
         splitReason: g.splitReason,
@@ -326,11 +310,18 @@ export class OrdersMultiVendorService {
 
       // Re-validate vendor status inside the transaction (mirrors the
       // single-vendor path: never trust the estimate-time snapshot).
-      for (const portion of plan.portions) {
-        const vendor = await tx.vendor.findUnique({
-          where: { id: portion.vendorId },
-          select: { status: true, deletedAt: true },
-        });
+      const uniquePortionVendorIds = Array.from(
+        new Set(plan.portions.map((p) => p.vendorId)),
+      );
+      const txVendors = await Promise.all(
+        uniquePortionVendorIds.map((vId) =>
+          tx.vendor.findUnique({
+            where: { id: vId },
+            select: { status: true, deletedAt: true },
+          }),
+        ),
+      );
+      for (const vendor of txVendors) {
         if (!vendor || vendor.deletedAt || vendor.status !== 'OPEN') {
           throw new BadRequestException(OrderErrors.VENDOR_NOT_ACCEPTING);
         }
@@ -508,11 +499,7 @@ export class OrdersMultiVendorService {
             sequence: group.sequence,
             status: 'PENDING',
             distanceKm: this.round2(group.farthestToCustomerKm),
-            deliveryFee: this.feeFor(
-              plan,
-              group.farthestToCustomerKm,
-              group.sequence - 1,
-            ),
+            deliveryFee: this.feeFor(plan, group.sequence - 1),
             goldSurchargeAmount:
               groupIndex === 0 ? Math.round(plan.goldSurchargeAmount ?? 0) : 0,
             isPaymentCollector: groupIndex === 0,
@@ -822,15 +809,7 @@ export class OrdersMultiVendorService {
             })();
       groupFees.push(fee);
     }
-    const goldSurchargeAmount = Math.max(
-      0,
-      centsToWholeEgp(
-        toMoneyCents(
-          (settings as { goldTierBonusPerOrder?: number | null })
-            ?.goldTierBonusPerOrder ?? 0,
-        ),
-      ),
-    );
+    const goldSurchargeAmount = resolveGoldSurchargeAmount(settings);
     if (groupFees.length > 0 && goldSurchargeAmount > 0) {
       groupFees[0] = Math.round(groupFees[0] + goldSurchargeAmount);
     }
@@ -896,11 +875,7 @@ export class OrdersMultiVendorService {
     }, 0);
   }
 
-  private feeFor(
-    plan: { groupFees: number[] },
-    _distanceKm: number,
-    index: number,
-  ): number {
+  private feeFor(plan: { groupFees: number[] }, index: number): number {
     return plan.groupFees[index] ?? 0;
   }
 

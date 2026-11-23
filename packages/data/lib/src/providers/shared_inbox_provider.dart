@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
@@ -40,6 +41,10 @@ class InboxState {
 
 @Riverpod(keepAlive: true)
 class SharedInbox extends _$SharedInbox {
+  Timer? _realtimeDebounce;
+  bool _isFetchingPage1 = false;
+  bool _pendingSilentRefresh = false;
+
   @override
   InboxState build() {
     Future.microtask(() async {
@@ -71,6 +76,7 @@ class SharedInbox extends _$SharedInbox {
         .listen(_onConversationClosed);
 
     ref.onDispose(() {
+      _realtimeDebounce?.cancel();
       sub.cancel();
       readSub.cancel();
       createdSub.cancel();
@@ -81,15 +87,19 @@ class SharedInbox extends _$SharedInbox {
   }
 
   void clear() {
+    _realtimeDebounce?.cancel();
     state = InboxState();
   }
 
-  void _onRealtimeEvent(dynamic data) async {
+  void _onRealtimeEvent(dynamic data) {
     if (!ref.mounted) return;
-    final tokenService = ref.read(tokenServiceProvider);
-    if (!await tokenService.hasSession()) return;
-    // When a new message or conversation event comes in, refresh the inbox
-    _fetchConversations(1, true); // true = silent refresh
+    _realtimeDebounce?.cancel();
+    _realtimeDebounce = Timer(const Duration(milliseconds: 300), () async {
+      if (!ref.mounted) return;
+      final tokenService = ref.read(tokenServiceProvider);
+      if (!await tokenService.hasSession()) return;
+      _fetchConversations(1, true);
+    });
   }
 
   void _onConversationClosed(dynamic data) {
@@ -102,10 +112,33 @@ class SharedInbox extends _$SharedInbox {
             .toList(),
       );
     }
-    _fetchConversations(1, true);
+    _onRealtimeEvent(data);
   }
 
   Future<void> _fetchConversations([int page = 1, bool silent = false]) async {
+    if (!ref.mounted) return;
+    if (page == 1 && _isFetchingPage1) {
+      if (silent) _pendingSilentRefresh = true;
+      return;
+    }
+    if (page == 1) _isFetchingPage1 = true;
+    try {
+      await _performFetchConversations(page, silent);
+    } finally {
+      if (page == 1) {
+        _isFetchingPage1 = false;
+        if (_pendingSilentRefresh && ref.mounted) {
+          _pendingSilentRefresh = false;
+          unawaited(_fetchConversations(1, true));
+        }
+      }
+    }
+  }
+
+  Future<void> _performFetchConversations([
+    int page = 1,
+    bool silent = false,
+  ]) async {
     if (!ref.mounted) return;
     final tokenService = ref.read(tokenServiceProvider);
     if (!await tokenService.hasSession()) {
@@ -181,11 +214,15 @@ class SharedInbox extends _$SharedInbox {
         if (!ref.mounted) return;
 
         // Enrich SUPPORT conversations with ticket metadata (ticketNumber, subject, etc.)
-        final hasSupportConvos = convos.any(
-          (c) => (c['type']?.toString().toUpperCase() ?? '') == 'SUPPORT',
+        // Only fall back to getMyTickets() if a SUPPORT conversation is missing inline supportTicket/ticketId.
+        final needsTicketFetch = convos.any(
+          (c) =>
+              (c['type']?.toString().toUpperCase() ?? '') == 'SUPPORT' &&
+              c['ticketId'] == null &&
+              c['supportTicket'] == null,
         );
         Map<String, Map<String, dynamic>> ticketByConvoId = {};
-        if (hasSupportConvos) {
+        if (needsTicketFetch) {
           try {
             final ticketsRes =
                 await ref.read(sharedTicketsRepositoryProvider).getMyTickets();

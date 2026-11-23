@@ -424,14 +424,17 @@ class Cart extends _$Cart {
     _loadEpoch++;
     _resetEpoch++;
     final vendorIds = state.vendorBaskets.keys.toList();
-    for (final vendorId in vendorIds) {
-      try {
-        final cartRepo = ref.read(customerCartRepositoryProvider);
-        await cartRepo.clearCart(vendorId);
-      } catch (e) {
-        debugPrint('Error clearing vendor cart $vendorId on remote: $e');
-      }
-    }
+    state = const CartState(vendorBaskets: {}, isLoading: false);
+    final cartRepo = ref.read(customerCartRepositoryProvider);
+    await Future.wait(
+      vendorIds.map((vendorId) async {
+        try {
+          await cartRepo.clearCart(vendorId);
+        } catch (e) {
+          debugPrint('Error clearing vendor cart $vendorId on remote: $e');
+        }
+      }),
+    );
     if (_isDisposed) return;
     _loadEpoch++;
     state = const CartState(vendorBaskets: {}, isLoading: false);

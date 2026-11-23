@@ -457,7 +457,16 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final l10n = AppLocalizations.of(context)!;
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final repo = ref.read(driverOrdersRepositoryProvider);
-    final activeOrders = await repo.getActiveDriverOrders();
+    List<dynamic> activeOrders;
+    try {
+      activeOrders = await repo.getActiveDriverOrders();
+    } catch (e) {
+      if (!context.mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(ErrorUtils.translate(context, e))),
+      );
+      return;
+    }
     if (!mounted) return;
 
     if (activeOrders.isEmpty) {
@@ -890,9 +899,18 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
 
     final profileAsync = ref.watch(driverProfileProvider);
     final profile = profileAsync.asData?.value;
-    final vehicleType = (profile is Map ? (profile['vehicleType'] ?? profile['vehicle_type']) : null)?.toString().toUpperCase().trim() ?? 'MOTORCYCLE';
-    final vehiclePlate = profile is Map ? profile['vehiclePlate']?.toString().trim() : null;
-    final driverName = profile is Map ? (profile['name']?.toString().trim() ?? '') : '';
+    final Map<dynamic, dynamic>? profileData =
+        profile is Map && profile['data'] is Map
+            ? profile['data'] as Map
+            : (profile is Map ? profile : null);
+    final vehicleType =
+        (profileData?['vehicleType'] ?? profileData?['vehicle_type'])
+                ?.toString()
+                .toUpperCase()
+                .trim() ??
+            'MOTORCYCLE';
+    final vehiclePlate = profileData?['vehiclePlate']?.toString().trim();
+    final driverName = profileData?['name']?.toString().trim() ?? '';
 
     final List<Marker> markers = [];
     if (_currentPosition != null) {

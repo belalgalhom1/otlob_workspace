@@ -392,9 +392,9 @@ export class DispatchLifecycleService {
       )
     ).filter((id): id is string => Boolean(id));
 
-    for (const id of activeDispatchIds) {
-      await this.cancelDispatchById(id, orderId);
-    }
+    await Promise.all(
+      activeDispatchIds.map((id) => this.cancelDispatchById(id, orderId)),
+    );
   }
 
   // ─── Private lifecycle helpers ────────────────────────────────────────────
@@ -1112,7 +1112,7 @@ export class DispatchLifecycleService {
               ? { status: nextOrderStatus }
               : {}),
             ...(order.distanceKm == null && activeGroupCount <= 1
-              ? { distanceKm: totalDistanceKm }
+              ? { distanceKm: orderDistanceKm }
               : {}),
             revision: { increment: 1 },
           },
@@ -1280,7 +1280,7 @@ export class DispatchLifecycleService {
     try {
       await Promise.all([
         this.eventsQueue.add(EVENT_JOBS.ORDER_STATUS_CHANGED, statusEvent, {
-          jobId: `order_status_${order.id}_${assignedRevision}`,
+          jobId: `notify_order_status_${order.id}_${assignedRevision}`,
           attempts: 3,
           backoff: { type: 'exponential', delay: 2_000 },
         }),
@@ -1390,6 +1390,15 @@ export class DispatchLifecycleService {
 
     const scope = dispatchData.deliveryGroupId ?? orderId;
     await this.dispatchRepository.deleteBroadcast(dispatchId);
+
+    if (typeof this.dispatchQueue?.getJob === 'function') {
+      const expiryJob = await this.dispatchQueue.getJob(
+        `dispatch-expire-${dispatchId}`,
+      );
+      if (expiryJob) {
+        await expiryJob.remove();
+      }
+    }
 
     const stillOwner = await this.dispatchRepository.releaseActiveClaim(
       scope,

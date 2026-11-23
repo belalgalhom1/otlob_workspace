@@ -52,6 +52,12 @@ export function resolveActiveDriverBonusFee(
   return amount;
 }
 
+export function resolveGoldSurchargeAmount(
+  settings: Partial<PlatformSetting> | null | undefined,
+): number {
+  return Math.max(0, Math.round(Number(settings?.goldTierBonusPerOrder ?? 0)));
+}
+
 /**
  * Resolves customer delivery fee and gold surcharge from PlatformSettingsService
  * using the canonical breakdown method (with legacy mock fallback for tests).

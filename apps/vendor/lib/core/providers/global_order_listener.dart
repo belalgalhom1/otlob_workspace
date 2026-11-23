@@ -135,6 +135,22 @@ final globalOrderListenerProvider = Provider<void>((ref) {
       .onEvent(SocketEvent.orderFulfillmentUpdated)
       .listen(handleOrderEvent);
 
+  final orderAssignedSub = socketService
+      .onEvent(SocketEvent.orderAssigned)
+      .listen((_) => fetchOrders());
+
+  final orderAssistProposedSub = socketService
+      .onEvent(SocketEvent.orderAssistProposed)
+      .listen((_) => fetchOrders());
+
+  final orderAssistDecidedSub = socketService
+      .onEvent(SocketEvent.orderAssistDecided)
+      .listen((_) => fetchOrders());
+
+  final orderAssistTimedOutSub = socketService
+      .onEvent(SocketEvent.orderAssistTimedOut)
+      .listen((_) => fetchOrders());
+
   final pushSub = pushService.onMessage.listen((message) {
     final hasConvo =
         (message.data['conversationId']?.toString().trim() ?? '').isNotEmpty;
@@ -178,6 +194,10 @@ final globalOrderListenerProvider = Provider<void>((ref) {
     orderNewSub.cancel();
     orderStatusSub.cancel();
     orderFulfillmentSub.cancel();
+    orderAssignedSub.cancel();
+    orderAssistProposedSub.cancel();
+    orderAssistDecidedSub.cancel();
+    orderAssistTimedOutSub.cancel();
     pushSub.cancel();
     socketConnectSub.cancel();
     connectivitySub.cancel();

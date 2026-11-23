@@ -78,6 +78,14 @@ export class DriverAssistMatchingService {
     ) {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
     }
+    const driverIds = await this.findNearestEligibleAssistDrivers(
+      request,
+      limit,
+    );
+    if (driverIds.length === 0) {
+      throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
+    }
+
     if (request.status === DriverAssistRequestStatus.PENDING) {
       await this.prisma.driverAssistRequest.update({
         where: { id: requestId },
@@ -87,14 +95,6 @@ export class DriverAssistMatchingService {
           reviewedAt: new Date(),
         },
       });
-    }
-
-    const driverIds = await this.findNearestEligibleAssistDrivers(
-      request,
-      limit,
-    );
-    if (driverIds.length === 0) {
-      throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
     }
 
     const orderNumber = request.order?.orderNumber ?? '';
@@ -225,8 +225,10 @@ export class DriverAssistMatchingService {
     }> = [];
     const needsHydration: string[] = [];
 
-    for (const key of keys) {
-      const raw = await this.redis.get(key);
+    const raws = await Promise.all(keys.map((key) => this.redis.get(key)));
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const raw = raws[i];
       if (!raw) continue;
       try {
         const offer = JSON.parse(raw) as {

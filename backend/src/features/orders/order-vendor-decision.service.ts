@@ -215,20 +215,31 @@ export class OrderVendorDecisionService {
 
     // The customer pays commission as a service fee only for UNCONTRACTED
     // vendors, so rejecting a contracted vendor must not reduce it.
-    const rejectedVendor = await this.prisma.vendor.findUnique({
-      where: { id: fulfillment.vendorId },
-      select: { isContracted: true },
-    });
-    const rejectedBranch = fulfillment.vendorBranchId
-      ? await this.prisma.vendorBranch.findUnique({
-          where: { id: fulfillment.vendorBranchId },
+    let isContracted: boolean;
+    if (
+      (fulfillment as { isContracted?: boolean | null }).isContracted != null
+    ) {
+      isContracted = Boolean(
+        (fulfillment as { isContracted?: boolean | null }).isContracted,
+      );
+    } else {
+      const [rejectedVendor, rejectedBranch] = await Promise.all([
+        this.prisma.vendor.findUnique({
+          where: { id: fulfillment.vendorId },
           select: { isContracted: true },
-        })
-      : null;
-    const isContracted =
-      rejectedBranch?.isContracted != null
-        ? rejectedBranch.isContracted
-        : (rejectedVendor?.isContracted ?? false);
+        }),
+        fulfillment.vendorBranchId
+          ? this.prisma.vendorBranch.findUnique({
+              where: { id: fulfillment.vendorBranchId },
+              select: { isContracted: true },
+            })
+          : Promise.resolve(null),
+      ]);
+      isContracted =
+        rejectedBranch?.isContracted != null
+          ? rejectedBranch.isContracted
+          : (rejectedVendor?.isContracted ?? false);
+    }
     const serviceFeeDelta = isContracted
       ? 0
       : -Math.round(refundAmount * (fulfillment.commissionRate / 100));
@@ -292,9 +303,11 @@ export class OrderVendorDecisionService {
       };
     });
 
-    for (const driverId of result.freedDriverIds) {
-      await this.ordersRepository.freeDriver(driverId);
-    }
+    await Promise.all(
+      Array.from(new Set(result.freedDriverIds)).map((driverId) =>
+        this.ordersRepository.freeDriver(driverId),
+      ),
+    );
 
     // Recompute the money under the order-money advisory lock so a concurrent
     // cancellation or second rejection cannot double-refund the same portion.
@@ -534,6 +547,7 @@ export class OrderVendorDecisionService {
         pickedUpAt: true,
         subtotal: true,
         commissionRate: true,
+        isContracted: true,
       },
     });
     if (!fulfillment) {
@@ -647,6 +661,13 @@ export class OrderVendorDecisionService {
           revision: true,
           customerId: true,
           customer: { select: { userId: true } },
+          deliveryGroups: {
+            where: { status: { not: DeliveryGroupStatus.CANCELLED } },
+            select: {
+              primaryDriver: { select: { userId: true } },
+              assistDriver: { select: { userId: true } },
+            },
+          },
         },
       }),
       this.ordersRepository.getVendorUserIds(
@@ -655,6 +676,17 @@ export class OrderVendorDecisionService {
       ),
     ]);
     if (!order) return;
+
+    const driverUserIds: string[] = Array.from(
+      new Set(
+        ((order as any).deliveryGroups ?? [])
+          .flatMap((g: any) => [
+            g?.primaryDriver?.userId as string | undefined,
+            g?.assistDriver?.userId as string | undefined,
+          ])
+          .filter((id: string | undefined): id is string => Boolean(id)),
+      ),
+    );
 
     this.eventEmitter.emit(
       EVENTS.ORDER_FULFILLMENT_DECIDED,
@@ -668,7 +700,7 @@ export class OrderVendorDecisionService {
         vendorUserIds,
         status,
         actorUserId,
-        [],
+        driverUserIds,
         order.status,
         order.revision,
       ),

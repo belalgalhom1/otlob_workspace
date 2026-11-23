@@ -314,9 +314,17 @@ export class OrderListener {
       event.affectedItemNames.length > 0
         ? event.affectedItemNames.join(', ')
         : 'some items';
+    const itemsAr =
+      event.affectedItemNames.length > 0
+        ? event.affectedItemNames.join('، ')
+        : 'بعض الأصناف';
     const money =
       event.refundAmount > 0
         ? ` ${event.refundAmount} EGP was removed from your total.`
+        : '';
+    const moneyAr =
+      event.refundAmount > 0
+        ? ` تم خصم ${event.refundAmount} جنيه من إجمالي الطلب.`
         : '';
 
     try {
@@ -326,7 +334,7 @@ export class OrderListener {
           title: 'Part of your order was unavailable',
           titleAr: 'جزء من طلبك غير متوفر',
           body: `${event.vendorName} could not fulfil: ${items}. ${event.rejectionReason}.${money}`,
-          bodyAr: `${event.vendorNameAr ?? event.vendorName} لم يستطع تلبية الطلب: ${items}. ${event.rejectionReasonAr ?? event.rejectionReason}.${money}`,
+          bodyAr: `${event.vendorNameAr ?? event.vendorName} لم يستطع تلبية الطلب: ${itemsAr}. ${event.rejectionReasonAr ?? event.rejectionReason}.${moneyAr}`,
           type: NotificationType.ORDER_UPDATE,
           data: {
             orderId: event.orderId,

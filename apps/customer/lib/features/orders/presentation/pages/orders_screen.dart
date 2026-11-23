@@ -754,7 +754,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     
     final rawDeliveryFee = order['deliveryFee'];
     final driverBonusFee = _parseDouble(order['driverBonusFee']);
-    final deliveryFee = _parseDouble(rawDeliveryFee) + driverBonusFee;
+    final bonusPaidByCustomer = order['driverBonusPaidByCustomer'] == true;
+    final deliveryFee = _parseDouble(rawDeliveryFee) +
+        (bonusPaidByCustomer ? driverBonusFee : 0.0);
     
     final rawServiceFee = order['serviceFee'];
     final serviceFee = _parseDouble(rawServiceFee);

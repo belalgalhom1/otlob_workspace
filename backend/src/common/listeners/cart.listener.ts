@@ -32,14 +32,16 @@ export class CartListener {
     );
 
     try {
-      for (const vendorId of vendorIds) {
-        // The DELETE runs on the worker (EventsProcessor) via the events queue.
-        await this.eventsQueue.add(
-          EVENT_JOBS.CLEAR_CART,
-          { customerUserId: event.customerUserId, vendorId },
-          { attempts: 1 },
-        );
-      }
+      // The DELETE runs on the worker (EventsProcessor) via the events queue.
+      await Promise.all(
+        vendorIds.map((vendorId) =>
+          this.eventsQueue.add(
+            EVENT_JOBS.CLEAR_CART,
+            { customerUserId: event.customerUserId, vendorId },
+            { attempts: 1 },
+          ),
+        ),
+      );
     } catch (error) {
       this.logger.error(
         `Failed to enqueue clear-cart event for user ${event.customerUserId}: ${error instanceof Error ? error.message : String(error)}`,

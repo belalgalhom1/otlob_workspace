@@ -278,10 +278,13 @@ export class OrdersCheckoutService {
   async estimateCustomOrder(actor: JwtAccessPayload, dto: PlaceCustomOrderDto) {
     const customer = await this.prisma.customer.findUnique({
       where: { userId: actor.sub },
-      select: { coinBalance: true },
+      select: { coinBalance: true, canOrder: true },
     });
     if (!customer)
       throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
+    if ((customer as { canOrder?: boolean }).canOrder === false) {
+      throw new ForbiddenException(CustomerErrors.CANNOT_ORDER);
+    }
 
     const money = await this.computeCustomOrderMoney(dto, customer.coinBalance);
 
@@ -584,10 +587,13 @@ export class OrdersCheckoutService {
 
     const customer = await this.prisma.customer.findUnique({
       where: { userId: actor.sub },
-      select: { id: true, coinBalance: true },
+      select: { id: true, coinBalance: true, canOrder: true },
     });
     if (!customer)
       throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
+    if ((customer as { canOrder?: boolean }).canOrder === false) {
+      throw new ForbiddenException(CustomerErrors.CANNOT_ORDER);
+    }
     const customerId = customer.id;
 
     const activeOrderPolicy = await this.validateActiveOrderLimit(customerId);

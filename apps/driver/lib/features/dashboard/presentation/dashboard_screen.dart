@@ -53,6 +53,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   bool _isRefreshing = false;
+  final Set<String> _respondingAssistOfferIds = <String>{};
   late final AnimationController _refreshAnimController;
 
   @override
@@ -959,22 +960,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           children: [
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: () async {
-                                  try {
-                                    await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: false);
-                                    if (!mounted) return;
-                                    ref.invalidate(pendingAssistOffersProvider);
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(ErrorUtils.translate(context, e)),
-                                          backgroundColor: AppColors.error,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
+                                onPressed: _respondingAssistOfferIds.contains(offerId)
+                                    ? null
+                                    : () async {
+                                        setState(() => _respondingAssistOfferIds.add(offerId));
+                                        try {
+                                          await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: false);
+                                          if (!mounted) return;
+                                          ref.invalidate(pendingAssistOffersProvider);
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(ErrorUtils.translate(context, e)),
+                                                backgroundColor: AppColors.error,
+                                              ),
+                                            );
+                                          }
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() => _respondingAssistOfferIds.remove(offerId));
+                                          }
+                                        }
+                                      },
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: Theme.of(context).colorScheme.onSurface,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -985,27 +993,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: () async {
-                                  try {
-                                    await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: true);
-                                    if (!mounted) return;
-                                    ref.invalidate(pendingAssistOffersProvider);
-                                    ref.invalidate(driverProfileProvider);
-                                    await ref.read(orderExecutionProvider.notifier).refresh();
-                                    if (context.mounted) {
-                                      context.push('/order-execution');
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(ErrorUtils.translate(context, e)),
-                                          backgroundColor: AppColors.error,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
+                                onPressed: _respondingAssistOfferIds.contains(offerId)
+                                    ? null
+                                    : () async {
+                                        setState(() => _respondingAssistOfferIds.add(offerId));
+                                        try {
+                                          await ref.read(driverOrdersRepositoryProvider).respondToAssistOffer(offerId, accept: true);
+                                          if (!mounted) return;
+                                          ref.invalidate(pendingAssistOffersProvider);
+                                          ref.invalidate(driverProfileProvider);
+                                          await ref.read(orderExecutionProvider.notifier).refresh();
+                                          if (context.mounted) {
+                                            context.push('/order-execution');
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(ErrorUtils.translate(context, e)),
+                                                backgroundColor: AppColors.error,
+                                              ),
+                                            );
+                                          }
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() => _respondingAssistOfferIds.remove(offerId));
+                                          }
+                                        }
+                                      },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   foregroundColor: Colors.black,

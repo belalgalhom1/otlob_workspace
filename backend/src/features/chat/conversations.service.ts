@@ -395,11 +395,12 @@ export class ConversationsService {
     if (!order) throw new NotFoundException(ChatErrors.ORDER_NOT_FOUND);
 
     const isCustomer = order.customer.userId === actor.sub;
-    const orderVendorUserIds = await this.resolveOrderVendorUserIds(order.id);
+    const [orderVendorUserIds, orderDriverUserIds] = await Promise.all([
+      this.resolveOrderVendorUserIds(order.id),
+      this.resolveOrderDriverUserIds(order.id),
+    ]);
     const isVendorMember = orderVendorUserIds.includes(actor.sub);
-    const isDriver = (await this.resolveOrderDriverUserIds(order.id)).includes(
-      actor.sub,
-    );
+    const isDriver = orderDriverUserIds.includes(actor.sub);
     const isStaffAdmin =
       (actor.role === Role.ADMIN || actor.role === Role.SUPER_ADMIN) &&
       (await this.canManageConversations(actor.sub, actor.role));
@@ -432,15 +433,14 @@ export class ConversationsService {
       return this.formatConversation(existing, actor.sub);
     }
 
-    const [driverUserIds, singleVendorId] = await Promise.all([
-      this.resolveOrderDriverUserIds(order.id),
-      this.resolveOrderConversationVendorId(order.id),
-    ]);
+    const singleVendorId = await this.resolveOrderConversationVendorId(
+      order.id,
+    );
     const participantUserIds = [
       ...new Set([
         order.customer.userId,
         ...orderVendorUserIds,
-        ...driverUserIds,
+        ...orderDriverUserIds,
       ]),
     ];
 
@@ -644,7 +644,7 @@ export class ConversationsService {
     if (existing) return this.formatConversation(existing, actor.sub);
 
     // Create a new SUPPORT conversation
-    const participantUserIds = [actor.sub, dto.userId];
+    const participantUserIds = Array.from(new Set([actor.sub, dto.userId]));
 
     const conversation = await this.prisma.conversation.create({
       data: {
@@ -762,7 +762,11 @@ export class ConversationsService {
   }
 
   async assertParticipant(
-    conversation: { participants: { userId: string }[] },
+    conversation: {
+      participants: { userId: string }[];
+      vendorId?: string | null;
+      orderId?: string | null;
+    },
     actor: JwtAccessPayload,
   ) {
     if (conversation.participants.some((p) => p.userId === actor.sub)) {
@@ -770,10 +774,32 @@ export class ConversationsService {
     }
 
     const canManage = await this.canManageConversations(actor.sub, actor.role);
-
-    if (!canManage) {
-      throw new ForbiddenException(ChatErrors.NOT_A_PARTICIPANT);
+    if (canManage) {
+      return;
     }
+
+    if (actor.role === Role.VENDOR_MEMBER) {
+      if (conversation.vendorId) {
+        const member = await this.prisma.vendorMember.findUnique({
+          where: {
+            vendorId_userId: {
+              vendorId: conversation.vendorId,
+              userId: actor.sub,
+            },
+          },
+          select: { id: true },
+        });
+        if (member) return;
+      }
+      if (conversation.orderId) {
+        const vendorUserIds = await this.resolveOrderVendorUserIds(
+          conversation.orderId,
+        );
+        if (vendorUserIds.includes(actor.sub)) return;
+      }
+    }
+
+    throw new ForbiddenException(ChatErrors.NOT_A_PARTICIPANT);
   }
 
   private conversationIncludes(_viewerUserId?: string) {
@@ -836,6 +862,26 @@ export class ConversationsService {
       order: {
         select: { orderNumber: true },
       },
+      supportTicket: {
+        select: {
+          id: true,
+          ticketNumber: true,
+          subject: true,
+          status: true,
+          category: true,
+          subCategory: true,
+          priority: true,
+          orderId: true,
+          vendorId: true,
+          assigneeId: true,
+          assignee: {
+            select: { id: true, name: true, avatar: true, role: true },
+          },
+          order: {
+            select: { id: true, orderNumber: true, status: true },
+          },
+        },
+      },
       _count: {
         select: { messages: true },
       },
@@ -897,6 +943,29 @@ export class ConversationsService {
         logo?: string | null;
       } | null;
       order: { orderNumber: string } | null;
+      supportTicket?: {
+        id: string;
+        ticketNumber: string;
+        subject: string;
+        status: string;
+        category: string;
+        subCategory: string | null;
+        priority: string;
+        orderId: string | null;
+        vendorId: string | null;
+        assigneeId: string | null;
+        assignee: {
+          id: string;
+          name: string;
+          avatar: string | null;
+          role: string;
+        } | null;
+        order: {
+          id: string;
+          orderNumber: string;
+          status: string;
+        } | null;
+      } | null;
       _count: { messages: number } | null;
     };
 
@@ -905,6 +974,7 @@ export class ConversationsService {
     );
 
     const lastMessage = conversation.messages[0] ?? null;
+    const ticket = conversation.supportTicket ?? null;
 
     return {
       id: conversation.id,
@@ -925,9 +995,17 @@ export class ConversationsService {
         : null,
       type: conversation.type,
       status: conversation.status,
-      orderId: conversation.orderId,
-      order: conversation.order,
-      vendorId: conversation.vendorId,
+      orderId: conversation.orderId ?? ticket?.orderId ?? null,
+      order: conversation.order ?? ticket?.order ?? null,
+      supportTicket: ticket,
+      ticketId: ticket?.id ?? null,
+      ticketNumber: ticket?.ticketNumber ?? null,
+      subject: ticket?.subject ?? null,
+      ticketStatus: ticket?.status ?? null,
+      ticketCategory: ticket?.category ?? null,
+      ticketSubCategory: ticket?.subCategory ?? null,
+      assignee: ticket?.assignee ?? null,
+      vendorId: conversation.vendorId ?? ticket?.vendorId ?? null,
       vendorName: conversation.vendor?.storeName,
       vendorNameAr: conversation.vendor?.storeNameAr,
       vendorLogo: conversation.vendor?.logo ?? null,

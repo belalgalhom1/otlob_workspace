@@ -164,6 +164,11 @@ export class OrdersService {
             vendorScopes,
           });
 
+    const settings =
+      canManage && typeof this.platformSettings?.getSettings === 'function'
+        ? await this.platformSettings.getSettings()
+        : undefined;
+
     result.orders = await Promise.all(
       result.orders.map((o: any) => {
         const fulfillments = (o?.vendorFulfillments ?? []) as Array<{
@@ -184,6 +189,7 @@ export class OrdersService {
           canManage,
           vendorId: matchedScope.vendorId,
           memberBranchId: matchedScope.branchId,
+          settings,
         });
       }),
     );

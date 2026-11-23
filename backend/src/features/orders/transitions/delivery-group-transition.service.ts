@@ -190,7 +190,7 @@ export class DeliveryGroupTransitionService {
       throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
     }
 
-    return this.applyGroupStatusTransition(actor, order, group, dto);
+    return this.applyGroupStatusTransition(actor, order, group, dto, driverId);
   }
 
   /**
@@ -210,6 +210,7 @@ export class DeliveryGroupTransitionService {
       deliveryImageUrl?: string | null;
     },
     dto: UpdateOrderStatusDto,
+    actingDriverId?: string | null,
   ) {
     const newStatus = dto.status as unknown as DeliveryGroupStatus;
 
@@ -258,8 +259,8 @@ export class DeliveryGroupTransitionService {
           status: OrderVendorFulfillmentStatus.PICKED_UP,
           pickedUpAt: new Date(),
           ...(dto.pickupImageUrl ? { pickupImageUrl: dto.pickupImageUrl } : {}),
-          ...(group.primaryDriverId
-            ? { pickedUpByDriverId: group.primaryDriverId }
+          ...((actingDriverId ?? group.primaryDriverId)
+            ? { pickedUpByDriverId: actingDriverId ?? group.primaryDriverId }
             : {}),
         },
       });
@@ -1114,6 +1115,9 @@ export class DeliveryGroupTransitionService {
         if (latest?.status !== OrderStatus.CANCELLED) {
           throw err;
         }
+      }
+      for (const driverId of new Set(txResult.freedDriverIds)) {
+        await this.ordersRepository.freeDriver(driverId);
       }
       return { groupCancelled: true, orderCancelled: true };
     }

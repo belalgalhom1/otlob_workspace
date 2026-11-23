@@ -257,9 +257,13 @@ export class CartService {
       }
     }
 
-    const optionHash = dto.optionIds?.length
+    const uniqueOptionIds = dto.optionIds
+      ? [...new Set(dto.optionIds)]
+      : undefined;
+
+    const optionHash = uniqueOptionIds?.length
       ? createHash('sha256')
-          .update((dto.variantId ?? '') + [...dto.optionIds].sort().join(','))
+          .update((dto.variantId ?? '') + [...uniqueOptionIds].sort().join(','))
           .digest('hex')
       : null;
 
@@ -321,7 +325,7 @@ export class CartService {
               specialRequest: dto.specialRequest ?? null,
               optionHash: optionHash ?? '',
               selectedOptions: {
-                create: (dto.optionIds ?? []).map((optionId) => ({
+                create: (uniqueOptionIds ?? []).map((optionId) => ({
                   optionId,
                 })),
               },
@@ -435,14 +439,17 @@ export class CartService {
       );
     }
 
+    const uniqueUpdateOptionIds =
+      dto.optionIds !== undefined ? [...new Set(dto.optionIds)] : undefined;
+
     await this.prisma.$transaction(async (tx) => {
       const newOptionHash =
-        dto.optionIds !== undefined
-          ? dto.optionIds.length
+        uniqueUpdateOptionIds !== undefined
+          ? uniqueUpdateOptionIds.length
             ? createHash('sha256')
                 .update(
                   (cartItem.variantId ?? '') +
-                    [...dto.optionIds].sort().join(','),
+                    [...uniqueUpdateOptionIds].sort().join(','),
                 )
                 .digest('hex')
             : ''
@@ -496,13 +503,16 @@ export class CartService {
         },
       });
 
-      if (dto.optionIds !== undefined) {
+      if (uniqueUpdateOptionIds !== undefined) {
         // Replace all options
         await tx.cartItemOption.deleteMany({ where: { cartItemId } });
 
-        if (dto.optionIds.length) {
+        if (uniqueUpdateOptionIds.length) {
           await tx.cartItemOption.createMany({
-            data: dto.optionIds.map((optionId) => ({ cartItemId, optionId })),
+            data: uniqueUpdateOptionIds.map((optionId) => ({
+              cartItemId,
+              optionId,
+            })),
           });
         }
       }
@@ -1096,123 +1106,5 @@ export class CartService {
       serviceFee: 0,
       itemCount: 0,
     };
-  }
-  async rebuildCartFromOrder(order: any) {
-    const customerId = order.customerId;
-    const allItems: any[] = order.items || order.orderItems || [];
-    const fulfillments: any[] = order.vendorFulfillments || [];
-
-    const itemsByVendor = new Map<string, any[]>();
-    if (fulfillments.length > 0) {
-      const vendorByFulfillmentId = new Map<string, string>();
-      for (const f of fulfillments) {
-        if (f?.id && f?.vendorId) {
-          vendorByFulfillmentId.set(f.id, f.vendorId);
-        }
-      }
-      for (const item of allItems) {
-        const vId = item.fulfillmentId
-          ? vendorByFulfillmentId.get(item.fulfillmentId)
-          : fulfillments.length === 1
-            ? fulfillments[0].vendorId
-            : null;
-        if (!vId) continue;
-        const list = itemsByVendor.get(vId) ?? [];
-        list.push(item);
-        itemsByVendor.set(vId, list);
-      }
-      if (allItems.length === 0) {
-        for (const f of fulfillments) {
-          if (!f?.vendorId || !Array.isArray(f.items)) continue;
-          const list = itemsByVendor.get(f.vendorId) ?? [];
-          list.push(...f.items);
-          itemsByVendor.set(f.vendorId, list);
-        }
-      }
-    } else if (order.vendorId) {
-      itemsByVendor.set(order.vendorId, allItems);
-    }
-
-    if (itemsByVendor.size === 0) return;
-
-    await this.prisma.$transaction(async (tx) => {
-      for (const [vendorId, items] of itemsByVendor.entries()) {
-        if (items.length === 0) continue;
-        const cart = await tx.cart.upsert({
-          where: { customerId_vendorId: { customerId, vendorId } },
-          create: { customerId, vendorId },
-          update: { updatedAt: new Date() },
-        });
-
-        for (const item of items) {
-          const sortedOptionIds = (item.selectedOptions || [])
-            .map((so: any) => so.optionId)
-            .filter(Boolean)
-            .sort();
-          const optionHash =
-            sortedOptionIds.length > 0
-              ? createHash('sha256')
-                  .update((item.variantId ?? '') + sortedOptionIds.join(','))
-                  .digest('hex')
-              : '';
-          const selectedUnit = item.selectedUnit ?? 'package';
-
-          let existingItem: any = null;
-          if (item.productId) {
-            existingItem = await tx.cartItem.findFirst({
-              where: {
-                cartId: cart.id,
-                productId: item.productId,
-                variantId: item.variantId ?? null,
-                optionHash,
-                selectedUnit,
-                customPrice: item.customPrice ?? null,
-              },
-            });
-          } else {
-            existingItem = await tx.cartItem.findFirst({
-              where: {
-                cartId: cart.id,
-                productId: null,
-                customName: item.customName ?? item.productName ?? null,
-                customPrice: item.customPrice ?? null,
-              },
-            });
-          }
-
-          if (existingItem) {
-            await tx.cartItem.update({
-              where: { id: existingItem.id },
-              data: {
-                quantity: { increment: item.quantity },
-                specialRequest:
-                  item.specialRequest ?? existingItem.specialRequest,
-                updatedAt: new Date(),
-              },
-            });
-          } else {
-            await tx.cartItem.create({
-              data: {
-                cartId: cart.id,
-                productId: item.productId ?? null,
-                variantId: item.variantId ?? null,
-                customName: item.customName ?? null,
-                customPrice: item.customPrice ?? null,
-                customImageUrl: item.customImageUrl ?? null,
-                quantity: item.quantity,
-                selectedUnit,
-                specialRequest: item.specialRequest ?? null,
-                optionHash,
-                selectedOptions: {
-                  create: sortedOptionIds.map((optionId: string) => ({
-                    optionId,
-                  })),
-                },
-              },
-            });
-          }
-        }
-      }
-    });
   }
 }

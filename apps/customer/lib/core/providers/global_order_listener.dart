@@ -52,6 +52,7 @@ class GlobalOrderListener extends _$GlobalOrderListener {
       _fulfillmentSub?.cancel();
       _assistProposedSub?.cancel();
       _settingsSub?.cancel();
+      _socketConnectSub?.cancel();
       _connectivitySub?.cancel();
       _lifecycleObserver?.dispose();
     });

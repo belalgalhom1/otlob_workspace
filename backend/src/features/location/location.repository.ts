@@ -91,12 +91,14 @@ export class LocationRepository {
     lat: number,
     freshnessTtlSecs: number,
   ): Promise<void> {
-    await this.redis.geoadd(DRIVER_GEO_POOL_KEY, lng, lat, driverId);
-    await this.redis.set(
-      `${DRIVER_FRESHNESS_KEY_PREFIX}${driverId}`,
-      String(Date.now()),
-      freshnessTtlSecs,
-    );
+    await Promise.all([
+      this.redis.geoadd(DRIVER_GEO_POOL_KEY, lng, lat, driverId),
+      this.redis.set(
+        `${DRIVER_FRESHNESS_KEY_PREFIX}${driverId}`,
+        String(Date.now()),
+        freshnessTtlSecs,
+      ),
+    ]);
   }
 
   async isDriverLocationFresh(driverId: string): Promise<boolean> {

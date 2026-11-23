@@ -4320,7 +4320,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   ) async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final driverId = order['driver']?['id']?.toString() ?? '';
+    final driverId = _resolveAssignedDriver(order)['id']?.toString().trim() ?? '';
     if (driverId.isEmpty) return;
     try {
       final result = await ref

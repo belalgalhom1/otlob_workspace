@@ -216,6 +216,40 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
     return null;
   }
 
+  List<dynamic> get _driverMobileWallets {
+    final driver = _orderDetails?['driver'];
+    if (driver is Map &&
+        driver['mobileWallets'] is List &&
+        (driver['mobileWallets'] as List).isNotEmpty) {
+      return driver['mobileWallets'] as List;
+    }
+    final deliveryGroups = _orderDetails?['deliveryGroups'];
+    if (deliveryGroups is List && deliveryGroups.isNotEmpty) {
+      for (final g in deliveryGroups) {
+        if (g is! Map || g['status']?.toString() == 'CANCELLED') continue;
+        if (g['isCollector'] != true) continue;
+        final d = g['primaryDriver'] ?? g['driver'];
+        if (d is Map &&
+            d['mobileWallets'] is List &&
+            (d['mobileWallets'] as List).isNotEmpty) {
+          return d['mobileWallets'] as List;
+        }
+      }
+      for (final g in deliveryGroups) {
+        if (g is! Map || g['status']?.toString() == 'CANCELLED') continue;
+        final d = g['primaryDriver'] ?? g['driver'];
+        if (d is Map &&
+            d['mobileWallets'] is List &&
+            (d['mobileWallets'] as List).isNotEmpty) {
+          return d['mobileWallets'] as List;
+        }
+      }
+    }
+    return const [];
+  }
+
+  bool _isDecidingAssist = false;
+
   IconData _vehicleIconData(String type) => VehicleTypeHelper.icon(type);
 
   String _vehicleTypeLabel(String type, bool isArabic) =>
@@ -1689,7 +1723,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
 
   Widget? _buildAssistPromptWidget(BuildContext context, AppStrings s) {
     final order = _orderDetails;
-    if (order == null || !_orderType.isStandard) return null;
+    if (order == null) return null;
     final deliveryGroups = order['deliveryGroups'] is List
         ? order['deliveryGroups'] as List
         : const [];
@@ -1765,30 +1799,39 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () async {
-                    final ok = await ref
-                        .read(ordersProvider.notifier)
-                        .decideAssistOrder(
-                          widget.orderId,
-                          approve: false,
-                          deliveryGroupId: deliveryGroupId,
-                        );
-                    if (!context.mounted) return;
-                    if (ok) {
-                      _fetchOrderDetails();
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isAr
-                                ? 'تعذر إرسال القرار. حاول مرة أخرى.'
-                                : 'Failed to submit decision. Please try again.',
-                          ),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: _isDecidingAssist
+                      ? null
+                      : () async {
+                          setState(() => _isDecidingAssist = true);
+                          try {
+                            final ok = await ref
+                                .read(ordersProvider.notifier)
+                                .decideAssistOrder(
+                                  widget.orderId,
+                                  approve: false,
+                                  deliveryGroupId: deliveryGroupId,
+                                );
+                            if (!context.mounted) return;
+                            if (ok) {
+                              _fetchOrderDetails();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isAr
+                                        ? 'تعذر إرسال القرار. حاول مرة أخرى.'
+                                        : 'Failed to submit decision. Please try again.',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() => _isDecidingAssist = false);
+                            }
+                          }
+                        },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
@@ -1802,30 +1845,39 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () async {
-                    final ok = await ref
-                        .read(ordersProvider.notifier)
-                        .decideAssistOrder(
-                          widget.orderId,
-                          approve: true,
-                          deliveryGroupId: deliveryGroupId,
-                        );
-                    if (!context.mounted) return;
-                    if (ok) {
-                      _fetchOrderDetails();
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isAr
-                                ? 'تعذر إرسال القرار. حاول مرة أخرى.'
-                                : 'Failed to submit decision. Please try again.',
-                          ),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: _isDecidingAssist
+                      ? null
+                      : () async {
+                          setState(() => _isDecidingAssist = true);
+                          try {
+                            final ok = await ref
+                                .read(ordersProvider.notifier)
+                                .decideAssistOrder(
+                                  widget.orderId,
+                                  approve: true,
+                                  deliveryGroupId: deliveryGroupId,
+                                );
+                            if (!context.mounted) return;
+                            if (ok) {
+                              _fetchOrderDetails();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isAr
+                                        ? 'تعذر إرسال القرار. حاول مرة أخرى.'
+                                        : 'Failed to submit decision. Please try again.',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() => _isDecidingAssist = false);
+                            }
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.black,
@@ -1899,12 +1951,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
             style: const TextStyle(fontSize: 13),
           ),
           const SizedBox(height: 8),
-          if (_orderDetails != null &&
-              _orderDetails!['driver'] != null &&
-              _orderDetails!['driver']['mobileWallets'] != null &&
-              (_orderDetails!['driver']['mobileWallets'] as List).isNotEmpty)
+          if (_driverMobileWallets.isNotEmpty)
             ..._trackingVisibleWallets(
-              _orderDetails!['driver']['mobileWallets'] as List,
+              _driverMobileWallets,
             ).map((wallet) {
               final walletMap = wallet is Map
                   ? Map<dynamic, dynamic>.from(wallet)

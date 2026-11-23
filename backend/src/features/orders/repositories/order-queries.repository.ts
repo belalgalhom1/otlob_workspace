@@ -382,8 +382,10 @@ export class OrderQueriesRepository {
     });
     if (!order) throw new NotFoundException(OrderErrors.NOT_FOUND);
 
-    await this.hydrateLocations([order]);
-    await this.hydrateIdentities([order]);
+    await Promise.all([
+      this.hydrateLocations([order]),
+      this.hydrateIdentities([order]),
+    ]);
     return order;
   }
 
@@ -541,8 +543,10 @@ export class OrderQueriesRepository {
     ]);
 
     if (orders.length > 0) {
-      await this.hydrateLocations(orders);
-      await this.hydrateIdentities(orders);
+      await Promise.all([
+        this.hydrateLocations(orders),
+        this.hydrateIdentities(orders),
+      ]);
     }
 
     return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };

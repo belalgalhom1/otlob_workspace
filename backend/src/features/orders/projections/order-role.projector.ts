@@ -61,7 +61,7 @@ export class OrderRoleProjector {
         ? ctx.canManage
         : await this.auth.canManageOrders(actor.sub, actor.role);
     if (canManage) {
-      return this.enrichWithAdminHelpers(order);
+      return this.enrichWithAdminHelpers(order, ctx?.settings);
     }
 
     if (actor.role === Role.DRIVER) {

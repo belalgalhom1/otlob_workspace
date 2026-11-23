@@ -1337,10 +1337,6 @@ export class OrdersRepository {
     }
   }
 
-  async clearCart(customerId: string, vendorId: string) {
-    return this.prisma.cart.deleteMany({ where: { customerId, vendorId } });
-  }
-
   getVendorUserIds(
     vendorId: string | null,
     branchId?: string | null,

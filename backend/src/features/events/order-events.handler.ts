@@ -261,9 +261,9 @@ export class OrderEventsHandler {
           ? [event.driverId]
           : [];
 
-    for (const did of allDriverIds) {
-      await this.refreshDriverTracking(did, event.orderId);
-    }
+    await Promise.all(
+      allDriverIds.map((did) => this.refreshDriverTracking(did, event.orderId)),
+    );
 
     let customerUserId: string | null = event.customerUserId ?? null;
     let vendorUserIds = event.vendorUserIds || [];
@@ -383,17 +383,25 @@ export class OrderEventsHandler {
     const driverStatTargets: Array<string | null> =
       cancelDrivers.length > 0 ? cancelDrivers : [null];
 
-    for (const vid of vendorStatTargets) {
-      for (const did of driverStatTargets) {
-        await this.statisticsService
-          .recordCancellation(event.orderId, vid, did)
+    const maxStatCalls = Math.max(
+      vendorStatTargets.length,
+      driverStatTargets.length,
+    );
+    await Promise.all(
+      Array.from({ length: maxStatCalls }, (_, i) =>
+        this.statisticsService
+          .recordCancellation(
+            event.orderId,
+            vendorStatTargets[i] ?? null,
+            driverStatTargets[i] ?? null,
+          )
           .catch((err: unknown) =>
             this.logger.error(
               `Failed to record cancellation stat: ${err instanceof Error ? err.message : String(err)}`,
             ),
-          );
-      }
-    }
+          ),
+      ),
+    );
   }
 
   async handleOrderSettled(data: {

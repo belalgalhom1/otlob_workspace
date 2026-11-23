@@ -130,6 +130,8 @@ export class DriverAssistListener {
       ? { deliveryGroupId: event.deliveryGroupId }
       : {};
 
+    const tasks: Array<Promise<unknown>> = [];
+
     if (event.customerUserId) {
       const body = event.deliveryGroupId
         ? `An assisting driver was added to delivery ${orderLabel}. Extra fee: ${event.assistFee}. Approve or decline.`
@@ -138,64 +140,70 @@ export class DriverAssistListener {
         ? `تمت إضافة سائق مساعد للتوصيل ${orderLabel}. رسوم إضافية: ${event.assistFee}. وافق أو ارفض.`
         : `تمت إضافة سائق مساعد. رسوم إضافية: ${event.assistFee}. وافق أو ارفض.`;
 
-      await this.enqueueNotification({
-        userId: event.customerUserId,
-        title: 'Assisted delivery proposed',
-        titleAr: 'تم اقتراح توصيل بمساعدة',
-        body,
-        bodyAr,
-        data: {
+      tasks.push(
+        this.enqueueNotification({
+          userId: event.customerUserId,
+          title: 'Assisted delivery proposed',
+          titleAr: 'تم اقتراح توصيل بمساعدة',
+          body,
+          bodyAr,
+          data: {
+            orderId: event.orderId,
+            ...groupFields,
+            assistFee: event.assistFee,
+            action: 'assist_decision',
+          },
+        }),
+        this.emitSocket(event.customerUserId, WS_EVENTS.ORDER_ASSIST_PROPOSED, {
           orderId: event.orderId,
           ...groupFields,
           assistFee: event.assistFee,
-          action: 'assist_decision',
-        },
-      });
-
-      await this.emitSocket(event.customerUserId, WS_EVENTS.ORDER_ASSIST_PROPOSED, {
-        orderId: event.orderId,
-        ...groupFields,
-        assistFee: event.assistFee,
-      });
+        }),
+      );
     }
 
     if (event.assistDriverUserId) {
-      await this.enqueueNotification({
-        userId: event.assistDriverUserId,
-        title: 'Assisting a delivery',
-        titleAr: 'مساعد في توصيل',
-        body: `You were assigned to assist delivery ${orderLabel}. You earn the full delivery fee.`,
-        bodyAr: `تم تعيينك لمساعدة التوصيل ${orderLabel}. تحصل على كامل أجرة التوصيل.`,
-        data: {
+      tasks.push(
+        this.enqueueNotification({
+          userId: event.assistDriverUserId,
+          title: 'Assisting a delivery',
+          titleAr: 'مساعد في توصيل',
+          body: `You were assigned to assist delivery ${orderLabel}. You earn the full delivery fee.`,
+          bodyAr: `تم تعيينك لمساعدة التوصيل ${orderLabel}. تحصل على كامل أجرة التوصيل.`,
+          data: {
+            orderId: event.orderId,
+            orderNumber: event.orderNumber,
+          },
+        }),
+        this.emitSocket(event.assistDriverUserId, WS_EVENTS.ORDER_ASSIGNED, {
           orderId: event.orderId,
           orderNumber: event.orderNumber,
-        },
-      });
-
-      await this.emitSocket(event.assistDriverUserId, WS_EVENTS.ORDER_ASSIGNED, {
-        orderId: event.orderId,
-        orderNumber: event.orderNumber,
-        ...groupFields,
-        role: 'ASSISTING',
-      });
+          ...groupFields,
+          role: 'ASSISTING',
+        }),
+      );
     }
 
     if (
       event.primaryDriverUserId &&
       event.primaryDriverUserId !== event.assistDriverUserId
     ) {
-      await this.enqueueNotification({
-        userId: event.primaryDriverUserId,
-        title: 'Assisting driver assigned',
-        titleAr: 'تم تعيين سائق مساعد',
-        body: `A second driver was added to delivery ${orderLabel}. You remain the primary driver.`,
-        bodyAr: `تمت إضافة سائق ثانٍ للتوصيل ${orderLabel}. لا تزال السائق الأساسي.`,
-        data: {
-          orderId: event.orderId,
-          orderNumber: event.orderNumber,
-        },
-      });
+      tasks.push(
+        this.enqueueNotification({
+          userId: event.primaryDriverUserId,
+          title: 'Assisting driver assigned',
+          titleAr: 'تم تعيين سائق مساعد',
+          body: `A second driver was added to delivery ${orderLabel}. You remain the primary driver.`,
+          bodyAr: `تمت إضافة سائق ثانٍ للتوصيل ${orderLabel}. لا تزال السائق الأساسي.`,
+          data: {
+            orderId: event.orderId,
+            orderNumber: event.orderNumber,
+          },
+        }),
+      );
     }
+
+    await Promise.all(tasks);
   }
 
   @OnEvent(EVENTS.DRIVER_ASSIST_CUSTOMER_DECIDED, { async: true })

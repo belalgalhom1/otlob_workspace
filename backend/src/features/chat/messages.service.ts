@@ -99,13 +99,18 @@ export class MessagesService {
     const isParticipant = conversation.participants.some(
       (p) => p.userId === actor.sub,
     );
-    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
-    const isVendorMember = await this.isVendorMemberForConversation(
-      actor.sub,
-      actor.role,
-      conversation.vendorId,
-      conversation.orderId,
-    );
+    const isAdmin =
+      !isParticipant &&
+      (await this.canManageConversations(actor.sub, actor.role));
+    const isVendorMember =
+      !isParticipant &&
+      !isAdmin &&
+      (await this.isVendorMemberForConversation(
+        actor.sub,
+        actor.role,
+        conversation.vendorId,
+        conversation.orderId,
+      ));
 
     if (!isParticipant && !isAdmin && !isVendorMember) {
       this.logger.warn(
@@ -377,13 +382,18 @@ export class MessagesService {
     const isParticipant = conversation.participants.some(
       (p) => p.userId === actor.sub,
     );
-    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
-    const isVendorMember = await this.isVendorMemberForConversation(
-      actor.sub,
-      actor.role,
-      conversation.vendorId,
-      conversation.orderId,
-    );
+    const isAdmin =
+      !isParticipant &&
+      (await this.canManageConversations(actor.sub, actor.role));
+    const isVendorMember =
+      !isParticipant &&
+      !isAdmin &&
+      (await this.isVendorMemberForConversation(
+        actor.sub,
+        actor.role,
+        conversation.vendorId,
+        conversation.orderId,
+      ));
 
     if (!isParticipant && !isAdmin && !isVendorMember) {
       this.logger.warn(
@@ -475,13 +485,18 @@ export class MessagesService {
       },
     });
 
-    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
-    const isVendorMember = await this.isVendorMemberForConversation(
-      actor.sub,
-      actor.role,
-      conversation?.vendorId ?? null,
-      conversation?.orderId ?? null,
-    );
+    const isAdmin =
+      !participant &&
+      (await this.canManageConversations(actor.sub, actor.role));
+    const isVendorMember =
+      !participant &&
+      !isAdmin &&
+      (await this.isVendorMemberForConversation(
+        actor.sub,
+        actor.role,
+        conversation?.vendorId ?? null,
+        conversation?.orderId ?? null,
+      ));
 
     if (!participant && !isAdmin && !isVendorMember) {
       this.logger.warn(
@@ -604,6 +619,10 @@ export class MessagesService {
             avatar: true,
             role: true,
             title: true,
+            titleAr: true,
+            vendorMemberships: {
+              select: { role: true },
+            },
           },
         },
         replyTo: REPLY_TO_INCLUDE,
@@ -629,13 +648,18 @@ export class MessagesService {
     const isParticipant = conversation.participants.some(
       (p) => p.userId === actor.sub,
     );
-    const isAdmin = await this.canManageConversations(actor.sub, actor.role);
-    const isVendorMember = await this.isVendorMemberForConversation(
-      actor.sub,
-      actor.role,
-      conversation.vendorId,
-      conversation.orderId,
-    );
+    const isAdmin =
+      !isParticipant &&
+      (await this.canManageConversations(actor.sub, actor.role));
+    const isVendorMember =
+      !isParticipant &&
+      !isAdmin &&
+      (await this.isVendorMemberForConversation(
+        actor.sub,
+        actor.role,
+        conversation.vendorId,
+        conversation.orderId,
+      ));
 
     if (!isParticipant && !isAdmin && !isVendorMember) {
       throw new ForbiddenException(ChatErrors.NOT_A_PARTICIPANT);

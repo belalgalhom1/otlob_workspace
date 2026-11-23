@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:core/core.dart';
 import 'package:data/providers.dart' show sharedChatRepositoryProvider;
@@ -21,6 +22,10 @@ class InboxCountsState {
 
 @Riverpod(keepAlive: true)
 class InboxCounts extends _$InboxCounts {
+  Timer? _debounceTimer;
+  bool _isFetching = false;
+  bool _pendingRefresh = false;
+
   @override
   InboxCountsState build() {
     ref.listen<AuthStatus>(authControllerProvider, (prev, next) {
@@ -55,6 +60,7 @@ class InboxCounts extends _$InboxCounts {
     final connectSub = socket.onConnect.listen(_onRealtimeEvent);
 
     ref.onDispose(() {
+      _debounceTimer?.cancel();
       chatSub.cancel();
       readSub.cancel();
       createdSub.cancel();
@@ -67,7 +73,10 @@ class InboxCounts extends _$InboxCounts {
   }
 
   void _onRealtimeEvent(dynamic data) {
-    _fetchCounts();
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 250), () {
+      _fetchCounts();
+    });
   }
 
   Future<void> _fetchCounts() async {
@@ -76,6 +85,11 @@ class InboxCounts extends _$InboxCounts {
       state = InboxCountsState();
       return;
     }
+    if (_isFetching) {
+      _pendingRefresh = true;
+      return;
+    }
+    _isFetching = true;
     try {
       final result = await ref.read(sharedChatRepositoryProvider).getInboxCounts();
       if (result is Map) {
@@ -87,10 +101,17 @@ class InboxCounts extends _$InboxCounts {
       }
     } catch (e) {
       debugPrint('Failed to fetch inbox counts: $e');
+    } finally {
+      _isFetching = false;
+      if (_pendingRefresh) {
+        _pendingRefresh = false;
+        Future.microtask(() => _fetchCounts());
+      }
     }
   }
 
   Future<void> refresh() async {
+    _debounceTimer?.cancel();
     await _fetchCounts();
   }
 }

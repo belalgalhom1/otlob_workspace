@@ -92,7 +92,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       return;
     }
     final requestKey = _basketFingerprint(address, items);
-    _estimating[vendorId] = true;
+    if (mounted) {
+      setState(() {
+        _estimating[vendorId] = true;
+      });
+    } else {
+      _estimating[vendorId] = true;
+    }
     try {
       final result = await ref
           .read(ordersProvider.notifier)
@@ -1319,7 +1325,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               children: [
                 _qtyBtn(Icons.remove, isDark, () {
                   final vid = item.product.vendorId;
-                  if (vid != null) _estimates.remove(vid);
+                  if (vid != null) {
+                    _estimates.remove(vid);
+                    _estimateKeys.remove(vid);
+                  }
                   ref
                       .read(cartProvider.notifier)
                       .updateQuantity(item, item.quantity - 1);
@@ -1337,7 +1346,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ),
                 _qtyBtn(Icons.add, isDark, () {
                   final vid = item.product.vendorId;
-                  if (vid != null) _estimates.remove(vid);
+                  if (vid != null) {
+                    _estimates.remove(vid);
+                    _estimateKeys.remove(vid);
+                  }
                   ref
                       .read(cartProvider.notifier)
                       .updateQuantity(item, item.quantity + 1);

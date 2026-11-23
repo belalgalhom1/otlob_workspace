@@ -48,6 +48,7 @@ import {
   buildVehicleAvailabilitySettings,
   isDriverVehicleEligibleForOrder,
 } from '../location/driver-geo-search.service';
+import { requiresActiveShiftForOrderType } from '../../common/orders/money.helper';
 
 export interface RequestAssistDto {
   reason: DriverAssistReason;
@@ -283,6 +284,10 @@ export class DriverAssistService {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
     }
 
+    if (next === DriverAssistRequestStatus.REJECTED) {
+      await this.matchingService?.clearOffer?.(requestId);
+    }
+
     this.eventEmitter.emit(
       EVENTS.DRIVER_ASSIST_DECIDED,
       new DriverAssistDecidedEvent(
@@ -309,8 +314,9 @@ export class DriverAssistService {
       where: {
         orderId,
         primaryDriverId: driver.id,
+        assistDriverId: null,
         status: {
-          notIn: [DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.DELIVERED],
+          notIn: ASSIGNMENT_CLOSED_STATUSES,
         },
       },
       orderBy: { sequence: 'asc' },
@@ -370,6 +376,7 @@ export class DriverAssistService {
 
     const assigned = await this.prisma.$transaction(async (tx) => {
       if (typeof tx.$executeRaw === 'function') {
+        await tx.$executeRaw`SELECT id FROM orders WHERE id = ${request.orderId} FOR UPDATE`;
         await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${candidate.id} FOR UPDATE`;
       }
 
@@ -501,12 +508,23 @@ export class DriverAssistService {
     if (request.driver.userId !== actor.sub) {
       throw new ForbiddenException(DriverErrors.ASSIST_NOT_ON_THIS_DELIVERY);
     }
-    if (request.status !== DriverAssistRequestStatus.PENDING) {
+    if (
+      request.status !== DriverAssistRequestStatus.PENDING &&
+      request.status !== DriverAssistRequestStatus.APPROVED
+    ) {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
     }
 
     const claimed = await this.prisma.driverAssistRequest.updateMany({
-      where: { id: requestId, status: DriverAssistRequestStatus.PENDING },
+      where: {
+        id: requestId,
+        status: {
+          in: [
+            DriverAssistRequestStatus.PENDING,
+            DriverAssistRequestStatus.APPROVED,
+          ],
+        },
+      },
       data: {
         status: DriverAssistRequestStatus.CANCELLED,
         resolvedAt: new Date(),
@@ -515,6 +533,8 @@ export class DriverAssistService {
     if (claimed.count === 0) {
       throw new BadRequestException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
     }
+
+    await this.matchingService?.clearOffer?.(requestId);
 
     this.eventEmitter.emit(
       EVENTS.DRIVER_ASSIST_DECIDED,
@@ -592,27 +612,39 @@ export class DriverAssistService {
     const assistFee = Number(group.assistFee ?? 0);
 
     if (approved) {
-      const claimed = await this.prisma.orderDeliveryGroup.updateMany({
-        where: { id: deliveryGroupId, assistCustomerApproved: null },
-        data: {
-          assistCustomerApproved: true,
-          assistApprovedAt: new Date(),
-        },
-      });
-      if (claimed.count === 0) {
-        throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
-      }
-      // Charge the customer: add the assistant's fee to the order total so the
-      // driver collects it (cash) / it becomes part of what is owed.
-      if (assistFee > 0) {
-        await this.prisma.order.update({
-          where: { id: orderId },
+      const runTx =
+        typeof this.prisma.$transaction === 'function'
+          ? <T>(fn: (tx: any) => Promise<T>) => this.prisma.$transaction(fn)
+          : <T>(fn: (tx: any) => Promise<T>) => fn(this.prisma);
+
+      await runTx(async (tx) => {
+        const claimed = await tx.orderDeliveryGroup.updateMany({
+          where: {
+            id: deliveryGroupId,
+            assistDriverId: { not: null },
+            assistCustomerApproved: null,
+          },
           data: {
-            deliveryFee: { increment: assistFee },
-            grandTotal: { increment: assistFee },
+            assistCustomerApproved: true,
+            assistApprovedAt: new Date(),
           },
         });
-      }
+        if (claimed.count === 0) {
+          throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
+        }
+        // Charge the customer: add the assistant's fee to the order total so the
+        // driver collects it (cash) / it becomes part of what is owed.
+        if (assistFee > 0) {
+          await tx.order.update({
+            where: { id: orderId },
+            data: {
+              deliveryFee: { increment: assistFee },
+              grandTotal: { increment: assistFee },
+              revision: { increment: 1 },
+            },
+          });
+        }
+      });
 
       const [primaryUserId, assistUserId] = await Promise.all([
         this.resolveUserId(group.primaryDriverId),
@@ -683,38 +715,40 @@ export class DriverAssistService {
       take: 100,
     });
 
-    for (const g of expired) {
-      try {
-        const tornDown = await this.teardownAssistOnGroup({
-          orderId: g.orderId,
-          deliveryGroupId: g.id,
-          primaryDriverId: g.primaryDriverId,
-          assistDriverId: g.assistDriverId,
-          failureReason: 'Assist decision timed out',
-        });
-        if (!tornDown) continue;
+    await Promise.all(
+      expired.map(async (g) => {
+        try {
+          const tornDown = await this.teardownAssistOnGroup({
+            orderId: g.orderId,
+            deliveryGroupId: g.id,
+            primaryDriverId: g.primaryDriverId,
+            assistDriverId: g.assistDriverId,
+            failureReason: 'Assist decision timed out',
+          });
+          if (!tornDown) return;
 
-        const [{ customerUserId }, primaryUserId, assistUserId] =
-          await Promise.all([
-            this.resolveCustomerUserId(g.orderId),
-            this.resolveUserId(g.primaryDriverId),
-            this.resolveUserId(g.assistDriverId),
-          ]);
+          const [{ customerUserId }, primaryUserId, assistUserId] =
+            await Promise.all([
+              this.resolveCustomerUserId(g.orderId),
+              this.resolveUserId(g.primaryDriverId),
+              this.resolveUserId(g.assistDriverId),
+            ]);
 
-        this.eventEmitter.emit(
-          EVENTS.DRIVER_ASSIST_TIMED_OUT,
-          new DriverAssistTimedOutEvent(
-            g.orderId,
-            g.id,
-            customerUserId,
-            primaryUserId,
-            assistUserId,
-          ),
-        );
-      } catch (error) {
-        this.logWarn(error);
-      }
-    }
+          this.eventEmitter.emit(
+            EVENTS.DRIVER_ASSIST_TIMED_OUT,
+            new DriverAssistTimedOutEvent(
+              g.orderId,
+              g.id,
+              customerUserId,
+              primaryUserId,
+              assistUserId,
+            ),
+          );
+        } catch (error) {
+          this.logWarn(error);
+        }
+      }),
+    );
   }
 
   private async teardownAssistOnGroup(params: {
@@ -1079,6 +1113,25 @@ export class DriverAssistService {
             : OrderErrors.DRIVER_VEHICLE_NOT_ELIGIBLE,
         );
       }
+      if (
+        requiresActiveShiftForOrderType(
+          (rawSettings as { driverShiftsEnabled?: boolean } | null)
+            ?.driverShiftsEnabled,
+          orderContext.orderType,
+        ) &&
+        typeof this.prisma.driverShift?.findFirst === 'function'
+      ) {
+        const activeShift = await this.prisma.driverShift.findFirst({
+          where: {
+            driverId: candidate.id,
+            status: DriverShiftStatus.ACTIVE,
+          },
+          select: { id: true },
+        });
+        if (!activeShift) {
+          throw new BadRequestException(DriverErrors.ASSIST_DRIVER_NOT_ELIGIBLE);
+        }
+      }
     }
     return candidate;
   }
@@ -1089,10 +1142,23 @@ export class DriverAssistService {
   }> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { customerId: true, orderNumber: true },
+      select: {
+        customerId: true,
+        orderNumber: true,
+        customer: { select: { userId: true } },
+      },
     });
     if (!order) {
       return { customerUserId: null, orderNumber: null };
+    }
+    const embeddedUserId = (
+      order as { customer?: { userId?: string | null } | null }
+    ).customer?.userId;
+    if (embeddedUserId) {
+      return {
+        customerUserId: embeddedUserId,
+        orderNumber: order.orderNumber,
+      };
     }
     const customer = await this.prisma.customer.findUnique({
       where: { id: order.customerId },

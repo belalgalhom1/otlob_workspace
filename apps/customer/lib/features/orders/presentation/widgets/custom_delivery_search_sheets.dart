@@ -936,7 +936,8 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
             .toString();
     final vehiclePlate = (driver['vehiclePlate'] ?? '').toString().trim();
     final ratingCount = (driver['ratingCount'] as num?)?.toInt() ?? 0;
-    final ratingValue = (driver['rating'] as num?)?.toDouble() ?? 0.0;
+    final rawRating = (driver['rating'] as num?)?.toDouble() ?? 0.0;
+    final ratingValue = rawRating > 5 ? rawRating / 100.0 : rawRating;
     final isPendingPayment = state.isAwaitingPayment;
     final banner = _resolveJourneyBanner(context, state);
 

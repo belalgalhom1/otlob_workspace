@@ -630,7 +630,7 @@ export class OrderSettlementService {
           settledPrimaryManagerId: gManager?.id ?? null,
         });
 
-        if (g.assistDriverId) {
+        if (g.assistDriverId && g.assistCustomerApproved === true) {
           const assistTier = await resolveDriverTierSnapshot(
             g.assistDriverId,
             null,
@@ -1738,6 +1738,26 @@ export class OrderSettlementService {
         payout.driverId,
         (driverEarningsByDriver.get(payout.driverId) ?? 0) + payout.amount,
       );
+    }
+    for (const bonus of plan.goldDriverBonuses) {
+      if (bonus.amount > 0) {
+        driverEarningsByDriver.set(
+          bonus.driverId,
+          (driverEarningsByDriver.get(bonus.driverId) ?? 0) + bonus.amount,
+        );
+      }
+    }
+    for (const deduction of plan.bronzeDriverDeductions) {
+      if (deduction.amount > 0) {
+        driverEarningsByDriver.set(
+          deduction.driverId,
+          Math.max(
+            0,
+            (driverEarningsByDriver.get(deduction.driverId) ?? 0) -
+              deduction.amount,
+          ),
+        );
+      }
     }
 
     const statsJobs: Array<Promise<void>> = [

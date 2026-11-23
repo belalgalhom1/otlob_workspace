@@ -315,6 +315,9 @@ class LocationService {
     // Lean payload: only what the backend/customer actually consume.
     _ref.read(coreSocketServiceProvider).emit(SocketEvent.driverLocationUpdate, {
       'location': [position.longitude, position.latitude],
+      'heading': (position.heading.isFinite && position.heading >= 0)
+          ? position.heading
+          : 0.0,
       'timestamp': DateTime.now().toUtc().toIso8601String(),
     });
   }
