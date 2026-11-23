@@ -17,6 +17,7 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
     registerPushNotificationBackgroundHandler();
+    await ensurePushNotificationChannel();
   } catch (e) {
     debugPrint('Firebase init failed: $e');
   }

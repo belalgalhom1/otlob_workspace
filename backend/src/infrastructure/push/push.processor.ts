@@ -16,9 +16,28 @@ const INVALID_TOKEN_CODES = new Set([
   'messaging/invalid-registration-token',
 ]);
 
-const FCM_CONFIG = {
-  android: { priority: 'high' as const },
-  apns: { payload: { aps: { contentAvailable: true, sound: 'default' } } },
+export const DEFAULT_ANDROID_NOTIFICATION_CHANNEL_ID = 'otlob_notifications_v2';
+
+export const FCM_CONFIG = {
+  android: {
+    priority: 'high' as const,
+    notification: {
+      channelId: DEFAULT_ANDROID_NOTIFICATION_CHANNEL_ID,
+      sound: 'default',
+      defaultSound: true,
+      defaultVibrateTimings: true,
+      priority: 'max' as const,
+      visibility: 'public' as const,
+    },
+  },
+  apns: {
+    payload: {
+      aps: {
+        contentAvailable: true,
+        sound: 'default',
+      },
+    },
+  },
 };
 
 @Processor(QUEUES.PUSH, { concurrency: 50 })

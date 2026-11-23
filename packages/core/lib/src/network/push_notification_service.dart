@@ -8,6 +8,23 @@ import 'package:api/api.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 class PushNotificationService {
+  static const String defaultAndroidChannelId = 'otlob_notifications_v2';
+  static const String defaultAndroidChannelName = 'Otlob Notifications';
+  static const String defaultAndroidChannelDescription =
+      'Used for order updates, delivery requests, chat messages, and important alerts.';
+  static const String _legacyAndroidChannelId = 'high_importance_channel';
+
+  static const AndroidNotificationChannel defaultAndroidChannel =
+      AndroidNotificationChannel(
+    defaultAndroidChannelId,
+    defaultAndroidChannelName,
+    description: defaultAndroidChannelDescription,
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+    audioAttributesUsage: AudioAttributesUsage.notification,
+  );
+
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
@@ -58,7 +75,7 @@ class PushNotificationService {
     if (!_listenersInitialized) {
       try {
         // Initialize local notifications for foreground display and tap routing
-        const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+        const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
         const iosInit = DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
@@ -83,23 +100,7 @@ class PushNotificationService {
               _decodeLocalPayload(launchDetails?.notificationResponse?.payload);
         }
 
-        final androidPlugin = _localNotifications
-            .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>();
-        if (androidPlugin != null) {
-          const channel = AndroidNotificationChannel(
-            'high_importance_channel',
-            'High Importance Notifications',
-            description:
-                'Used for important delivery requests and order updates.',
-            importance: Importance.max,
-            playSound: true,
-            enableVibration: true,
-          );
-          await androidPlugin
-              .createNotificationChannel(channel)
-              .timeout(const Duration(seconds: 2));
-        }
+        await _createAndroidNotificationChannel(_localNotifications);
       } catch (e) {
         debugPrint('FCM: Local notifications initialization warning: $e');
       }
@@ -221,10 +222,14 @@ class PushNotificationService {
     Map<String, dynamic>? data,
   }) {
     const androidDetails = AndroidNotificationDetails(
-      'high_importance_channel', // channel id
-      'High Importance Notifications', // channel name
+      defaultAndroidChannelId,
+      defaultAndroidChannelName,
+      channelDescription: defaultAndroidChannelDescription,
       importance: Importance.max,
-      priority: Priority.high,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
+      audioAttributesUsage: AudioAttributesUsage.notification,
     );
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
@@ -398,5 +403,37 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void registerPushNotificationBackgroundHandler() {
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+}
+
+Future<void> _createAndroidNotificationChannel(
+  FlutterLocalNotificationsPlugin plugin,
+) async {
+  if (kIsWeb || !Platform.isAndroid) return;
+  final androidPlugin = plugin.resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>();
+  if (androidPlugin == null) return;
+
+  await androidPlugin
+      .createNotificationChannel(PushNotificationService.defaultAndroidChannel)
+      .timeout(const Duration(seconds: 2));
+
+  try {
+    await androidPlugin
+        .deleteNotificationChannel(
+          channelId: PushNotificationService._legacyAndroidChannelId,
+        )
+        .timeout(const Duration(seconds: 2));
+  } catch (_) {}
+}
+
+/// Ensures the default high-importance Android notification channel (with
+/// device default sound & vibration enabled) is created before any background
+/// FCM notification arrives.
+Future<void> ensurePushNotificationChannel() async {
+  try {
+    await _createAndroidNotificationChannel(FlutterLocalNotificationsPlugin());
+  } catch (e) {
+    debugPrint('FCM: Notification channel setup warning: $e');
+  }
 }
 
