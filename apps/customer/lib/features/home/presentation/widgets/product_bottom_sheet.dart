@@ -1,14 +1,35 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/app_colors.dart';
+import 'package:otlob_customer/core/utils/error_utils.dart';
+
 import '../../../../core/l10n/app_strings.dart';
-import '../../../cart/presentation/providers/cart_controller.dart';
 import '../../../../core/widgets/auth_prompt_dialog.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
-import 'category_icon_image.dart';
+import '../../../cart/presentation/providers/cart_controller.dart';
+import 'store_details_tokens.dart';
 
-import 'package:core/core.dart';
-import 'package:otlob_customer/core/utils/error_utils.dart';
+typedef ProductSheetFlyAddCallback =
+    void Function(
+      Rect? previewSourceRect,
+      String? flyImageUrl,
+      Future<void> Function() commitAdd,
+      String displayName,
+    );
+
+class _NoScrollbarBehavior extends ScrollBehavior {
+  const _NoScrollbarBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+}
 
 class ProductBottomSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> item;
@@ -18,6 +39,7 @@ class ProductBottomSheet extends ConsumerStatefulWidget {
   final AppStrings s;
   final bool isDark;
   final bool isPharmacy;
+  final ProductSheetFlyAddCallback? onRequestFlyAdd;
 
   const ProductBottomSheet({
     super.key,
@@ -28,6 +50,7 @@ class ProductBottomSheet extends ConsumerStatefulWidget {
     required this.s,
     required this.isDark,
     required this.isPharmacy,
+    this.onRequestFlyAdd,
   });
 
   @override
@@ -35,6 +58,7 @@ class ProductBottomSheet extends ConsumerStatefulWidget {
 }
 
 class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
+  final GlobalKey _previewImageKey = GlobalKey();
   late String _selectedUnit;
   Map<String, dynamic>? _selectedVariant;
   bool _hasUserSelectedVariant = false;
@@ -44,12 +68,15 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
   void initState() {
     super.initState();
     _selectedUnit = widget.initialUnit;
-    
+
     final variants = widget.item['variants'] as List<dynamic>? ?? [];
-    final bool hasVariants = (widget.item['hasVariants'] == true || variants.isNotEmpty) && variants.isNotEmpty;
+    final bool hasVariants =
+        (widget.item['hasVariants'] == true || variants.isNotEmpty) &&
+        variants.isNotEmpty;
     if (hasVariants) {
       Map<String, dynamic>? initialSelected;
-      if (widget.initialVariantId != null && widget.initialVariantId!.isNotEmpty) {
+      if (widget.initialVariantId != null &&
+          widget.initialVariantId!.isNotEmpty) {
         initialSelected = variants
             .whereType<Map>()
             .map((v) => Map<String, dynamic>.from(v))
@@ -60,41 +87,73 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
           .whereType<Map>()
           .map((v) => Map<String, dynamic>.from(v))
           .where((v) {
-            final vTracks = v['tracksStock'] == null ? true : (v['tracksStock'] == true);
+            final vTracks = v['tracksStock'] == null
+                ? true
+                : (v['tracksStock'] == true);
             final vStock = _parseStock(v['stock']);
             return !(vTracks && vStock != null && vStock <= 0);
           })
           .firstOrNull;
-      _selectedVariant = initialSelected ?? Map<String, dynamic>.from(variants.first as Map);
+      _selectedVariant =
+          initialSelected ?? Map<String, dynamic>.from(variants.first as Map);
     }
-    
-    final productOptionGroups = widget.item['optionGroups'] as List<dynamic>? ?? [];
+
+    final productOptionGroups =
+        widget.item['optionGroups'] as List<dynamic>? ?? [];
     for (final group in productOptionGroups) {
+      if (group is! Map) continue;
       final gId = group['id']?.toString() ?? '';
       final isRequired = group['isRequired'] == true;
-      final maxSelect = (group['maxSelect'] as num?)?.toInt() ?? int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
+      final maxSelect =
+          (group['maxSelect'] as num?)?.toInt() ??
+          int.tryParse(group['maxSelect']?.toString() ?? '1') ??
+          1;
       final options = group['options'] as List<dynamic>? ?? [];
       if (isRequired && maxSelect == 1 && options.isNotEmpty) {
-        _selectedOptions[gId] = [options.first as Map<String, dynamic>];
+        _selectedOptions[gId] = [
+          Map<String, dynamic>.from(options.first as Map),
+        ];
       } else {
         _selectedOptions[gId] = [];
       }
     }
 
     if (_selectedVariant != null) {
-      final variantOptionGroups = _selectedVariant!['optionGroups'] as List<dynamic>? ?? [];
+      final variantOptionGroups =
+          _selectedVariant!['optionGroups'] as List<dynamic>? ?? [];
       for (final group in variantOptionGroups) {
+        if (group is! Map) continue;
         final gId = group['id']?.toString() ?? '';
         final isRequired = group['isRequired'] == true;
-        final maxSelect = (group['maxSelect'] as num?)?.toInt() ?? int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
+        final maxSelect =
+            (group['maxSelect'] as num?)?.toInt() ??
+            int.tryParse(group['maxSelect']?.toString() ?? '1') ??
+            1;
         final options = group['options'] as List<dynamic>? ?? [];
         if (isRequired && maxSelect == 1 && options.isNotEmpty) {
-          _selectedOptions[gId] = [options.first as Map<String, dynamic>];
+          _selectedOptions[gId] = [
+            Map<String, dynamic>.from(options.first as Map),
+          ];
         } else {
           _selectedOptions[gId] = [];
         }
       }
     }
+  }
+
+  int? _parseStock(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  Rect? _capturePreviewRect() {
+    final renderBox =
+        _previewImageKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return null;
+    final topLeft = renderBox.localToGlobal(Offset.zero);
+    return topLeft & renderBox.size;
   }
 
   bool _areOptionsEqual(List<CartOptionRef> a, List<Map<String, dynamic>> b) {
@@ -107,85 +166,168 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
   void _toggleOption(Map<String, dynamic> group, Map<String, dynamic> option) {
     final groupId = group['id']?.toString() ?? '';
     final isRequired = group['isRequired'] == true;
-    final maxSelect = (group['maxSelect'] as num?)?.toInt() ?? 
-        int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
+    final maxSelect =
+        (group['maxSelect'] as num?)?.toInt() ??
+        int.tryParse(group['maxSelect']?.toString() ?? '1') ??
+        1;
     final safeMax = maxSelect <= 0 ? 1 : maxSelect;
-    final list = List<Map<String, dynamic>>.from(_selectedOptions[groupId] ?? []);
+    final list = List<Map<String, dynamic>>.from(
+      _selectedOptions[groupId] ?? [],
+    );
     final optId = option['id']?.toString() ?? '';
-    
     final isSelected = list.any((o) => o['id']?.toString() == optId);
-    
+
     setState(() {
       if (isSelected) {
-        if (safeMax == 1 && isRequired) {
-          return;
-        }
+        if (safeMax == 1 && isRequired) return;
         list.removeWhere((o) => o['id']?.toString() == optId);
       } else {
         if (safeMax == 1) {
-          list.clear();
+          list
+            ..clear()
+            ..add(option);
+        } else if (list.length < safeMax) {
           list.add(option);
         } else {
-          if (list.length < safeMax) {
-            list.add(option);
-          } else {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            final isAr = Localizations.localeOf(context).languageCode == 'ar';
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  isAr 
-                    ? 'الحد الأقصى للاختيار هو $safeMax' 
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          final isAr = Localizations.localeOf(context).languageCode == 'ar';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isAr
+                    ? 'الحد الأقصى للاختيار هو $safeMax'
                     : 'Maximum selection is $safeMax',
-                ),
-                duration: const Duration(seconds: 1),
-                behavior: SnackBarBehavior.floating,
               ),
-            );
-          }
+              duration: const Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
         }
       }
       _selectedOptions[groupId] = list;
     });
   }
 
+  void _selectVariant(Map<String, dynamic> variant) {
+    setState(() {
+      _hasUserSelectedVariant = true;
+      _selectedVariant = variant;
+
+      final productGroupIds =
+          (widget.item['optionGroups'] as List<dynamic>? ?? [])
+              .whereType<Map>()
+              .map((g) => g['id']?.toString() ?? '')
+              .toSet();
+      _selectedOptions.removeWhere(
+        (groupId, _) => !productGroupIds.contains(groupId),
+      );
+
+      final vOptionGroups = variant['optionGroups'] as List<dynamic>? ?? [];
+      for (final g in vOptionGroups) {
+        if (g is! Map) continue;
+        final gId = g['id']?.toString() ?? '';
+        final isRequired = g['isRequired'] == true;
+        final maxSelect =
+            (g['maxSelect'] as num?)?.toInt() ??
+            int.tryParse(g['maxSelect']?.toString() ?? '1') ??
+            1;
+        final options = g['options'] as List<dynamic>? ?? [];
+        if (isRequired && maxSelect == 1 && options.isNotEmpty) {
+          _selectedOptions[gId] = [
+            Map<String, dynamic>.from(options.first as Map),
+          ];
+        } else {
+          _selectedOptions[gId] = [];
+        }
+      }
+    });
+  }
+
+  void _showMissingRequiredOptionSnack({
+    required BuildContext context,
+    required List<dynamic> optionGroups,
+    required bool isAr,
+  }) {
+    String? missingGroupName;
+    for (final g in optionGroups) {
+      if (g is! Map) continue;
+      final minS = g['minSelect'] is int
+          ? g['minSelect'] as int
+          : int.tryParse(g['minSelect']?.toString() ?? '0') ?? 0;
+      final effectiveMin = g['isRequired'] == true
+          ? (minS > 0 ? minS : 1)
+          : minS;
+      if (effectiveMin > 0) {
+        final c = (_selectedOptions[g['id']?.toString()] ?? []).length;
+        if (c < effectiveMin) {
+          missingGroupName =
+              (isAr &&
+                  g['nameAr'] != null &&
+                  g['nameAr'].toString().trim().isNotEmpty)
+              ? g['nameAr'].toString()
+              : g['name']?.toString();
+          break;
+        }
+      }
+    }
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          missingGroupName != null
+              ? (isAr
+                    ? 'برجاء تحديد: $missingGroupName'
+                    : 'Please select: $missingGroupName')
+              : (isAr
+                    ? 'برجاء تحديد الخيارات المطلوبة'
+                    : 'Please select required options'),
+        ),
+        backgroundColor: StoreDetailsTokens.errorRed,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
     final s = widget.s;
-    final isDark = widget.isDark;
+    final palette = StoreDetailsPalette.fromBrightness(widget.isDark);
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final currency = s.egp.trim();
 
-    final flatOptions = _selectedOptions.values.expand((list) => list).toList();
+    final flatOptions = _selectedOptions.values
+        .expand((list) => list)
+        .toList(growable: false);
+    final cartAllItems = ref.watch(cartProvider).allItems;
 
-    final currentCartItem = ref.watch(cartProvider).allItems.where((ci) {
-      return ci.product.id == item['id'] && 
-             ci.selectedUnit == _selectedUnit &&
-             ci.selectedVariant?.id == _selectedVariant?['id'] &&
-             _areOptionsEqual(ci.selectedOptions, flatOptions);
+    final currentCartItem = cartAllItems.where((ci) {
+      return ci.product.id == item['id']?.toString() &&
+          ci.selectedUnit == _selectedUnit &&
+          ci.selectedVariant?.id == _selectedVariant?['id']?.toString() &&
+          _areOptionsEqual(ci.selectedOptions, flatOptions);
     }).firstOrNull;
-    
     final currentQty = currentCartItem?.quantity ?? 0;
-    
-    final bool productTracksStock = item['tracksStock'] == null ? true : (item['tracksStock'] == true);
+
+    final bool productTracksStock = item['tracksStock'] == null
+        ? true
+        : (item['tracksStock'] == true);
     final int? productStock = _parseStock(item['stock']);
     final int? variantStock = _parseStock(_selectedVariant?['stock']);
     final bool variantTracksStock = _selectedVariant == null
         ? true
         : (_selectedVariant!['tracksStock'] == null
-            ? productTracksStock
-            : (_selectedVariant!['tracksStock'] == true));
-    // Stock-aware cap: the menu snapshot is stale the moment the cart holds
-    // units, so subtract what's already in the cart. Variant stock is shared
-    // across option combinations; product stock across units (converted to
-    // strips when a strip unit is selected, mirroring the backend).
-    final cartAllItems = ref.watch(cartProvider).allItems;
+              ? productTracksStock
+              : (_selectedVariant!['tracksStock'] == true));
+
     final bool sellByStrip = item['sellByStrip'] == true;
     final int stripsPerPackage =
         int.tryParse(item['stripsPerPackage']?.toString() ?? '') ?? 1;
     final int divider =
         (_selectedUnit == 'strip' && sellByStrip && stripsPerPackage > 1)
-            ? stripsPerPackage
-            : 1;
+        ? stripsPerPackage
+        : 1;
+
     int convertedLineQty(CartItem ci) {
       int lineQty = ci.quantity;
       if (sellByStrip && stripsPerPackage > 1) {
@@ -204,28 +346,36 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
       if (variantTracksStock && variantStock != null) {
         stockLimit = variantStock * divider;
         stockPoolQty = cartAllItems
-            .where((ci) =>
-                ci.selectedVariant?.id == _selectedVariant!['id'])
+            .where(
+              (ci) =>
+                  ci.selectedVariant?.id == _selectedVariant!['id']?.toString(),
+            )
             .fold<int>(0, (sum, ci) => sum + convertedLineQty(ci));
       }
     } else if (productTracksStock && productStock != null) {
       stockLimit = productStock * divider;
       stockPoolQty = cartAllItems
-          .where((ci) =>
-              ci.product.id == item['id'] && ci.selectedVariant == null)
+          .where(
+            (ci) =>
+                ci.product.id == item['id']?.toString() &&
+                ci.selectedVariant == null,
+          )
           .fold<int>(0, (sum, ci) => sum + convertedLineQty(ci));
     }
+
     final bool isOutOfStock = stockLimit != null
         ? stockPoolQty >= stockLimit
         : (_selectedVariant != null
-            ? variantTracksStock && variantStock != null && variantStock <= 0
-            : productTracksStock &&
-                productStock != null &&
-                productStock <= 0);
+              ? variantTracksStock && variantStock != null && variantStock <= 0
+              : productTracksStock &&
+                    productStock != null &&
+                    productStock <= 0);
     final bool atStockLimit = stockLimit != null && stockPoolQty >= stockLimit;
-    
-    final bool supportsStrips = item['sellByStrip'] == true && item['stripsPerPackage'] != null;
-    final int rawStrips = (item['stripsPerPackage'] as num?)?.toInt() ??
+
+    final bool supportsStrips =
+        widget.isPharmacy && sellByStrip && item['stripsPerPackage'] != null;
+    final int rawStrips =
+        (item['stripsPerPackage'] as num?)?.toInt() ??
         int.tryParse(item['stripsPerPackage']?.toString() ?? '') ??
         1;
     final int stripsCount = rawStrips > 0 ? rawStrips : 1;
@@ -234,66 +384,97 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     double originalBasePrice = 0.0;
 
     if (_selectedVariant != null) {
-      final effectiveP = _selectedVariant!['price'] ?? _selectedVariant!['basePrice'];
-      effectiveBasePrice = double.tryParse(effectiveP?.toString() ?? '0') ?? 0.0;
-
-      final compareP = _selectedVariant!['comparePrice'] ?? _selectedVariant!['basePrice'];
-      originalBasePrice = double.tryParse(compareP?.toString() ?? '0') ?? effectiveBasePrice;
+      final effectiveP =
+          _selectedVariant!['price'] ?? _selectedVariant!['basePrice'];
+      effectiveBasePrice =
+          double.tryParse(effectiveP?.toString() ?? '0') ?? 0.0;
+      final compareP =
+          _selectedVariant!['comparePrice'] ?? _selectedVariant!['basePrice'];
+      originalBasePrice =
+          double.tryParse(compareP?.toString() ?? '0') ?? effectiveBasePrice;
     } else {
       final effectiveP = item['price'] ?? item['basePrice'];
-      effectiveBasePrice = double.tryParse(effectiveP?.toString() ?? '0') ?? 0.0;
-
+      effectiveBasePrice =
+          double.tryParse(effectiveP?.toString() ?? '0') ?? 0.0;
       final compareP = item['comparePrice'] ?? effectiveBasePrice;
-      originalBasePrice = double.tryParse(compareP?.toString() ?? '0') ?? effectiveBasePrice;
+      originalBasePrice =
+          double.tryParse(compareP?.toString() ?? '0') ?? effectiveBasePrice;
     }
 
     double optionsTotal = 0.0;
     for (final opt in flatOptions) {
-      final op = opt['priceAdded'];
-      optionsTotal += double.tryParse(op?.toString() ?? '0') ?? 0.0;
+      optionsTotal +=
+          double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0.0;
     }
 
-    final double currentUnitPrice = (_selectedUnit == 'strip' ? (effectiveBasePrice / stripsCount) : effectiveBasePrice) + optionsTotal;
-    final double originalUnitPrice = (_selectedUnit == 'strip' ? (originalBasePrice / stripsCount) : originalBasePrice) + optionsTotal;
+    final double currentUnitPrice =
+        (_selectedUnit == 'strip'
+            ? (effectiveBasePrice / stripsCount)
+            : effectiveBasePrice) +
+        optionsTotal;
+    final double originalUnitPrice =
+        (_selectedUnit == 'strip'
+            ? (originalBasePrice / stripsCount)
+            : originalBasePrice) +
+        optionsTotal;
     final bool hasDiscount = originalUnitPrice > currentUnitPrice;
-    final int discountPercentage = hasDiscount 
-        ? (((originalUnitPrice - currentUnitPrice) / originalUnitPrice) * 100).round()
+    final int discountPercentage = hasDiscount
+        ? (((originalUnitPrice - currentUnitPrice) / originalUnitPrice) * 100)
+              .round()
         : 0;
 
-    final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final name = isAr && item['nameAr'] != null && item['nameAr'].toString().isNotEmpty
-        ? item['nameAr'] as String
-        : item['name'] as String;
-    final description = isAr && item['descriptionAr'] != null && item['descriptionAr'].toString().isNotEmpty
-        ? item['descriptionAr'] as String
-        : item['description'] as String? ?? '';
+    final String name =
+        (isAr &&
+            item['nameAr'] != null &&
+            item['nameAr'].toString().trim().isNotEmpty)
+        ? item['nameAr'].toString().trim()
+        : (item['name']?.toString().trim() ?? '');
+    final String description =
+        (isAr &&
+            item['descriptionAr'] != null &&
+            item['descriptionAr'].toString().trim().isNotEmpty)
+        ? item['descriptionAr'].toString().trim()
+        : (item['description']?.toString().trim() ?? '');
 
-    final variants = item['variants'] as List<dynamic>? ?? [];
-    final bool hasVariants = (item['hasVariants'] == true || variants.isNotEmpty) && variants.isNotEmpty;
-    final productMainImage =
-        (item['imageUrl'] ?? item['image'])?.toString().trim();
-    final selectedVariantImage =
-        (_selectedVariant?['imageUrl'] ?? _selectedVariant?['image'])
-            ?.toString()
-            .trim();
-    // Start with the product's own image when opened; only swap the hero image
-    // once the customer explicitly selects a variant that defines its own image.
-    final heroImageUrl = (_hasUserSelectedVariant &&
+    final variants = (item['variants'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((v) => Map<String, dynamic>.from(v))
+        .toList(growable: false);
+    final bool hasVariants =
+        (item['hasVariants'] == true || variants.isNotEmpty) &&
+        variants.isNotEmpty;
+
+    final String? productMainImage = StoreDetailsTokens.cleanBackendImageUrl(
+      item['imageUrl'] ?? item['image'],
+    );
+    final String? selectedVariantImage =
+        StoreDetailsTokens.cleanBackendImageUrl(
+          _selectedVariant?['imageUrl'] ?? _selectedVariant?['image'],
+        );
+
+    // Start with the product's own image on open; immediately swap to the
+    // selected variant's own image once the customer selects a variant (or if
+    // the product itself has no image).
+    final String? heroImageUrl =
+        (_hasUserSelectedVariant &&
             selectedVariantImage != null &&
             selectedVariantImage.isNotEmpty)
         ? selectedVariantImage
-        : productMainImage;
+        : (productMainImage ?? selectedVariantImage);
+
     final productOptionGroups = item['optionGroups'] as List<dynamic>? ?? [];
-    final variantOptionGroups = _selectedVariant?['optionGroups'] as List<dynamic>? ?? [];
+    final variantOptionGroups =
+        _selectedVariant?['optionGroups'] as List<dynamic>? ?? [];
     final optionGroups = [...productOptionGroups, ...variantOptionGroups];
 
-    // Check if required options are met
     bool requiredMet = true;
     if (hasVariants && _selectedVariant == null) {
       requiredMet = false;
     }
     for (final group in optionGroups) {
-      final minSelect = (group['minSelect'] as num?)?.toInt() ??
+      if (group is! Map) continue;
+      final minSelect =
+          (group['minSelect'] as num?)?.toInt() ??
           int.tryParse(group['minSelect']?.toString() ?? '0') ??
           0;
       final effectiveMin = group['isRequired'] == true
@@ -309,851 +490,1051 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
       }
     }
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 40,
-            height: 5,
+    final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.88;
+    final bottomSafeInset = MediaQuery.paddingOf(context).bottom;
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      heightFactor: 1.0,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 430, maxHeight: maxSheetHeight),
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomSafeInset),
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(10),
+              color: palette.bgCard,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+              border: Border(
+                top: BorderSide(color: palette.sheetTopBorder, width: 1),
+              ),
+              boxShadow: [palette.cardShadow],
             ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: (heroImageUrl == null || heroImageUrl.isEmpty)
-                              ? Container(
-                                  key: const ValueKey('empty_hero_image'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Drag Handle: 40px × 4px, rounded full, muted 40%
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: palette.textMuted.withValues(alpha: 0.40),
+                      borderRadius: BorderRadius.circular(9999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Scrollable body when option groups / strips are present
+                Flexible(
+                  child: ScrollConfiguration(
+                    behavior: const _NoScrollbarBehavior(),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Large Preview Image: full width × 160px, radius 16, cover, border-gold
+                          KeyedSubtree(
+                            key: _previewImageKey,
+                            child: Stack(
+                              children: [
+                                Container(
                                   width: double.infinity,
-                                  height: 250,
-                                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100,
-                                  child: Icon(Icons.fastfood_rounded, size: 80, color: Colors.grey.shade300),
-                                )
-                              : Container(
-                                  key: ValueKey(heroImageUrl),
-                                  width: double.infinity,
-                                  height: 250,
-                                  color: Colors.transparent,
+                                  height: 160,
+                                  decoration: BoxDecoration(
+                                    color: palette.bgCard2,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: palette.borderGold,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: TransparentBgNetworkImage(
-                                      imageUrl: ImageUtils.formatImageUrl(heroImageUrl),
-                                      mode: BackgroundRemovalMode.autoUniform,
-                                      fit: BoxFit.contain,
-                                      maxCacheDimension: 480,
-                                      fallbackBuilder: (_) => Center(
-                                        child: Icon(
-                                          Icons.fastfood,
-                                          size: 40,
-                                          color: isDark ? Colors.white24 : Colors.grey.shade300,
+                                    borderRadius: BorderRadius.circular(15),
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
+                                      child:
+                                          (heroImageUrl == null ||
+                                              heroImageUrl.isEmpty)
+                                          ? SizedBox(
+                                              key: const ValueKey(
+                                                'empty_hero_image',
+                                              ),
+                                              width: double.infinity,
+                                              height: 160,
+                                              child: Center(
+                                                child: Icon(
+                                                  Icons.fastfood_rounded,
+                                                  size: 44,
+                                                  color: palette.textMuted
+                                                      .withValues(alpha: 0.5),
+                                                ),
+                                              ),
+                                            )
+                                          : SizedBox(
+                                              key: ValueKey(heroImageUrl),
+                                              width: double.infinity,
+                                              height: 160,
+                                              child: CachedNetworkImage(
+                                                imageUrl:
+                                                    ImageUtils.formatImageUrl(
+                                                      heroImageUrl,
+                                                    ),
+                                                width: double.infinity,
+                                                height: 160,
+                                                fit: BoxFit.cover,
+                                                placeholder: (_, _) => Center(
+                                                  child: Icon(
+                                                    Icons.fastfood_rounded,
+                                                    size: 44,
+                                                    color: palette.textMuted
+                                                        .withValues(alpha: 0.5),
+                                                  ),
+                                                ),
+                                                errorWidget: (_, _, _) =>
+                                                    Center(
+                                                      child: Icon(
+                                                        Icons.fastfood_rounded,
+                                                        size: 44,
+                                                        color: palette.textMuted
+                                                            .withValues(
+                                                              alpha: 0.5,
+                                                            ),
+                                                      ),
+                                                    ),
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                                if (isOutOfStock && currentQty == 0)
+                                  PositionedDirectional(
+                                    end: 10,
+                                    bottom: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.75,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          9999,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        s.outOfStock,
+                                        style: StoreDetailsTokens.text(
+                                          size: 11,
+                                          weight: FontWeight.w800,
+                                          color: Colors.white,
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                        ),
-                      ),
-                      if (isOutOfStock && currentQty == 0)
-                        Positioned(
-                          right: 12,
-                          bottom: 12,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.75),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.remove_shopping_cart_outlined, size: 16, color: Colors.white),
-                                const SizedBox(width: 6),
-                                Text(
-                                  s.outOfStock,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
                               ],
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: TextStyle(
-                            fontSize: 24, 
-                            fontWeight: FontWeight.w900, 
-                            letterSpacing: -0.5,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${currentUnitPrice.toStringAsFixed(currentUnitPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary),
-                          ),
-                          if (hasDiscount) ...[
-                            const SizedBox(height: 3),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '${originalUnitPrice.toStringAsFixed(originalUnitPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: isDark ? Colors.white54 : Colors.grey.shade500,
-                                    decoration: TextDecoration.lineThrough,
-                                    fontWeight: FontWeight.w600,
+                          const SizedBox(height: 12),
+
+                          // Title & Dynamic Price Row (both 16px w900)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: StoreDetailsTokens.text(
+                                    size: 16,
+                                    weight: FontWeight.w900,
+                                    color: palette.textPrimary,
+                                    height: 1.25,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.red.shade200, width: 0.5),
+                              ),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '${StoreDetailsTokens.formatPrice(currentUnitPrice)} $currency',
+                                    style: StoreDetailsTokens.numeric(
+                                      size: 16,
+                                      weight: FontWeight.w900,
+                                      color: palette.goldText,
+                                      height: 1.2,
+                                    ),
                                   ),
-                                  child: Text(
-                                    '-$discountPercentage%',
-                                    style: TextStyle(
-                                      color: Colors.red.shade700,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900,
+                                  if (hasDiscount) ...[
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '${StoreDetailsTokens.formatPrice(originalUnitPrice)} $currency',
+                                          style: StoreDetailsTokens.numeric(
+                                            size: 11,
+                                            weight: FontWeight.w600,
+                                            color: palette.textMuted,
+                                            decoration:
+                                                TextDecoration.lineThrough,
+                                            decorationColor: palette.textMuted,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Directionality(
+                                          textDirection: TextDirection.ltr,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 5,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: StoreDetailsTokens.gold,
+                                              borderRadius:
+                                                  BorderRadius.circular(9999),
+                                            ),
+                                            child: Text(
+                                              '-$discountPercentage%',
+                                              style: StoreDetailsTokens.numeric(
+                                                size: 8.5,
+                                                weight: FontWeight.w900,
+                                                color: StoreDetailsTokens
+                                                    .darkOnGold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+
+                          if (description.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              description,
+                              style: StoreDetailsTokens.text(
+                                size: 11,
+                                weight: FontWeight.w500,
+                                color: palette.textMuted,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+
+                          // Pharmacy Package / Strip selector (real backend sellByStrip)
+                          if (supportsStrips) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              s.sellingUnit,
+                              style: StoreDetailsTokens.text(
+                                size: 12,
+                                weight: FontWeight.w800,
+                                color: palette.textMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildUnitTile(
+                                    palette: palette,
+                                    label: s.package,
+                                    priceText:
+                                        '${StoreDetailsTokens.formatPrice(effectiveBasePrice)} $currency',
+                                    isSelected: _selectedUnit == 'package',
+                                    onTap: () => setState(
+                                      () => _selectedUnit = 'package',
                                     ),
                                   ),
                                 ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _buildUnitTile(
+                                    palette: palette,
+                                    label: s.strip,
+                                    priceText:
+                                        '${StoreDetailsTokens.formatPrice(effectiveBasePrice / stripsCount)} $currency',
+                                    isSelected: _selectedUnit == 'strip',
+                                    onTap: () =>
+                                        setState(() => _selectedUnit = 'strip'),
+                                  ),
+                                ),
                               ],
+                            ),
+                          ],
+
+                          // Variants Section: label 12px w800 --text-muted, max-height 160px, gap 8px
+                          if (hasVariants) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              s.selectVariant,
+                              style: StoreDetailsTokens.text(
+                                size: 12,
+                                weight: FontWeight.w800,
+                                color: palette.textMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 160),
+                              child: ScrollConfiguration(
+                                behavior: const _NoScrollbarBehavior(),
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      for (
+                                        int i = 0;
+                                        i < variants.length;
+                                        i++
+                                      ) ...[
+                                        if (i > 0) const SizedBox(height: 8),
+                                        _buildVariantRow(
+                                          variant: variants[i],
+                                          productMainImage: productMainImage,
+                                          palette: palette,
+                                          isAr: isAr,
+                                          currency: currency,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+
+                          // Real Backend Product / Variant Option Groups (when present)
+                          if (optionGroups.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            ...optionGroups.whereType<Map>().map(
+                              (group) => _buildOptionGroup(
+                                group: Map<String, dynamic>.from(group),
+                                palette: palette,
+                                isAr: isAr,
+                                currency: currency,
+                              ),
                             ),
                           ],
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                  if (description.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 15, 
-                        color: isDark ? Colors.white : Colors.grey.shade700, 
-                        height: 1.6
-                      ),
-                    ),
-                  ],
+                ),
 
-                  if (supportsStrips) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      s.sellingUnit,
-                      style: TextStyle(
-                        fontSize: 16, 
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildUnitOption(
-                            label: s.package,
-                            isSelected: _selectedUnit == 'package',
-                            price: effectiveBasePrice,
-                            s: s,
-                            onTap: () {
-                              setState(() => _selectedUnit = 'package');
-                            },
+                const SizedBox(height: 12),
+
+                // Primary CTA Button (إضافة للسلة)
+                _buildBottomAction(
+                  context: context,
+                  item: item,
+                  palette: palette,
+                  s: s,
+                  isAr: isAr,
+                  displayProductName: name,
+                  productMainImage: productMainImage,
+                  selectedVariantImage: selectedVariantImage,
+                  flatOptions: flatOptions,
+                  optionGroups: optionGroups,
+                  requiredMet: requiredMet,
+                  isOutOfStock: isOutOfStock,
+                  atStockLimit: atStockLimit,
+                  currentCartItem: currentCartItem,
+                  currentQty: currentQty,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVariantRow({
+    required Map<String, dynamic> variant,
+    required String? productMainImage,
+    required StoreDetailsPalette palette,
+    required bool isAr,
+    required String currency,
+  }) {
+    final vId = variant['id']?.toString() ?? '';
+    final isSelected = _selectedVariant?['id']?.toString() == vId;
+    final vName =
+        (isAr &&
+            variant['nameAr'] != null &&
+            variant['nameAr'].toString().trim().isNotEmpty)
+        ? variant['nameAr'].toString().trim()
+        : (variant['name']?.toString().trim() ?? '');
+
+    final effectiveVPrice =
+        double.tryParse(
+          (variant['price'] ?? variant['basePrice'])?.toString() ?? '0',
+        ) ??
+        0.0;
+
+    // Per-variant thumbnail displays that variant's own image from backend,
+    // falling back to the product image.
+    final thumbUrl =
+        StoreDetailsTokens.cleanBackendImageUrl(
+          variant['imageUrl'] ?? variant['image'],
+        ) ??
+        productMainImage;
+
+    final vTracks = variant['tracksStock'] == null
+        ? true
+        : (variant['tracksStock'] == true);
+    final vStock = _parseStock(variant['stock']);
+    final bool vSoldOut = vTracks && vStock != null && vStock <= 0;
+
+    return Material(
+      color: isSelected
+          ? const Color.fromRGBO(229, 169, 60, 0.15)
+          : palette.bgCard2,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _selectVariant(variant),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? StoreDetailsTokens.gold : palette.borderGold,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // 36px × 36px per-variant thumbnail (radius 8, cover)
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: palette.bgCard,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: palette.borderGold, width: 0.8),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(7),
+                  child: (thumbUrl != null && thumbUrl.isNotEmpty)
+                      ? CachedNetworkImage(
+                          imageUrl: ImageUtils.thumbnailUrl(thumbUrl),
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                          placeholder: (_, _) => Center(
+                            child: Icon(
+                              Icons.fastfood_rounded,
+                              size: 16,
+                              color: palette.textMuted.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          errorWidget: (_, _, _) => Center(
+                            child: Icon(
+                              Icons.fastfood_rounded,
+                              size: 16,
+                              color: palette.textMuted.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Icon(
+                            Icons.fastfood_rounded,
+                            size: 16,
+                            color: palette.textMuted.withValues(alpha: 0.5),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Variant Name (12px, weight 800, truncate)
+              Expanded(
+                child: Text(
+                  vSoldOut ? '$vName (${isAr ? "نفد" : "Sold out"})' : vName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: StoreDetailsTokens.text(
+                    size: 12,
+                    weight: FontWeight.w800,
+                    color: isSelected ? palette.textPrimary : palette.textMuted,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Variant Price (12px, Inter, weight 900, --gold-text)
+              Text(
+                '${StoreDetailsTokens.formatPrice(effectiveVPrice)} $currency',
+                style: StoreDetailsTokens.numeric(
+                  size: 12,
+                  weight: FontWeight.w900,
+                  color: palette.goldText,
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Selection Indicator: 16px × 16px circle (9px checkmark when selected)
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? StoreDetailsTokens.gold
+                      : Colors.transparent,
+                  border: isSelected
+                      ? null
+                      : Border.all(color: palette.borderGold, width: 1.5),
+                ),
+                child: isSelected
+                    ? const Center(
+                        child: Icon(
+                          Icons.check_rounded,
+                          size: 10,
+                          color: StoreDetailsTokens.darkOnGold,
+                        ),
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnitTile({
+    required StoreDetailsPalette palette,
+    required String label,
+    required String priceText,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: isSelected
+          ? const Color.fromRGBO(229, 169, 60, 0.15)
+          : palette.bgCard2,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? StoreDetailsTokens.gold : palette.borderGold,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: StoreDetailsTokens.text(
+                  size: 12,
+                  weight: FontWeight.w800,
+                  color: isSelected ? palette.textPrimary : palette.textMuted,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                priceText,
+                style: StoreDetailsTokens.numeric(
+                  size: 11.5,
+                  weight: FontWeight.w900,
+                  color: palette.goldText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionGroup({
+    required Map<String, dynamic> group,
+    required StoreDetailsPalette palette,
+    required bool isAr,
+    required String currency,
+  }) {
+    final gId = group['id']?.toString() ?? '';
+    final gName =
+        (isAr &&
+            group['nameAr'] != null &&
+            group['nameAr'].toString().trim().isNotEmpty)
+        ? group['nameAr'].toString().trim()
+        : (group['name']?.toString().trim() ?? '');
+    final options = (group['options'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((o) => Map<String, dynamic>.from(o))
+        .toList(growable: false);
+    final isRequired = group['isRequired'] == true;
+    final minSelect = group['minSelect'] is int
+        ? group['minSelect'] as int
+        : int.tryParse(group['minSelect']?.toString() ?? '0') ?? 0;
+    final effectiveMin = isRequired
+        ? (minSelect > 0 ? minSelect : 1)
+        : minSelect;
+    final selectedCount = (_selectedOptions[gId] ?? []).length;
+    final isSatisfied = effectiveMin <= 0 || selectedCount >= effectiveMin;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  gName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: StoreDetailsTokens.text(
+                    size: 12,
+                    weight: FontWeight.w800,
+                    color: palette.textMuted,
+                  ),
+                ),
+              ),
+              if (effectiveMin > 0)
+                Text(
+                  isSatisfied
+                      ? (isAr ? '✓ مكتمل' : '✓ Done')
+                      : (isAr
+                            ? '* مطلوب ($effectiveMin)'
+                            : '* Required ($effectiveMin)'),
+                  style: StoreDetailsTokens.text(
+                    size: 10.5,
+                    weight: FontWeight.w800,
+                    color: isSatisfied
+                        ? StoreDetailsTokens.openGreen
+                        : StoreDetailsTokens.errorRed,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...options.map((opt) {
+            final optId = opt['id']?.toString() ?? '';
+            final isSelected = (_selectedOptions[gId] ?? []).any(
+              (o) => o['id']?.toString() == optId,
+            );
+            final oName =
+                (isAr &&
+                    opt['nameAr'] != null &&
+                    opt['nameAr'].toString().trim().isNotEmpty)
+                ? opt['nameAr'].toString().trim()
+                : (opt['name']?.toString().trim() ?? '');
+            final oPrice =
+                double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0.0;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Material(
+                color: isSelected
+                    ? const Color.fromRGBO(229, 169, 60, 0.15)
+                    : palette.bgCard2,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _toggleOption(group, opt),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? StoreDetailsTokens.gold
+                            : palette.borderGold,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
                         Expanded(
-                          child: _buildUnitOption(
-                            label: s.strip,
-                            isSelected: _selectedUnit == 'strip',
-                            price: effectiveBasePrice / stripsCount,
-                            s: s,
-                            onTap: () {
-                              setState(() => _selectedUnit = 'strip');
-                            },
+                          child: Text(
+                            oName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StoreDetailsTokens.text(
+                              size: 12,
+                              weight: FontWeight.w700,
+                              color: isSelected
+                                  ? palette.textPrimary
+                                  : palette.textMuted,
+                            ),
                           ),
+                        ),
+                        if (oPrice > 0) ...[
+                          Text(
+                            '+${StoreDetailsTokens.formatPrice(oPrice)} $currency',
+                            style: StoreDetailsTokens.numeric(
+                              size: 11.5,
+                              weight: FontWeight.w900,
+                              color: palette.goldText,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isSelected
+                                ? StoreDetailsTokens.gold
+                                : Colors.transparent,
+                            border: isSelected
+                                ? null
+                                : Border.all(
+                                    color: palette.borderGold,
+                                    width: 1.5,
+                                  ),
+                          ),
+                          child: isSelected
+                              ? const Center(
+                                  child: Icon(
+                                    Icons.check_rounded,
+                                    size: 10,
+                                    color: StoreDetailsTokens.darkOnGold,
+                                  ),
+                                )
+                              : null,
                         ),
                       ],
                     ),
-                  ],
-
-                  if (hasVariants) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      s.selectVariant,
-                      style: TextStyle(
-                        fontSize: 16, 
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...variants.map((v) {
-                      final vName = isAr && v['nameAr'] != null && v['nameAr'].toString().isNotEmpty ? v['nameAr'] : v['name'];
-                      final effectiveVPrice = double.tryParse((v['price'] ?? v['basePrice'])?.toString() ?? '0') ?? 0.0;
-                      final originalVPrice = double.tryParse((v['comparePrice'] ?? v['basePrice'])?.toString() ?? '0') ?? effectiveVPrice;
-                      final hasVDiscount = originalVPrice > effectiveVPrice;
-                      final vDiscountPct = hasVDiscount 
-                          ? (((originalVPrice - effectiveVPrice) / originalVPrice) * 100).round()
-                          : 0;
-                      final vId = v['id']?.toString() ?? '';
-                      final isVSelected = _selectedVariant?['id']?.toString() == vId;
-                      final vImageUrl =
-                          (v['imageUrl'] ?? v['image'])?.toString().trim() ?? '';
-
-                      void selectVariant() {
-                        setState(() {
-                          _hasUserSelectedVariant = true;
-                          _selectedVariant = v as Map<String, dynamic>;
-                          // Keep product-level option group selections intact, only reset variant option groups
-                          final productGroupIds = (widget.item['optionGroups'] as List<dynamic>? ?? [])
-                              .map((g) => g['id']?.toString() ?? '')
-                              .toSet();
-                          _selectedOptions.removeWhere((groupId, _) => !productGroupIds.contains(groupId));
-                          final vOptionGroups = v['optionGroups'] as List<dynamic>? ?? [];
-                          for (final g in vOptionGroups) {
-                            final gId = g['id']?.toString() ?? '';
-                            final isRequired = g['isRequired'] == true;
-                            final maxSelect = (g['maxSelect'] as num?)?.toInt() ?? int.tryParse(g['maxSelect']?.toString() ?? '1') ?? 1;
-                            final options = g['options'] as List<dynamic>? ?? [];
-                            if (isRequired && maxSelect == 1 && options.isNotEmpty) {
-                              _selectedOptions[gId] = [options.first as Map<String, dynamic>];
-                            } else {
-                              _selectedOptions[gId] = [];
-                            }
-                          }
-                        });
-                      }
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: isVSelected
-                              ? AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.08)
-                              : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.shade50),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isVSelected
-                                ? AppColors.primary
-                                : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200),
-                            width: isVSelected ? 1.5 : 1,
-                          ),
-                        ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: selectVariant,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            child: Row(
-                              children: [
-                                RadioGroup<String>(
-                                  groupValue: _selectedVariant?['id']?.toString(),
-                                  onChanged: (_) => selectVariant(),
-                                  child: Radio<String>(
-                                    value: vId,
-                                    activeColor: AppColors.primary,
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                if (vImageUrl.isNotEmpty) ...[
-                                  Container(
-                                    width: 46,
-                                    height: 46,
-                                    decoration: BoxDecoration(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.06)
-                                          : Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: isVSelected
-                                            ? AppColors.primary
-                                            : (isDark
-                                                ? Colors.white.withValues(alpha: 0.1)
-                                                : Colors.grey.shade300),
-                                      ),
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(9),
-                                      child: TransparentBgNetworkImage(
-                                        imageUrl: ImageUtils.thumbnailUrl(vImageUrl),
-                                        mode: BackgroundRemovalMode.autoUniform,
-                                        width: 46,
-                                        height: 46,
-                                        fit: BoxFit.contain,
-                                        maxCacheDimension: 140,
-                                        fallbackBuilder: (_) => Center(
-                                          child: Icon(
-                                            Icons.fastfood_rounded,
-                                            size: 20,
-                                            color: isDark
-                                                ? Colors.white38
-                                                : Colors.grey.shade400,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                ],
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        vName,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: isVSelected ? FontWeight.bold : FontWeight.w600,
-                                          color: isDark ? Colors.white : Colors.black87,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 4,
-                                        crossAxisAlignment: WrapCrossAlignment.center,
-                                        children: [
-                                          Text(
-                                            '${effectiveVPrice.toStringAsFixed(effectiveVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                              color: hasVDiscount ? AppColors.primary : (isDark ? Colors.white70 : Colors.grey.shade700),
-                                            ),
-                                          ),
-                                          if (hasVDiscount) ...[
-                                            Text(
-                                              '${originalVPrice.toStringAsFixed(originalVPrice % 1 == 0 ? 0 : 2)} ${s.egp}',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: isDark ? Colors.white54 : Colors.grey.shade500,
-                                                decoration: TextDecoration.lineThrough,
-                                              ),
-                                            ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                              decoration: BoxDecoration(
-                                                color: Colors.red.shade50,
-                                                borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(color: Colors.red.shade200, width: 0.5),
-                                              ),
-                                              child: Text(
-                                                '-$vDiscountPct%',
-                                                style: TextStyle(
-                                                  color: Colors.red.shade700,
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-
-                  if (optionGroups.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    ...optionGroups.map((group) {
-                      final gName = isAr && group['nameAr'] != null && group['nameAr'].toString().isNotEmpty ? group['nameAr'] : group['name'];
-                      final options = group['options'] as List<dynamic>? ?? [];
-                      final isRequired = group['isRequired'] == true;
-                      final minSelect = group['minSelect'] is int 
-                          ? group['minSelect'] as int 
-                          : int.tryParse(group['minSelect']?.toString() ?? (isRequired ? '1' : '0')) ?? (isRequired ? 1 : 0);
-                      final maxSelect = group['maxSelect'] is int 
-                          ? group['maxSelect'] as int 
-                          : int.tryParse(group['maxSelect']?.toString() ?? '1') ?? 1;
-                      final gId = group['id']?.toString() ?? '';
-                      final selectedCount = (_selectedOptions[gId] ?? []).length;
-                      final isGroupSatisfied = !isRequired || selectedCount >= (minSelect > 0 ? minSelect : 1);
-
-                      return Container(
-                        margin: const EdgeInsets.only(top: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: !isGroupSatisfied
-                                ? Colors.redAccent.withValues(alpha: 0.4)
-                                : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200),
-                            width: !isGroupSatisfied ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        gName,
-                                        style: TextStyle(
-                                          fontSize: 16, 
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark ? Colors.white : Colors.black87,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        maxSelect == 1
-                                            ? (isRequired 
-                                                ? (isAr ? 'اختر 1 (إجباري)' : 'Choose 1 (Required)') 
-                                                : (isAr ? 'اختر 1 (اختياري)' : 'Choose 1 (Optional)'))
-                                            : (isRequired
-                                                ? (isAr ? 'اختر على الأقل $minSelect (إجباري)' : 'Choose at least $minSelect (Required)')
-                                                : (isAr ? 'اختر حتى $maxSelect (اختياري)' : 'Choose up to $maxSelect (Optional)')),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: isDark ? Colors.white54 : Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: isRequired
-                                        ? (isGroupSatisfied 
-                                            ? Colors.green.withValues(alpha: 0.1) 
-                                            : Colors.red.withValues(alpha: 0.1))
-                                        : Colors.grey.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isRequired
-                                          ? (isGroupSatisfied ? Colors.green : Colors.redAccent)
-                                          : Colors.grey.shade400,
-                                      width: 0.8,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    isRequired
-                                        ? (isGroupSatisfied
-                                            ? (isAr ? '✓ مكتمل' : '✓ Completed')
-                                            : (isAr ? '* مطلوب' : '* Required'))
-                                        : (isAr ? 'اختياري' : 'Optional'),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: isRequired
-                                          ? (isGroupSatisfied ? Colors.green : Colors.redAccent)
-                                          : (isDark ? Colors.white70 : Colors.grey.shade700),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            const Divider(height: 1),
-                            const SizedBox(height: 8),
-                            ...options.map((opt) {
-                              final oName = isAr && opt['nameAr'] != null && opt['nameAr'].toString().isNotEmpty ? opt['nameAr'] : opt['name'];
-                              final oPrice = double.tryParse(opt['priceAdded']?.toString() ?? '0') ?? 0.0;
-                              final optId = opt['id']?.toString() ?? '';
-                              final isSelected = (_selectedOptions[gId] ?? []).any((o) => o['id']?.toString() == optId);
-                              
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 6),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppColors.primary.withValues(alpha: isDark ? 0.12 : 0.06)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppColors.primary.withValues(alpha: 0.6)
-                                        : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade200),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(10),
-                                  onTap: () => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    child: Row(
-                                      children: [
-                                        if (maxSelect == 1)
-                                          RadioGroup<String>(
-                                            groupValue: (_selectedOptions[gId]?.isNotEmpty ?? false)
-                                                ? _selectedOptions[gId]!.first['id']?.toString()
-                                                : null,
-                                            onChanged: (_) => _toggleOption(
-                                              group as Map<String, dynamic>,
-                                              opt as Map<String, dynamic>,
-                                            ),
-                                            child: Radio<String>(
-                                              value: optId,
-                                              activeColor: AppColors.primary,
-                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            ),
-                                          )
-                                        else
-                                          Checkbox(
-                                            value: isSelected,
-                                            activeColor: AppColors.primary,
-                                            checkColor: Colors.black,
-                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                            onChanged: (_) => _toggleOption(group as Map<String, dynamic>, opt as Map<String, dynamic>),
-                                          ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            oName,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                              color: isDark ? Colors.white : Colors.black87,
-                                            ),
-                                          ),
-                                        ),
-                                        if (oPrice > 0)
-                                          Text(
-                                            '+${oPrice.toStringAsFixed(2)} ${s.egp}',
-                                            style: const TextStyle(
-                                              color: AppColors.primary,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5)),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: (isOutOfStock && currentQty == 0)
-                  ? ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 56),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.white24 : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          s.outOfStock,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textHint,
-                          ),
-                        ),
-                      ),
-                    )
-                  : currentQty == 0
-                  ? ElevatedButton(
-                    onPressed: () async {
-                      if (!requiredMet) {
-                        final isAr = Localizations.localeOf(context).languageCode == 'ar';
-                        String? missingGroupName;
-                        for (final g in optionGroups) {
-                          final minS = g['minSelect'] is int
-                              ? g['minSelect'] as int
-                              : int.tryParse(g['minSelect']?.toString() ?? '0') ?? 0;
-                          final effectiveMin = g['isRequired'] == true
-                              ? (minS > 0 ? minS : 1)
-                              : minS;
-                          if (effectiveMin > 0) {
-                            final c = (_selectedOptions[g['id']?.toString()] ?? []).length;
-                            if (c < effectiveMin) {
-                              missingGroupName = isAr && g['nameAr'] != null && g['nameAr'].toString().isNotEmpty
-                                  ? g['nameAr']
-                                  : g['name'];
-                              break;
-                            }
-                          }
-                        }
-                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              missingGroupName != null
-                                  ? (isAr ? 'برجاء تحديد: $missingGroupName' : 'Please select: $missingGroupName')
-                                  : (isAr ? 'برجاء تحديد الخيارات المطلوبة' : 'Please select required options'),
-                            ),
-                            backgroundColor: Colors.redAccent,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                        return;
-                      }
-
-                      final authStatus = ref.read(authControllerProvider);
-                      if (authStatus == AuthStatus.unauthenticated) {
-                        AuthPromptDialog.show(context);
-                        return;
-                      }
-                      try {
-                        await ref.read(cartProvider.notifier).addItem(
-                          {
-                            ...item,
-                            'vendorId': widget.restaurant['id'],
-                            'vendorName': widget.restaurant['name'],
-                          }, 
-                          unit: _selectedUnit,
-                          variant: _selectedVariant,
-                          options: flatOptions,
-                        );
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(s.addedToCart),
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(ErrorUtils.translate(context, e)),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: requiredMet ? AppColors.primary : (isDark ? Colors.white24 : Colors.grey.shade400),
-                      foregroundColor: requiredMet ? Colors.black : Colors.white,
-                      minimumSize: const Size(double.infinity, 56),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      requiredMet 
-                          ? s.addToCart 
-                          : (isAr ? 'تحديد الخيارات المطلوبة' : 'Select Required Options'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  )
-                : Row(
-                    children: [
-                      Expanded(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 56),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, color: AppColors.primary),
-                                onPressed: () {
-                                  final authStatus = ref.read(authControllerProvider);
-                                  if (authStatus == AuthStatus.unauthenticated) {
-                                    AuthPromptDialog.show(context);
-                                    return;
-                                  }
-                                  ref.read(cartProvider.notifier).updateQuantity(currentCartItem!, currentQty - 1);
-                                },
-                              ),
-                              Text(
-                                '$currentQty',
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  Icons.add_circle_outline,
-                                  color: atStockLimit
-                                      ? AppColors.primary.withValues(alpha: 0.35)
-                                      : AppColors.primary,
-                                ),
-                                onPressed: () async {
-                                  final authStatus = ref.read(authControllerProvider);
-                                  if (authStatus == AuthStatus.unauthenticated) {
-                                    AuthPromptDialog.show(context);
-                                    return;
-                                  }
-                                  if (atStockLimit) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(s.outOfStock),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                    return;
-                                  }
-                                  try {
-                                    await ref.read(cartProvider.notifier).updateQuantity(currentCartItem!, currentQty + 1);
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(ErrorUtils.translate(context, e)),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                                    }
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 56),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            s.done,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
-            ),
-          ),
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  int? _parseStock(Object? value) {
-    if (value == null) return null;
-    return int.tryParse(value.toString());
-  }
-
-  Widget _buildUnitOption({
-    required String label,
-    required bool isSelected,
-    required double price,
+  Widget _buildBottomAction({
+    required BuildContext context,
+    required Map<String, dynamic> item,
+    required StoreDetailsPalette palette,
     required AppStrings s,
-    required VoidCallback onTap,
+    required bool isAr,
+    required String displayProductName,
+    required String? productMainImage,
+    required String? selectedVariantImage,
+    required List<Map<String, dynamic>> flatOptions,
+    required List<dynamic> optionGroups,
+    required bool requiredMet,
+    required bool isOutOfStock,
+    required bool atStockLimit,
+    required CartItem? currentCartItem,
+    required int currentQty,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+    if (isOutOfStock && currentQty == 0) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey.shade300,
-            width: 1.5,
+          color: palette.bgCard2,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: palette.borderGold, width: 1),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          s.outOfStock,
+          style: StoreDetailsTokens.text(
+            size: 14,
+            weight: FontWeight.w900,
+            color: palette.textMuted,
           ),
         ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isSelected 
-                    ? Colors.black 
-                    : (widget.isDark ? Colors.white : Colors.black87),
-              ),
+      );
+    }
+
+    // Primary CTA Button (إضافة للسلة): full width, padding 12px, radius 16px,
+    // background #E5A93C (hover/active #F6C667), text #14120E, 14px, w900.
+    if (widget.onRequestFlyAdd != null || currentQty == 0) {
+      final canAdd = requiredMet && !atStockLimit;
+      return SizedBox(
+        width: double.infinity,
+        child: ButtonStyleButton.allOrNull(null) == null
+            ? ElevatedButton(
+                key: const Key('product_sheet_add_to_cart_button'),
+                onPressed: () async {
+                  if (!requiredMet) {
+                    _showMissingRequiredOptionSnack(
+                      context: context,
+                      optionGroups: optionGroups,
+                      isAr: isAr,
+                    );
+                    return;
+                  }
+                  if (atStockLimit) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(s.outOfStock),
+                        backgroundColor: StoreDetailsTokens.errorRed,
+                      ),
+                    );
+                    return;
+                  }
+
+                  final authStatus = ref.read(authControllerProvider);
+                  if (authStatus == AuthStatus.unauthenticated) {
+                    AuthPromptDialog.show(context);
+                    return;
+                  }
+
+                  final payload = <String, dynamic>{
+                    ...item,
+                    'vendorId': widget.restaurant['id'],
+                    'vendorName':
+                        widget.restaurant['name'] ??
+                        widget.restaurant['storeName'],
+                  };
+                  final selectedVar = _selectedVariant;
+                  final unit = _selectedUnit;
+                  final opts = List<Map<String, dynamic>>.from(flatOptions);
+                  final cartNotifier = ref.read(cartProvider.notifier);
+
+                  Future<void> commitAdd() async {
+                    await cartNotifier.addItem(
+                      payload,
+                      unit: unit,
+                      variant: selectedVar,
+                      options: opts,
+                    );
+                  }
+
+                  if (widget.onRequestFlyAdd != null) {
+                    // CRITICAL: Measure the 160px preview bounding rect BEFORE closing
+                    final previewRect = _capturePreviewRect();
+                    final flyImg =
+                        (selectedVariantImage != null &&
+                            selectedVariantImage.isNotEmpty)
+                        ? selectedVariantImage
+                        : productMainImage;
+                    final variantLabel = selectedVar != null
+                        ? ((isAr &&
+                                  selectedVar['nameAr'] != null &&
+                                  selectedVar['nameAr']
+                                      .toString()
+                                      .trim()
+                                      .isNotEmpty)
+                              ? selectedVar['nameAr'].toString().trim()
+                              : (selectedVar['name']?.toString().trim() ?? ''))
+                        : '';
+                    final fullDisplayName = variantLabel.isNotEmpty
+                        ? '$displayProductName ($variantLabel)'
+                        : displayProductName;
+
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                    widget.onRequestFlyAdd!(
+                      previewRect,
+                      flyImg,
+                      commitAdd,
+                      fullDisplayName,
+                    );
+                    return;
+                  }
+
+                  try {
+                    await commitAdd();
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(s.addedToCart),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(ErrorUtils.translate(context, e)),
+                          backgroundColor: StoreDetailsTokens.errorRed,
+                        ),
+                      );
+                    }
+                  }
+                },
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.resolveWith((states) {
+                    if (!canAdd) return palette.bgCard2;
+                    if (states.contains(WidgetState.hovered) ||
+                        states.contains(WidgetState.pressed)) {
+                      return StoreDetailsTokens.goldHover;
+                    }
+                    return StoreDetailsTokens.gold;
+                  }),
+                  foregroundColor: WidgetStateProperty.all(
+                    canAdd ? StoreDetailsTokens.darkOnGold : palette.textMuted,
+                  ),
+                  overlayColor: WidgetStateProperty.all(
+                    StoreDetailsTokens.goldHover.withValues(alpha: 0.25),
+                  ),
+                  elevation: WidgetStateProperty.all(0),
+                  minimumSize: WidgetStateProperty.all(
+                    const Size(double.infinity, 44),
+                  ),
+                  padding: WidgetStateProperty.all(const EdgeInsets.all(12)),
+                  shape: WidgetStateProperty.all(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: canAdd
+                          ? BorderSide.none
+                          : BorderSide(color: palette.borderGold, width: 1),
+                    ),
+                  ),
+                ),
+                child: Text(
+                  !requiredMet
+                      ? (isAr
+                            ? 'تحديد الخيارات المطلوبة'
+                            : 'Select Required Options')
+                      : atStockLimit
+                      ? s.outOfStock
+                      : s.addToCart,
+                  textAlign: TextAlign.center,
+                  style: StoreDetailsTokens.text(
+                    size: 14,
+                    weight: FontWeight.w900,
+                    color: canAdd
+                        ? StoreDetailsTokens.darkOnGold
+                        : palette.textMuted,
+                  ),
+                ),
+              )
+            : const SizedBox.shrink(),
+      );
+    }
+
+    // Standalone fallback stepper when rendered outside VendorDetailScreen
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(229, 169, 60, 0.15),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: StoreDetailsTokens.gold),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${price.toStringAsFixed(2)} ${s.egp}',
-              style: TextStyle(
-                fontSize: 12,
-                color: isSelected 
-                    ? Colors.black87 
-                    : (widget.isDark ? Colors.white70 : Colors.grey.shade600),
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.remove_rounded,
+                    color: StoreDetailsTokens.gold,
+                    size: 18,
+                  ),
+                  onPressed: () {
+                    final authStatus = ref.read(authControllerProvider);
+                    if (authStatus == AuthStatus.unauthenticated) {
+                      AuthPromptDialog.show(context);
+                      return;
+                    }
+                    ref
+                        .read(cartProvider.notifier)
+                        .updateQuantity(currentCartItem!, currentQty - 1);
+                  },
+                ),
+                Text(
+                  '$currentQty',
+                  style: StoreDetailsTokens.numeric(
+                    size: 15,
+                    weight: FontWeight.w900,
+                    color: palette.goldText,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.add_rounded,
+                    color: atStockLimit
+                        ? StoreDetailsTokens.gold.withValues(alpha: 0.35)
+                        : StoreDetailsTokens.gold,
+                    size: 18,
+                  ),
+                  onPressed: () async {
+                    final authStatus = ref.read(authControllerProvider);
+                    if (authStatus == AuthStatus.unauthenticated) {
+                      AuthPromptDialog.show(context);
+                      return;
+                    }
+                    if (atStockLimit) return;
+                    await ref
+                        .read(cartProvider.notifier)
+                        .updateQuantity(currentCartItem!, currentQty + 1);
+                  },
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: StoreDetailsTokens.gold,
+              foregroundColor: StoreDetailsTokens.darkOnGold,
+              minimumSize: const Size(double.infinity, 44),
+              padding: const EdgeInsets.all(12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+            ),
+            child: Text(
+              s.done,
+              style: StoreDetailsTokens.text(
+                size: 14,
+                weight: FontWeight.w900,
+                color: StoreDetailsTokens.darkOnGold,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
