@@ -660,6 +660,31 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           )
         : subtotal;
 
+    final vendorLogoRaw = firstProduct.vendorLogo?.trim() ?? '';
+    final vendorCoverRaw = firstProduct.vendorCoverImage?.trim() ?? '';
+    final vendorAvatarRaw =
+        vendorLogoRaw.isNotEmpty ? vendorLogoRaw : vendorCoverRaw;
+    final vendorAvatarUrl = ImageUtils.formatImageUrl(vendorAvatarRaw);
+    final vendorAvatarFallbackUrl =
+        vendorLogoRaw.isNotEmpty && vendorCoverRaw.isNotEmpty
+            ? ImageUtils.formatImageUrl(vendorCoverRaw)
+            : '';
+
+    Widget buildStorefrontFallback() => Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.storefront_rounded,
+            color: AppColors.primary,
+            size: 20,
+          ),
+        );
+
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
@@ -694,52 +719,56 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: (firstProduct.vendorLogo?.isEmpty ?? true)
-                        ? Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.storefront_rounded,
-                              color: AppColors.primary,
-                              size: 20,
-                            ),
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: ImageUtils.thumbnailUrl(
-                              firstProduct.vendorLogo,
-                            ),
-                            height: 40,
-                            width: 40,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.28),
+                        width: 1,
+                      ),
+                    ),
+                    child: ClipOval(
+                      child: vendorAvatarUrl.isEmpty
+                          ? buildStorefrontFallback()
+                          : CachedNetworkImage(
+                              key: ValueKey('cart_vendor_avatar_$vendorId'),
+                              imageUrl: vendorAvatarUrl,
                               height: 40,
                               width: 40,
-                              color: isDark
-                                  ? Colors.white12
-                                  : Colors.grey.shade100,
-                              child: const CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.primary,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                height: 40,
+                                width: 40,
+                                color: isDark
+                                    ? Colors.white12
+                                    : Colors.grey.shade100,
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
                               ),
+                              errorWidget: (context, url, error) =>
+                                  vendorAvatarFallbackUrl.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: vendorAvatarFallbackUrl,
+                                          height: 40,
+                                          width: 40,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (_, _, _) =>
+                                              buildStorefrontFallback(),
+                                        )
+                                      : buildStorefrontFallback(),
                             ),
-                            errorWidget: (context, url, error) => Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.storefront_rounded,
-                                color: AppColors.primary,
-                                size: 20,
-                              ),
-                            ),
-                          ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

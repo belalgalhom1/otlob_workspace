@@ -61,8 +61,8 @@ class _ParabolicFlyToCartOverlay extends StatefulWidget {
 class _ParabolicFlyToCartOverlayState extends State<_ParabolicFlyToCartOverlay>
     with SingleTickerProviderStateMixin {
   static const double _size = 64.0;
-  static const int _totalMs = 1350;
-  static const double _liftPhaseEnd = 0.14;
+  static const int _totalMs = 820;
+  static const double _liftPhaseEnd = 0.10;
 
   // Low peak-velocity sine easing keeps the flying image clearly readable
   // across the entire arc instead of zipping quickly through the middle.

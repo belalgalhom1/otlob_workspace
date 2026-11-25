@@ -878,7 +878,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
 
     return SizedBox(
       key: const ValueKey('store_detail_banner'),
-      height: 122,
+      height: 168,
       width: double.infinity,
       child: ClipRect(
         child: Stack(
@@ -1017,9 +1017,13 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     final openText = isOpen
         ? (isAr ? 'مفتوح الآن' : 'Open now')
         : (isAr ? 'مغلق الآن' : 'Closed now');
-    final subtitleText = verticalLabel.isNotEmpty
-        ? '$verticalLabel • $openText'
-        : openText;
+    final statusColor = isOpen
+        ? (palette.isDark
+            ? const Color(0xFF4ADE80)
+            : const Color(0xFF16A34A))
+        : (palette.isDark
+            ? const Color(0xFFF87171)
+            : const Color(0xFFDC2626));
 
     final branchName = currentBranch != null
         ? ((isAr
@@ -1069,18 +1073,58 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Flexible(
-                          child: Text(
-                            subtitleText,
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                if (verticalLabel.isNotEmpty) ...[
+                                  TextSpan(
+                                    text: verticalLabel,
+                                    style: StoreDetailPalette.text(
+                                      size: 12.5,
+                                      weight: FontWeight.w700,
+                                      color: palette.textPrimary,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: ' • ',
+                                    style: StoreDetailPalette.text(
+                                      size: 12.5,
+                                      weight: FontWeight.w700,
+                                      color: palette.textMuted,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                ],
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.middle,
+                                  child: Padding(
+                                    padding: const EdgeInsetsDirectional.only(
+                                      end: 4,
+                                    ),
+                                    child: Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: BoxDecoration(
+                                        color: statusColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: openText,
+                                  style: StoreDetailPalette.text(
+                                    size: 12.5,
+                                    weight: FontWeight.w800,
+                                    color: statusColor,
+                                    height: 1.15,
+                                  ),
+                                ),
+                              ],
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: StoreDetailPalette.text(
-                              size: 12.5,
-                              weight: FontWeight.w700,
-                              color: isOpen
-                                  ? palette.textMuted
-                                  : const Color(0xFFF87171),
-                              height: 1.15,
-                            ),
                           ),
                         ),
                         if (workingHours.isNotEmpty) ...[
@@ -1111,7 +1155,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                       style: StoreDetailPalette.numeric(
                         size: 12,
                         weight: FontWeight.w700,
-                        color: palette.textMuted,
+                        color: palette.textPrimary,
                         height: 1.1,
                       ),
                     ),
@@ -1156,7 +1200,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
             style: StoreDetailPalette.text(
               size: 12.5,
               weight: FontWeight.w400,
-              color: palette.textMuted,
+              color: palette.textPrimary,
               height: 1.3,
             ),
           ),
@@ -1296,7 +1340,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                 style: StoreDetailPalette.text(
                   size: 11.5,
                   weight: FontWeight.w600,
-                  color: palette.textMuted,
+                  color: palette.textPrimary,
                   height: 1.15,
                 ),
               ),
@@ -1709,7 +1753,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                         hintStyle: StoreDetailPalette.text(
                           size: 13,
                           weight: FontWeight.w600,
-                          color: palette.textMuted,
+                          color: palette.textPrimary.withValues(alpha: 0.72),
                           height: 1.2,
                         ),
                         border: InputBorder.none,
@@ -2091,7 +2135,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                       style: StoreDetailPalette.text(
                         size: 11.5,
                         weight: FontWeight.w400,
-                        color: palette.textMuted,
+                        color: palette.textPrimary,
                         height: 1.2,
                       ),
                     ),
@@ -2239,7 +2283,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              height: 122,
+              height: 168,
               color: palette.bgCard2,
             ),
             Expanded(

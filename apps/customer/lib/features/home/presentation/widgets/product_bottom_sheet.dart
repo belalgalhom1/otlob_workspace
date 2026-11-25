@@ -625,7 +625,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                   style: StoreDetailPalette.text(
                                     size: 13,
                                     weight: FontWeight.w400,
-                                    color: palette.textMuted,
+                                    color: palette.textPrimary,
                                     height: 1.35,
                                   ),
                                 ),
@@ -639,7 +639,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                   style: StoreDetailPalette.text(
                                     size: 13.5,
                                     weight: FontWeight.w800,
-                                    color: palette.textMuted,
+                                    color: palette.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -740,6 +740,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                         s: s,
                         isAr: isAr,
                         palette: palette,
+                        hasVariants: hasVariants,
                         isOutOfStock: isOutOfStock,
                         atStockLimit: atStockLimit,
                         currentQty: currentQty,
@@ -1185,6 +1186,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     required AppStrings s,
     required bool isAr,
     required StoreDetailPalette palette,
+    required bool hasVariants,
     required bool isOutOfStock,
     required bool atStockLimit,
     required int currentQty,
@@ -1194,6 +1196,7 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
     required List<Map<String, dynamic>> flatOptions,
     required String formattedFlyUrl,
   }) {
+    final bool needsVariantSelection = hasVariants && _selectedVariant == null;
     if (isOutOfStock && currentQty == 0) {
       return Container(
         width: double.infinity,
@@ -1225,6 +1228,21 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
           borderRadius: BorderRadius.circular(16),
           onTap: () async {
             if (!requiredMet) {
+              if (needsVariantSelection) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isAr
+                          ? 'برجاء اختيار النوع أولاً'
+                          : 'Please select a variant first',
+                    ),
+                    backgroundColor: Colors.redAccent,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
               String? missingGroupName;
               for (final g in optionGroups) {
                 final minS = g['minSelect'] is int
@@ -1317,9 +1335,11 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
             child: Text(
               requiredMet
                   ? s.addToCart
-                  : (isAr
-                      ? 'تحديد الخيارات المطلوبة'
-                      : 'Select Required Options'),
+                  : needsVariantSelection
+                      ? (isAr ? 'اختر النوع أولاً' : 'Select Variant')
+                      : (isAr
+                          ? 'تحديد الخيارات المطلوبة'
+                          : 'Select Required Options'),
               textAlign: TextAlign.center,
               style: StoreDetailPalette.text(
                 size: 15.5,

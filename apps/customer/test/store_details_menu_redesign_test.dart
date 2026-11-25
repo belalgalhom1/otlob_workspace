@@ -280,7 +280,7 @@ void main() {
   });
 
   testWidgets(
-    'Store Details uses viewport-locked zero outer scroll, scaled 122px banner, dark/light tokens, category icon fallback, and visual category filtering',
+    'Store Details uses viewport-locked zero outer scroll, scaled 168px banner, dark/light tokens, category icon fallback, and visual category filtering',
     (tester) async {
       await _pumpStoreDetail(tester, themeMode: ThemeMode.dark);
       expect(tester.takeException(), isNull);
@@ -289,11 +289,11 @@ void main() {
       final darkScaffold = tester.widget<Scaffold>(find.byType(Scaffold));
       expect(darkScaffold.backgroundColor, const Color(0xFF0F0E0C));
 
-      // Scaled fixed 122px full-bleed cover banner
+      // Scaled fixed 168px full-bleed cover banner (moves content lower so cover is more visible)
       final bannerSize = tester.getSize(
         find.byKey(const ValueKey('store_detail_banner')),
       );
-      expect(bannerSize.height, 122.0);
+      expect(bannerSize.height, 168.0);
 
       // Only the menu product list scrolls vertically (zero outer scroll)
       final verticalScrollables = tester
