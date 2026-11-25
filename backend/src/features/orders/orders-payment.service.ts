@@ -307,6 +307,7 @@ export class OrdersPaymentService {
       // Captured inside the transaction that bumps it, so the event revision is
       // exactly the value this transition wrote (never a later concurrent one).
       let revisionAfter = 0;
+      let didAdvanceOrderStatus = false;
 
       await this.prisma.$transaction(async (tx) => {
         // Guard payment completion against terminal orders FIRST (locking the
@@ -392,6 +393,7 @@ export class OrdersPaymentService {
           )?.revision ?? 0;
 
         if (advanced.count > 0) {
+          didAdvanceOrderStatus = true;
           const paymentActor = await resolveOrderActorSnapshot(
             this.prisma,
             actor.sub,
@@ -452,24 +454,26 @@ export class OrdersPaymentService {
         ),
       );
 
-      this.eventEmitter.emit(
-        EVENTS.ORDER_STATUS_CHANGED,
-        new OrderStatusChangedEvent(
-          order.id,
-          order.orderNumber,
-          OrderStatus.PENDING_PAYMENT,
-          nextStatus,
-          order.customerId,
-          order.customer.user.id,
-          singleVendorId,
-          vendorUserIds,
-          primaryCollectorId,
-          driver.userId,
-          actor.sub,
-          'Driver confirmed payment received.',
-          revisionAfter,
-        ),
-      );
+      if (didAdvanceOrderStatus) {
+        this.eventEmitter.emit(
+          EVENTS.ORDER_STATUS_CHANGED,
+          new OrderStatusChangedEvent(
+            order.id,
+            order.orderNumber,
+            OrderStatus.PENDING_PAYMENT,
+            nextStatus,
+            order.customerId,
+            order.customer.user.id,
+            singleVendorId,
+            vendorUserIds,
+            primaryCollectorId,
+            driver.userId,
+            actor.sub,
+            'Driver confirmed payment received.',
+            revisionAfter,
+          ),
+        );
+      }
 
       return this.ordersRepository.findById(orderId);
     } else {

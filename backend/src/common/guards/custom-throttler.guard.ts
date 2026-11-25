@@ -13,11 +13,12 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
       return Promise.resolve(`user-${request.user.sub}`);
     }
 
-    // Prefer trusted X-Real-IP set by Nginx reverse proxy, fallback to Express calculated IP.
+    // Prefer Express calculated IP (backed by app.set('trust proxy', 1) & Nginx X-Forwarded-For),
+    // falling back to X-Real-IP only if Express IP is unavailable.
     // Never trust client-controlled req.ips[0] (which allows header spoofing rate limiter bypass).
     const clientIp =
-      (req.headers as Record<string, string>)?.['x-real-ip'] ||
       request.ip ||
+      (req.headers as Record<string, string>)?.['x-real-ip'] ||
       'unknown';
     return Promise.resolve(clientIp);
   }

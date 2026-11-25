@@ -79,6 +79,7 @@ export class AuthService {
     isAdminCreated: boolean = false,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
+    const normalizedEmail = dto.email.trim().toLowerCase();
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     let user;
@@ -86,14 +87,14 @@ export class AuthService {
       user = await this.prisma.$transaction(
         async (tx) => {
           const existing = await tx.user.findFirst({
-            where: { email: dto.email },
+            where: {
+              email: { equals: normalizedEmail, mode: 'insensitive' },
+            },
+            select: { id: true },
           });
 
           if (existing) {
-            if (existing.isEmailVerified) {
-              throw new ConflictException(AuthErrors.USER_EXISTS);
-            }
-            await tx.user.delete({ where: { id: existing.id } });
+            throw new ConflictException(AuthErrors.USER_EXISTS);
           }
 
           if (dto.phone) {
@@ -107,7 +108,7 @@ export class AuthService {
 
           const u = await tx.user.create({
             data: {
-              email: dto.email,
+              email: normalizedEmail,
               phone: dto.phone ?? null,
               password: hashedPassword,
               name: dto.name,
@@ -174,9 +175,10 @@ export class AuthService {
     dto: LoginDto,
     meta?: { ipAddress?: string; userAgent?: string },
   ) {
-    this.logger.log(`Login attempt for: ${dto.email}`);
+    const email = dto.email.trim().toLowerCase();
+    this.logger.log(`Login attempt for: ${email}`);
     const user = await this.prisma.user.findFirst({
-      where: { email: dto.email },
+      where: { email: { equals: email, mode: 'insensitive' } },
       include: {
         vendorMemberships: {
           include: {
@@ -362,6 +364,8 @@ export class AuthService {
       throw new UnauthorizedException(AuthErrors.SOCIAL_EMAIL_NOT_VERIFIED);
     }
 
+    const normalizedVerifiedEmail = verifiedEmail?.trim().toLowerCase();
+
     // 1. Check if Account exists
     const account = await this.prisma.account.findUnique({
       where: {
@@ -379,25 +383,53 @@ export class AuthService {
       },
     });
 
+    if (account?.user?.deletedAt) {
+      throw new UnauthorizedException(AuthErrors.INVALID_CREDENTIALS);
+    }
+
     let user = account?.user || null;
 
     // 2. If no account, check if User exists by verifiedEmail to link (NEVER untrusted client email)
-    if (!user && verifiedEmail) {
+    if (!user && normalizedVerifiedEmail) {
       user = await this.prisma.user.findFirst({
-        where: { email: verifiedEmail },
+        where: {
+          email: { equals: normalizedVerifiedEmail, mode: 'insensitive' },
+        },
         include: {
           driver: { select: { isApproved: true } },
         },
       });
 
       if (user) {
-        await this.prisma.account.create({
-          data: {
-            userId: user.id,
-            provider: dto.provider,
-            providerAccountId: providerAccountId,
-          },
+        const wasUnverified = !user.isEmailVerified;
+        await this.prisma.$transaction(async (tx) => {
+          await tx.account.create({
+            data: {
+              userId: user!.id,
+              provider: dto.provider,
+              providerAccountId: providerAccountId,
+            },
+          });
+
+          if (wasUnverified) {
+            // Prevent pre-account hijacking: someone who registered this email before
+            // verifying it must not retain password or session access after OAuth verification.
+            await tx.user.update({
+              where: { id: user!.id },
+              data: { isEmailVerified: true, password: null },
+            });
+            await tx.session.deleteMany({ where: { userId: user!.id } });
+          }
         });
+
+        if (wasUnverified) {
+          user.isEmailVerified = true;
+          user.password = null;
+          const accessTtl = this.getAccessExpirySeconds();
+          await this.redis.set(`revoked:user:${user.id}`, '1', accessTtl);
+          this.socketService.disconnectUser(user.id);
+        }
+
         this.logger.log(
           `Linked ${dto.provider} account to existing user ${user.email}`,
         );
@@ -412,10 +444,10 @@ export class AuthService {
       user = await this.prisma.$transaction(async (tx) => {
         const u = await tx.user.create({
           data: {
-            email: verifiedEmail ?? null,
+            email: normalizedVerifiedEmail ?? null,
             name: name ?? 'New User',
             role: dto.app === 'driver' ? Role.DRIVER : Role.CUSTOMER,
-            isEmailVerified: true,
+            isEmailVerified: Boolean(normalizedVerifiedEmail && emailVerified),
             accounts: {
               create: {
                 provider: dto.provider,
@@ -488,7 +520,12 @@ export class AuthService {
     }
 
     // 5. Success
-    const tokens = await this.createSession(user.id, user.role, true, meta);
+    const tokens = await this.createSession(
+      user.id,
+      user.role,
+      user.isEmailVerified,
+      meta,
+    );
     const { password: _, ...userWithoutPassword } = user as any;
     const coalescedAvatar =
       userWithoutPassword.avatar ?? userWithoutPassword.driver?.avatar ?? null;
@@ -584,8 +621,14 @@ export class AuthService {
   }
 
   async requestVerification(dto: SendOtpDto) {
+    const contact = dto.contact.trim();
     const user = await this.prisma.user.findFirst({
-      where: { OR: [{ email: dto.contact }, { phone: dto.contact }] },
+      where: {
+        OR: [
+          { email: { equals: contact, mode: 'insensitive' } },
+          { phone: contact },
+        ],
+      },
     });
     // Prevent user enumeration: always return success even if contact is not registered
     if (!user) {
@@ -617,9 +660,12 @@ export class AuthService {
     if (!isValid) throw new BadRequestException(AuthErrors.OTP_INVALID);
 
     if (!isPasswordReset) {
-      const isEmail = dto.contact.includes('@');
+      const contact = dto.contact.trim();
+      const isEmail = contact.includes('@');
       await this.prisma.user.updateMany({
-        where: isEmail ? { email: dto.contact } : { phone: dto.contact },
+        where: isEmail
+          ? { email: { equals: contact, mode: 'insensitive' } }
+          : { phone: contact },
         data: {
           isEmailVerified: isEmail ? true : undefined,
           isPhoneVerified: !isEmail ? true : undefined,
@@ -631,8 +677,14 @@ export class AuthService {
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
+    const contact = dto.contact.trim();
     const user = await this.prisma.user.findFirst({
-      where: { OR: [{ email: dto.contact }, { phone: dto.contact }] },
+      where: {
+        OR: [
+          { email: { equals: contact, mode: 'insensitive' } },
+          { phone: contact },
+        ],
+      },
     });
 
     if (!user) {
@@ -664,8 +716,14 @@ export class AuthService {
     );
     if (!isValid) throw new BadRequestException(AuthErrors.OTP_INVALID);
 
+    const contact = dto.contact.trim();
     const existingUser = await this.prisma.user.findFirst({
-      where: { OR: [{ email: dto.contact }, { phone: dto.contact }] },
+      where: {
+        OR: [
+          { email: { equals: contact, mode: 'insensitive' } },
+          { phone: contact },
+        ],
+      },
     });
     if (!existingUser) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
 
@@ -702,6 +760,7 @@ export class AuthService {
             isBanned: true,
             banReason: true,
             isEmailVerified: true,
+            deletedAt: true,
             permissions: true,
             vendorMemberships: {
               include: {
@@ -732,6 +791,11 @@ export class AuthService {
     });
 
     const user = session.user;
+
+    if (user.deletedAt) {
+      await this.prisma.session.deleteMany({ where: { userId: payload.sub } });
+      throw new UnauthorizedException(AuthErrors.SESSION_EXPIRED);
+    }
 
     if (user.isBanned) {
       throw new UnauthorizedException(AuthErrors.BANNED);

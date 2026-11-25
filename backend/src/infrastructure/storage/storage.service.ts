@@ -72,11 +72,74 @@ function validateImageMagicBytes(buffer: Buffer, mimeType: string): boolean {
   return false;
 }
 
+// Validate file signatures (magic bytes) for non-image uploads to reject disguised executables/scripts
+function validateNonImageMagicBytes(buffer: Buffer, mimeType: string): boolean {
+  if (!buffer || buffer.length < 4) return false;
+
+  if (mimeType === 'application/pdf') {
+    return buffer.subarray(0, 1024).includes('%PDF-');
+  }
+
+  if (mimeType === 'audio/ogg') {
+    return buffer.toString('ascii', 0, 4) === 'OggS';
+  }
+
+  if (mimeType === 'audio/wav') {
+    return (
+      buffer.length >= 12 &&
+      buffer.toString('ascii', 0, 4) === 'RIFF' &&
+      buffer.toString('ascii', 8, 12) === 'WAVE'
+    );
+  }
+
+  if (mimeType === 'video/webm' || mimeType === 'audio/webm') {
+    return (
+      buffer[0] === 0x1a &&
+      buffer[1] === 0x45 &&
+      buffer[2] === 0xdf &&
+      buffer[3] === 0xa3
+    );
+  }
+
+  if (
+    mimeType === 'video/mp4' ||
+    mimeType === 'video/quicktime' ||
+    mimeType === 'audio/mp4' ||
+    mimeType === 'audio/x-m4a' ||
+    mimeType === 'video/3gpp'
+  ) {
+    if (buffer.length < 8) return false;
+    const boxType = buffer.toString('ascii', 4, 8);
+    return ['ftyp', 'moov', 'mdat', 'wide', 'free', 'skip'].includes(boxType);
+  }
+
+  if (mimeType === 'audio/mpeg') {
+    return (
+      buffer.toString('ascii', 0, 3) === 'ID3' ||
+      (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0)
+    );
+  }
+
+  if (mimeType === 'audio/aac') {
+    return (
+      (buffer[0] === 0xff && (buffer[1] & 0xf0) === 0xf0) ||
+      buffer.toString('ascii', 0, 4) === 'ADIF' ||
+      buffer.toString('ascii', 0, 3) === 'ID3' ||
+      (buffer.length >= 8 && buffer.toString('ascii', 4, 8) === 'ftyp')
+    );
+  }
+
+  return false;
+}
+
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
 
   readonly baseDir = path.join(process.cwd(), 'storage');
+  private readonly baseDirWithSep = this.baseDir.endsWith(path.sep)
+    ? this.baseDir
+    : `${this.baseDir}${path.sep}`;
 
   constructor(@Optional() private readonly mediaService?: MediaService) {
     if (!fs.existsSync(this.baseDir)) {
@@ -86,15 +149,23 @@ export class StorageService {
 
   async upload(file: Express.Multer.File, folder: string): Promise<string> {
     try {
+      if (!file || !file.buffer || file.buffer.length === 0) {
+        throw new BadRequestException(StorageErrors.UNSUPPORTED_FILE_TYPE);
+      }
+
       const cleanFolder = this.sanitizeStoragePath(folder);
       const targetDir = path.normalize(path.join(this.baseDir, cleanFolder));
-      if (!targetDir.startsWith(this.baseDir)) {
+      if (
+        targetDir !== this.baseDir &&
+        !targetDir.startsWith(this.baseDirWithSep)
+      ) {
         throw new BadRequestException(StorageErrors.INVALID_TARGET_FOLDER);
       }
       await this.ensureDir(targetDir);
 
       const mime = (file.mimetype || '').toLowerCase();
       const id = uuidv4();
+      const urlFolderPrefix = cleanFolder ? `${cleanFolder}/` : '';
 
       // Handle Image Files: Convert strictly to WebP & generate thumbnail
       if (mime.startsWith('image/')) {
@@ -156,15 +227,15 @@ export class StorageService {
         }
 
         this.logger.log(
-          `Uploaded & processed image: ${cleanFolder}/${mainFileName} (${mainBuffer.length}B, thumb: ${thumbBuffer.length}B)`,
+          `Uploaded & processed image: ${urlFolderPrefix}${mainFileName} (${mainBuffer.length}B, thumb: ${thumbBuffer.length}B)`,
         );
 
-        return `/media/${cleanFolder}/${mainFileName}`;
+        return `/media/${urlFolderPrefix}${mainFileName}`;
       }
 
       // Handle Non-Image Files (Audio, Video, PDF Documents)
       const safeExt = NON_IMAGE_MIME_TO_EXTENSION[mime];
-      if (!safeExt) {
+      if (!safeExt || !validateNonImageMagicBytes(file.buffer, mime)) {
         throw new BadRequestException(StorageErrors.UNSUPPORTED_FILE_TYPE);
       }
 
@@ -173,10 +244,10 @@ export class StorageService {
 
       await fs.promises.writeFile(filePath, file.buffer);
       this.logger.log(
-        `Uploaded media file: ${cleanFolder}/${fileName} (${file.buffer.length}B)`,
+        `Uploaded media file: ${urlFolderPrefix}${fileName} (${file.buffer.length}B)`,
       );
 
-      return `/media/${cleanFolder}/${fileName}`;
+      return `/media/${urlFolderPrefix}${fileName}`;
     } catch (error: unknown) {
       this.logger.error(
         `Upload failed: ${(error as Error).message}`,
@@ -192,8 +263,10 @@ export class StorageService {
    */
   private sanitizeStoragePath(rawPath: string): string {
     if (!rawPath) return '';
-    const withoutQuery = rawPath.split(/[?#]/)[0].trim();
-    return withoutQuery.replace(/^(?:https?:\/\/[^\/]+)?\/?(?:media\/)?/, '');
+    const withoutQuery = rawPath.split(/[?#]/)[0].trim().replace(/\\/g, '/');
+    return withoutQuery
+      .replace(/^(?:https?:\/\/[^\/]+)?\/?(?:media\/)?/, '')
+      .replace(/^\/+|\/+$/g, '');
   }
 
   async delete(fileUrl: string): Promise<number> {
@@ -205,7 +278,7 @@ export class StorageService {
 
       const filePath = path.normalize(path.join(this.baseDir, relativePath));
 
-      if (!filePath.startsWith(this.baseDir) || filePath === this.baseDir) {
+      if (!filePath.startsWith(this.baseDirWithSep)) {
         this.logger.warn(`Path traversal attempt detected for: ${fileUrl}`);
         return 0;
       }
@@ -260,7 +333,7 @@ export class StorageService {
 
       const targetDir = path.normalize(path.join(this.baseDir, relativePath));
 
-      if (!targetDir.startsWith(this.baseDir) || targetDir === this.baseDir) {
+      if (!targetDir.startsWith(this.baseDirWithSep)) {
         this.logger.warn(`Invalid folder deletion target: ${folderPath}`);
         return;
       }

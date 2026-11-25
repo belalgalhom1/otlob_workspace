@@ -11,6 +11,7 @@ import {
 } from '../../common/drivers/driver-kpi.helper';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
+  appTimeZone,
   parseDateEnd,
   parseDateStart,
   tzDateKey,
@@ -85,12 +86,19 @@ export class StatisticsAnalyticsRepository {
   private buildOrderRange(
     from?: string,
     to?: string,
-  ): { gte: Date; lte: Date } | null {
-    if (!from || !to) return null;
-    const gte = new Date(from);
-    const lte = new Date(to);
-    if (isNaN(gte.getTime()) || isNaN(lte.getTime())) return null;
+  ): { gte?: Date; lte?: Date } | null {
+    const gte = from ? parseDateStart(from) : undefined;
+    const lte = to ? parseDateEnd(to) : undefined;
+    if ((gte && isNaN(gte.getTime())) || (lte && isNaN(lte.getTime()))) {
+      return null;
+    }
+    if (!gte && !lte) return null;
     return { gte, lte };
+  }
+
+  private buildCreatedAtSql(range: { gte?: Date; lte?: Date } | null) {
+    if (!range) return Prisma.empty;
+    return Prisma.sql`${range.gte ? Prisma.sql`AND o."createdAt" >= ${range.gte}` : Prisma.empty} ${range.lte ? Prisma.sql`AND o."createdAt" <= ${range.lte}` : Prisma.empty}`;
   }
 
   async getTopDrivers(limit = 20, from?: string, to?: string) {
@@ -116,6 +124,7 @@ export class StatisticsAnalyticsRepository {
     };
 
     if (range) {
+      const rangeSql = this.buildCreatedAtSql(range);
       const raw = await this.prisma.$queryRaw<
         Array<{ driverId: string; totalOrders: number }>
       >`
@@ -125,8 +134,7 @@ export class StatisticsAnalyticsRepository {
         WHERE g.status = 'DELIVERED'
           AND g."primaryDriverId" IS NOT NULL
           AND o."deletedAt" IS NULL
-          AND o."createdAt" >= ${range.gte}
-          AND o."createdAt" <= ${range.lte}
+          ${rangeSql}
         GROUP BY g."primaryDriverId"
         ORDER BY "totalOrders" DESC
         LIMIT ${limit}
@@ -171,17 +179,17 @@ export class StatisticsAnalyticsRepository {
 
   async getTopCustomers(limit = 20, from?: string, to?: string) {
     const range = this.buildOrderRange(from, to);
-    const rangeSql = range
-      ? Prisma.sql`AND "createdAt" >= ${range.gte} AND "createdAt" <= ${range.lte}`
-      : Prisma.empty;
+    const rangeSql = this.buildCreatedAtSql(range);
 
     const rawCustomers = await this.prisma.$queryRaw<
       Array<{ customerId: string; totalOrders: number; totalSpent: number }>
     >`
-      SELECT "customerId", COUNT(id)::int as "totalOrders", SUM("grandTotal")::int as "totalSpent"
-      FROM orders
-      WHERE status = 'DELIVERED' ${rangeSql}
-      GROUP BY "customerId"
+      SELECT o."customerId", COUNT(o.id)::int as "totalOrders", SUM(o."grandTotal")::int as "totalSpent"
+      FROM orders o
+      WHERE o.status = 'DELIVERED'
+        AND o."deletedAt" IS NULL
+        ${rangeSql}
+      GROUP BY o."customerId"
       ORDER BY "totalSpent" DESC, "totalOrders" DESC
       LIMIT ${limit}
     `;
@@ -211,6 +219,7 @@ export class StatisticsAnalyticsRepository {
 
   async getTopVendors(limit = 20, from?: string, to?: string) {
     const range = this.buildOrderRange(from, to);
+    const rangeSql = this.buildCreatedAtSql(range);
 
     const topVendorStats = range
       ? await this.prisma.$queryRaw<
@@ -226,8 +235,7 @@ export class StatisticsAnalyticsRepository {
           WHERE o.status = 'DELIVERED'
             AND f.status::text NOT IN ('PENDING', 'REJECTED', 'CANCELLED')
             AND o."deletedAt" IS NULL
-            AND o."createdAt" >= ${range.gte}
-            AND o."createdAt" <= ${range.lte}
+            ${rangeSql}
           GROUP BY f."vendorId"
           ORDER BY "totalOrders" DESC
           LIMIT ${limit}
@@ -248,10 +256,6 @@ export class StatisticsAnalyticsRepository {
         `;
 
     if (topVendorStats.length === 0) return [];
-
-    const rangeSql = range
-      ? Prisma.sql`AND o."createdAt" >= ${range.gte} AND o."createdAt" <= ${range.lte}`
-      : Prisma.empty;
 
     const vendorIds = topVendorStats.map((v) => v.vendorId);
 
@@ -329,9 +333,7 @@ export class StatisticsAnalyticsRepository {
 
   async getTopProducts(limit = 20, from?: string, to?: string) {
     const range = this.buildOrderRange(from, to);
-    const rangeSql = range
-      ? Prisma.sql`AND o."createdAt" >= ${range.gte} AND o."createdAt" <= ${range.lte}`
-      : Prisma.empty;
+    const rangeSql = this.buildCreatedAtSql(range);
 
     const rawProducts = await this.prisma.$queryRaw<
       Array<{ productId: string; totalOrders: number }>
@@ -339,7 +341,11 @@ export class StatisticsAnalyticsRepository {
       SELECT oi."productId", SUM(oi.quantity)::int as "totalOrders"
       FROM order_items oi
       JOIN orders o ON o.id = oi."orderId"
-      WHERE o.status = 'DELIVERED' AND oi."productId" IS NOT NULL ${rangeSql}
+      WHERE o.status = 'DELIVERED'
+        AND o."deletedAt" IS NULL
+        AND oi."rejectedAt" IS NULL
+        AND oi."productId" IS NOT NULL
+        ${rangeSql}
       GROUP BY oi."productId"
       ORDER BY "totalOrders" DESC
       LIMIT ${limit}
@@ -353,10 +359,12 @@ export class StatisticsAnalyticsRepository {
     });
     const productById = new Map(products.map((p) => [p.id, p]));
 
-    return rawProducts.map((rp) => ({
-      ...productById.get(rp.productId),
-      totalOrders: rp.totalOrders,
-    }));
+    return rawProducts
+      .filter((rp) => productById.has(rp.productId))
+      .map((rp) => ({
+        ...productById.get(rp.productId),
+        totalOrders: rp.totalOrders,
+      }));
   }
 
   async getMostOrderedProduct(vendorId: string) {
@@ -1072,11 +1080,12 @@ export class StatisticsAnalyticsRepository {
       [StatisticPeriod.YEARLY]: 'year',
     }[period];
 
+    const tz = appTimeZone();
     const rows = await this.prisma.$queryRaw<
       Array<{ key: string; activeCustomers: bigint; activeDrivers: bigint }>
     >`
       SELECT
-        to_char(date_trunc(${trunc}::text, o."createdAt" AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS key,
+        to_char(date_trunc(${trunc}::text, o."createdAt" AT TIME ZONE ${tz}), 'YYYY-MM-DD') AS key,
         COUNT(DISTINCT o."customerId")::bigint AS "activeCustomers",
         COUNT(DISTINCT g."primaryDriverId")::bigint AS "activeDrivers"
       FROM orders o

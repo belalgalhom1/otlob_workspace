@@ -185,3 +185,11 @@ export class MarkReadDto {
   @IsOptional()
   lastReadMessageId?: string;
 }
+
+export class UpdateMessageDto {
+  @ApiProperty({ example: 'Updated message', maxLength: 4000 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(4000)
+  text!: string;
+}

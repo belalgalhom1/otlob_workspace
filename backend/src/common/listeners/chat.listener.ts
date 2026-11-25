@@ -86,7 +86,7 @@ export class ChatListener {
       title: 'New message',
       titleAr: 'رسالة جديدة',
       body: this.buildPreview(event),
-      bodyAr: null,
+      bodyAr: this.buildPreviewAr(event),
       type: NotificationType.CHAT_MESSAGE,
       data: {
         conversationId: event.conversationId,
@@ -195,8 +195,41 @@ export class ChatListener {
         return 'Sent a voice message';
       case MessageType.LOCATION:
         return 'Shared a location';
+      case MessageType.PRODUCT: {
+        const productName = (
+          event.metadata as { product?: { name?: string } } | null
+        )?.product?.name;
+        return productName ? `Sent offer: ${productName}` : 'Sent an offer';
+      }
       default:
         return 'New message';
+    }
+  }
+
+  private buildPreviewAr(event: ChatMessageSentEvent): string {
+    if (event.text) {
+      return event.text.length > 80
+        ? event.text.slice(0, 80) + '…'
+        : event.text;
+    }
+
+    switch (event.type as MessageType) {
+      case MessageType.IMAGE:
+        return 'أرسل صورة';
+      case MessageType.VIDEO:
+        return 'أرسل فيديو';
+      case MessageType.AUDIO:
+        return 'أرسل رسالة صوتية';
+      case MessageType.LOCATION:
+        return 'شارك موقعاً';
+      case MessageType.PRODUCT: {
+        const productName = (
+          event.metadata as { product?: { name?: string } } | null
+        )?.product?.name;
+        return productName ? `أرسل عرضاً: ${productName}` : 'أرسل عرض منتج';
+      }
+      default:
+        return 'رسالة جديدة';
     }
   }
 }

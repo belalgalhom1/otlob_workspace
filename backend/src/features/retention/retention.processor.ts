@@ -182,14 +182,16 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
           FROM "messages" m
           JOIN "conversations" c ON c."id" = m."conversationId"
           WHERE m."mediaUrl" IS NOT NULL
+            AND m."mediaUrl" <> ''
             AND (c."status" IN ('ARCHIVED', 'CLOSED') OR c."deletedAt" IS NOT NULL)
-            AND c."createdAt" < ${cutoff}
+            AND c."updatedAt" < ${cutoff}
           ORDER BY m."createdAt" ASC
           LIMIT 200
         `;
 
         if (batch.length === 0) break;
 
+        let clearedInBatch = 0;
         for (const msg of batch) {
           const url = msg.mediaUrl;
           if (!url || typeof url !== 'string') continue;
@@ -202,18 +204,24 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
 
           if (clearedRow.count === 0) continue;
 
+          clearedInBatch += 1;
           const bytesFreed = await this.storage.delete(url);
           totalFilesCleared += 1;
           totalBytesReclaimed += bytesFreed;
           processedConversationIds.add(msg.conversationId);
         }
 
-        if (batch.length < 200) break;
+        if (batch.length < 200 || clearedInBatch === 0) break;
       }
 
-      // 2. Clean up any empty conversation subdirectories in storage/chat/
+      // 2. Clean up any empty conversation subdirectories across chat media folders
       for (const convId of processedConversationIds) {
-        await this.storage.deleteEmptyFolder(`chat/${convId}`);
+        await Promise.all([
+          this.storage.deleteEmptyFolder(`chat/images/${convId}`),
+          this.storage.deleteEmptyFolder(`chat/videos/${convId}`),
+          this.storage.deleteEmptyFolder(`chat/audio/${convId}`),
+          this.storage.deleteEmptyFolder(`chat/${convId}`),
+        ]);
       }
 
       // 3. Soft-delete expired conversations: keep chat/wallet ledger rows for audit;
@@ -221,7 +229,7 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
       const result = await this.prisma.conversation.updateMany({
         where: {
           status: { in: ['ARCHIVED', 'CLOSED'] },
-          createdAt: { lt: cutoff },
+          updatedAt: { lt: cutoff },
           deletedAt: null,
         },
         data: {
@@ -539,6 +547,7 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
         const batch = await this.prisma.driverShift.findMany({
           where: {
             startPhotoUrl: { not: null },
+            NOT: { startPhotoUrl: '' },
             status: { in: ['COMPLETED', 'CANCELLED', 'MISSED'] },
             endTime: { lt: cutoff },
           },
@@ -547,6 +556,7 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
         });
         if (batch.length === 0) break;
 
+        let clearedInBatch = 0;
         for (const shift of batch) {
           const url = shift.startPhotoUrl;
           if (!url) continue;
@@ -557,12 +567,13 @@ export class RetentionProcessor extends WorkerHost implements OnModuleInit {
             data: { startPhotoUrl: null },
           });
           if (clearedRow.count === 0) continue;
+          clearedInBatch += 1;
           // Idempotent + traversal-guarded; never throws.
           await this.storage.delete(url);
           cleared += 1;
         }
 
-        if (batch.length < 200) break;
+        if (batch.length < 200 || clearedInBatch === 0) break;
       }
 
       if (cleared > 0) {

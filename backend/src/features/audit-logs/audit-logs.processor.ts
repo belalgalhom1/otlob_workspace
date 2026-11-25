@@ -1,6 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   QUEUES,
@@ -38,8 +39,8 @@ export class AuditLogsProcessor extends WorkerHost {
         action: data.action,
         entityType: data.entityType,
         entityId: data.entityId,
-        newValues: data.newValues ?? undefined,
-        oldValues: data.oldValues ?? undefined,
+        newValues: data.newValues == null ? Prisma.DbNull : data.newValues,
+        oldValues: data.oldValues == null ? Prisma.DbNull : data.oldValues,
       },
     });
     return { created: true };

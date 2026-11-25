@@ -3,13 +3,16 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
 import {
   Prisma,
   MessageType,
   ProductBranchAvailabilityMode,
+  Role,
 } from '@prisma/client';
 import { CartErrors } from 'src/common/constants/response.constants';
 import {
@@ -101,23 +104,35 @@ type CartInclude = {
 
 @Injectable()
 export class CartService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly platformSettings?: PlatformSettingsService,
+  ) {}
+
+  private async getDefaultCommissionRate(): Promise<number> {
+    if (!this.platformSettings) return 10;
+    const settings = await this.platformSettings.getSettings();
+    return Number(settings?.defaultCommissionRate ?? 10);
+  }
 
   // ─── Get or create cart for vendor ────────────────────────────────────────
 
   async getCart(userId: string, vendorId: string) {
     const customer = await this.getCustomer(userId);
 
-    const cart = await this.prisma.cart.findUnique({
-      where: { customerId_vendorId: { customerId: customer.id, vendorId } },
-      include: this.cartIncludes(),
-    });
+    const [cart, defaultCommissionRate] = await Promise.all([
+      this.prisma.cart.findUnique({
+        where: { customerId_vendorId: { customerId: customer.id, vendorId } },
+        include: this.cartIncludes(),
+      }),
+      this.getDefaultCommissionRate(),
+    ]);
 
     if (!cart) {
       return this.buildEmptyCart(vendorId);
     }
 
-    return this.formatCart(cart);
+    return this.formatCart(cart, defaultCommissionRate);
   }
 
   // ─── Get all carts for the customer (one per vendor) ──────────────────────
@@ -125,13 +140,16 @@ export class CartService {
   async getMyCarts(userId: string) {
     const customer = await this.getCustomer(userId);
 
-    const carts = await this.prisma.cart.findMany({
-      where: { customerId: customer.id },
-      include: this.cartIncludes(),
-      orderBy: { updatedAt: 'desc' },
-    });
+    const [carts, defaultCommissionRate] = await Promise.all([
+      this.prisma.cart.findMany({
+        where: { customerId: customer.id },
+        include: this.cartIncludes(),
+        orderBy: { updatedAt: 'desc' },
+      }),
+      this.getDefaultCommissionRate(),
+    ]);
 
-    return carts.map((c) => this.formatCart(c));
+    return carts.map((c) => this.formatCart(c, defaultCommissionRate));
   }
 
   // ─── Add item to cart ─────────────────────────────────────────────────────
@@ -153,13 +171,23 @@ export class CartService {
     if (dto.offerMessageId) {
       const message = await this.prisma.message.findUnique({
         where: { id: dto.offerMessageId },
-        include: { conversation: { include: { participants: true } } },
+        include: {
+          sender: { select: { id: true, role: true } },
+          conversation: { include: { participants: true } },
+        },
       });
+
+      const isAuthorizedSender =
+        message?.sender?.role === Role.VENDOR_MEMBER ||
+        message?.sender?.role === Role.ADMIN ||
+        message?.sender?.role === Role.SUPER_ADMIN;
 
       if (
         !message ||
+        message.deletedAt ||
         message.type !== MessageType.PRODUCT ||
-        message.conversation.vendorId !== vendorId
+        message.conversation.vendorId !== vendorId ||
+        !isAuthorizedSender
       ) {
         throw new BadRequestException(OrderErrors.INVALID_OFFER_MESSAGE);
       }
@@ -194,9 +222,14 @@ export class CartService {
         typeof metaProduct.imageUrl === 'string'
           ? metaProduct.imageUrl.slice(0, 500)
           : null;
-      if (typeof metaProduct.productId === 'string' && metaProduct.productId) {
-        finalProductId = metaProduct.productId;
+      const offerProductId =
+        typeof metaProduct.productId === 'string' && metaProduct.productId
+          ? metaProduct.productId
+          : null;
+      if (dto.productId && dto.productId !== offerProductId) {
+        throw new BadRequestException(OrderErrors.INVALID_OFFER_MESSAGE);
       }
+      finalProductId = offerProductId;
     }
 
     if (!finalProductId && !dto.offerMessageId) {
@@ -258,6 +291,13 @@ export class CartService {
       }
     }
 
+    if (
+      selectedUnit === 'strip' &&
+      (!product?.sellByStrip || Number(product?.stripsPerPackage ?? 0) < 2)
+    ) {
+      throw new BadRequestException(CartErrors.INVALID_OPTION);
+    }
+
     const uniqueOptionIds = dto.optionIds
       ? [...new Set(dto.optionIds)]
       : undefined;
@@ -303,10 +343,14 @@ export class CartService {
       }
 
       if (existingItem) {
+        const incrementBy = dto.quantity ?? 1;
+        if (existingItem.quantity + incrementBy > 99) {
+          throw new BadRequestException(CartErrors.NOT_ENOUGH_STOCK);
+        }
         await tx.cartItem.update({
           where: { id: existingItem.id },
           data: {
-            quantity: { increment: dto.quantity ?? 1 },
+            quantity: { increment: incrementBy },
             specialRequest: dto.specialRequest ?? undefined,
             updatedAt: new Date(),
           },
@@ -359,10 +403,14 @@ export class CartService {
                   },
                 });
             if (winner) {
+              const incrementBy = dto.quantity ?? 1;
+              if (winner.quantity + incrementBy > 99) {
+                throw new BadRequestException(CartErrors.NOT_ENOUGH_STOCK);
+              }
               await tx.cartItem.update({
                 where: { id: winner.id },
                 data: {
-                  quantity: { increment: dto.quantity ?? 1 },
+                  quantity: { increment: incrementBy },
                   specialRequest: dto.specialRequest ?? undefined,
                   updatedAt: new Date(),
                 },
@@ -449,8 +497,17 @@ export class CartService {
         mergedOptionIds,
         cartItem.variantId ?? undefined,
       );
-    } else if (dto.optionIds?.length) {
-      throw new BadRequestException(CartErrors.INVALID_OPTION);
+
+      if (
+        dto.selectedUnit === 'strip' &&
+        (!product.sellByStrip || Number(product.stripsPerPackage ?? 0) < 2)
+      ) {
+        throw new BadRequestException(CartErrors.INVALID_OPTION);
+      }
+    } else {
+      if (dto.optionIds?.length || dto.selectedUnit === 'strip') {
+        throw new BadRequestException(CartErrors.INVALID_OPTION);
+      }
     }
 
     const uniqueUpdateOptionIds =
@@ -550,15 +607,22 @@ export class CartService {
       cartItemId,
     );
 
-    await this.prisma.cartItem.delete({ where: { id: cartItemId } });
+    const cleared = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM carts WHERE id = ${cartItem.cartId} FOR UPDATE`;
+      await tx.cartItem.deleteMany({ where: { id: cartItemId } });
 
-    // If cart is now empty, delete it
-    const remaining = await this.prisma.cartItem.count({
-      where: { cartId: cartItem.cartId },
+      const remaining = await tx.cartItem.count({
+        where: { cartId: cartItem.cartId },
+      });
+
+      if (remaining === 0) {
+        await tx.cart.deleteMany({ where: { id: cartItem.cartId } });
+        return true;
+      }
+      return false;
     });
 
-    if (remaining === 0) {
-      await this.prisma.cart.delete({ where: { id: cartItem.cartId } });
+    if (cleared) {
       return { cleared: true };
     }
 
@@ -596,7 +660,8 @@ export class CartService {
       throw new BadRequestException(CartErrors.IS_EMPTY);
     }
 
-    const formatted = this.formatCart(cart);
+    const defaultCommissionRate = await this.getDefaultCommissionRate();
+    const formatted = this.formatCart(cart, defaultCommissionRate);
 
     const variantQuantities = new Map<string, number>();
     const productQuantities = new Map<string, number>();
@@ -944,7 +1009,7 @@ export class CartService {
     };
   }
 
-  private formatCart(cartRaw: unknown) {
+  private formatCart(cartRaw: unknown, defaultCommissionRate = 10) {
     const cart = cartRaw as CartInclude;
     let subtotal = 0;
     const now = new Date();
@@ -1105,7 +1170,9 @@ export class CartService {
     });
 
     const isContracted = cart.vendor?.isContracted ?? false;
-    const commissionRate = Number(cart.vendor?.commissionRate ?? 10);
+    const commissionRate = Number(
+      cart.vendor?.commissionRate ?? defaultCommissionRate,
+    );
     const serviceFee = !isContracted
       ? Math.round(subtotal * (commissionRate / 100))
       : 0;

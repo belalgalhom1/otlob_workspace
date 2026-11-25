@@ -9,6 +9,7 @@ import {
   Query,
   Req,
   ParseUUIDPipe,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { LegalDocumentsService } from './legal-documents.service';
@@ -36,7 +37,10 @@ export class LegalDocumentsController {
     summary:
       'Get the currently active, published legal document (Terms or Privacy)',
   })
-  getActiveDocument(@Param('type') type: LegalDocumentType) {
+  getActiveDocument(
+    @Param('type', new ParseEnumPipe(LegalDocumentType))
+    type: LegalDocumentType,
+  ) {
     return this.service.getActiveDocument(type);
   }
 
@@ -63,10 +67,7 @@ export class LegalDocumentsController {
     @Body() dto: AcceptLegalDocumentDto,
     @Req() req: any,
   ) {
-    const rawIp = req?.headers ? req.headers['x-forwarded-for'] : null;
-    const ipAddress = Array.isArray(rawIp)
-      ? rawIp[0]
-      : rawIp?.split(',')[0].trim() || req?.socket?.remoteAddress;
+    const ipAddress = req?.ip || req?.socket?.remoteAddress;
     const userAgent = req?.headers ? req.headers['user-agent'] : null;
 
     return this.service.acceptDocument(userId, dto, {

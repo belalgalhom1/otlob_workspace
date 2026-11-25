@@ -469,20 +469,19 @@ export class ProductsService implements OnModuleInit {
   ) {
     const product = await this.findOne(vendorId, productId);
 
-    // Automatically set hasVariants to true if this is the first variant
-    if (!product.hasVariants) {
-      await this.prisma.product.update({
-        where: { id: productId },
-        data: { hasVariants: true },
-      });
-    }
-
     const sku = dto.sku?.trim() ? dto.sku.trim() : null;
     if (sku) {
       await this.assertVariantSkuAvailable(sku);
     }
 
     const variant = await this.prisma.$transaction(async (tx) => {
+      if (!product.hasVariants) {
+        await tx.product.update({
+          where: { id: productId },
+          data: { hasVariants: true },
+        });
+      }
+
       const created = await tx.productVariant.create({
         data: {
           productId,

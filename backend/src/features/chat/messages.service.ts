@@ -53,12 +53,31 @@ const REPLY_TO_INCLUDE = {
 @Injectable()
 export class MessagesService {
   private readonly logger = new Logger(MessagesService.name);
+  private systemUserEnsured = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly chatMedia: ChatMediaService,
   ) {}
+
+  private async ensureSystemUserExists(): Promise<void> {
+    if (this.systemUserEnsured) return;
+    if (typeof this.prisma.user?.upsert === 'function') {
+      await this.prisma.user.upsert({
+        where: { id: 'system' },
+        update: {},
+        create: {
+          id: 'system',
+          name: 'System',
+          role: Role.SUPER_ADMIN,
+          isBanned: true,
+          deletedAt: new Date(),
+        },
+      });
+    }
+    this.systemUserEnsured = true;
+  }
 
   private async canManageConversations(
     actorId: string,
@@ -123,7 +142,7 @@ export class MessagesService {
       throw new BadRequestException(ChatErrors.CONVERSATION_CLOSED);
     }
 
-    await this.validateMessageContent(dto, conversation);
+    await this.validateMessageContent(dto, conversation, actor);
 
     if (dto.replyToId) {
       const replyTo = await this.prisma.message.findUnique({
@@ -255,6 +274,8 @@ export class MessagesService {
 
     if (!conversation || conversation.status !== ConversationStatus.OPEN)
       return null;
+
+    await this.ensureSystemUserExists();
 
     const message = await this.prisma.message.create({
       data: {
@@ -485,6 +506,10 @@ export class MessagesService {
       },
     });
 
+    if (!conversation) {
+      throw new NotFoundException(ChatErrors.CONVERSATION_NOT_FOUND);
+    }
+
     const isAdmin =
       !participant &&
       (await this.canManageConversations(actor.sub, actor.role));
@@ -558,13 +583,27 @@ export class MessagesService {
     return { lastReadAt: readAt };
   }
 
-  async deleteMessage(actor: JwtAccessPayload, messageId: string) {
+  async deleteMessage(
+    actor: JwtAccessPayload,
+    conversationId: string,
+    messageId: string,
+  ) {
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
-      select: { id: true, senderId: true, deletedAt: true, type: true },
+      select: {
+        id: true,
+        conversationId: true,
+        senderId: true,
+        deletedAt: true,
+        type: true,
+      },
     });
 
-    if (!message || message.deletedAt) {
+    if (
+      !message ||
+      message.deletedAt ||
+      message.conversationId !== conversationId
+    ) {
       throw new NotFoundException(ChatErrors.MESSAGE_NOT_FOUND);
     }
 
@@ -587,15 +626,26 @@ export class MessagesService {
 
   async updateMessage(
     actor: JwtAccessPayload,
+    conversationId: string,
     messageId: string,
     dto: { text: string },
   ) {
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
-      select: { id: true, senderId: true, type: true, deletedAt: true },
+      select: {
+        id: true,
+        conversationId: true,
+        senderId: true,
+        type: true,
+        deletedAt: true,
+      },
     });
 
-    if (!message || message.deletedAt) {
+    if (
+      !message ||
+      message.deletedAt ||
+      message.conversationId !== conversationId
+    ) {
       throw new NotFoundException(ChatErrors.MESSAGE_NOT_FOUND);
     }
 
@@ -665,6 +715,10 @@ export class MessagesService {
       throw new ForbiddenException(ChatErrors.NOT_A_PARTICIPANT);
     }
 
+    if (conversation.status !== ConversationStatus.OPEN) {
+      throw new BadRequestException(ChatErrors.CONVERSATION_CLOSED);
+    }
+
     const result = await this.chatMedia.uploadChatMedia(file, conversationId);
     const thumbnailUrl = result.mediaUrl.endsWith('.webp')
       ? result.mediaUrl.replace(/\.webp$/, '_thumb.webp')
@@ -694,6 +748,7 @@ export class MessagesService {
   private async validateMessageContent(
     dto: SendMessageDto,
     conversation: { vendorId: string | null; orderId: string | null },
+    actor: JwtAccessPayload,
   ) {
     if (dto.type === MessageType.TEXT && !dto.text?.trim()) {
       throw new BadRequestException(ChatErrors.TEXT_REQUIRED);
@@ -705,12 +760,32 @@ export class MessagesService {
 
     if (dto.type === MessageType.LOCATION) {
       const meta = dto.metadata as Record<string, unknown> | undefined;
-      if (!meta?.lat || !meta?.lng) {
+      const hasLatLng =
+        typeof meta?.lat === 'number' &&
+        Number.isFinite(meta.lat) &&
+        typeof meta?.lng === 'number' &&
+        Number.isFinite(meta.lng);
+      const hasLocationTuple =
+        Array.isArray(meta?.location) &&
+        meta.location.length === 2 &&
+        typeof meta.location[0] === 'number' &&
+        Number.isFinite(meta.location[0]) &&
+        typeof meta.location[1] === 'number' &&
+        Number.isFinite(meta.location[1]);
+      if (!hasLatLng && !hasLocationTuple) {
         throw new BadRequestException(ChatErrors.LOCATION_REQUIRED);
       }
     }
 
     if (dto.type === MessageType.PRODUCT) {
+      const canSendOffer =
+        actor.role === Role.VENDOR_MEMBER ||
+        actor.role === Role.ADMIN ||
+        actor.role === Role.SUPER_ADMIN;
+      if (!canSendOffer) {
+        throw new ForbiddenException(ChatErrors.NOT_A_PARTICIPANT);
+      }
+
       const meta = dto.metadata as Record<string, unknown> | undefined;
       const product = meta?.product as Record<string, unknown> | undefined;
 

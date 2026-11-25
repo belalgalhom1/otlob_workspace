@@ -1,12 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 
 import { PromotionErrors } from 'src/common/constants/response.constants';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { StorageService } from '../../infrastructure/storage/storage.service';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotions.dto';
 
 @Injectable()
 export class PromotionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private readonly storage?: StorageService,
+  ) {}
 
   async findAll() {
     return this.prisma.promotion.findMany({
@@ -27,14 +31,34 @@ export class PromotionsService {
     return this.prisma.promotion.findMany({
       where: {
         isActive: true,
-        OR: [{ startDate: null }, { startDate: { lte: now } }],
         AND: [
+          { OR: [{ startDate: null }, { startDate: { lte: now } }] },
+          { OR: [{ endDate: null }, { endDate: { gte: now } }] },
           {
-            OR: [{ endDate: null }, { endDate: { gte: now } }],
+            OR: [
+              { vendorId: null },
+              {
+                vendor: {
+                  deletedAt: null,
+                  status: { not: 'SUSPENDED' },
+                },
+              },
+            ],
+          },
+          {
+            OR: [
+              { productId: null },
+              {
+                product: {
+                  deletedAt: null,
+                  isActive: true,
+                },
+              },
+            ],
           },
         ],
       },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     });
   }
 
@@ -55,26 +79,45 @@ export class PromotionsService {
       data: {
         ...dto,
         title: dto.title ?? '',
-        imageUrl: '', // Will be updated after upload
+        imageUrl: dto.imageUrl ?? '',
       },
     });
   }
 
   async update(id: string, dto: UpdatePromotionDto) {
-    return this.prisma.promotion.update({
+    const existing = await this.findOne(id);
+    const updated = await this.prisma.promotion.update({
       where: { id },
       data: dto,
     });
+    if (
+      updated.imageUrl &&
+      existing.imageUrl &&
+      existing.imageUrl !== updated.imageUrl
+    ) {
+      await this.storage?.delete(existing.imageUrl).catch(() => undefined);
+    }
+    return updated;
   }
 
   async updateImage(id: string, imageUrl: string) {
-    return this.prisma.promotion.update({
+    const existing = await this.findOne(id);
+    const updated = await this.prisma.promotion.update({
       where: { id },
       data: { imageUrl },
     });
+    if (existing.imageUrl && existing.imageUrl !== imageUrl) {
+      await this.storage?.delete(existing.imageUrl).catch(() => undefined);
+    }
+    return updated;
   }
 
   async remove(id: string) {
-    return this.prisma.promotion.delete({ where: { id } });
+    const existing = await this.findOne(id);
+    const deleted = await this.prisma.promotion.delete({ where: { id } });
+    if (existing.imageUrl) {
+      await this.storage?.delete(existing.imageUrl).catch(() => undefined);
+    }
+    return deleted;
   }
 }

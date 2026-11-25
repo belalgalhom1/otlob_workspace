@@ -626,7 +626,20 @@ export class ConversationsService {
       });
     }
 
-    // Otherwise (CUSTOMER, DRIVER, etc.), route to SUPPORT conversation
+    // Otherwise only allow direct SUPPORT chats when actor or target has staff/support authority.
+    const actorIsSupport =
+      actor.role === Role.SUPER_ADMIN ||
+      actor.role === Role.DRIVER_MANAGER ||
+      (actor.role === Role.ADMIN &&
+        (await this.canManageConversations(actor.sub, actor.role)));
+    const targetIsSupport =
+      targetUser.role === Role.SUPER_ADMIN ||
+      targetUser.role === Role.ADMIN ||
+      targetUser.role === Role.DRIVER_MANAGER;
+    if (!actorIsSupport && !targetIsSupport) {
+      throw new ForbiddenException(ChatErrors.NOT_A_PARTICIPANT);
+    }
+
     // Check if an existing general SUPPORT conversation exists with this user
     const existing = await this.prisma.conversation.findFirst({
       where: {
@@ -787,11 +800,17 @@ export class ConversationsService {
               userId: actor.sub,
             },
           },
-          select: { id: true },
+          select: { id: true, branchId: true, role: true },
         });
-        if (member) return;
-      }
-      if (conversation.orderId) {
+        if (member) {
+          if (!member.branchId || member.role === 'OWNER') return;
+          if (!conversation.orderId) return;
+          const vendorUserIds = await this.resolveOrderVendorUserIds(
+            conversation.orderId,
+          );
+          if (vendorUserIds.includes(actor.sub)) return;
+        }
+      } else if (conversation.orderId) {
         const vendorUserIds = await this.resolveOrderVendorUserIds(
           conversation.orderId,
         );

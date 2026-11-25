@@ -6,7 +6,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { NotificationType } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -14,7 +14,13 @@ export class QueryNotificationsDto {
   @ApiProperty({ example: true, required: false })
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) =>
+    value === true || value === 'true'
+      ? true
+      : value === false || value === 'false'
+        ? false
+        : value,
+  )
   unreadOnly?: boolean;
 
   @ApiProperty({ enum: NotificationType, required: false })

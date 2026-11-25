@@ -174,7 +174,7 @@ export class NotificationsService {
 
       const isArabic = user.language === Language.AR;
       const pushTitle = isArabic ? (p.titleAr ?? p.title) : p.title;
-      const pushBody = isArabic ? (p.bodyAr ?? p.body ?? '') : (p.body ?? '');
+      const pushBody = (isArabic ? (p.bodyAr ?? p.body) : p.body) || pushTitle;
       const tokens = user.devices.map((d) => d.token);
       const parsedData = p.data ?? undefined;
 
@@ -241,7 +241,7 @@ export class NotificationsService {
 
     const isArabic = user.language === Language.AR;
     const pushTitle = isArabic ? (titleAr ?? title) : title;
-    const pushBody = isArabic ? (bodyAr ?? body ?? '') : (body ?? '');
+    const pushBody = (isArabic ? (bodyAr ?? body) : body) || pushTitle;
     const tokens = user.devices.map((d) => d.token);
 
     await this.pushService.sendToDevices(tokens, pushTitle, pushBody, data);
@@ -331,18 +331,19 @@ export class NotificationsService {
 
   async markRead(userId: string, dto: MarkNotificationsReadDto) {
     if (dto.ids?.length) {
+      const uniqueIds = [...new Set(dto.ids)];
       const owned = await this.prisma.notification.count({
-        where: { id: { in: dto.ids }, userId },
+        where: { id: { in: uniqueIds }, userId },
       });
-      if (owned !== dto.ids.length)
+      if (owned !== uniqueIds.length)
         throw new ForbiddenException(CommonErrors.FORBIDDEN);
 
-      await this.prisma.notification.updateMany({
-        where: { id: { in: dto.ids }, userId },
+      const { count } = await this.prisma.notification.updateMany({
+        where: { id: { in: uniqueIds }, userId },
         data: { isRead: true },
       });
 
-      return { marked: dto.ids.length };
+      return { marked: count };
     }
 
     const { count } = await this.prisma.notification.updateMany({
@@ -413,12 +414,19 @@ export class NotificationsService {
     // Prepare FCM data payload
     const dataPayload: Record<string, string> = {
       type: dto.type ?? NotificationType.ANNOUNCEMENT,
+      ...(dto.titleAr ? { titleAr: dto.titleAr } : {}),
+      ...(dto.bodyAr ? { bodyAr: dto.bodyAr } : {}),
       ...dto.data,
     };
 
     // Note: We are relying on the mobile apps to subscribe to 'topic_customers',
     // 'topic_drivers', 'topic_vendors', and 'topic_all' during app startup/login.
-    await this.pushService.sendToTopic(topic, dto.title, dto.body, dataPayload);
+    await this.pushService.sendToTopic(
+      topic,
+      dto.title,
+      dto.body || dto.title,
+      dataPayload,
+    );
 
     this.logger.log(`📢 Dispatched announcement to topic: ${topic}`);
     return { success: true, topic };

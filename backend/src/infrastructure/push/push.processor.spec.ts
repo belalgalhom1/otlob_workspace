@@ -110,4 +110,40 @@ describe('PushProcessor', () => {
       }),
     );
   });
+
+  it('subscribes and unsubscribes device tokens to a topic without requiring title or body', async () => {
+    messagingMock.subscribeToTopic.mockResolvedValue({
+      successCount: 1,
+      failureCount: 0,
+      errors: [],
+    });
+    messagingMock.unsubscribeFromTopic.mockResolvedValue({
+      successCount: 1,
+      failureCount: 0,
+      errors: [],
+    });
+
+    await expect(
+      processor.process({
+        name: PUSH_JOBS.SUBSCRIBE_TO_TOPIC,
+        data: { tokens: ['token-1'], topic: 'topic_customers' },
+      } as unknown as Job<PushJob>),
+    ).resolves.toMatchObject({ success: 1, failed: 0 });
+
+    await expect(
+      processor.process({
+        name: PUSH_JOBS.UNSUBSCRIBE_FROM_TOPIC,
+        data: { tokens: ['token-1'], topic: 'topic_customers' },
+      } as unknown as Job<PushJob>),
+    ).resolves.toMatchObject({ success: 1, failed: 0 });
+
+    expect(messagingMock.subscribeToTopic).toHaveBeenCalledWith(
+      ['token-1'],
+      'topic_customers',
+    );
+    expect(messagingMock.unsubscribeFromTopic).toHaveBeenCalledWith(
+      ['token-1'],
+      'topic_customers',
+    );
+  });
 });

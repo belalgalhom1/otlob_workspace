@@ -25,6 +25,7 @@ import {
 } from './dto/auth.dto';
 import { Guest } from 'src/common/decorators/guest.decorator';
 import { Public } from 'src/common/decorators/public.decorator';
+import { UnverifiedAllowed } from 'src/common/decorators/unverified-allowed.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ApiStandardResponse } from 'src/common/decorators/api-response.decorator';
 import { AuthErrors } from 'src/common/constants/response.constants';
@@ -200,6 +201,7 @@ export class AuthController {
     return this.authService.linkSocialAccount(userId, dto);
   }
 
+  @UnverifiedAllowed()
   @Throttle({
     short: { limit: 5, ttl: 60000 },
   })
@@ -212,6 +214,7 @@ export class AuthController {
     return this.authService.logout(user.sub, user.sid, dto);
   }
 
+  @UnverifiedAllowed()
   @Throttle({
     short: { limit: 3, ttl: 60000 },
   })

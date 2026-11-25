@@ -52,6 +52,7 @@ import {
 } from './transitions/delivery-group-transition.service';
 import { FulfillmentTransitionService } from './transitions/fulfillment-transition.service';
 import { DriverWorkloadHelper } from '../../common/orders/driver-workload.helper';
+import { assertDriverManagerOwnsDriver } from '../../common/drivers/driver-manager-auth.helper';
 import {
   buildVehicleAvailabilitySettings,
   isDriverVehicleEligibleForOrder,
@@ -753,6 +754,18 @@ export class OrdersStateService {
 
     if (!targetGroup || !assignableGroupStatuses.includes(targetGroup.status)) {
       throw new BadRequestException(OrderErrors.CANNOT_FORCE_ASSIGN_DRIVER);
+    }
+
+    if (
+      actor.role === Role.DRIVER_MANAGER &&
+      targetGroup.primaryDriverId &&
+      targetGroup.primaryDriverId !== driver.id
+    ) {
+      await assertDriverManagerOwnsDriver(
+        this.prisma,
+        actor.sub,
+        targetGroup.primaryDriverId,
+      );
     }
 
     const shouldPassReassignMeta =

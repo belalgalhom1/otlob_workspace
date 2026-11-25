@@ -15,7 +15,7 @@ import {
   CustomerErrors,
   CommonSuccess,
 } from 'src/common/constants/response.constants';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 
 @Injectable()
 export class CustomersService {
@@ -170,9 +170,18 @@ export class CustomersService {
     if (!vendor)
       throw new NotFoundException(CustomerErrors.FAVORITE_VENDOR_NOT_FOUND);
 
-    await this.prisma.favoriteVendor.create({
-      data: { customerId: customer.id, vendorId },
-    });
+    try {
+      await this.prisma.favoriteVendor.create({
+        data: { customerId: customer.id, vendorId },
+      });
+    } catch (error: unknown) {
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002'
+      ) {
+        throw error;
+      }
+    }
     return { isFavorite: true };
   }
 
@@ -194,9 +203,18 @@ export class CustomersService {
     if (!product)
       throw new NotFoundException(CustomerErrors.FAVORITE_PRODUCT_NOT_FOUND);
 
-    await this.prisma.favoriteProduct.create({
-      data: { customerId: customer.id, productId },
-    });
+    try {
+      await this.prisma.favoriteProduct.create({
+        data: { customerId: customer.id, productId },
+      });
+    } catch (error: unknown) {
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002'
+      ) {
+        throw error;
+      }
+    }
     return { isFavorite: true };
   }
 
@@ -262,7 +280,7 @@ export class CustomersService {
 
     const where: Prisma.CustomerWhereInput = {};
 
-    if (!dto.includeDeleted) where.deletedAt = null;
+    where.deletedAt = dto.includeDeleted ? undefined : null;
     if (dto.canOrder !== undefined) where.canOrder = dto.canOrder;
     if (dto.search) {
       where.user = {
@@ -538,13 +556,50 @@ export class CustomersService {
   async adminRemove(customerId: string) {
     const customer = await this.prisma.customer.findUnique({
       where: { id: customerId },
-      select: { id: true },
+      select: {
+        id: true,
+        userId: true,
+        _count: { select: { orders: true, orderReviews: true } },
+      },
     });
     if (!customer)
       throw new NotFoundException(CustomerErrors.CUSTOMER_NOT_FOUND);
 
-    // Schema has onDelete: Cascade on addresses, carts, favorites — safe to hard-delete
-    await this.prisma.customer.delete({ where: { id: customerId } });
+    if (customer._count.orders > 0 || customer._count.orderReviews > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.cart.deleteMany({ where: { customerId } });
+        await tx.favoriteVendor.deleteMany({ where: { customerId } });
+        await tx.favoriteProduct.deleteMany({ where: { customerId } });
+        await tx.address.deleteMany({ where: { customerId } });
+        await tx.customer.update({
+          where: { id: customerId },
+          data: { deletedAt: new Date(), canOrder: false },
+        });
+        await tx.session.deleteMany({ where: { userId: customer.userId } });
+        await tx.device.deleteMany({ where: { userId: customer.userId } });
+        await tx.account.deleteMany({ where: { userId: customer.userId } });
+        await tx.user.updateMany({
+          where: { id: customer.userId, role: Role.CUSTOMER },
+          data: { deletedAt: new Date(), email: null, phone: null },
+        });
+      });
+
+      this.logger.log(
+        `Admin soft-deleted customer ${customerId} (has historical orders/reviews)`,
+      );
+      return { message: CommonSuccess.RESOURCE_DELETED };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.session.deleteMany({ where: { userId: customer.userId } });
+      await tx.device.deleteMany({ where: { userId: customer.userId } });
+      await tx.account.deleteMany({ where: { userId: customer.userId } });
+      await tx.customer.delete({ where: { id: customerId } });
+      await tx.user.updateMany({
+        where: { id: customer.userId, role: Role.CUSTOMER },
+        data: { deletedAt: new Date(), email: null, phone: null },
+      });
+    });
 
     this.logger.log(`Admin hard-deleted customer ${customerId}`);
     return { message: CommonSuccess.RESOURCE_DELETED };

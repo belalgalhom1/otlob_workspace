@@ -9,7 +9,10 @@ import {
 } from '../../infrastructure/queue/queues.constants';
 import { ConversationStatus, TicketStatus } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { ChatConversationClosedEvent } from 'src/common/events';
+import {
+  ChatConversationClosedEvent,
+  TicketStatusUpdatedEvent,
+} from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { MessagesService } from '../chat/messages.service';
 
@@ -52,15 +55,23 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
    */
   private async closeTicketAndRemoveCustomer(
     ticketId: string,
+    ticketNumber: string,
     conversationId: string | null,
     creatorId: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.supportTicket.update({
-          where: { id: ticketId },
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const res = await tx.supportTicket.updateMany({
+          where: {
+            id: ticketId,
+            status: {
+              in: [TicketStatus.WAITING_ON_USER, TicketStatus.RESOLVED],
+            },
+          },
           data: { status: TicketStatus.CLOSED, lastStatusUpdateAt: new Date() },
         });
+        if (res.count === 0) return false;
+
         if (conversationId) {
           await tx.conversationParticipant.deleteMany({
             where: {
@@ -73,7 +84,10 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
             data: { status: ConversationStatus.CLOSED },
           });
         }
+        return true;
       });
+      if (!updated) return false;
+
       if (conversationId) {
         this.eventEmitter.emit(
           EVENTS.CHAT_CONVERSATION_CLOSED,
@@ -84,16 +98,32 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
           ),
         );
       }
+      this.eventEmitter.emit(
+        EVENTS.TICKET_STATUS_UPDATED,
+        new TicketStatusUpdatedEvent(
+          ticketId,
+          ticketNumber,
+          TicketStatus.CLOSED,
+          creatorId,
+          'system',
+        ),
+      );
+      return true;
     } catch (error: unknown) {
       this.logger.error(
         `Failed to auto-close ticket ${ticketId}: ${error instanceof Error ? error.message : String(error)}`,
       );
+      return false;
     }
   }
 
   private async handleSlaWatchdog() {
     this.logger.debug('Running Ticket SLA Watchdog');
     const tickStart = new Date();
+    let movedToInProgress = 0;
+    let escalated = 0;
+    let closedFromWaiting = 0;
+    let closedFromResolved = 0;
 
     // 1. OPEN -> IN_PROGRESS after 2 minutes
     const twoMinsAgo = new Date(Date.now() - 2 * 60 * 1000);
@@ -124,16 +154,38 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
           status: TicketStatus.IN_PROGRESS,
           lastStatusUpdateAt: { gte: tickStart },
         },
-        select: { id: true, conversationId: true, ticketNumber: true },
+        select: {
+          id: true,
+          conversationId: true,
+          ticketNumber: true,
+          creatorId: true,
+        },
       });
+      movedToInProgress = claimed.length;
 
       for (const ticket of claimed) {
         if (ticket.conversationId) {
-          await this.messagesService.sendSystemMessage(
-            ticket.conversationId,
-            'تم استلام طلبك، مسؤول اطلب بيتابعه دلوقتي | Your request has been received, an Otlob representative is following up now',
-          );
+          try {
+            await this.messagesService.sendSystemMessage(
+              ticket.conversationId,
+              'تم استلام طلبك، مسؤول اطلب بيتابعه دلوقتي | Your request has been received, an Otlob representative is following up now',
+            );
+          } catch (err) {
+            this.logger.warn(
+              `Failed SLA message for ticket ${ticket.ticketNumber}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
         }
+        this.eventEmitter.emit(
+          EVENTS.TICKET_STATUS_UPDATED,
+          new TicketStatusUpdatedEvent(
+            ticket.id,
+            ticket.ticketNumber,
+            TicketStatus.IN_PROGRESS,
+            ticket.creatorId,
+            'system',
+          ),
+        );
         this.logger.log(
           `Auto-moved ticket ${ticket.ticketNumber} to IN_PROGRESS`,
         );
@@ -168,21 +220,43 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
           status: TicketStatus.ESCALATED,
           lastStatusUpdateAt: { gte: tickStart },
         },
-        select: { id: true, conversationId: true, ticketNumber: true },
+        select: {
+          id: true,
+          conversationId: true,
+          ticketNumber: true,
+          creatorId: true,
+        },
       });
+      escalated = claimed.length;
 
       for (const ticket of claimed) {
         if (ticket.conversationId) {
-          await this.messagesService.sendSystemMessage(
-            ticket.conversationId,
-            'عدى 15 دقيقة ولسه مشكلتك ما اتحلتش. تم تحويل طلبك لمدير التطبيق مباشرة 🔴 | 15 minutes passed and your issue is not resolved. Your request has been escalated to the App Manager 🔴',
-          );
+          try {
+            await this.messagesService.sendSystemMessage(
+              ticket.conversationId,
+              'عدى 15 دقيقة ولسه مشكلتك ما اتحلتش. تم تحويل طلبك لمدير التطبيق مباشرة 🔴 | 15 minutes passed and your issue is not resolved. Your request has been escalated to the App Manager 🔴',
+            );
 
-          await this.messagesService.sendSystemMessage(
-            ticket.conversationId,
-            'أنا مدير تطبيق اطلب، هتابع مشكلتك بنفسي دلوقتي. اعتذر عن التأخير، هنحلها خلال لحظات | I am the Otlob App Manager, I will follow up on your issue personally now. Apologies for the delay, we will solve it in moments',
-          );
+            await this.messagesService.sendSystemMessage(
+              ticket.conversationId,
+              'أنا مدير تطبيق اطلب، هتابع مشكلتك بنفسي دلوقتي. اعتذر عن التأخير، هنحلها خلال لحظات | I am the Otlob App Manager, I will follow up on your issue personally now. Apologies for the delay, we will solve it in moments',
+            );
+          } catch (err) {
+            this.logger.warn(
+              `Failed escalation message for ticket ${ticket.ticketNumber}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
         }
+        this.eventEmitter.emit(
+          EVENTS.TICKET_STATUS_UPDATED,
+          new TicketStatusUpdatedEvent(
+            ticket.id,
+            ticket.ticketNumber,
+            TicketStatus.ESCALATED,
+            ticket.creatorId,
+            'system',
+          ),
+        );
         this.logger.log(
           `Escalated ticket ${ticket.ticketNumber} due to timeout`,
         );
@@ -196,16 +270,26 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
         status: TicketStatus.WAITING_ON_USER,
         lastStatusUpdateAt: { lt: fortyEightHoursAgo },
       },
-      select: { id: true, conversationId: true, creatorId: true },
+      select: {
+        id: true,
+        ticketNumber: true,
+        conversationId: true,
+        creatorId: true,
+      },
       take: 100,
       orderBy: { lastStatusUpdateAt: 'asc' },
     });
     for (const ticket of staleWaiting) {
-      await this.closeTicketAndRemoveCustomer(
-        ticket.id,
-        ticket.conversationId,
-        ticket.creatorId,
-      );
+      if (
+        await this.closeTicketAndRemoveCustomer(
+          ticket.id,
+          ticket.ticketNumber,
+          ticket.conversationId,
+          ticket.creatorId,
+        )
+      ) {
+        closedFromWaiting += 1;
+      }
     }
 
     // 4. RESOLVED -> CLOSED after 24 hours
@@ -215,23 +299,33 @@ export class TicketsProcessor extends WorkerHost implements OnModuleInit {
         status: TicketStatus.RESOLVED,
         lastStatusUpdateAt: { lt: twentyFourHoursAgo },
       },
-      select: { id: true, conversationId: true, creatorId: true },
+      select: {
+        id: true,
+        ticketNumber: true,
+        conversationId: true,
+        creatorId: true,
+      },
       take: 100,
       orderBy: { lastStatusUpdateAt: 'asc' },
     });
     for (const ticket of staleResolved) {
-      await this.closeTicketAndRemoveCustomer(
-        ticket.id,
-        ticket.conversationId,
-        ticket.creatorId,
-      );
+      if (
+        await this.closeTicketAndRemoveCustomer(
+          ticket.id,
+          ticket.ticketNumber,
+          ticket.conversationId,
+          ticket.creatorId,
+        )
+      ) {
+        closedFromResolved += 1;
+      }
     }
 
     return {
-      movedToInProgress: staleOpen.length,
-      escalated: staleInProgress.length,
-      closedFromWaiting: staleWaiting.length,
-      closedFromResolved: staleResolved.length,
+      movedToInProgress,
+      escalated,
+      closedFromWaiting,
+      closedFromResolved,
     };
   }
 }

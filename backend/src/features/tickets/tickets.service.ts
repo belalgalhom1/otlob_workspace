@@ -67,28 +67,52 @@ export class TicketsService implements OnModuleInit {
   }
 
   async create(actor: JwtAccessPayload, dto: CreateTicketDto) {
-    if (
-      !CREATOR_ROLES.has(actor.role) &&
-      !(await this.canManageTickets(actor.sub, actor.role))
-    ) {
+    const hasManageAll = await this.canManageTickets(actor.sub, actor.role);
+    if (!CREATOR_ROLES.has(actor.role) && !hasManageAll) {
       throw new ForbiddenException(TicketErrors.CANNOT_CREATE);
     }
 
     if (dto.orderId) {
-      await this.assertOrderExists(dto.orderId);
-      if (!dto.vendorId) {
-        const order = await this.prisma.order.findUnique({
-          where: { id: dto.orderId },
-          select: {
-            vendorFulfillments: {
-              where: { status: { notIn: ['REJECTED', 'CANCELLED'] } },
-              orderBy: { createdAt: 'asc' },
-              take: 1,
-              select: { vendorId: true },
+      const order = await this.prisma.order.findUnique({
+        where: { id: dto.orderId },
+        select: {
+          id: true,
+          customer: { select: { userId: true } },
+          deliveryGroups: {
+            select: {
+              primaryDriver: { select: { userId: true } },
+              assistDriver: { select: { userId: true } },
             },
           },
-        });
-        const firstVendorId = order?.vendorFulfillments?.[0]?.vendorId;
+          vendorFulfillments: {
+            where: { status: { notIn: ['REJECTED', 'CANCELLED'] } },
+            orderBy: { createdAt: 'asc' },
+            select: {
+              vendorId: true,
+              vendor: { select: { members: { select: { userId: true } } } },
+            },
+          },
+        },
+      });
+      if (!order) throw new NotFoundException(TicketErrors.ORDER_NOT_FOUND);
+
+      if (!hasManageAll) {
+        const isCustomer = order.customer?.userId === actor.sub;
+        const isDriver = order.deliveryGroups.some(
+          (g) =>
+            g.primaryDriver?.userId === actor.sub ||
+            g.assistDriver?.userId === actor.sub,
+        );
+        const isVendor = order.vendorFulfillments.some((f) =>
+          f.vendor?.members?.some((m) => m.userId === actor.sub),
+        );
+        if (!isCustomer && !isDriver && !isVendor) {
+          throw new ForbiddenException(TicketErrors.CANNOT_CREATE);
+        }
+      }
+
+      if (!dto.vendorId) {
+        const firstVendorId = order.vendorFulfillments?.[0]?.vendorId;
         if (firstVendorId) {
           dto.vendorId = firstVendorId;
         }
@@ -158,8 +182,6 @@ export class TicketsService implements OnModuleInit {
               });
               if (managerWithAll?.userId) {
                 assigneeId = managerWithAll.userId;
-              } else {
-                assigneeId = driver.userId;
               }
             }
           }
@@ -294,25 +316,28 @@ export class TicketsService implements OnModuleInit {
     const skip = (page - 1) * limit;
 
     const where: Prisma.SupportTicketWhereInput = {};
+    const canManageAll = await this.canManageTickets(actor.sub, actor.role);
 
-    if (actor.role === Role.SUPER_ADMIN) {
+    if (actor.role === Role.SUPER_ADMIN || canManageAll) {
       if (dto.creatorId) where.creatorId = dto.creatorId;
       if (dto.assigneeId) where.assigneeId = dto.assigneeId;
     } else if (actor.role === Role.ADMIN) {
-      where.OR = [
-        { category: 'DELIVERY' },
-        { creatorId: actor.sub },
-        { assigneeId: actor.sub },
-      ];
+      where.OR = [{ creatorId: actor.sub }, { assigneeId: actor.sub }];
       if (dto.creatorId) where.creatorId = dto.creatorId;
       if (dto.assigneeId) where.assigneeId = dto.assigneeId;
     } else if (actor.role === Role.VENDOR_MEMBER) {
-      const membership = await this.prisma.vendorMember.findFirst({
+      const memberships = await this.prisma.vendorMember.findMany({
         where: { userId: actor.sub },
         select: { vendorId: true },
       });
-      const vendorId = membership?.vendorId ?? 'NONE';
-      where.OR = [{ category: 'VENDOR', vendorId }, { creatorId: actor.sub }];
+      const vendorIds = memberships.map((m) => m.vendorId);
+      where.OR =
+        vendorIds.length > 0
+          ? [
+              { category: 'VENDOR', vendorId: { in: vendorIds } },
+              { creatorId: actor.sub },
+            ]
+          : [{ creatorId: actor.sub }];
     } else {
       where.creatorId = actor.sub;
     }
@@ -381,10 +406,21 @@ export class TicketsService implements OnModuleInit {
     await this.assertAccess(actor, ticket);
 
     const isCreator = ticket.creatorId === actor.sub;
+    const hasManageAll = await this.canManageTickets(actor.sub, actor.role);
+    let isVendorManager = false;
+    if (
+      actor.role === Role.VENDOR_MEMBER &&
+      ticket.category === 'VENDOR' &&
+      ticket.vendorId
+    ) {
+      const membership = await this.prisma.vendorMember.findFirst({
+        where: { userId: actor.sub, vendorId: ticket.vendorId },
+        select: { role: true },
+      });
+      isVendorManager = !!membership && membership.role !== 'STAFF';
+    }
     const isManager =
-      actor.role === Role.SUPER_ADMIN ||
-      actor.role === Role.ADMIN ||
-      actor.role === Role.VENDOR_MEMBER;
+      actor.role === Role.SUPER_ADMIN || hasManageAll || isVendorManager;
 
     if (!isManager && !isCreator) {
       throw new ForbiddenException(TicketErrors.CANNOT_UPDATE);
@@ -451,7 +487,14 @@ export class TicketsService implements OnModuleInit {
           ...(dto.priority !== undefined && { priority: dto.priority }),
           ...(dto.category !== undefined && { category: dto.category }),
           ...(dto.category === 'VENDOR'
-            ? { vendorId: targetVendorId ?? null, assigneeId: null }
+            ? {
+                vendorId: targetVendorId ?? null,
+                ...(isTransfer
+                  ? { assigneeId: null }
+                  : dto.assigneeId !== undefined && {
+                      assigneeId: dto.assigneeId,
+                    }),
+              }
             : {
                 ...(dto.category !== undefined
                   ? { vendorId: null }
@@ -538,6 +581,25 @@ export class TicketsService implements OnModuleInit {
             result.conversation.status = ConversationStatus.CLOSED;
           }
         }
+      } else if (
+        dto.status !== undefined &&
+        result.conversationId &&
+        (ticket.status === TicketStatus.RESOLVED ||
+          ticket.status === TicketStatus.CLOSED)
+      ) {
+        await tx.conversationParticipant.createMany({
+          data: [
+            { conversationId: result.conversationId, userId: result.creatorId },
+          ],
+          skipDuplicates: true,
+        });
+        await tx.conversation.updateMany({
+          where: { id: result.conversationId },
+          data: { status: ConversationStatus.OPEN },
+        });
+        if (result.conversation) {
+          result.conversation.status = ConversationStatus.OPEN;
+        }
       }
 
       return result;
@@ -586,16 +648,36 @@ export class TicketsService implements OnModuleInit {
 
     await this.assertAccess(actor, ticket);
 
+    const hasManageAll = await this.canManageTickets(actor.sub, actor.role);
+    let isVendorManager = false;
+    if (
+      actor.role === Role.VENDOR_MEMBER &&
+      ticket.category === 'VENDOR' &&
+      ticket.vendorId
+    ) {
+      const membership = await this.prisma.vendorMember.findFirst({
+        where: { userId: actor.sub, vendorId: ticket.vendorId },
+        select: { role: true },
+      });
+      isVendorManager = !!membership && membership.role !== 'STAFF';
+    }
+
     const isManager =
-      actor.role === Role.SUPER_ADMIN ||
-      (actor.role === Role.ADMIN && ticket.category === 'DELIVERY') ||
-      (actor.role === Role.VENDOR_MEMBER && ticket.category === 'VENDOR');
+      actor.role === Role.SUPER_ADMIN || hasManageAll || isVendorManager;
 
     if (!isManager) {
       throw new ForbiddenException(TicketErrors.CANNOT_DELETE);
     }
 
-    await this.prisma.supportTicket.delete({ where: { id: ticketId } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.supportTicket.delete({ where: { id: ticketId } });
+      if (ticket.conversationId) {
+        await tx.conversation.updateMany({
+          where: { id: ticket.conversationId },
+          data: { status: ConversationStatus.CLOSED },
+        });
+      }
+    });
 
     this.logger.log(
       `Ticket ${ticket.ticketNumber} deleted by manager ${actor.sub}`,
@@ -609,14 +691,6 @@ export class TicketsService implements OnModuleInit {
     `;
     const seq = Number(result[0].nextval);
     return `#A${String(seq).padStart(5, '0')}`;
-  }
-
-  private async assertOrderExists(orderId: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { id: true },
-    });
-    if (!order) throw new NotFoundException(TicketErrors.ORDER_NOT_FOUND);
   }
 
   private async assertVendorExists(vendorId: string) {
@@ -656,10 +730,7 @@ export class TicketsService implements OnModuleInit {
     if (actor.role === Role.SUPER_ADMIN) return;
     if (ticket.creatorId === actor.sub) return;
     if (ticket.assigneeId === actor.sub) return;
-
-    if (actor.role === Role.ADMIN) {
-      if (ticket.category === 'DELIVERY') return;
-    }
+    if (await this.canManageTickets(actor.sub, actor.role)) return;
 
     if (actor.role === Role.VENDOR_MEMBER) {
       if (ticket.category === 'VENDOR' && ticket.vendorId) {

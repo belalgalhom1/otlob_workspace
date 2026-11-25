@@ -66,7 +66,14 @@ export class MediaProcessor extends WorkerHost {
         .toBuffer();
 
       if (optimizedBuffer.length < originalBytes) {
-        await fs.promises.writeFile(filePath, optimizedBuffer);
+        const tempPath = `${filePath}.tmp`;
+        try {
+          await fs.promises.writeFile(tempPath, optimizedBuffer);
+          await fs.promises.rename(tempPath, filePath);
+        } catch (writeErr) {
+          await fs.promises.unlink(tempPath).catch(() => undefined);
+          throw writeErr;
+        }
         const savedPercent = (
           ((originalBytes - optimizedBuffer.length) / originalBytes) *
           100
@@ -115,7 +122,14 @@ export class MediaProcessor extends WorkerHost {
         .toBuffer();
 
       await fs.promises.mkdir(path.dirname(thumbPath), { recursive: true });
-      await fs.promises.writeFile(thumbPath, thumbBuffer);
+      const tempThumbPath = `${thumbPath}.tmp`;
+      try {
+        await fs.promises.writeFile(tempThumbPath, thumbBuffer);
+        await fs.promises.rename(tempThumbPath, thumbPath);
+      } catch (writeErr) {
+        await fs.promises.unlink(tempThumbPath).catch(() => undefined);
+        throw writeErr;
+      }
 
       this.logger.log(
         `Generated thumbnail: ${path.basename(thumbPath)} (${thumbBuffer.length} bytes)`,

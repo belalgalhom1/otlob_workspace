@@ -216,6 +216,7 @@ You have the right to review, update, or request the deletion of your personal a
     const document = await this.prisma.legalDocument.findFirst({
       where: {
         id: dto.documentId,
+        isPublished: true,
         deletedAt: null,
       },
     });
@@ -224,13 +225,13 @@ You have the right to review, update, or request the deletion of your personal a
       throw new NotFoundException(LegalDocumentErrors.NOT_FOUND);
     }
 
-    // Upsert acceptance record
+    // Upsert acceptance record using the authoritative server document version
     const record = await this.prisma.userLegalAcceptance.upsert({
       where: {
         userId_documentType_version: {
           userId,
           documentType: document.type,
-          version: dto.version,
+          version: document.version,
         },
       },
       update: {
@@ -243,7 +244,7 @@ You have the right to review, update, or request the deletion of your personal a
         userId,
         documentId: document.id,
         documentType: document.type,
-        version: dto.version,
+        version: document.version,
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
         acceptedAt: new Date(),

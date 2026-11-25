@@ -6,7 +6,9 @@ import {
   ForbiddenException,
   ConflictException,
   Logger,
+  Optional,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
@@ -64,7 +66,24 @@ export class UsersService {
     private readonly redis: RedisService,
     private readonly socketService: SocketService,
     private readonly driverManagersService: DriverManagersService,
+    @Optional() private readonly config?: ConfigService,
   ) {}
+
+  private getAccessExpirySeconds(): number {
+    const expiry = this.config?.get<string>('JWT_ACCESS_EXPIRATION') ?? '5m';
+    const unit = expiry.slice(-1);
+    const value = parseInt(expiry.slice(0, -1), 10);
+    const secondsPerUnit: Record<string, number> = {
+      s: 1,
+      m: 60,
+      h: 3600,
+      d: 86400,
+    };
+    const total = Number.isFinite(value)
+      ? value * (secondsPerUnit[unit] ?? 60)
+      : 300;
+    return Math.max(300, total);
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SELF-SERVICE (existing — unchanged)
@@ -153,10 +172,6 @@ export class UsersService {
     });
     if (!user) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
 
-    if (user.avatar) {
-      await this.storage.delete(user.avatar);
-    }
-
     const avatarUrl = await this.storage.upload(file, 'avatars');
 
     await this.prisma.user.update({
@@ -167,6 +182,10 @@ export class UsersService {
       where: { userId },
       data: { avatar: avatarUrl },
     });
+
+    if (user.avatar) {
+      await this.storage.delete(user.avatar).catch(() => undefined);
+    }
 
     return { avatar: avatarUrl, message: CommonSuccess.RESOURCE_UPDATED };
   }
@@ -183,12 +202,13 @@ export class UsersService {
     const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
     if (!isMatch) throw new UnauthorizedException(UserErrors.INVALID_PASSWORD);
 
-    if (dto.newEmail === user.email) {
+    const normalizedNewEmail = dto.newEmail.trim().toLowerCase();
+    if (normalizedNewEmail === (user.email ?? '').trim().toLowerCase()) {
       throw new BadRequestException(UserErrors.EMAIL_SAME_AS_OLD);
     }
 
     const existingEmail = await this.prisma.user.findFirst({
-      where: { email: dto.newEmail },
+      where: { email: { equals: normalizedNewEmail, mode: 'insensitive' } },
     });
     if (existingEmail && existingEmail.id !== userId) {
       throw new ConflictException(UserErrors.EMAIL_ALREADY_EXISTS);
@@ -196,7 +216,7 @@ export class UsersService {
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { email: dto.newEmail, isEmailVerified: false },
+      data: { email: normalizedNewEmail, isEmailVerified: false },
     });
 
     return { message: CommonSuccess.OPERATION_SUCCESS };
@@ -241,8 +261,9 @@ export class UsersService {
       }),
     ]);
 
+    const accessTtl = this.getAccessExpirySeconds();
     for (const s of otherSessions) {
-      await this.redis.set(`revoked:session:${s.id}`, '1', 300);
+      await this.redis.set(`revoked:session:${s.id}`, '1', accessTtl);
       await this.socketService.disconnectSession(s.id);
     }
 
@@ -327,11 +348,19 @@ export class UsersService {
 
       await tx.session.deleteMany({ where: { userId } });
       await tx.device.deleteMany({ where: { userId } });
+      await tx.account.deleteMany({ where: { userId } });
       await tx.user.update({
         where: { id: userId },
         data: { deletedAt: new Date(), email: null, phone: null },
       });
     });
+
+    await this.redis.set(
+      `revoked:user:${userId}`,
+      '1',
+      this.getAccessExpirySeconds(),
+    );
+    await this.socketService.disconnectUser(userId);
 
     return { message: CommonSuccess.OPERATION_SUCCESS };
   }
@@ -346,7 +375,7 @@ export class UsersService {
 
     const where: Prisma.UserWhereInput = {};
 
-    if (!dto.includeDeleted) where.deletedAt = null;
+    where.deletedAt = dto.includeDeleted ? undefined : null;
 
     if (dto.role !== undefined) {
       where.role = dto.role;
@@ -541,12 +570,21 @@ export class UsersService {
       }
     }
 
+    const shouldRevokeSessions =
+      dto.password !== undefined ||
+      dto.role !== undefined ||
+      dto.permissions !== undefined ||
+      dto.vendorId !== undefined ||
+      dto.vendorRole !== undefined;
+
     const updated = await this.prisma.$transaction(async (tx) => {
+      const normalizedEmail =
+        dto.email !== undefined ? dto.email.trim().toLowerCase() : undefined;
       const u = await tx.user.update({
         where: { id: userId },
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
-          ...(dto.email !== undefined && { email: dto.email }),
+          ...(normalizedEmail !== undefined && { email: normalizedEmail }),
           ...(dto.phone !== undefined && { phone: dto.phone }),
           ...(dto.language !== undefined && { language: dto.language }),
           ...(dto.role !== undefined && { role: dto.role }),
@@ -634,8 +672,21 @@ export class UsersService {
         });
       }
 
+      if (shouldRevokeSessions) {
+        await tx.session.deleteMany({ where: { userId } });
+      }
+
       return u;
     });
+
+    if (shouldRevokeSessions) {
+      await this.redis.set(
+        `revoked:user:${userId}`,
+        '1',
+        this.getAccessExpirySeconds(),
+      );
+      await this.socketService.disconnectUser(userId);
+    }
 
     this.logger.log(`Admin updated user ${userId}`);
     return updated;
@@ -672,7 +723,11 @@ export class UsersService {
       dto.reason ?? '1',
       30 * 24 * 3600,
     );
-    await this.redis.set(`revoked:user:${userId}`, '1', 300);
+    await this.redis.set(
+      `revoked:user:${userId}`,
+      '1',
+      this.getAccessExpirySeconds(),
+    );
     await this.socketService.disconnectUser(userId);
 
     this.logger.log(
@@ -740,7 +795,11 @@ export class UsersService {
       where: { userId },
     });
 
-    await this.redis.set(`revoked:user:${userId}`, '1', 300);
+    await this.redis.set(
+      `revoked:user:${userId}`,
+      '1',
+      this.getAccessExpirySeconds(),
+    );
     await this.socketService.disconnectUser(userId);
 
     this.logger.log(`Admin revoked ${count} sessions for user ${userId}`);
@@ -777,6 +836,7 @@ export class UsersService {
 
       await tx.session.deleteMany({ where: { userId } });
       await tx.device.deleteMany({ where: { userId } });
+      await tx.account.deleteMany({ where: { userId } });
       await tx.driver.updateMany({
         where: { userId },
         data: { status: DriverStatus.SUSPENDED, deletedAt: new Date() },
@@ -792,7 +852,11 @@ export class UsersService {
       'Account deleted',
       30 * 24 * 3600,
     );
-    await this.redis.set(`revoked:user:${userId}`, '1', 300);
+    await this.redis.set(
+      `revoked:user:${userId}`,
+      '1',
+      this.getAccessExpirySeconds(),
+    );
     await this.socketService.disconnectUser(userId);
 
     this.logger.log(`Admin soft-deleted user ${userId}`);

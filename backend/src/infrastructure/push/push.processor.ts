@@ -54,23 +54,28 @@ export class PushProcessor extends WorkerHost {
   async process(job: Job<PushJob>): Promise<unknown> {
     const { tokens, topic, title, body, data } = job.data;
 
-    if (!title || !body) {
-      throw new UnrecoverableError('Missing required fields: title and body');
-    }
-
-    const notification = { title, body };
-    const safeData = this.stringifyData(data);
-
     switch (job.name) {
       case PUSH_JOBS.SEND_TO_TOPIC:
+        if (!title || !body)
+          throw new UnrecoverableError('Missing required fields: title and body');
         if (!topic)
           throw new UnrecoverableError('Topic is missing for send_topic job');
-        return this.handleSendToTopic(topic, notification, safeData);
+        return this.handleSendToTopic(
+          topic,
+          { title, body },
+          this.stringifyData(data),
+        );
 
       case PUSH_JOBS.SEND_TO_DEVICES:
         if (!tokens || tokens.length === 0)
           return { skipped: true, reason: 'No tokens' };
-        return this.handleSendToDevices(tokens, notification, safeData);
+        if (!title || !body)
+          throw new UnrecoverableError('Missing required fields: title and body');
+        return this.handleSendToDevices(
+          tokens,
+          { title, body },
+          this.stringifyData(data),
+        );
 
       case PUSH_JOBS.SUBSCRIBE_TO_TOPIC:
         if (!topic)

@@ -603,6 +603,16 @@ export class DriverAssistService {
     if (group.assistCustomerApproved !== null) {
       throw new ConflictException(DriverErrors.ASSIST_REQUEST_NOT_PENDING);
     }
+    if (
+      order.status === OrderStatus.DELIVERED ||
+      order.status === OrderStatus.CANCELLED ||
+      group.status === DeliveryGroupStatus.DELIVERED ||
+      group.status === DeliveryGroupStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        DriverErrors.ASSIST_DELIVERY_ALREADY_STARTED,
+      );
+    }
     if (!approved && ASSIGNMENT_CLOSED_STATUSES.includes(group.status)) {
       throw new BadRequestException(
         DriverErrors.ASSIST_DELIVERY_ALREADY_STARTED,
@@ -618,6 +628,9 @@ export class DriverAssistService {
           : <T>(fn: (tx: any) => Promise<T>) => fn(this.prisma);
 
       await runTx(async (tx) => {
+        if (typeof tx.$executeRaw === 'function') {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('order-money:' || ${orderId}))`;
+        }
         const claimed = await tx.orderDeliveryGroup.updateMany({
           where: {
             id: deliveryGroupId,

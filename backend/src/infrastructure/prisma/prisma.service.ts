@@ -28,39 +28,57 @@ export class PrismaService
       .filter((model) => model.fields.some((f) => f.name === 'deletedAt'))
       .map((model) => model.name);
 
+    const hasExplicitDeletedAt = (where: unknown): boolean =>
+      typeof where === 'object' &&
+      where !== null &&
+      Object.prototype.hasOwnProperty.call(where, 'deletedAt');
+
+    const withSoftDeleteFilter = (
+      model: string,
+      args: { where?: Record<string, unknown> },
+    ) => {
+      if (
+        modelsWithSoftDelete.includes(model) &&
+        !hasExplicitDeletedAt(args?.where)
+      ) {
+        args.where = { ...(args.where || {}), deletedAt: null };
+      }
+      return args;
+    };
+
     const extended = this.$extends({
       query: {
         $allModels: {
           async findUnique({ model, args, query }) {
-            if (modelsWithSoftDelete.includes(model)) {
-              args.where = { ...args.where, deletedAt: null };
-            }
-            return query(args);
+            return query(withSoftDeleteFilter(model, args as any) as any);
+          },
+          async findUniqueOrThrow({ model, args, query }) {
+            return query(withSoftDeleteFilter(model, args as any) as any);
           },
           async findFirst({ model, args, query }) {
-            if (modelsWithSoftDelete.includes(model)) {
-              args.where = { ...args.where, deletedAt: null };
-            }
-            return query(args);
+            return query(withSoftDeleteFilter(model, (args || {}) as any) as any);
+          },
+          async findFirstOrThrow({ model, args, query }) {
+            return query(withSoftDeleteFilter(model, (args || {}) as any) as any);
           },
           async findMany({ model, args, query }) {
-            if (modelsWithSoftDelete.includes(model)) {
-              args.where = { ...args.where, deletedAt: null };
-            }
-            return query(args);
+            return query(withSoftDeleteFilter(model, (args || {}) as any) as any);
           },
           async count({ model, args, query }) {
-            if (modelsWithSoftDelete.includes(model)) {
-              args = args || {};
-              args.where = { ...(args.where || {}), deletedAt: null };
-            }
-            return query(args);
+            const safeArgs = args || {};
+            return query(withSoftDeleteFilter(model, safeArgs as any) as any);
           },
         },
       },
     });
 
-    return extended as unknown as this;
+    const extendedWithShutdown = extended as unknown as PrismaService;
+    extendedWithShutdown.onModuleDestroy = async () => {
+      await extended.$disconnect();
+      await pool.end().catch(() => undefined);
+    };
+
+    return extendedWithShutdown as unknown as this;
   }
 
   async onModuleInit() {

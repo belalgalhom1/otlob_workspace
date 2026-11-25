@@ -1,9 +1,16 @@
-import { Module, Global } from '@nestjs/common';
+import {
+  Module,
+  Global,
+  Logger,
+  OnApplicationShutdown,
+} from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
-import { createKeyv } from '@keyv/redis';
-import Redis from 'ioredis';
+import { createCluster, createKeyv } from '@keyv/redis';
 import { parseRedisConfig } from '../redis/redis.parser';
+
+const cacheLogger = new Logger('AppCacheModule');
+let cacheKeyvStore: ReturnType<typeof createKeyv> | null = null;
 
 @Global()
 @Module({
@@ -13,12 +20,24 @@ import { parseRedisConfig } from '../redis/redis.parser';
       useFactory: (config: ConfigService) => {
         const { urls, isCluster } = parseRedisConfig(config);
 
-        const redisClient = isCluster
-          ? new Redis.Cluster(urls, { redisOptions: {} })
-          : new Redis(urls[0]);
+        const connectTarget = isCluster
+          ? (createCluster({
+              rootNodes: urls.map((url) => ({ url })),
+            }) as unknown as Parameters<typeof createKeyv>[0])
+          : urls[0];
+
+        const keyv = createKeyv(connectTarget, {
+          throwOnConnectError: false,
+          throwOnErrors: false,
+        });
+        keyv.on('error', (err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          cacheLogger.error(`Cache Redis error: ${message}`);
+        });
+        cacheKeyvStore = keyv;
 
         return {
-          stores: [createKeyv(redisClient as any)],
+          stores: [keyv],
           ttl: 600000,
         };
       },
@@ -26,4 +45,11 @@ import { parseRedisConfig } from '../redis/redis.parser';
   ],
   exports: [CacheModule],
 })
-export class AppCacheModule {}
+export class AppCacheModule implements OnApplicationShutdown {
+  async onApplicationShutdown() {
+    if (cacheKeyvStore) {
+      await cacheKeyvStore.disconnect().catch(() => undefined);
+      cacheKeyvStore = null;
+    }
+  }
+}

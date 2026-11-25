@@ -72,19 +72,19 @@ export class NotificationsController {
   }
 
   @ApiStandardResponse()
-  @Delete(':id')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete a specific notification' })
-  deleteOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.notificationsService.deleteOne(userId, id);
-  }
-
-  @ApiStandardResponse()
   @Delete('read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete all read notifications' })
   deleteAllRead(@CurrentUser('sub') userId: string) {
     return this.notificationsService.deleteAllRead(userId);
+  }
+
+  @ApiStandardResponse()
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a specific notification' })
+  deleteOne(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.notificationsService.deleteOne(userId, id);
   }
 
   @ApiStandardResponse()

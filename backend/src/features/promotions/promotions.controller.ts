@@ -96,6 +96,7 @@ export class PromotionsController {
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    await this.promotionsService.findOne(id);
     const path = await this.storageService.upload(file, 'promotions');
     await this.promotionsService.updateImage(id, path);
     return { url: path };

@@ -271,10 +271,6 @@ export class MenuCategoriesService {
   ) {
     const category = await this.findOne(vendorId, categoryId);
 
-    if (category.iconUrl) {
-      await this.storage.delete(category.iconUrl);
-    }
-
     const iconUrl = await this.storage.upload(file, 'vendors/categories/icons');
     this.logger.log(`Icon uploaded for category ${categoryId}: ${iconUrl}`);
 
@@ -282,6 +278,10 @@ export class MenuCategoriesService {
       where: { id: categoryId },
       data: { iconUrl },
     });
+
+    if (category.iconUrl) {
+      await this.storage.delete(category.iconUrl).catch(() => undefined);
+    }
 
     await this.invalidateVendorCaches(vendorId);
     return { iconUrl };

@@ -181,12 +181,15 @@ export class DeliveryGroupTransitionService {
       }
     }
 
-    if (
+    const awaitsUpfrontPayment =
       (order.paymentMethod === PaymentMethod.MOBILE_WALLET ||
         Number(order.upfrontAmount ?? 0) > 0) &&
-      order.paymentStatus !== 'COMPLETED' &&
-      dto.status !== OrderStatus.PENDING_PAYMENT
-    ) {
+      order.paymentStatus !== 'COMPLETED';
+
+    if (dto.status === OrderStatus.PENDING_PAYMENT && !awaitsUpfrontPayment) {
+      throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
+    }
+    if (awaitsUpfrontPayment && dto.status !== OrderStatus.PENDING_PAYMENT) {
       throw new BadRequestException(OrderErrors.NOT_AWAITING_PAYMENT);
     }
 

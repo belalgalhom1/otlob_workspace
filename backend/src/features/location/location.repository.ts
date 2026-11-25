@@ -455,7 +455,8 @@ export class LocationRepository {
         "id", "name", "nameAr", "isActive",
         "baseDeliveryFeeOverride", "minOrderAmountOverride"
       FROM "zones"
-      WHERE ST_Covers(
+      WHERE "boundary" && ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
+        AND ST_Covers(
           ST_MakeValid("boundary"),
           ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
         )

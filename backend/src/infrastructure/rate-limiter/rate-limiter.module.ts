@@ -6,6 +6,7 @@ import Redis, { Cluster } from 'ioredis';
 import { parseRedisConfig } from '../redis/redis.parser';
 
 let rateLimiterRedisClient: Redis | Cluster | null = null;
+const rateLimiterLogger = new Logger('RateLimiterModule');
 
 @Module({
   imports: [
@@ -21,6 +22,10 @@ let rateLimiterRedisClient: Redis | Cluster | null = null;
         } else {
           rateLimiterRedisClient = new Redis(urls[0], { db: 1 });
         }
+        rateLimiterRedisClient.on('error', (err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          rateLimiterLogger.error(`Rate limiter Redis error: ${message}`);
+        });
         return {
           errorMessage: 'Too many requests. Please slow down.',
           throttlers: [
@@ -49,7 +54,7 @@ export class RateLimiterModule implements OnApplicationShutdown {
   async onApplicationShutdown() {
     if (rateLimiterRedisClient) {
       this.logger.warn('Rate limiter Redis connection closing...');
-      await rateLimiterRedisClient.quit();
+      await rateLimiterRedisClient.quit().catch(() => undefined);
       rateLimiterRedisClient = null;
       this.logger.log('Rate limiter Redis connection closed');
     }

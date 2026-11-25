@@ -1,17 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import {
   CreateOfferDto,
   UpdateOfferDto,
 } from '../promotions/dto/promotions.dto';
 import {
+  CommonErrors,
   ProductErrors,
   PromotionErrors,
 } from 'src/common/constants/response.constants';
+import { VendorCacheService } from '../vendors/helpers/vendor-cache.service';
 
 @Injectable()
 export class OffersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private readonly vendorCache?: VendorCacheService,
+  ) {}
 
   async findAllActive(limit = 100) {
     const now = new Date();
@@ -39,7 +49,7 @@ export class OffersService {
           status: { not: 'SUSPENDED' },
         },
       },
-      orderBy: { sortOrder: 'asc' },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
       take,
       include: {
         vendor: {
@@ -106,6 +116,18 @@ export class OffersService {
   }
 
   async create(dto: CreateOfferDto) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: dto.productId, deletedAt: null },
+      select: { id: true, vendorId: true },
+    });
+    if (!product || product.vendorId !== dto.vendorId) {
+      throw new NotFoundException(ProductErrors.NOT_FOUND);
+    }
+
+    if (dto.offerPrice >= dto.originalPrice) {
+      throw new BadRequestException(CommonErrors.VALIDATION_ERROR);
+    }
+
     if (dto.variantId) {
       const variant = await this.prisma.productVariant.findUnique({
         where: { id: dto.variantId },
@@ -115,7 +137,7 @@ export class OffersService {
       }
     }
 
-    return this.prisma.offer.create({
+    const offer = await this.prisma.offer.create({
       data: {
         productId: dto.productId,
         variantId: dto.variantId ?? null,
@@ -127,17 +149,25 @@ export class OffersService {
         endDate: dto.endDate,
       },
     });
+    await this.vendorCache?.invalidateVendorDetails(offer.vendorId);
+    return offer;
   }
 
   async update(id: string, dto: UpdateOfferDto) {
-    if (dto.variantId) {
-      const currentOffer = await this.prisma.offer.findUnique({
-        where: { id },
-      });
-      if (!currentOffer) {
-        throw new NotFoundException(PromotionErrors.NOT_FOUND);
-      }
+    const currentOffer = await this.prisma.offer.findUnique({
+      where: { id },
+    });
+    if (!currentOffer) {
+      throw new NotFoundException(PromotionErrors.NOT_FOUND);
+    }
 
+    const nextOriginal = dto.originalPrice ?? currentOffer.originalPrice;
+    const nextOffer = dto.offerPrice ?? currentOffer.offerPrice;
+    if (nextOffer >= nextOriginal) {
+      throw new BadRequestException(CommonErrors.VALIDATION_ERROR);
+    }
+
+    if (dto.variantId) {
       const variant = await this.prisma.productVariant.findUnique({
         where: { id: dto.variantId },
       });
@@ -146,7 +176,7 @@ export class OffersService {
       }
     }
 
-    return this.prisma.offer.update({
+    const updated = await this.prisma.offer.update({
       where: { id },
       data: {
         variantId:
@@ -159,9 +189,13 @@ export class OffersService {
         endDate: dto.endDate,
       },
     });
+    await this.vendorCache?.invalidateVendorDetails(updated.vendorId);
+    return updated;
   }
 
   async remove(id: string) {
-    return this.prisma.offer.delete({ where: { id } });
+    const deleted = await this.prisma.offer.delete({ where: { id } });
+    await this.vendorCache?.invalidateVendorDetails(deleted.vendorId);
+    return deleted;
   }
 }

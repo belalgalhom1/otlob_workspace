@@ -229,4 +229,53 @@ describe('RetentionProcessor', () => {
     });
     expect(storage.delete).toHaveBeenCalledWith('receipts/r1.webp');
   });
+
+  it('cleans chat media using updatedAt cutoff and cleans chat/images|videos|audio subfolders without looping on empty rows', async () => {
+    const { processor, prisma, storage, executedSql } = createHarness();
+    (processor as any).prisma = {
+      ...prisma,
+      message: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      conversation: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    (processor as any).platformSettings = {
+      getSettings: jest.fn().mockResolvedValue({
+        retentionArchivedChatsDays: 30,
+      }),
+    };
+    storage.deleteEmptyFolder = jest.fn().mockResolvedValue(undefined);
+
+    (processor as any).prisma.$queryRaw.mockImplementation(
+      (query: unknown, ...values: unknown[]) => {
+        const sql = flattenSqlText(query, values);
+        executedSql.push(sql);
+        return Promise.resolve([
+          {
+            id: 'msg-1',
+            mediaUrl: '/media/chat/images/conv-1/pic.webp',
+            conversationId: 'conv-1',
+          },
+        ]);
+      },
+    );
+
+    await processor.process({
+      id: 'job-chats',
+      name: CRON_JOBS.DATA_RETENTION,
+      data: { type: 'chats' },
+    } as Job<{ type?: string }>);
+
+    expect(executedSql[0]).toContain('c."updatedAt" <');
+    expect(executedSql[0]).toContain('m."mediaUrl" <> \'\'');
+    expect(storage.deleteEmptyFolder).toHaveBeenCalledWith(
+      'chat/images/conv-1',
+    );
+    expect(storage.deleteEmptyFolder).toHaveBeenCalledWith(
+      'chat/videos/conv-1',
+    );
+    expect(storage.deleteEmptyFolder).toHaveBeenCalledWith('chat/audio/conv-1');
+  });
 });

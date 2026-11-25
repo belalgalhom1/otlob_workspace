@@ -105,53 +105,76 @@ export class DriverShiftsService {
     if (actor?.role === Role.DRIVER_MANAGER) {
       await this.assertManagesDriver(actor.sub, dto.driverId);
     }
-    const pool = await this.prisma.shiftPool.findUnique({
-      where: { id: dto.shiftPoolId },
-      include: { _count: { select: { driverShifts: true } } },
-    });
-
-    if (!pool) throw new NotFoundException(DriverErrors.SHIFT_POOL_NOT_FOUND);
-
-    if (pool._count.driverShifts >= pool.maxDrivers) {
-      throw new BadRequestException(DriverErrors.SHIFT_POOL_FULL);
-    }
-
-    const existing = await this.prisma.driverShift.findFirst({
-      where: {
-        driverId: dto.driverId,
-        shiftPoolId: dto.shiftPoolId,
-      },
-    });
-
-    if (existing) {
-      throw new BadRequestException(DriverErrors.ALREADY_ASSIGNED_TO_POOL);
-    }
-
-    const shift = await this.prisma.driverShift.create({
-      data: {
-        driverId: dto.driverId,
-        shiftPoolId: pool.id,
-        zoneId: pool.zoneId,
-        shiftDate: pool.shiftDate,
-        startTime: pool.startTime,
-        endTime: pool.endTime,
-      },
-    });
-
-    await this.prisma.shiftPoolWaitlist.deleteMany({
-      where: { shiftPoolId: pool.id, driverId: dto.driverId },
-    });
 
     const driver = await this.prisma.driver.findUnique({
       where: { id: dto.driverId },
-      select: { userId: true },
+      select: { id: true, userId: true },
     });
-    if (driver) {
-      this.eventEmitter.emit(
-        EVENTS.SHIFT_ASSIGNED,
-        new ShiftAssignedEvent(driver.userId, shift.id),
-      );
-    }
+    if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
+
+    const shift = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM shift_pools WHERE id = ${dto.shiftPoolId} FOR UPDATE`;
+
+      const pool = await tx.shiftPool.findUnique({
+        where: { id: dto.shiftPoolId },
+        include: { _count: { select: { driverShifts: true } } },
+      });
+
+      if (!pool)
+        throw new NotFoundException(DriverErrors.SHIFT_POOL_NOT_FOUND);
+
+      if (pool._count.driverShifts >= pool.maxDrivers) {
+        throw new BadRequestException(DriverErrors.SHIFT_POOL_FULL);
+      }
+
+      const existing = await tx.driverShift.findFirst({
+        where: {
+          driverId: dto.driverId,
+          shiftPoolId: dto.shiftPoolId,
+        },
+      });
+
+      if (existing) {
+        throw new BadRequestException(DriverErrors.ALREADY_ASSIGNED_TO_POOL);
+      }
+
+      const overlapping = await tx.driverShift.findFirst({
+        where: {
+          driverId: dto.driverId,
+          status: {
+            in: [DriverShiftStatus.SCHEDULED, DriverShiftStatus.ACTIVE],
+          },
+          startTime: { lt: pool.endTime },
+          endTime: { gt: pool.startTime },
+        },
+      });
+
+      if (overlapping) {
+        throw new BadRequestException(DriverErrors.OVERLAPPING_SHIFT);
+      }
+
+      const created = await tx.driverShift.create({
+        data: {
+          driverId: dto.driverId,
+          shiftPoolId: pool.id,
+          zoneId: pool.zoneId,
+          shiftDate: pool.shiftDate,
+          startTime: pool.startTime,
+          endTime: pool.endTime,
+        },
+      });
+
+      await tx.shiftPoolWaitlist.deleteMany({
+        where: { shiftPoolId: pool.id, driverId: dto.driverId },
+      });
+
+      return created;
+    });
+
+    this.eventEmitter.emit(
+      EVENTS.SHIFT_ASSIGNED,
+      new ShiftAssignedEvent(driver.userId, shift.id),
+    );
 
     return shift;
   }
@@ -648,8 +671,12 @@ export class DriverShiftsService {
         throw new BadRequestException(DriverErrors.SHIFT_POOL_MISSING);
       }
 
+      const now = new Date();
       const coveredDays = new Set<number>();
       for (const pool of pools) {
+        if (pool.endTime <= now) {
+          throw new BadRequestException(DriverErrors.SHIFT_POOL_MISSING);
+        }
         if (pool._count.driverShifts >= pool.maxDrivers) {
           throw new BadRequestException(DriverErrors.SHIFT_POOL_FULL);
         }
@@ -721,7 +748,8 @@ export class DriverShiftsService {
         include: { _count: { select: { driverShifts: true } } },
       });
 
-      if (!pool) throw new NotFoundException(DriverErrors.SHIFT_POOL_NOT_FOUND);
+      if (!pool || pool.endTime <= new Date())
+        throw new NotFoundException(DriverErrors.SHIFT_POOL_NOT_FOUND);
       if (pool._count.driverShifts >= pool.maxDrivers) {
         throw new BadRequestException(DriverErrors.SHIFT_POOL_FULL);
       }

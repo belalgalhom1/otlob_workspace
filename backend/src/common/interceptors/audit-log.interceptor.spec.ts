@@ -229,4 +229,69 @@ describe('AuditLogInterceptor', () => {
       Vendor: { en: 'Store A', ar: 'متجر أ' },
     });
   });
+
+  it('audits DRIVER_MANAGER mutations, preserves Date instances, emits null instead of DbNull, and populates vendorId on Vendors/Products snapshots', async () => {
+    const eventEmitter: any = { emit: jest.fn() };
+    const productId = '22222222-2222-2222-2222-222222222222';
+    const createdAt = new Date('2026-11-25T10:00:00.000Z');
+    const prisma: any = {
+      vendorBranch: { findUnique: jest.fn().mockResolvedValue(null) },
+      vendor: { findUnique: jest.fn().mockResolvedValue(null) },
+      product: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: productId,
+          vendorId: 'v-99',
+          name: 'Pizza',
+          nameAr: 'بيتزا',
+          basePrice: 120,
+          isActive: true,
+          vendor: { storeName: 'Napoli', storeNameAr: 'نابولي' },
+          category: { name: 'Mains', nameAr: 'أطباق رئيسية' },
+        }),
+      },
+      menuCategory: { findUnique: jest.fn().mockResolvedValue(null) },
+    };
+    const interceptor = new AuditLogInterceptor(prisma, eventEmitter);
+
+    const dmContext = {
+      getClass: () => ({ name: 'VendorsController' }),
+      switchToHttp: () => ({
+        getRequest: () => ({
+          method: 'PATCH',
+          url: `/api/v1/vendors/v-99/products/${productId}`,
+          params: { id: productId, vendorId: 'v-99' },
+          body: { updatedAt: createdAt, secretPin: '1234' },
+          user: { sub: 'u-dm-1', role: Role.DRIVER_MANAGER, sid: 'sid-dm' },
+        }),
+      }),
+    } as unknown as ExecutionContext;
+
+    await firstValueFrom(
+      interceptor.intercept(dmContext, { handle: () => of({ id: productId }) }),
+    );
+
+    expect(eventEmitter.emit).toHaveBeenCalledTimes(1);
+    const [, payload] = eventEmitter.emit.mock.calls[0] as [
+      string,
+      AuditLogCreatedEvent,
+    ];
+    expect(payload.vendorId).toBe('v-99');
+    expect(payload.newValues.updatedAt).toBe(createdAt);
+    expect(payload.newValues.secretPin).toBe('[REDACTED]');
+
+    // Verify null is emitted (serializable cleanly over BullMQ) instead of Prisma.DbNull
+    const postCtx = makeContext({
+      method: 'POST',
+      url: '/api/v1/drivers',
+      user: { sub: 'u-dm-1', role: Role.DRIVER_MANAGER },
+    });
+    await firstValueFrom(
+      interceptor.intercept(postCtx.context, { handle: () => of({ id: 'drv-1' }) }),
+    );
+    const [, createPayload] = eventEmitter.emit.mock.calls[1] as [
+      string,
+      AuditLogCreatedEvent,
+    ];
+    expect(createPayload.oldValues).toBeNull();
+  });
 });

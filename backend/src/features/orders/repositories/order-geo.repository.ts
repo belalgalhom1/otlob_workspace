@@ -29,7 +29,7 @@ export class OrderGeoRepository {
   private buildZoneFilter(zoneId?: string): Prisma.Sql {
     return zoneId
       ? Prisma.sql`
-        AND ST_Contains(
+        AND ST_Covers(
           (SELECT boundary FROM zones WHERE id = ${zoneId} AND "isActive" = true),
           "location"
         )`
@@ -46,7 +46,7 @@ export class OrderGeoRepository {
     >`
       SELECT id, "baseDeliveryFeeOverride", "minOrderAmountOverride"
       FROM zones
-      WHERE ST_Contains(boundary, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326))
+      WHERE ST_Covers(boundary, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326))
         AND "isActive" = true
       ORDER BY ST_Area(boundary) ASC
       LIMIT 1

@@ -13,7 +13,12 @@ import {
 } from '@nestjs/common';
 import { ApiFileUpload } from 'src/common/decorators/api-file-upload.decorator';
 import { MessagesService } from './messages.service';
-import { SendMessageDto, QueryMessagesDto, MarkReadDto } from './dto/chat.dto';
+import {
+  SendMessageDto,
+  QueryMessagesDto,
+  MarkReadDto,
+  UpdateMessageDto,
+} from './dto/chat.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { ApiStandardResponse } from '../../common/decorators/api-response.decorator';
@@ -83,9 +88,10 @@ export class MessagesController {
   })
   delete(
     @CurrentUser() actor: JwtAccessPayload,
+    @Param('conversationId') conversationId: string,
     @Param('messageId') messageId: string,
   ) {
-    return this.messagesService.deleteMessage(actor, messageId);
+    return this.messagesService.deleteMessage(actor, conversationId, messageId);
   }
 
   @ApiStandardResponse()
@@ -98,10 +104,16 @@ export class MessagesController {
   })
   update(
     @CurrentUser() actor: JwtAccessPayload,
+    @Param('conversationId') conversationId: string,
     @Param('messageId') messageId: string,
-    @Body() dto: { text: string },
+    @Body() dto: UpdateMessageDto,
   ) {
-    return this.messagesService.updateMessage(actor, messageId, dto);
+    return this.messagesService.updateMessage(
+      actor,
+      conversationId,
+      messageId,
+      dto,
+    );
   }
 
   @ApiStandardResponse()

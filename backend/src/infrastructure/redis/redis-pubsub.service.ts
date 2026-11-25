@@ -18,15 +18,15 @@ export class RedisPubSubService implements OnModuleDestroy {
     if (isCluster) {
       this.publisher = new Redis.Cluster(urls, {
         clusterRetryStrategy: retryStrategy,
-        redisOptions: {},
+        redisOptions: { lazyConnect: true },
       });
       this.subscriber = new Redis.Cluster(urls, {
         clusterRetryStrategy: retryStrategy,
-        redisOptions: {},
+        redisOptions: { lazyConnect: true },
       });
     } else {
-      this.publisher = new Redis(urls[0], { retryStrategy });
-      this.subscriber = new Redis(urls[0], { retryStrategy });
+      this.publisher = new Redis(urls[0], { retryStrategy, lazyConnect: true });
+      this.subscriber = new Redis(urls[0], { retryStrategy, lazyConnect: true });
     }
 
     this.publisher.on('connect', () =>

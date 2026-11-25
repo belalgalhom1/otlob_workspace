@@ -326,7 +326,7 @@ export class VendorsService {
     const { page = 1, limit = 20 } = dto;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.VendorWhereInput = {}; // Admins can see deleted vendors
+    const where: Prisma.VendorWhereInput = { deletedAt: undefined }; // Admins can see deleted vendors
 
     if (dto.status) where.status = dto.status;
     if (dto.verticalId) where.verticalId = dto.verticalId;
@@ -762,6 +762,10 @@ export class VendorsService {
           },
           offers: {
             where: { isActive: true },
+            orderBy: [
+              { sortOrder: Prisma.SortOrder.asc },
+              { createdAt: Prisma.SortOrder.desc },
+            ],
             select: {
               id: true,
               variantId: true,

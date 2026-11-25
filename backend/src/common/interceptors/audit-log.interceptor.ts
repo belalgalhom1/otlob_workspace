@@ -8,7 +8,7 @@ import {
 import { Observable, from } from 'rxjs';
 import { switchMap, tap } from 'rxjs/operators';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { Role, AuditActionType, Prisma } from '@prisma/client';
+import { Role, AuditActionType } from '@prisma/client';
 import { JwtAccessPayload } from '../interfaces/jwt-payload.interface';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EVENTS } from '../events/event-names';
@@ -28,6 +28,9 @@ export class AuditLogInterceptor implements NestInterceptor {
 
   private redactSensitiveFields(obj: unknown): unknown {
     if (!obj || typeof obj !== 'object') return obj;
+    if (obj instanceof Date || Buffer.isBuffer(obj)) {
+      return Buffer.isBuffer(obj) ? '[BINARY]' : obj;
+    }
     if (Array.isArray(obj)) {
       return obj.map((item) => this.redactSensitiveFields(item));
     }
@@ -61,6 +64,7 @@ export class AuditLogInterceptor implements NestInterceptor {
 
     const adminOrVendorRoles: Role[] = [
       Role.VENDOR_MEMBER,
+      Role.DRIVER_MANAGER,
       Role.ADMIN,
       Role.SUPER_ADMIN,
     ];
@@ -226,12 +230,28 @@ export class AuditLogInterceptor implements NestInterceptor {
               const tokenVendorId =
                 (user as JwtAccessPayload & { vendorId?: string }).vendorId ||
                 null;
+              const routeOrResponseVendorId =
+                params?.vendorId ||
+                (response &&
+                typeof response === 'object' &&
+                typeof (response as Record<string, unknown>).vendorId ===
+                  'string'
+                  ? ((response as Record<string, unknown>).vendorId as string)
+                  : null) ||
+                (entityType === 'Vendors' &&
+                response &&
+                typeof response === 'object' &&
+                typeof (response as Record<string, unknown>).storeName ===
+                  'string' &&
+                typeof (response as Record<string, unknown>).id === 'string'
+                  ? ((response as Record<string, unknown>).id as string)
+                  : null);
               const vendorId =
                 snapshot?.vendorId !== undefined
                   ? snapshot.vendorId
                   : createdOrderDetails !== null
                     ? createdOrderDetails.vendorId
-                    : tokenVendorId;
+                    : (tokenVendorId ?? routeOrResponseVendorId);
               const sessionId = user.sid || null;
               const redactedBody = body
                 ? this.redactSensitiveFields(body)
@@ -240,7 +260,7 @@ export class AuditLogInterceptor implements NestInterceptor {
               // Merge human facts (zone, driver, totals...) into newValues
               // under the reserved `_facts` key so the audit UI can render
               // a professional summary. Raw diff rendering skips `_` keys.
-              let newValues: unknown = redactedBody ?? Prisma.DbNull;
+              let newValues: unknown = redactedBody ?? null;
               const facts = snapshot?.facts ?? createdOrderDetails?.facts;
               if (facts && Object.keys(facts).length > 0) {
                 const base =
@@ -276,7 +296,7 @@ export class AuditLogInterceptor implements NestInterceptor {
                   newValues,
                   snapshot
                     ? this.redactSensitiveFields(snapshot.oldValues)
-                    : Prisma.DbNull,
+                    : null,
                 ),
               );
             } catch (err) {
@@ -483,6 +503,7 @@ export class AuditLogInterceptor implements NestInterceptor {
         });
         if (branch) {
           return {
+            vendorId: branch.vendorId,
             oldValues: {
               name: this.bi(branch.name, branch.nameAr),
               address: branch.address,
@@ -507,6 +528,7 @@ export class AuditLogInterceptor implements NestInterceptor {
         });
         if (vendor) {
           return {
+            vendorId: vendor.id,
             oldValues: {
               storeName: this.bi(vendor.storeName, vendor.storeNameAr),
               status: vendor.status,
@@ -528,6 +550,7 @@ export class AuditLogInterceptor implements NestInterceptor {
         });
         if (product) {
           return {
+            vendorId: product.vendorId,
             oldValues: {
               name: this.bi(product.name, product.nameAr),
               basePrice: product.basePrice,
@@ -553,6 +576,7 @@ export class AuditLogInterceptor implements NestInterceptor {
         });
         if (category) {
           return {
+            vendorId: category.vendorId,
             oldValues: {
               name: this.bi(category.name, category.nameAr),
               isActive: category.isActive,

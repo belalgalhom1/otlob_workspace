@@ -17,16 +17,27 @@ export class AuditLogsService {
 
     // Role-based filtering
     if (user.role === Role.VENDOR_MEMBER) {
-      const membership = await this.prisma.vendorMember.findFirst({
+      const memberships = await this.prisma.vendorMember.findMany({
         where: { userId: user.sub },
+        select: { vendorId: true, role: true },
       });
-      if (!membership) {
+      if (memberships.length === 0) {
         throw new ForbiddenException(AuditLogErrors.VENDOR_MEMBER_NO_VENDOR);
       }
-      if (membership.role === VendorMemberRole.STAFF) {
+      const allowedVendorIds = memberships
+        .filter((m) => m.role !== VendorMemberRole.STAFF)
+        .map((m) => m.vendorId);
+      if (allowedVendorIds.length === 0) {
         throw new ForbiddenException(AuditLogErrors.ROLE_NOT_AUTHORIZED);
       }
-      where.vendorId = membership.vendorId;
+      if (dto.vendorId) {
+        if (!allowedVendorIds.includes(dto.vendorId)) {
+          throw new ForbiddenException(AuditLogErrors.ROLE_NOT_AUTHORIZED);
+        }
+        where.vendorId = dto.vendorId;
+      } else {
+        where.vendorId = { in: allowedVendorIds };
+      }
     } else if (user.role === Role.ADMIN) {
       const adminUser = await this.prisma.user.findUnique({
         where: { id: user.sub },
