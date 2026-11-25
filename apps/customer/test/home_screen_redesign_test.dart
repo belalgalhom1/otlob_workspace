@@ -301,6 +301,10 @@ Future<void> _pumpHome(
 
 void main() {
   final viewports = <String, ({Size size, EdgeInsets padding})>{
+    '360x740': (
+      size: const Size(360, 740),
+      padding: const EdgeInsets.only(top: 24, bottom: 12),
+    ),
     '360x800': (
       size: const Size(360, 800),
       padding: const EdgeInsets.only(top: 28, bottom: 16),
@@ -351,16 +355,30 @@ void main() {
         // Real cart badge count in bottom nav
         expect(find.text('3'), findsOneWidget);
 
-        // Verify all key sections are inside the viewport vertically
+        // Verify all key sections are inside the viewport vertically with zero bottom-nav overlap
         final viewportHeight = entry.value.size.height;
+        final headerLogoRect = tester.getRect(
+          find.byKey(const ValueKey('home_header_logo')),
+        );
         final courierRect = tester.getRect(find.text('24/7'));
         final offersRect = tester.getRect(find.byType(OffersAutoScroller));
         final storeRect = tester.getRect(
           find.byType(HomeSuggestedStoreCard).first,
         );
+        final navRect = tester.getRect(
+          find.byKey(const ValueKey('home_bottom_nav')),
+        );
+        expect(headerLogoRect.width, 40.0);
+        expect(headerLogoRect.height, 40.0);
+        expect(storeRect.width, 192.0);
         expect(courierRect.top, greaterThan(0));
-        expect(offersRect.bottom, lessThan(viewportHeight));
-        expect(storeRect.bottom, lessThan(viewportHeight));
+        expect(offersRect.bottom, lessThanOrEqualTo(storeRect.top));
+        expect(storeRect.bottom, lessThanOrEqualTo(navRect.top));
+        expect(navRect.bottom, lessThanOrEqualTo(viewportHeight + 0.5));
+        expect(
+          navRect.height,
+          greaterThanOrEqualTo(62.0 + entry.value.padding.bottom),
+        );
       },
     );
   }

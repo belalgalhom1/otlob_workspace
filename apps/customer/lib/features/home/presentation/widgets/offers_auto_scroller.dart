@@ -205,58 +205,59 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
             ),
           ],
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Product Image Container (Start / Right in RTL): 96x80, transparent background
-            SizedBox(
-              width: 96,
-              height: 80,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (imageUrl.isNotEmpty)
-                      TransparentBgNetworkImage(
-                        imageUrl: imageUrl,
-                        mode: BackgroundRemovalMode.autoUniform,
-                        fit: BoxFit.contain,
-                        maxCacheDimension: 280,
-                        placeholderBuilder: (_) => const Center(
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.8,
-                              color: HomeDesignTokens.gold,
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.12,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Product Image Container (Start / Right in RTL): 106px wide, fills card height
+              SizedBox(
+                width: 106,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (imageUrl.isNotEmpty)
+                        TransparentBgNetworkImage(
+                          imageUrl: imageUrl,
+                          mode: BackgroundRemovalMode.autoUniform,
+                          fit: BoxFit.contain,
+                          maxCacheDimension: 300,
+                          placeholderBuilder: (_) => const Center(
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.8,
+                                color: HomeDesignTokens.gold,
+                              ),
                             ),
                           ),
-                        ),
-                        fallbackBuilder: (_) => Center(
+                          fallbackBuilder: (_) => Center(
+                            child: Icon(
+                              Icons.local_offer_rounded,
+                              color: palette.goldText,
+                              size: 30,
+                            ),
+                          ),
+                        )
+                      else
+                        Center(
                           child: Icon(
                             Icons.local_offer_rounded,
                             color: palette.goldText,
-                            size: 26,
+                            size: 30,
                           ),
                         ),
-                      )
-                    else
-                      Center(
-                        child: Icon(
-                          Icons.local_offer_rounded,
-                          color: palette.goldText,
-                          size: 26,
-                        ),
-                      ),
-                    // Red Offer Badge at Top-Start (Top-Right in RTL)
-                    PositionedDirectional(
-                        top: 6,
-                        start: 6,
+                      // Red Offer Badge at Top-Start (Top-Right in RTL)
+                      PositionedDirectional(
+                        top: 5,
+                        start: 5,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                            horizontal: 7,
+                            vertical: 2.5,
                           ),
                           decoration: BoxDecoration(
                             color: HomeDesignTokens.offerBadgeRed,
@@ -275,13 +276,13 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                               const Icon(
                                 Icons.bolt_rounded,
                                 color: Colors.white,
-                                size: 9,
+                                size: 10.5,
                               ),
                               const SizedBox(width: 2),
                               Text(
                                 widget.s.offerBadge,
                                 style: HomeDesignTokens.text(
-                                  size: 8,
+                                  size: 9.0,
                                   weight: FontWeight.w900,
                                   color: Colors.white,
                                   height: 1.1,
@@ -291,17 +292,15 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                           ),
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(width: 10),
+              const SizedBox(width: 10),
 
-            // Details Column (End / Left in RTL): height 80, space-between
-            Expanded(
-              child: SizedBox(
-                height: 80,
+              // Details Column (End / Left in RTL): fills card height cleanly, space-between
+              Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,7 +319,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: HomeDesignTokens.text(
-                                  size: 9.5,
+                                  size: 11.0,
                                   weight: FontWeight.w800,
                                   color: palette.goldText,
                                   height: 1.15,
@@ -339,7 +338,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: HomeDesignTokens.text(
-                            size: 12,
+                            size: 13.5,
                             weight: FontWeight.w900,
                             color: palette.textPrimary,
                             height: 1.2,
@@ -365,7 +364,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                                   Text(
                                     '${offerPrice.toStringAsFixed(0)} ${widget.s.egp}',
                                     style: HomeDesignTokens.numeric(
-                                      size: 12.5,
+                                      size: 14.0,
                                       weight: FontWeight.w900,
                                       color: palette.goldText,
                                       height: 1.0,
@@ -376,7 +375,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                                   Text(
                                     originalPrice.toStringAsFixed(0),
                                     style: HomeDesignTokens.numeric(
-                                      size: 9.5,
+                                      size: 11.0,
                                       weight: FontWeight.w600,
                                       color: palette.textMuted,
                                       height: 1.0,
@@ -409,13 +408,13 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                             borderRadius: BorderRadius.circular(8),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
+                                horizontal: 14,
+                                vertical: 5,
                               ),
                               child: Text(
                                 isAr ? 'اطلب' : 'Order',
                                 style: HomeDesignTokens.text(
-                                  size: 10.5,
+                                  size: 12.0,
                                   weight: FontWeight.w900,
                                   color: HomeDesignTokens.darkOnGold,
                                   height: 1.15,
@@ -429,8 +428,8 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -451,20 +450,20 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
             return const Icon(
               Icons.star_rounded,
               color: HomeDesignTokens.ratingAmber,
-              size: 9.5,
+              size: 11.0,
             );
           }
           if (i == fullStars && hasHalf) {
             return const Icon(
               Icons.star_half_rounded,
               color: HomeDesignTokens.ratingAmber,
-              size: 9.5,
+              size: 11.0,
             );
           }
           return Icon(
             Icons.star_rounded,
             color: emptyStarColor,
-            size: 9.5,
+            size: 11.0,
           );
         }),
       ],
@@ -478,10 +477,10 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
   ) {
     final pct = (((original - offer) / original) * 100).round();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
       decoration: BoxDecoration(
         color: palette.discountBgRed,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(5),
         border: Border.all(
           color: palette.discountBorderRed,
           width: 0.8,
@@ -490,7 +489,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
       child: Text(
         '-$pct%',
         style: HomeDesignTokens.numeric(
-          size: 8.5,
+          size: 10.0,
           weight: FontWeight.w800,
           color: palette.discountTextRed,
           height: 1.0,

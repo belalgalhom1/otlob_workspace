@@ -269,8 +269,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : const <Map<String, dynamic>>[];
 
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final viewportHeight = MediaQuery.sizeOf(context).height;
-    final responsiveGap = (viewportHeight * 0.01).clamp(6.0, 10.0);
+    const double bottomNavHeight = 62.0;
 
     final pullProgress = (_pullRefreshOffset / _refreshTriggerDistance).clamp(
       0.0,
@@ -279,7 +278,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Column(
       children: [
-        // 0. Fixed Top App Bar (48px) — drag down on header to refresh Home
+        // 0. Fixed Top App Bar (54px) — drag down on header to refresh Home
         GestureDetector(
           key: const ValueKey('home_header_pull_refresh_area'),
           behavior: HitTestBehavior.translucent,
@@ -305,13 +304,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   0,
                 ),
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(14, 8, 14, 58 + bottomInset),
+                  padding: EdgeInsets.fromLTRB(
+                    14,
+                    6,
+                    14,
+                    bottomNavHeight + 4 + bottomInset,
+                  ),
                   child: isSearching
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             SizedBox(
-                              height: 36.0,
+                              height: 44.0,
                               child: _buildSearch(palette),
                             ),
                             const SizedBox(height: 10),
@@ -335,13 +339,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 builder: (context, constraints) {
                   final availableHeight = constraints.maxHeight;
                   final hasOffers = data.offers.isNotEmpty;
-
-                  const double searchHeight = 36.0;
-                  const double categoriesHeight = 80.0;
-                  final double hotDealsHeight = hasOffers ? 114.0 : 0.0;
-                  const double storesHeight = 106.0;
-
                   final int gapCount = hasOffers ? 5 : 4;
+                  final double minGap = availableHeight >= 600.0 ? 6.0 : 4.0;
+                  final double targetGap = (availableHeight * 0.011).clamp(
+                    minGap,
+                    11.0,
+                  );
+                  final double contentBudget = (availableHeight -
+                          (gapCount * targetGap))
+                      .clamp(0.0, availableHeight);
+
+                  double searchHeight = contentBudget >= 540.0 ? 44.0 : 40.0;
+                  double categoriesHeight = hasOffers
+                      ? (contentBudget * 0.128).clamp(68.0, 82.0)
+                      : (contentBudget * 0.140).clamp(72.0, 86.0);
+                  double hotDealsHeight = hasOffers
+                      ? (contentBudget * 0.208).clamp(112.0, 134.0)
+                      : 0.0;
+                  double storesHeight = hasOffers
+                      ? (contentBudget * 0.212).clamp(112.0, 138.0)
+                      : (contentBudget * 0.240).clamp(124.0, 148.0);
+
                   final double fixedTotal =
                       searchHeight +
                       categoriesHeight +
@@ -349,72 +367,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       storesHeight;
 
                   final double remainingForFlex =
-                      availableHeight - fixedTotal - (gapCount * responsiveGap);
+                      (contentBudget - fixedTotal).clamp(0.0, contentBudget);
 
                   double bannerHeight;
                   double courierHeight;
 
-                  if (remainingForFlex >= 210.0) {
-                    // Standard mobile screens (360x800, 390x844, 412x915)
-                    bannerHeight = (remainingForFlex * (1.35 / 2.35)).clamp(
-                      118.0,
-                      148.0,
+                  if (hasOffers) {
+                    bannerHeight = (remainingForFlex * (1.28 / 2.28)).clamp(
+                      96.0,
+                      144.0,
                     );
-                    courierHeight = (remainingForFlex * (1.0 / 2.35)).clamp(
-                      92.0,
-                      112.0,
+                    courierHeight = (remainingForFlex * (1.0 / 2.28)).clamp(
+                      84.0,
+                      118.0,
                     );
                   } else {
-                    // Graceful scale-down on unusually short/split-screen viewports
-                    final double safeBudget =
-                        (availableHeight - fixedTotal - (gapCount * 4.0)).clamp(
-                          120.0,
-                          260.0,
-                        );
-                    bannerHeight = (safeBudget * (1.35 / 2.35)).clamp(
-                      72.0,
-                      148.0,
+                    bannerHeight = (remainingForFlex * (1.30 / 2.30)).clamp(
+                      126.0,
+                      166.0,
                     );
-                    courierHeight = (safeBudget * (1.0 / 2.35)).clamp(
-                      56.0,
-                      112.0,
+                    courierHeight = (remainingForFlex * (1.0 / 2.30)).clamp(
+                      100.0,
+                      134.0,
                     );
                   }
 
-                  // Guarantee zero RenderFlex overflow under any constraint
+                  // Guarantee zero RenderFlex overflow under any screen height
                   final double totalNeeded =
                       fixedTotal + bannerHeight + courierHeight;
-                  if (totalNeeded > availableHeight && availableHeight > 0) {
-                    final double excess = totalNeeded - availableHeight;
-                    final double bannerShrink = excess * (1.35 / 2.35);
-                    final double courierShrink = excess * (1.0 / 2.35);
-                    bannerHeight = (bannerHeight - bannerShrink).clamp(
-                      64.0,
-                      148.0,
-                    );
-                    courierHeight = (courierHeight - courierShrink).clamp(
-                      52.0,
-                      112.0,
-                    );
+                  final double maxAllowed = (availableHeight - (gapCount * 3.0))
+                      .clamp(0.0, availableHeight);
+                  if (totalNeeded > maxAllowed && totalNeeded > 0) {
+                    final double scale = maxAllowed / totalNeeded;
+                    bannerHeight *= scale;
+                    searchHeight *= scale;
+                    categoriesHeight *= scale;
+                    courierHeight *= scale;
+                    hotDealsHeight *= scale;
+                    storesHeight *= scale;
                   }
 
                   return Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Section 1: Hero Promotional Carousel
+                      // Section 1: Hero Promotional Carousel (~126px–135px+)
                       SizedBox(
                         height: bannerHeight,
                         child: _buildTopBanners(context, data, palette),
                       ),
 
-                      // Section 2: Search Bar (36px)
+                      // Section 2: Search Bar (~44px)
                       SizedBox(
                         height: searchHeight,
                         child: _buildSearch(palette),
                       ),
 
-                      // Section 3: Business Types / Categories Grid (5-col row, 100% square images)
+                      // Section 3: Business Types / Categories Grid (5-col row, ~48–52px icons)
                       SizedBox(
                         height: categoriesHeight,
                         child: _buildMainCategoryTabs(data, palette),
@@ -429,14 +438,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
 
-                      // Section 5: Hot Deals (Horizontal Snap Carousel, ~114px)
+                      // Section 5: Hot Deals (Horizontal Snap Carousel, ~124px–134px)
                       if (hasOffers)
                         SizedBox(
                           height: hotDealsHeight,
                           child: _buildOffersStrip(data, palette),
                         ),
 
-                      // Section 6: Suggested Stores (Horizontal Scroll Row, ~106px)
+                      // Section 6: Suggested Stores (Horizontal Scroll Row, ~126px–138px)
                       SizedBox(
                         height: storesHeight,
                         child: _buildSuggestedStoresSection(
@@ -546,8 +555,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : '';
 
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      height: 54,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       decoration: BoxDecoration(
         color: palette.headerBg,
         border: Border(
@@ -557,239 +566,242 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Start Side (Right in RTL): User Profile Avatar (if uploaded) else Main App Logo inside circular gold ring (36x36)
-          Container(
-            key: const ValueKey('home_header_logo'),
-            width: 36,
-            height: 36,
-            padding: avatarUrl.isNotEmpty
-                ? EdgeInsets.zero
-                : const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: HomeDesignTokens.gold,
-                width: 1.8,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: avatarUrl.isNotEmpty
-                ? ClipOval(
-                    child: CachedNetworkImage(
-                      key: ValueKey('home_header_avatar_$avatarUrl'),
-                      imageUrl: avatarUrl,
-                      width: 36,
-                      height: 36,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 120,
-                      placeholder: (_, _) => Padding(
-                        padding: const EdgeInsets.all(3),
-                        child: Image.asset(
-                          'assets/home_logo.png',
-                          width: 30,
-                          height: 30,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                      errorWidget: (_, _, _) => Padding(
-                        padding: const EdgeInsets.all(3),
-                        child: Image.asset(
-                          'assets/home_logo.png',
-                          width: 30,
-                          height: 30,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  )
-                : ClipOval(
-                    child: Image.asset(
-                      'assets/home_logo.png',
-                      key: const ValueKey('home_header_main_logo'),
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 8),
-
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                final authStatus = ref.read(authControllerProvider);
-                if (authStatus == AuthStatus.unauthenticated) {
-                  AuthPromptDialog.show(context);
-                  return;
-                }
-                _showAddressSelectionBottomSheet(
-                  context,
-                  ref,
-                  activeAddress,
-                  palette,
-                );
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          s.deliverTo,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: HomeDesignTokens.text(
-                            size: 9.5,
-                            weight: FontWeight.w600,
-                            color: palette.textMuted,
-                            height: 1.05,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                      Icon(
-                        Icons.location_on_rounded,
-                        color: palette.goldText,
-                        size: 10,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 1),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          displayAddress.isEmpty
-                              ? s.locationName
-                              : displayAddress,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: HomeDesignTokens.text(
-                            size: 11.5,
-                            weight: FontWeight.w800,
-                            color: palette.textPrimary,
-                            height: 1.15,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 12,
-                        color: palette.goldText,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 8),
-
-          // End Side (Left in RTL, gap: 6px): Coins Pill + Chat + Notifications
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Coins Pill
-              GestureDetector(
-                onTap: () {
-                  final authStatus = ref.read(authControllerProvider);
-                  if (authStatus == AuthStatus.unauthenticated) {
-                    AuthPromptDialog.show(context);
-                    return;
-                  }
-                  context.push('/coin-history');
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.cardSurface1,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: palette.borderHighlight,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$coinBalance',
-                        style: HomeDesignTokens.numeric(
-                          size: 11,
-                          weight: FontWeight.w800,
-                          color: palette.goldText,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Container(
-                        width: 14,
-                        height: 14,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: HomeDesignTokens.gold,
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.star_rounded,
-                          size: 10,
-                          color: HomeDesignTokens.darkOnGold,
-                        ),
-                      ),
-                    ],
-                  ),
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.15,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Start Side (Right in RTL): User Profile Avatar (if uploaded) else Main App Logo inside circular gold ring (40x40)
+            Container(
+              key: const ValueKey('home_header_logo'),
+              width: 40,
+              height: 40,
+              padding: avatarUrl.isNotEmpty
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: HomeDesignTokens.gold,
+                  width: 1.8,
                 ),
               ),
+              alignment: Alignment.center,
+              child: avatarUrl.isNotEmpty
+                  ? ClipOval(
+                      child: CachedNetworkImage(
+                        key: ValueKey('home_header_avatar_$avatarUrl'),
+                        imageUrl: avatarUrl,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 120,
+                        placeholder: (_, _) => Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: Image.asset(
+                            'assets/home_logo.png',
+                            width: 34,
+                            height: 34,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        errorWidget: (_, _, _) => Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: Image.asset(
+                            'assets/home_logo.png',
+                            width: 34,
+                            height: 34,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ClipOval(
+                      child: Image.asset(
+                        'assets/home_logo.png',
+                        key: const ValueKey('home_header_main_logo'),
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 9),
 
-              const SizedBox(width: 6),
-
-              // Chat Icon Button (28x28)
-              _buildHeaderIconButton(
-                palette: palette,
-                icon: LucideIcons.messageSquare,
-                hasUnread: inboxCounts.chatUnread > 0,
+            Expanded(
+              child: GestureDetector(
                 onTap: () {
                   final authStatus = ref.read(authControllerProvider);
                   if (authStatus == AuthStatus.unauthenticated) {
                     AuthPromptDialog.show(context);
                     return;
                   }
-                  context.push('/inbox');
+                  _showAddressSelectionBottomSheet(
+                    context,
+                    ref,
+                    activeAddress,
+                    palette,
+                  );
                 },
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            s.deliverTo,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: HomeDesignTokens.text(
+                              size: 11.0,
+                              weight: FontWeight.w600,
+                              color: palette.textMuted,
+                              height: 1.05,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Icon(
+                          Icons.location_on_rounded,
+                          color: palette.goldText,
+                          size: 11.5,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 1),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            displayAddress.isEmpty
+                                ? s.locationName
+                                : displayAddress,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: HomeDesignTokens.text(
+                              size: 13.5,
+                              weight: FontWeight.w800,
+                              color: palette.textPrimary,
+                              height: 1.15,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 14,
+                          color: palette.goldText,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
+            ),
 
-              const SizedBox(width: 6),
+            const SizedBox(width: 8),
 
-              // Notification Icon Button (28x28 + 6x6 gold unread dot)
-              _buildHeaderIconButton(
-                palette: palette,
-                icon: LucideIcons.bell,
-                hasUnread: inboxCounts.notificationsUnread > 0,
-                onTap: () {
-                  final authStatus = ref.read(authControllerProvider);
-                  if (authStatus == AuthStatus.unauthenticated) {
-                    AuthPromptDialog.show(context);
-                    return;
-                  }
-                  context.push('/notifications');
-                },
-              ),
-            ],
-          ),
-        ],
+            // End Side (Left in RTL, gap: 6px): Coins Pill + Chat + Notifications
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Coins Pill
+                GestureDetector(
+                  onTap: () {
+                    final authStatus = ref.read(authControllerProvider);
+                    if (authStatus == AuthStatus.unauthenticated) {
+                      AuthPromptDialog.show(context);
+                      return;
+                    }
+                    context.push('/coin-history');
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.cardSurface1,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: palette.borderHighlight,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$coinBalance',
+                          style: HomeDesignTokens.numeric(
+                            size: 12.5,
+                            weight: FontWeight.w800,
+                            color: palette.goldText,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: HomeDesignTokens.gold,
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.star_rounded,
+                            size: 11.5,
+                            color: HomeDesignTokens.darkOnGold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 6),
+
+                // Chat Icon Button (36x36)
+                _buildHeaderIconButton(
+                  palette: palette,
+                  icon: LucideIcons.messageSquare,
+                  hasUnread: inboxCounts.chatUnread > 0,
+                  onTap: () {
+                    final authStatus = ref.read(authControllerProvider);
+                    if (authStatus == AuthStatus.unauthenticated) {
+                      AuthPromptDialog.show(context);
+                      return;
+                    }
+                    context.push('/inbox');
+                  },
+                ),
+
+                const SizedBox(width: 6),
+
+                // Notification Icon Button (36x36 + 7x7 gold unread dot)
+                _buildHeaderIconButton(
+                  palette: palette,
+                  icon: LucideIcons.bell,
+                  hasUnread: inboxCounts.notificationsUnread > 0,
+                  onTap: () {
+                    final authStatus = ref.read(authControllerProvider);
+                    if (authStatus == AuthStatus.unauthenticated) {
+                      AuthPromptDialog.show(context);
+                      return;
+                    }
+                    context.push('/notifications');
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -803,11 +815,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 28,
-        height: 28,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: palette.cardSurface1,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: palette.borderSubtle,
             width: 1,
@@ -819,17 +831,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Center(
               child: Icon(
                 icon,
-                size: 14,
+                size: 18,
                 color: palette.textPrimary,
               ),
             ),
             if (hasUnread)
               Positioned(
-                top: 4,
-                right: 4,
+                top: 5,
+                right: 5,
                 child: Container(
-                  width: 6,
-                  height: 6,
+                  width: 7,
+                  height: 7,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: HomeDesignTokens.gold,
@@ -1046,111 +1058,117 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 14,
                                 10,
                                 14,
-                                24,
+                                26,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (linkedVendorName.isNotEmpty) ...[
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: HomeDesignTokens.gold.withValues(
-                                          alpha: 0.22,
+                              child: MediaQuery.withClampedTextScaling(
+                                maxScaleFactor: 1.12,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (linkedVendorName.isNotEmpty) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 9,
+                                          vertical: 2.5,
                                         ),
-                                        borderRadius: BorderRadius.circular(999),
-                                        border: Border.all(
+                                        decoration: BoxDecoration(
                                           color: HomeDesignTokens.gold
-                                              .withValues(alpha: 0.55),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              linkedVendorName,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: HomeDesignTokens.text(
-                                                size: 9.5,
-                                                weight: FontWeight.w800,
-                                                color:
-                                                    HomeDesignTokens.goldLight,
-                                                height: 1.15,
-                                              ),
-                                            ),
+                                              .withValues(alpha: 0.22),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                          border: Border.all(
+                                            color: HomeDesignTokens.gold
+                                                .withValues(alpha: 0.55),
+                                            width: 1,
                                           ),
-                                          if (linkedRating > 0) ...[
-                                            const SizedBox(width: 4),
-                                            const Icon(
-                                              Icons.star_rounded,
-                                              color: HomeDesignTokens.goldLight,
-                                              size: 10,
-                                            ),
-                                            const SizedBox(width: 1),
-                                            Text(
-                                              linkedRating.toStringAsFixed(1),
-                                              style: HomeDesignTokens.numeric(
-                                                size: 9,
-                                                weight: FontWeight.w800,
-                                                color:
-                                                    HomeDesignTokens.goldLight,
-                                                height: 1.1,
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                linkedVendorName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: HomeDesignTokens.text(
+                                                  size: 11.0,
+                                                  weight: FontWeight.w800,
+                                                  color: HomeDesignTokens
+                                                      .goldLight,
+                                                  height: 1.15,
+                                                ),
                                               ),
                                             ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                  ],
-                                  if (title.isNotEmpty)
-                                    FractionallySizedBox(
-                                      widthFactor: 0.78,
-                                      child: Text(
-                                        title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: HomeDesignTokens.text(
-                                          size: 15.5,
-                                          weight: FontWeight.w900,
-                                          color: Colors.white,
-                                          height: 1.25,
-                                          shadows: const [
-                                            Shadow(
-                                              blurRadius: 8,
-                                              color: Colors.black54,
-                                            ),
+                                            if (linkedRating > 0) ...[
+                                              const SizedBox(width: 4),
+                                              const Icon(
+                                                Icons.star_rounded,
+                                                color:
+                                                    HomeDesignTokens.goldLight,
+                                                size: 11.5,
+                                              ),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                linkedRating.toStringAsFixed(1),
+                                                style: HomeDesignTokens.numeric(
+                                                  size: 10.5,
+                                                  weight: FontWeight.w800,
+                                                  color: HomeDesignTokens
+                                                      .goldLight,
+                                                  height: 1.1,
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ),
-                                    ),
-                                  if (description.isNotEmpty) ...[
-                                    const SizedBox(height: 2),
-                                    FractionallySizedBox(
-                                      widthFactor: 0.78,
-                                      child: Text(
-                                        description,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: HomeDesignTokens.text(
-                                          size: 10.5,
-                                          weight: FontWeight.w600,
-                                          color: Colors.white.withValues(
-                                            alpha: 0.90,
+                                      const SizedBox(height: 4),
+                                    ],
+                                    if (title.isNotEmpty)
+                                      FractionallySizedBox(
+                                        widthFactor: 0.80,
+                                        child: Text(
+                                          title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: HomeDesignTokens.text(
+                                            size: 17.0,
+                                            weight: FontWeight.w900,
+                                            color: Colors.white,
+                                            height: 1.2,
+                                            shadows: const [
+                                              Shadow(
+                                                blurRadius: 8,
+                                                color: Colors.black54,
+                                              ),
+                                            ],
                                           ),
-                                          height: 1.25,
                                         ),
                                       ),
-                                    ),
+                                    if (description.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Flexible(
+                                        child: FractionallySizedBox(
+                                          widthFactor: 0.80,
+                                          child: Text(
+                                            description,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: HomeDesignTokens.text(
+                                              size: 12.0,
+                                              weight: FontWeight.w600,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.90,
+                                              ),
+                                              height: 1.2,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                             ),
                           ],
@@ -1159,7 +1177,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     },
                   ),
 
-                // 24x24 circular next-slide chevron button at top-end (left in RTL)
+                // 28x28 circular next-slide chevron button at top-end (left in RTL)
                 if (totalItems > 1)
                   PositionedDirectional(
                     top: 10,
@@ -1167,8 +1185,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: GestureDetector(
                       onTap: _nextPromoSlide,
                       child: Container(
-                        width: 24,
-                        height: 24,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.black.withValues(alpha: 0.50),
@@ -1181,7 +1199,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: const Icon(
                           Icons.chevron_right_rounded,
                           color: Colors.white,
-                          size: 15,
+                          size: 18,
                         ),
                       ),
                     ),
@@ -1196,8 +1214,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
+                          horizontal: 11,
+                          vertical: 5,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.45),
@@ -1215,8 +1233,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 margin: const EdgeInsets.symmetric(
                                   horizontal: 3,
                                 ),
-                                height: 6,
-                                width: isSelected ? 16 : 6,
+                                height: 7,
+                                width: isSelected ? 18 : 7,
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? HomeDesignTokens.gold
@@ -1239,7 +1257,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 2. Search Bar (36px fixed, radius: 12px, theme-aware)
+  // 2. Search Bar (~44px, radius: 12px, theme-aware)
   // ---------------------------------------------------------------------------
   Widget _buildSearch(HomePalette palette) {
     final s = AppStrings.of(context);
@@ -1247,7 +1265,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Container(
       key: _searchFieldKey,
-      height: 36,
       decoration: BoxDecoration(
         color: palette.inputSurface,
         borderRadius: BorderRadius.circular(12),
@@ -1265,81 +1282,84 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ],
       ),
-      child: Stack(
-        alignment: AlignmentDirectional.centerStart,
-        children: [
-          PositionedDirectional(
-            start: 12,
-            child: IgnorePointer(
-              child: Icon(
-                LucideIcons.search,
-                color: palette.goldText,
-                size: 16,
-              ),
-            ),
-          ),
-          TextField(
-            controller: _searchController,
-            focusNode: _searchFocusNode,
-            onChanged: _onSearchChanged,
-            onSubmitted: (value) {
-              _searchDebounce?.cancel();
-              setState(() => _debouncedSearchQuery = value.trim());
-            },
-            textInputAction: TextInputAction.search,
-            textAlign: TextAlign.start,
-            textAlignVertical: TextAlignVertical.center,
-            cursorColor: HomeDesignTokens.gold,
-            style: HomeDesignTokens.text(
-              size: 11.5,
-              weight: FontWeight.w600,
-              color: palette.textPrimary,
-              height: 1.2,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: s.searchRestaurant,
-              hintStyle: HomeDesignTokens.text(
-                size: 11.5,
-                weight: FontWeight.w600,
-                color: palette.textMuted,
-                height: 1.2,
-              ),
-              filled: false,
-              contentPadding: EdgeInsetsDirectional.only(
-                start: 36,
-                end: _searchController.text.isNotEmpty ? 30 : 12,
-                top: 8,
-                bottom: 8,
-              ),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-            ),
-          ),
-          if (_searchController.text.isNotEmpty)
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.15,
+        child: Stack(
+          alignment: AlignmentDirectional.centerStart,
+          children: [
             PositionedDirectional(
-              end: 8,
-              child: GestureDetector(
-                onTap: () {
-                  _searchDebounce?.cancel();
-                  _searchController.clear();
-                  setState(() => _debouncedSearchQuery = '');
-                },
+              start: 13,
+              child: IgnorePointer(
                 child: Icon(
-                  Icons.close_rounded,
-                  color: palette.textMuted,
-                  size: 15,
+                  LucideIcons.search,
+                  color: palette.goldText,
+                  size: 18,
                 ),
               ),
             ),
-        ],
+            TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              onChanged: _onSearchChanged,
+              onSubmitted: (value) {
+                _searchDebounce?.cancel();
+                setState(() => _debouncedSearchQuery = value.trim());
+              },
+              textInputAction: TextInputAction.search,
+              textAlign: TextAlign.start,
+              textAlignVertical: TextAlignVertical.center,
+              cursorColor: HomeDesignTokens.gold,
+              style: HomeDesignTokens.text(
+                size: 13.0,
+                weight: FontWeight.w600,
+                color: palette.textPrimary,
+                height: 1.2,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: s.searchRestaurant,
+                hintStyle: HomeDesignTokens.text(
+                  size: 13.0,
+                  weight: FontWeight.w600,
+                  color: palette.textMuted,
+                  height: 1.2,
+                ),
+                filled: false,
+                contentPadding: EdgeInsetsDirectional.only(
+                  start: 40,
+                  end: _searchController.text.isNotEmpty ? 34 : 12,
+                  top: 10,
+                  bottom: 10,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
+            if (_searchController.text.isNotEmpty)
+              PositionedDirectional(
+                end: 10,
+                child: GestureDetector(
+                  onTap: () {
+                    _searchDebounce?.cancel();
+                    _searchController.clear();
+                    setState(() => _debouncedSearchQuery = '');
+                  },
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: palette.textMuted,
+                    size: 17,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
   // ---------------------------------------------------------------------------
-  // 3. Business Types / Categories Grid (5-col row, gap: 8px, 100% square images)
+  // 3. Business Types / Categories Grid (5-col row, gap: 8px, ~48–52px icons)
   // ---------------------------------------------------------------------------
   Widget _buildMainCategoryTabs(HomeData data, HomePalette palette) {
     final s = AppStrings.of(context);
@@ -1371,15 +1391,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Square 1:1 Image Card (max 60x60, radius 16, padding 0, 100% edge-to-edge image)
+                  // Square 1:1 Image Card (~48–54px, 100% edge-to-edge image)
                   Expanded(
                     child: Center(
                       child: Transform.scale(
                         scale: isSelected ? 1.03 : 1.0,
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(
-                            maxWidth: 60,
-                            maxHeight: 60,
+                            maxWidth: 54,
+                            maxHeight: 54,
                           ),
                           child: AspectRatio(
                             aspectRatio: 1,
@@ -1393,12 +1413,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  // Category Label below image (10px w900 active / 9.5px w700 inactive)
+                  const SizedBox(height: 4),
+                  // Category Label below image (11.5px w900 active / 11px w700 inactive)
                   MediaQuery.withClampedTextScaling(
                     maxScaleFactor: 1.12,
                     child: SizedBox(
-                      height: 14,
+                      height: 17,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
@@ -1407,7 +1427,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: HomeDesignTokens.text(
-                            size: isSelected ? 10.0 : 9.5,
+                            size: isSelected ? 11.5 : 11.0,
                             weight: isSelected
                                 ? FontWeight.w900
                                 : FontWeight.w700,
@@ -1418,7 +1438,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 : (palette.isDark
                                       ? const Color(0xFFF7F4EE)
                                       : const Color(0xFF14120E)),
-                            height: 1.05,
+                            height: 1.1,
                           ),
                         ),
                       ),
@@ -1485,7 +1505,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Icon(
                   _getFallbackIconData(cat['type']?.toString() ?? ''),
                   color: palette.goldText,
-                  size: 28,
+                  size: 30,
                 ),
               ),
             )
@@ -1493,7 +1513,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Icon(
                 _getFallbackIconData(cat['type']?.toString() ?? ''),
                 color: palette.goldText,
-                size: 28,
+                size: 30,
               ),
             ),
     );
@@ -1517,13 +1537,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 4. Custom Courier Card (flex: 1, 92px–112px, Dark & Light adaptive)
+  // 4. Custom Courier Card (flex: 1, ~96px–118px, Dark & Light adaptive)
   // ---------------------------------------------------------------------------
   Widget _buildCustomCourierBanner(double cardHeight, HomePalette palette) {
     final s = AppStrings.of(context);
-    final verticalPad = cardHeight >= 104 ? 7.0 : 5.0;
-    final imageBoxHeight = (cardHeight - verticalPad * 2).clamp(66.0, 96.0);
-    final imageBoxWidth = cardHeight >= 96 ? 136.0 : 122.0;
+    final verticalPad = cardHeight >= 108
+        ? 9.0
+        : (cardHeight >= 96 ? 7.0 : 5.0);
+    final imageBoxHeight = (cardHeight - verticalPad * 2).clamp(68.0, 102.0);
+    final imageBoxWidth = cardHeight >= 100 ? 140.0 : 124.0;
 
     return Consumer(
       builder: (context, ref, child) {
@@ -1574,9 +1596,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: EdgeInsetsDirectional.fromSTEB(
-                    14,
+                    15,
                     verticalPad,
-                    8,
+                    9,
                     verticalPad,
                   ),
                   child: Row(
@@ -1584,99 +1606,109 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       // Start Column (Right in RTL): Title + 24/7 pill, 2-line Description, CTA button
                       Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    s.customDeliveryBannerTitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: HomeDesignTokens.text(
-                                      size: 14.5,
-                                      weight: FontWeight.w900,
-                                      color: palette.courierTitleColor,
-                                      height: 1.1,
+                        child: MediaQuery.withClampedTextScaling(
+                          maxScaleFactor: 1.12,
+                          child: LayoutBuilder(
+                            builder: (context, colConstraints) {
+                              return Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          s.customDeliveryBannerTitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: HomeDesignTokens.text(
+                                            size: 16.0,
+                                            weight: FontWeight.w900,
+                                            color: palette.courierTitleColor,
+                                            height: 1.1,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: palette.courierBadgeBg,
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: palette.borderCourier,
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '24/7',
+                                          style: HomeDesignTokens.numeric(
+                                            size: 9.5,
+                                            weight: FontWeight.w900,
+                                            color: palette.courierBadgeText,
+                                            height: 1.0,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment:
+                                          AlignmentDirectional.centerStart,
+                                      child: SizedBox(
+                                        width: colConstraints.maxWidth,
+                                        child: Text(
+                                          s.customDeliveryBannerSub,
+                                          maxLines: 2,
+                                          softWrap: true,
+                                          style: HomeDesignTokens.text(
+                                            size: 11.8,
+                                            weight: FontWeight.w600,
+                                            color: palette.courierSubtitleColor,
+                                            height: 1.2,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: palette.courierBadgeBg,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: palette.borderCourier,
-                                      width: 0.8,
+                                  const SizedBox(height: 5),
+                                  Material(
+                                    color: HomeDesignTokens.gold,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: InkWell(
+                                      onTap: openCustomDelivery,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 18,
+                                          vertical: 5,
+                                        ),
+                                        child: Text(
+                                          s.orderNow,
+                                          style: HomeDesignTokens.text(
+                                            size: 12.0,
+                                            weight: FontWeight.w900,
+                                            color: HomeDesignTokens.darkOnGold,
+                                            height: 1.15,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                  child: Text(
-                                    '24/7',
-                                    style: HomeDesignTokens.numeric(
-                                      size: 8.5,
-                                      weight: FontWeight.w900,
-                                      color: palette.courierBadgeText,
-                                      height: 1.0,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Flexible(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: AlignmentDirectional.centerStart,
-                                child: SizedBox(
-                                  width: MediaQuery.sizeOf(context).width - 178,
-                                  child: Text(
-                                    s.customDeliveryBannerSub,
-                                    maxLines: 2,
-                                    softWrap: true,
-                                    style: HomeDesignTokens.text(
-                                      size: 10.5,
-                                      weight: FontWeight.w600,
-                                      color: palette.courierSubtitleColor,
-                                      height: 1.25,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Material(
-                              color: HomeDesignTokens.gold,
-                              borderRadius: BorderRadius.circular(12),
-                              child: InkWell(
-                                onTap: openCustomDelivery,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 4,
-                                  ),
-                                  child: Text(
-                                    s.orderNow,
-                                    style: HomeDesignTokens.text(
-                                      size: 10.5,
-                                      weight: FontWeight.w900,
-                                      color: HomeDesignTokens.darkOnGold,
-                                      height: 1.15,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                                ],
+                              );
+                            },
+                          ),
                         ),
                       ),
 
@@ -1740,7 +1772,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 5. Hot Deals Section (Horizontal Snap Carousel, ~114px)
+  // 5. Hot Deals Section (Horizontal Snap Carousel, ~124px–134px)
   // ---------------------------------------------------------------------------
   Widget _buildOffersStrip(HomeData data, HomePalette palette) {
     final s = AppStrings.of(context);
@@ -1749,36 +1781,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
-                s.hotDeals,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: HomeDesignTokens.text(
-                  size: 11.5,
-                  weight: FontWeight.w900,
-                  color: palette.textPrimary,
-                  height: 1.15,
+        MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.15,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  s.hotDeals,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: HomeDesignTokens.text(
+                    size: 14.5,
+                    weight: FontWeight.w900,
+                    color: palette.textPrimary,
+                    height: 1.15,
+                  ),
                 ),
               ),
-            ),
-            if (data.offers.length > 1) ...[
-              const SizedBox(width: 8),
-              Text(
-                s.isArabic ? 'اسحب للمزيد ←' : 'Swipe for more →',
-                style: HomeDesignTokens.text(
-                  size: 9.5,
-                  weight: FontWeight.w700,
-                  color: palette.goldText,
-                  height: 1.15,
+              if (data.offers.length > 1) ...[
+                const SizedBox(width: 8),
+                Text(
+                  s.isArabic ? 'اسحب للمزيد ←' : 'Swipe for more →',
+                  style: HomeDesignTokens.text(
+                    size: 11.0,
+                    weight: FontWeight.w700,
+                    color: palette.goldText,
+                    height: 1.15,
+                  ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
         const SizedBox(height: 4),
         Expanded(
@@ -1794,7 +1829,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 6. Suggested Stores Section (Horizontal Scroll Row, ~106px)
+  // 6. Suggested Stores Section (Horizontal Scroll Row, ~126px–138px)
   // ---------------------------------------------------------------------------
   Widget _buildSuggestedStoresSection(
     BuildContext context,
@@ -1823,37 +1858,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: HomeDesignTokens.text(
-                  size: 11.5,
-                  weight: FontWeight.w900,
-                  color: palette.textPrimary,
-                  height: 1.15,
+        MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.15,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: HomeDesignTokens.text(
+                    size: 14.5,
+                    weight: FontWeight.w900,
+                    color: palette.textPrimary,
+                    height: 1.15,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => context.push('/all-vendors', extra: _selectedType),
-              child: Text(
-                s.seeAll,
-                style: HomeDesignTokens.text(
-                  size: 10,
-                  weight: FontWeight.w700,
-                  color: palette.goldText,
-                  height: 1.15,
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () =>
+                    context.push('/all-vendors', extra: _selectedType),
+                child: Text(
+                  s.seeAll,
+                  style: HomeDesignTokens.text(
+                    size: 11.5,
+                    weight: FontWeight.w700,
+                    color: palette.goldText,
+                    height: 1.15,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 4),
         Expanded(
@@ -1872,14 +1911,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       Icon(
                         Icons.search_off_rounded,
-                        size: 20,
+                        size: 22,
                         color: palette.textMuted,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         s.noResults,
                         style: HomeDesignTokens.text(
-                          size: 11.5,
+                          size: 13.0,
                           weight: FontWeight.w700,
                           color: palette.textMuted,
                         ),
@@ -1906,7 +1945,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 7. Fixed Bottom Navigation Bar (54px + blur + theme-aware + real cart badge)
+  // 7. Fixed Bottom Navigation Bar (62px + blur + theme-aware + real cart badge)
   // ---------------------------------------------------------------------------
   Widget _buildBottomNav(
     BuildContext context,
@@ -1920,6 +1959,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
 
     return ClipRect(
+      key: const ValueKey('home_bottom_nav'),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
@@ -1934,60 +1974,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           child: SafeArea(
             top: false,
-            child: SizedBox(
-              height: 54,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildNavItem(
-                        palette: palette,
-                        index: 0,
-                        icon: Icons.home_rounded,
-                        label: s.navHome,
-                        isSelected: true,
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.15,
+              child: SizedBox(
+                height: 62,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildNavItem(
+                          palette: palette,
+                          index: 0,
+                          icon: Icons.home_rounded,
+                          label: s.navHome,
+                          isSelected: true,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _buildNavItem(
-                        palette: palette,
-                        index: 1,
-                        icon: LucideIcons.messageSquare,
-                        label: s.navChat,
-                        isSelected: false,
-                        badgeCount: chatUnread,
+                      Expanded(
+                        child: _buildNavItem(
+                          palette: palette,
+                          index: 1,
+                          icon: LucideIcons.messageSquare,
+                          label: s.navChat,
+                          isSelected: false,
+                          badgeCount: chatUnread,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _buildNavItem(
-                        palette: palette,
-                        index: 2,
-                        icon: LucideIcons.shoppingCart,
-                        label: s.cart,
-                        isSelected: false,
-                        badgeCount: cartCount,
+                      Expanded(
+                        child: _buildNavItem(
+                          palette: palette,
+                          index: 2,
+                          icon: LucideIcons.shoppingCart,
+                          label: s.cart,
+                          isSelected: false,
+                          badgeCount: cartCount,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _buildNavItem(
-                        palette: palette,
-                        index: 3,
-                        icon: LucideIcons.shoppingBag,
-                        label: s.navOrders,
-                        isSelected: false,
+                      Expanded(
+                        child: _buildNavItem(
+                          palette: palette,
+                          index: 3,
+                          icon: LucideIcons.shoppingBag,
+                          label: s.navOrders,
+                          isSelected: false,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _buildNavItem(
-                        palette: palette,
-                        index: 4,
-                        icon: LucideIcons.user,
-                        label: s.navProfile,
-                        isSelected: false,
+                      Expanded(
+                        child: _buildNavItem(
+                          palette: palette,
+                          index: 4,
+                          icon: LucideIcons.user,
+                          label: s.navProfile,
+                          isSelected: false,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -2029,14 +2072,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Icon(icon, color: color, size: 20),
+              Icon(icon, color: color, size: 22),
               if (badgeCount > 0)
                 PositionedDirectional(
                   top: -5,
-                  end: -8,
+                  end: -9,
                   child: Container(
-                    width: 16,
-                    height: 16,
+                    width: 18,
+                    height: 18,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       color: HomeDesignTokens.gold,
@@ -2049,7 +2092,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Text(
                           badgeCount > 99 ? '99+' : '$badgeCount',
                           style: HomeDesignTokens.numeric(
-                            size: 9,
+                            size: 10,
                             weight: FontWeight.w900,
                             color: HomeDesignTokens.darkOnGold,
                             height: 1.0,
@@ -2061,14 +2104,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: HomeDesignTokens.text(
-              size: 10,
+              size: 11.0,
               weight: isSelected ? FontWeight.w800 : FontWeight.w700,
               color: color,
               height: 1.15,

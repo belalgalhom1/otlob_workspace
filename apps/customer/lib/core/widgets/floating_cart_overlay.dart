@@ -8,14 +8,46 @@ import '../theme/app_colors.dart';
 import '../l10n/app_strings.dart';
 
 class FloatingCartOverlay extends ConsumerStatefulWidget {
-  const FloatingCartOverlay({super.key});
+  /// Optional measurable anchor key attached to the existing cart pill so
+  /// external animations (e.g., Fly-to-Cart) can target its live screen rect
+  /// without altering the cart UI.
+  final GlobalKey? cartAnchorKey;
+
+  /// Optional trigger notified when an item lands in the cart to play a brief
+  /// 320ms spring pop confirmation on the existing cart pill.
+  final Listenable? landPulse;
+
+  const FloatingCartOverlay({
+    super.key,
+    this.cartAnchorKey,
+    this.landPulse,
+  });
+
+  /// Returns the default screen bounding rect of [FloatingCartOverlay] for a
+  /// given [MediaQueryData] when the cart is currently empty (0 items).
+  static Rect defaultParkedRect(Size viewport, EdgeInsets padding) {
+    const double cartWidth = 200;
+    const double cartHeight = 60;
+    const double margin = 16;
+    const double bottomClearance = 28;
+    final minY = margin + padding.top;
+    final maxX =
+        (viewport.width - cartWidth - margin).clamp(margin, double.infinity);
+    final maxY = (viewport.height -
+            cartHeight -
+            margin -
+            padding.bottom -
+            bottomClearance)
+        .clamp(minY, double.infinity);
+    return Rect.fromLTWH(maxX, maxY, cartWidth, cartHeight);
+  }
 
   @override
   ConsumerState<FloatingCartOverlay> createState() => _FloatingCartOverlayState();
 }
 
 class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   static const double _cartWidth = 200;
   static const double _cartHeight = 60;
   static const double _margin = 16;
@@ -27,15 +59,37 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
   bool _isInitialized = false;
   bool _isDragging = false;
   bool _isOverTrash = false;
+  late final AnimationController _popController;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _popController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    widget.landPulse?.addListener(_triggerLandPop);
+  }
+
+  @override
+  void didUpdateWidget(covariant FloatingCartOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.landPulse != widget.landPulse) {
+      oldWidget.landPulse?.removeListener(_triggerLandPop);
+      widget.landPulse?.addListener(_triggerLandPop);
+    }
+  }
+
+  void _triggerLandPop() {
+    if (!mounted) return;
+    _popController.forward(from: 0.0);
   }
 
   @override
   void dispose() {
+    widget.landPulse?.removeListener(_triggerLandPop);
+    _popController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -204,16 +258,37 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
                   child: AnimatedOpacity(
                     opacity: _isOverTrash ? 0.5 : 1.0,
                     duration: const Duration(milliseconds: 200),
-                    child: AnimatedScale(
-                      scale: _isOverTrash ? 0.8 : (_isDragging ? 1.05 : 1.0),
-                      duration: const Duration(milliseconds: 200),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => context.push('/cart'),
-                          borderRadius: BorderRadius.circular(30),
-                          child: Container(
-                            constraints: const BoxConstraints(
+                    child: AnimatedBuilder(
+                      animation: _popController,
+                      builder: (context, child) {
+                        const springCurve = Cubic(0.34, 1.56, 0.64, 1.0);
+                        final t = _popController.value;
+                        final double pulse = t == 0.0 || t == 1.0
+                            ? 0.0
+                            : (t < 0.5
+                                  ? springCurve.transform((t * 2).clamp(0.0, 1.0))
+                                  : 1.0 - Curves.easeOut.transform(((t - 0.5) * 2).clamp(0.0, 1.0)));
+                        final double popScale = 1.0 + (0.04 * pulse);
+                        final double popDy = -2.0 * pulse;
+                        return Transform.translate(
+                          offset: Offset(0, popDy),
+                          child: Transform.scale(
+                            scale: popScale,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: AnimatedScale(
+                        scale: _isOverTrash ? 0.8 : (_isDragging ? 1.05 : 1.0),
+                        duration: const Duration(milliseconds: 200),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => context.push('/cart'),
+                            borderRadius: BorderRadius.circular(30),
+                            child: Container(
+                              key: widget.cartAnchorKey,
+                              constraints: const BoxConstraints(
                               minWidth: _cartWidth,
                               maxWidth: 260,
                               minHeight: _cartHeight,
@@ -281,6 +356,7 @@ class _FloatingCartOverlayState extends ConsumerState<FloatingCartOverlay>
                           ),
                         ),
                       ),
+                    ),
                     ),
                   ),
                 ),
