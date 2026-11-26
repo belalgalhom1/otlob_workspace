@@ -420,6 +420,14 @@ class AuthController extends _$AuthController {
             timeout: const Duration(seconds: 3),
           );
         } catch (_) {}
+      } else {
+        try {
+          unawaited(
+            ref
+                .read(pushNotificationServiceProvider)
+                .unsubscribeFromRoleTopics('CUSTOMER'),
+          );
+        } catch (_) {}
       }
     } finally {
       try {

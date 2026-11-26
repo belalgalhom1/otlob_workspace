@@ -318,20 +318,50 @@ void main() {
     );
 
     test(
-      'unsubscribeFromRoleTopics clears pending topic state so token refresh does not re-subscribe old role',
+      'unsubscribeFromRoleTopics clears pending topic state and stops background device registration until re-initialized',
       () async {
         messaging.currentToken = 'token-1';
         await service.initialize();
         await service.subscribeToRoleTopics('DRIVER');
         messaging.subscribedTopics.clear();
+        api.registeredDevices.clear();
 
         await service.unsubscribeFromRoleTopics('DRIVER');
         expect(messaging.unsubscribedTopics, containsAll(['topic_all', 'topic_drivers']));
 
         messaging.tokenRefreshController.add('token-2');
-        await Future<void>.delayed(Duration.zero);
+        connectivityController.add(true);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
 
         expect(messaging.subscribedTopics, isEmpty);
+        expect(api.registeredDevices, isEmpty);
+      },
+    );
+
+    test(
+      'hasActiveSession guard prevents unauthenticated /devices POST calls',
+      () async {
+        var loggedIn = false;
+        final guardedService = PushNotificationService(
+          api,
+          messaging: messaging,
+          localNotifications: localNotifications,
+          onMessageStream: onMessageController.stream,
+          onMessageOpenedAppStream: onMessageOpenedAppController.stream,
+          connectivityChanges: connectivityController.stream,
+          hasActiveSession: () async => loggedIn,
+        );
+        addTearDown(guardedService.dispose);
+
+        messaging.currentToken = 'token-guarded';
+        await guardedService.initialize();
+        await guardedService.ensureTokenRegistered(role: 'DRIVER');
+        expect(api.registeredDevices, isEmpty);
+
+        loggedIn = true;
+        await guardedService.ensureTokenRegistered(role: 'DRIVER');
+        expect(api.registeredDevices, hasLength(1));
+        expect(api.registeredDevices.first.token, 'token-guarded');
       },
     );
   });

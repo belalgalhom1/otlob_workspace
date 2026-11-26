@@ -300,32 +300,44 @@ class AuthNotifier extends _$AuthNotifier {
       final repository = ref.read(sharedAuthRepositoryProvider);
 
       if (await repository.isLoggedIn()) {
-        final push = ref.read(pushNotificationServiceProvider);
         String? role;
         try {
           role = await repository.getUserRole();
         } catch (_) {}
         String? fcmToken;
         try {
-          fcmToken = await push
-              .getToken(waitForApns: false)
-              .timeout(const Duration(milliseconds: 500), onTimeout: () => null);
+          final push = ref.read(pushNotificationServiceProvider);
+          try {
+            fcmToken = await push
+                .getToken(waitForApns: false)
+                .timeout(const Duration(milliseconds: 500), onTimeout: () => null);
+          } catch (_) {}
+
+          unawaited(push.unsubscribeFromRoleTopics(role ?? 'VENDOR'));
         } catch (_) {}
 
-        unawaited(push.unsubscribeFromRoleTopics(role ?? 'VENDOR'));
-        unawaited(push.unregisterToken(token: fcmToken, waitForApns: false));
-
         try {
+          // `/auth/logout` revokes the session and deletes the supplied
+          // `fcmToken` atomically, avoiding a racing unawaited DELETE /devices
+          // 401 after tokens are cleared.
           await repository.logout(
             fcmToken: fcmToken,
             timeout: const Duration(seconds: 3),
           );
         } catch (_) {}
+      } else {
+        try {
+          unawaited(
+            ref
+                .read(pushNotificationServiceProvider)
+                .unsubscribeFromRoleTopics('VENDOR'),
+          );
+        } catch (_) {}
       }
 
       ref.read(vendorPostAuthRouteProvider.notifier).set('/dashboard');
-      _clearVendorState();
       state = const AsyncValue.data(false);
+      _clearVendorState();
     } finally {
       _logoutInProgress = false;
     }

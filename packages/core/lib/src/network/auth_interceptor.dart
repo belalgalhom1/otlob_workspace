@@ -72,6 +72,20 @@ class AuthInterceptor extends Interceptor {
     return handler.next(options);
   }
 
+  String? _extractBearerToken(RequestOptions options) {
+    final raw = options.headers['Authorization']?.toString();
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('Bearer ')) {
+      final token = raw.substring(7).trim();
+      return token.isEmpty ? null : token;
+    }
+    return null;
+  }
+
+  bool _isStaleDeviceRemovalPath(RequestOptions options) =>
+      options.method.toUpperCase() == 'DELETE' &&
+      options.path.startsWith('/devices/');
+
   @override
   Future<void> onError(
     DioException err,
@@ -87,14 +101,62 @@ class AuthInterceptor extends Interceptor {
         return handler.next(err);
       }
 
+      // A 401 on a request that was sent without any Bearer token (for example,
+      // a background call fired while logged out) must never clear a newly
+      // established session or emit an unauthenticated logout event.
+      final sentToken = _extractBearerToken(err.requestOptions);
+      if (sentToken == null) {
+        return handler.next(err);
+      }
+
+      // If a newer login or concurrent refresh already persisted a different
+      // access token than the one this stale request used, do not treat the
+      // active session as expired or trigger an unnecessary refresh.
+      final currentTokenBeforeRefresh =
+          await SecureStorageHelper.readSafely(_storage, 'access_token');
+      if (currentTokenBeforeRefresh != null &&
+          currentTokenBeforeRefresh.isNotEmpty &&
+          currentTokenBeforeRefresh != sentToken) {
+        if (_isStaleDeviceRemovalPath(err.requestOptions)) {
+          return handler.next(err);
+        }
+        try {
+          final requestOptions = err.requestOptions;
+          requestOptions.extra['retried'] = true;
+          requestOptions.headers['Authorization'] =
+              'Bearer $currentTokenBeforeRefresh';
+          final retryResponse = await _dio.fetch(requestOptions);
+          return handler.resolve(retryResponse);
+        } catch (retryErr) {
+          if (retryErr is DioException) {
+            return handler.next(retryErr);
+          }
+          return handler.next(err);
+        }
+      }
+
       String? refreshedToken;
       try {
         refreshedToken = await AuthRefreshCoordinator.run(() async {
+          final latestAccessToken =
+              await SecureStorageHelper.readSafely(_storage, 'access_token');
+          if (latestAccessToken != null &&
+              latestAccessToken.isNotEmpty &&
+              latestAccessToken != sentToken) {
+            return latestAccessToken;
+          }
+
           final refreshToken =
               await SecureStorageHelper.readSafely(_storage, 'refresh_token');
           if (refreshToken == null || refreshToken.isEmpty) {
-            await _clearAuthData();
-            unauthenticatedEventStream.add(null);
+            final tokenAtClear =
+                await SecureStorageHelper.readSafely(_storage, 'access_token');
+            if (tokenAtClear == null ||
+                tokenAtClear.isEmpty ||
+                tokenAtClear == sentToken) {
+              await _clearAuthData();
+              unauthenticatedEventStream.add(null);
+            }
             throw err;
           }
 
@@ -140,11 +202,6 @@ class AuthInterceptor extends Interceptor {
               );
             }
 
-            await SecureStorageHelper.writeSafely(
-              _storage,
-              'access_token',
-              newAccessToken,
-            );
             if (newRefreshToken is String && newRefreshToken.isNotEmpty) {
               await SecureStorageHelper.writeSafely(
                 _storage,
@@ -152,6 +209,11 @@ class AuthInterceptor extends Interceptor {
                 newRefreshToken,
               );
             }
+            await SecureStorageHelper.writeSafely(
+              _storage,
+              'access_token',
+              newAccessToken,
+            );
 
             if (user != null) {
               if (user['role'] != null) {
@@ -185,11 +247,18 @@ class AuthInterceptor extends Interceptor {
           );
         }).timeout(_refreshWaitTimeout);
       } catch (e) {
-        // Only clear auth data if refresh token is genuinely invalid (401/403).
+        // Only clear auth data if refresh token is genuinely invalid (401/403)
+        // AND storage has not already been replaced by a newer login session.
         if (e is DioException &&
             (e.response?.statusCode == 401 || e.response?.statusCode == 403)) {
-          await _clearAuthData();
-          unauthenticatedEventStream.add(null);
+          final latestAccessToken =
+              await SecureStorageHelper.readSafely(_storage, 'access_token');
+          if (latestAccessToken == null ||
+              latestAccessToken.isEmpty ||
+              latestAccessToken == sentToken) {
+            await _clearAuthData();
+            unauthenticatedEventStream.add(null);
+          }
         }
         return handler.next(err);
       }

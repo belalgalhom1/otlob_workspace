@@ -53,6 +53,10 @@ import {
   JWT_ACCESS_SERVICE,
   JWT_REFRESH_SERVICE,
 } from 'src/common/constants/jwt.constants';
+import {
+  computeFreshTokenIssuedAtMs,
+  createUserRevocationMarker,
+} from '../../common/utils/token-revocation.util';
 
 // In-flight deduplication window (in seconds) to safely absorb simultaneous
 // concurrent refresh calls from the same client without re-rotating or desyncing.
@@ -188,6 +192,7 @@ export class AuthService {
         driver: {
           select: {
             isApproved: true,
+            status: true,
             avatar: true,
           },
         },
@@ -377,7 +382,9 @@ export class AuthService {
       include: {
         user: {
           include: {
-            driver: { select: { isApproved: true } },
+            driver: {
+              select: { isApproved: true, status: true, avatar: true },
+            },
           },
         },
       },
@@ -389,6 +396,19 @@ export class AuthService {
 
     let user = account?.user || null;
 
+    if (
+      user &&
+      !user.isEmailVerified &&
+      normalizedVerifiedEmail &&
+      emailVerified
+    ) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { isEmailVerified: true },
+      });
+      user.isEmailVerified = true;
+    }
+
     // 2. If no account, check if User exists by verifiedEmail to link (NEVER untrusted client email)
     if (!user && normalizedVerifiedEmail) {
       user = await this.prisma.user.findFirst({
@@ -396,7 +416,9 @@ export class AuthService {
           email: { equals: normalizedVerifiedEmail, mode: 'insensitive' },
         },
         include: {
-          driver: { select: { isApproved: true } },
+          driver: {
+            select: { isApproved: true, status: true, avatar: true },
+          },
         },
       });
 
@@ -426,7 +448,11 @@ export class AuthService {
           user.isEmailVerified = true;
           user.password = null;
           const accessTtl = this.getAccessExpirySeconds();
-          await this.redis.set(`revoked:user:${user.id}`, '1', accessTtl);
+          await this.redis.set(
+            `revoked:user:${user.id}`,
+            createUserRevocationMarker(),
+            accessTtl,
+          );
           this.socketService.disconnectUser(user.id);
         }
 
@@ -474,7 +500,11 @@ export class AuthService {
 
         return tx.user.findUniqueOrThrow({
           where: { id: u.id },
-          include: { driver: { select: { isApproved: true } } },
+          include: {
+            driver: {
+              select: { isApproved: true, status: true, avatar: true },
+            },
+          },
         });
       });
       this.logger.log(
@@ -737,7 +767,11 @@ export class AuthService {
 
     await this.prisma.session.deleteMany({ where: { userId: user.id } });
     const accessTtl = this.getAccessExpirySeconds();
-    await this.redis.set(`revoked:user:${user.id}`, '1', accessTtl);
+    await this.redis.set(
+      `revoked:user:${user.id}`,
+      createUserRevocationMarker(),
+      accessTtl,
+    );
     this.socketService.disconnectUser(user.id);
 
     return { message: CommonSuccess.OPERATION_SUCCESS };
@@ -841,11 +875,13 @@ export class AuthService {
     );
     const expiresAt = this.parseExpiry(refreshExpiresIn);
 
+    const iatMs = await this.resolveFreshAccessIssuedAtMs(user.id);
     const accessPayload: JwtAccessPayload = {
       sub: user.id,
       sid: session.id,
       role: user.role,
       verified: user.isEmailVerified,
+      iatMs,
     };
 
     const refreshPayload: JwtRefreshPayload = {
@@ -1065,9 +1101,33 @@ export class AuthService {
     await this.prisma.session.deleteMany({ where: { userId } });
     await this.prisma.device.deleteMany({ where: { userId } });
     const accessTtl = this.getAccessExpirySeconds();
-    await this.redis.set(`revoked:user:${userId}`, '1', accessTtl);
+    await this.redis.set(
+      `revoked:user:${userId}`,
+      createUserRevocationMarker(),
+      accessTtl,
+    );
     this.socketService.disconnectUser(userId);
     return { message: CommonSuccess.OPERATION_SUCCESS };
+  }
+
+  private async resolveFreshAccessIssuedAtMs(userId: string): Promise<number> {
+    const key = `revoked:user:${userId}`;
+    let revokedMarker: string | null = null;
+    if (typeof this.redis?.get === 'function') {
+      try {
+        revokedMarker = await this.redis.get(key);
+      } catch {
+        revokedMarker = null;
+      }
+    }
+
+    const { iatMs, migratedMarker } = computeFreshTokenIssuedAtMs(revokedMarker);
+    if (migratedMarker && typeof this.redis?.set === 'function') {
+      try {
+        await this.redis.set(key, migratedMarker, this.getAccessExpirySeconds());
+      } catch {}
+    }
+    return iatMs;
   }
 
   private async createSession(
@@ -1083,12 +1143,14 @@ export class AuthService {
     const expiresAt = this.parseExpiry(refreshExpiresIn);
 
     const sessionId = randomUUID();
+    const iatMs = await this.resolveFreshAccessIssuedAtMs(userId);
 
     const accessPayload: JwtAccessPayload = {
       sub: userId,
       sid: sessionId,
       role: role as Role,
       verified,
+      iatMs,
     };
 
     const refreshPayload: JwtRefreshPayload = {

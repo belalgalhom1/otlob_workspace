@@ -92,9 +92,11 @@ final coreLocationServiceProvider = Provider<CoreLocationService>((ref) {
 final pushNotificationServiceProvider = Provider<PushNotificationService>((ref) {
   final api = ref.watch(apiClientProvider);
   final connectivity = ref.watch(connectivityServiceProvider);
+  final tokenService = ref.watch(tokenServiceProvider);
   return PushNotificationService(
     api.getDevicesPushNotificationsApi(),
     connectivityChanges: connectivity.onConnectivityChanged,
+    hasActiveSession: tokenService.hasSession,
   );
 });
 

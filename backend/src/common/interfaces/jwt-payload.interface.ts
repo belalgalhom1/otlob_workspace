@@ -5,6 +5,8 @@ export interface JwtAccessPayload {
   sid: string;
   role: Role;
   verified: boolean;
+  iatMs?: number;
+  iat?: number;
 }
 
 export interface JwtRefreshPayload {

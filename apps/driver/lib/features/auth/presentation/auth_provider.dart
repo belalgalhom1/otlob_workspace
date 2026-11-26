@@ -42,6 +42,7 @@ final driverPostLoginStateProvider =
 class Auth extends _$Auth {
   StreamSubscription<void>? _unauthSub;
   bool _logoutInProgress = false;
+  bool _loginInProgress = false;
 
   @override
   AsyncValue<bool> build() {
@@ -58,7 +59,7 @@ class Auth extends _$Auth {
   }
 
   Future<void> _handleUnauthenticated() async {
-    if (_logoutInProgress) return;
+    if (_logoutInProgress || _loginInProgress) return;
     if (state.value != true) {
       // Only force logout/redirect when an active authenticated session expires.
       // Cold-start / SplashScreen token checks transition to /login via SplashScreen
@@ -89,12 +90,14 @@ class Auth extends _$Auth {
   }
 
   Future<void> _checkInitialAuth() async {
-    if (state.hasValue && state.value == true) return;
+    if (_loginInProgress || (state.hasValue && state.value == true)) return;
     try {
       final repository = ref.read(sharedAuthRepositoryProvider);
       final isLoggedIn = await repository.isLoggedIn();
+      if (_loginInProgress || (state.hasValue && state.value == true)) return;
       if (isLoggedIn) {
         final role = await repository.getUserRole();
+        if (_loginInProgress || (state.hasValue && state.value == true)) return;
         if (role == 'DRIVER') {
           _initPushInBackground();
           state = const AsyncValue.data(true);
@@ -103,8 +106,10 @@ class Auth extends _$Auth {
           await repository.logout();
         }
       }
+      if (_loginInProgress || (state.hasValue && state.value == true)) return;
       state = const AsyncValue.data(false);
     } catch (_) {
+      if (_loginInProgress || (state.hasValue && state.value == true)) return;
       // A storage hiccup should not strand the router on the loading splash.
       state = const AsyncValue.data(false);
     }
@@ -119,6 +124,7 @@ class Auth extends _$Auth {
   }
 
   Future<void> login(String email, String password) async {
+    _loginInProgress = true;
     state = const AsyncValue.loading();
     try {
       final repository = ref.read(sharedAuthRepositoryProvider);
@@ -135,10 +141,13 @@ class Auth extends _$Auth {
       } else {
         state = AsyncValue.error(e, st);
       }
+    } finally {
+      _loginInProgress = false;
     }
   }
 
   Future<void> loginWithGoogle() async {
+    _loginInProgress = true;
     state = const AsyncValue.loading();
     try {
       final idToken = await GoogleSignInService.getIdToken();
@@ -164,6 +173,8 @@ class Auth extends _$Auth {
       } else {
         state = AsyncValue.error(e, st);
       }
+    } finally {
+      _loginInProgress = false;
     }
   }
 
@@ -326,29 +337,40 @@ class Auth extends _$Auth {
       } catch (_) {}
 
       final repository = ref.read(sharedAuthRepositoryProvider);
-
       if (await repository.isLoggedIn()) {
-        final push = ref.read(pushNotificationServiceProvider);
         String? fcmToken;
         try {
-          fcmToken = await push
-              .getToken(waitForApns: false)
-              .timeout(const Duration(milliseconds: 500), onTimeout: () => null);
+          final push = ref.read(pushNotificationServiceProvider);
+          try {
+            fcmToken = await push
+                .getToken(waitForApns: false)
+                .timeout(const Duration(milliseconds: 500), onTimeout: () => null);
+          } catch (_) {}
+
+          unawaited(push.unsubscribeFromRoleTopics('DRIVER'));
         } catch (_) {}
 
-        unawaited(push.unsubscribeFromRoleTopics('DRIVER'));
-        unawaited(push.unregisterToken(token: fcmToken, waitForApns: false));
-
         try {
+          // `/auth/logout` revokes the session and deletes the supplied
+          // `fcmToken` atomically, avoiding a racing unawaited DELETE /devices
+          // 401 after tokens are cleared.
           await repository.logout(
             fcmToken: fcmToken,
             timeout: const Duration(seconds: 3),
           );
         } catch (_) {}
+      } else {
+        try {
+          unawaited(
+            ref
+                .read(pushNotificationServiceProvider)
+                .unsubscribeFromRoleTopics('DRIVER'),
+          );
+        } catch (_) {}
       }
 
-      _clearDriverState(postLoginState: AppStartupState.unauthenticated);
       state = const AsyncValue.data(false);
+      _clearDriverState(postLoginState: AppStartupState.unauthenticated);
       _goToLogin();
     } catch (e, st) {
       state = AsyncValue.error(e, st);

@@ -87,13 +87,18 @@ class CoreSocketService with WidgetsBindingObserver {
   }
 
   Future<void> init({String? forceToken, bool autoConnect = true}) async {
-    // Check if token is expired or about to expire (5 min buffer)
+    final existingToken =
+        forceToken ?? await appSecureStorage.read(key: 'access_token');
+    if (existingToken == null || existingToken.isEmpty) return;
+
+    // Check if token is expired or about to expire (1 min buffer)
     bool needsRefresh = await isTokenExpired();
     if (!needsRefresh) {
-      final token = await appSecureStorage.read(key: 'access_token');
-      if (token != null) {
-        final remaining = JwtDecoder.getRemainingTime(token);
+      try {
+        final remaining = JwtDecoder.getRemainingTime(existingToken);
         if (remaining.inSeconds < 60) needsRefresh = true;
+      } catch (_) {
+        needsRefresh = true;
       }
     }
 
@@ -109,7 +114,7 @@ class CoreSocketService with WidgetsBindingObserver {
 
     final token = forceToken ?? await appSecureStorage.read(key: 'access_token');
     
-    if (token == null) return;
+    if (token == null || token.isEmpty) return;
 
     // If already connected with the same token, don't re-init
     if (_socket != null && _socket!.connected && token == _connectedToken) {
@@ -224,6 +229,8 @@ class CoreSocketService with WidgetsBindingObserver {
   void disconnect() {
     _connectedToken = null;
     _socket?.disconnect();
+    _socket?.dispose();
+    _socket = null;
   }
 
   void dispose() {

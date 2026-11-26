@@ -145,8 +145,10 @@ class TokenService {
     if (accessToken.trim().isEmpty || refreshToken.trim().isEmpty) {
       throw Exception('auth.error.invalid_credentials');
     }
-    await SecureStorageHelper.writeSafely(_storage, 'access_token', accessToken);
+    // Persist refresh_token before access_token so any concurrent request that
+    // reads the new access_token is guaranteed to also see its refresh_token.
     await SecureStorageHelper.writeSafely(_storage, 'refresh_token', refreshToken);
+    await SecureStorageHelper.writeSafely(_storage, 'access_token', accessToken);
 
     // Confirm tokens can actually be read back from secure storage before
     // persisting profile metadata or establishing an authenticated session.

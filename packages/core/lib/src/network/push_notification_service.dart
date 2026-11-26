@@ -38,6 +38,7 @@ class PushNotificationService {
       (_localNotificationsLazy ??= FlutterLocalNotificationsPlugin());
 
   final DevicesPushNotificationsApi _devicesApi;
+  final Future<bool> Function()? _hasActiveSession;
   final StreamController<RemoteMessage> _openedAppController =
       StreamController<RemoteMessage>.broadcast();
   bool _initialized = false;
@@ -59,10 +60,12 @@ class PushNotificationService {
     Stream<RemoteMessage>? onMessageStream,
     Stream<RemoteMessage>? onMessageOpenedAppStream,
     Stream<bool>? connectivityChanges,
+    Future<bool> Function()? hasActiveSession,
   })  : _messagingOverride = messaging,
         _localNotificationsOverride = localNotifications,
         _onMessageOverride = onMessageStream,
-        _onMessageOpenedAppOverride = onMessageOpenedAppStream {
+        _onMessageOpenedAppOverride = onMessageOpenedAppStream,
+        _hasActiveSession = hasActiveSession {
     if (connectivityChanges != null) {
       _connectivitySub = connectivityChanges.listen((isOnline) {
         if (isOnline && _initialized) {
@@ -167,6 +170,7 @@ class PushNotificationService {
       // Attach listeners before fetching token so delayed APNs registration
       // on iOS never prevents token refresh, registration, or topic subscription.
       _tokenRefreshSub ??= _messaging.onTokenRefresh.listen((newToken) async {
+        if (!_initialized) return;
         debugPrint('FCM Token refreshed: $newToken');
         _topicsSubscribed = false;
         await _registerToken(newToken);
@@ -263,6 +267,14 @@ class PushNotificationService {
   Future<bool> _registerToken(String token) async {
     final trimmed = token.trim();
     if (trimmed.isEmpty) return false;
+    final sessionCheck = _hasActiveSession;
+    if (sessionCheck != null) {
+      try {
+        if (!await sessionCheck()) return false;
+      } catch (_) {
+        return false;
+      }
+    }
     try {
       final platform = kIsWeb
           ? RegisterDeviceDtoPlatformEnum.WEB
@@ -448,6 +460,7 @@ class PushNotificationService {
   }
 
   Future<void> unsubscribeFromRoleTopics(String? role) async {
+    _initialized = false;
     _pendingTopicRole = null;
     _topicsSubscribed = false;
     _registeredToken = null;

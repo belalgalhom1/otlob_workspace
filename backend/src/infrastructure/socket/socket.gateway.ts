@@ -14,6 +14,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EVENTS } from '../../common/events/event-names';
 import { SocketAuthService } from './socket-auth.service';
 import { RedisService } from '../redis/redis.service';
+import { isUserTokenRevoked } from '../../common/utils/token-revocation.util';
 
 @WebSocketGateway({
   namespace: 'events',
@@ -64,13 +65,17 @@ export class SocketGateway
       if (!payload?.sub) return next(new Error('Unauthorized'));
 
       // Fast sub-millisecond check in Redis for banned users or revoked sessions
-      const [isBanned, isRevokedSession, isRevokedUser] = await Promise.all([
+      const [isBanned, isRevokedSession, revokedUserMarker] = await Promise.all([
         this.redis.get(`banned:user:${payload.sub}`),
         payload.sid ? this.redis.get(`revoked:session:${payload.sid}`) : null,
         this.redis.get(`revoked:user:${payload.sub}`),
       ]);
 
-      if (isBanned || isRevokedSession || isRevokedUser) {
+      if (
+        isBanned ||
+        isRevokedSession ||
+        isUserTokenRevoked(revokedUserMarker, payload)
+      ) {
         return next(new Error('Unauthorized'));
       }
 

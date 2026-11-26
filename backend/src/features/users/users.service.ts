@@ -33,6 +33,7 @@ import { Role, VendorMemberRole, Prisma, DriverStatus } from '@prisma/client';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
 import { DriverManagersService } from '../drivers/driver-managers.service';
 import { isValidRegisteredVehicleType } from '../../common/orders/vehicle-eligibility.helper';
+import { createUserRevocationMarker } from '../../common/utils/token-revocation.util';
 
 // Fields returned for both self-service and admin reads (no password)
 const USER_SELECT = {
@@ -357,7 +358,7 @@ export class UsersService {
 
     await this.redis.set(
       `revoked:user:${userId}`,
-      '1',
+      createUserRevocationMarker(),
       this.getAccessExpirySeconds(),
     );
     await this.socketService.disconnectUser(userId);
@@ -682,7 +683,7 @@ export class UsersService {
     if (shouldRevokeSessions) {
       await this.redis.set(
         `revoked:user:${userId}`,
-        '1',
+        createUserRevocationMarker(),
         this.getAccessExpirySeconds(),
       );
       await this.socketService.disconnectUser(userId);
@@ -725,7 +726,7 @@ export class UsersService {
     );
     await this.redis.set(
       `revoked:user:${userId}`,
-      '1',
+      createUserRevocationMarker(),
       this.getAccessExpirySeconds(),
     );
     await this.socketService.disconnectUser(userId);
@@ -797,7 +798,7 @@ export class UsersService {
 
     await this.redis.set(
       `revoked:user:${userId}`,
-      '1',
+      createUserRevocationMarker(),
       this.getAccessExpirySeconds(),
     );
     await this.socketService.disconnectUser(userId);
@@ -854,7 +855,7 @@ export class UsersService {
     );
     await this.redis.set(
       `revoked:user:${userId}`,
-      '1',
+      createUserRevocationMarker(),
       this.getAccessExpirySeconds(),
     );
     await this.socketService.disconnectUser(userId);

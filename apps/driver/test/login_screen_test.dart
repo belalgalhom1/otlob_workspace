@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:core/core.dart';
 import 'package:data/data.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
+import 'package:driver/core/services/location_service.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/auth/presentation/pages/login_screen.dart';
 import 'package:driver/features/splash/presentation/splash_provider.dart';
@@ -13,8 +14,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ui_kit/ui_kit.dart';
 
 class _FakeDriverAuthRepo extends Fake implements SharedAuthRepository {
+  bool loggedIn = false;
+  final List<String?> loggedOutFcmTokens = [];
+
   @override
-  Future<bool> isLoggedIn() async => false;
+  Future<bool> isLoggedIn() async => loggedIn;
 
   @override
   Future<String?> getUserRole() async => 'DRIVER';
@@ -24,20 +28,31 @@ class _FakeDriverAuthRepo extends Fake implements SharedAuthRepository {
     String email,
     String password, {
     String? appType,
-  }) async =>
-      {
-        'access_token': 'fake-access',
-        'refresh_token': 'fake-refresh',
-        'user': {
-          'id': 'd1',
-          'role': 'DRIVER',
-          'driver': {
-            'id': 'drv1',
-            'status': 'OFFLINE',
-            'isApproved': true,
-          },
+  }) async {
+    loggedIn = true;
+    return {
+      'access_token': 'fake-access',
+      'refresh_token': 'fake-refresh',
+      'user': {
+        'id': 'd1',
+        'role': 'DRIVER',
+        'driver': {
+          'id': 'drv1',
+          'status': 'OFFLINE',
+          'isApproved': true,
         },
-      };
+      },
+    };
+  }
+
+  @override
+  Future<void> logout({
+    String? fcmToken,
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    loggedOutFcmTokens.add(fcmToken);
+    loggedIn = false;
+  }
 }
 
 class _FakeDriverProfileRepo extends Fake implements DriverProfileRepository {
@@ -63,13 +78,22 @@ class _FakeDriverOrdersRepo extends Fake implements DriverOrdersRepository {
 }
 
 class _FakeCoreSocketService extends Fake implements CoreSocketService {
+  int disconnectCalls = 0;
+
   @override
   Future<void> init({String? forceToken, bool autoConnect = true}) async {}
+
+  @override
+  void disconnect() {
+    disconnectCalls++;
+  }
 }
 
 class _HangingPushService extends Fake implements PushNotificationService {
   final Completer<void> initCompleter = Completer<void>();
   int initCalls = 0;
+  int unsubscribeCalls = 0;
+  int unregisterCalls = 0;
 
   @override
   Future<void> initialize() {
@@ -78,7 +102,32 @@ class _HangingPushService extends Fake implements PushNotificationService {
   }
 
   @override
+  Future<String?> getToken({bool waitForApns = true}) async => 'fcm-driver-1';
+
+  @override
   Future<void> subscribeToRoleTopics(String role) async {}
+
+  @override
+  Future<void> unsubscribeFromRoleTopics(String? role) async {
+    unsubscribeCalls++;
+  }
+
+  @override
+  Future<void> unregisterToken({
+    String? token,
+    bool waitForApns = true,
+  }) async {
+    unregisterCalls++;
+  }
+}
+
+class _FakeLocationService extends Fake implements LocationService {
+  int stopTrackingCalls = 0;
+
+  @override
+  Future<void> stopTracking() async {
+    stopTrackingCalls++;
+  }
 }
 
 class _TestAuth extends Auth {
@@ -274,6 +323,51 @@ void main() {
       // Driver status and approval were extracted from login payload without redundant GET /drivers/me
       expect(fakeProfileRepo.getMyProfileCalls, 0);
       expect(hangingPush.initCalls, 1);
+    },
+  );
+
+  test(
+    'Real Driver Auth.logout passes fcmToken to /auth/logout without racing unregisterToken and allows clean immediate re-login',
+    () async {
+      final fakeAuthRepo = _FakeDriverAuthRepo();
+      final fakeProfileRepo = _FakeDriverProfileRepo();
+      final fakeSocket = _FakeCoreSocketService();
+      final fakeLocation = _FakeLocationService();
+      final hangingPush = _HangingPushService();
+
+      final container = ProviderContainer(
+        overrides: [
+          sharedAuthRepositoryProvider.overrideWithValue(fakeAuthRepo),
+          driverProfileRepositoryProvider.overrideWithValue(fakeProfileRepo),
+          sharedLegalDocumentsRepositoryProvider
+              .overrideWithValue(_FakeDriverLegalRepo()),
+          driverOrdersRepositoryProvider
+              .overrideWithValue(_FakeDriverOrdersRepo()),
+          coreSocketServiceProvider.overrideWithValue(fakeSocket),
+          locationServiceProvider.overrideWithValue(fakeLocation),
+          pushNotificationServiceProvider.overrideWithValue(hangingPush),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(authProvider.notifier)
+          .login('driver@example.com', 'password123');
+      expect(container.read(authProvider).value, isTrue);
+
+      await container.read(authProvider.notifier).logout();
+      expect(container.read(authProvider).value, isFalse);
+      expect(fakeLocation.stopTrackingCalls, 1);
+      expect(fakeSocket.disconnectCalls, 1);
+      expect(hangingPush.unsubscribeCalls, 1);
+      expect(hangingPush.unregisterCalls, 0);
+      expect(fakeAuthRepo.loggedOutFcmTokens, ['fcm-driver-1']);
+
+      // Immediate re-login must succeed and remain authenticated.
+      await container
+          .read(authProvider.notifier)
+          .login('driver@example.com', 'password123');
+      expect(container.read(authProvider).value, isTrue);
     },
   );
 

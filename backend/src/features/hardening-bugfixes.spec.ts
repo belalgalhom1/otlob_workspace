@@ -82,7 +82,16 @@ describe('Backend Hardening Bugfix Regressions', () => {
         $transaction: jest.fn((fn: (t: any) => Promise<any>) => fn(tx)),
         session: { create: jest.fn() },
       };
-      const redis = { set: jest.fn() };
+      const redisStore = new Map<string, string>();
+      const redis = {
+        set: jest.fn((key: string, val: string) => {
+          redisStore.set(key, val);
+          return Promise.resolve();
+        }),
+        get: jest.fn((key: string) =>
+          Promise.resolve(redisStore.get(key) ?? null),
+        ),
+      };
       const socketService = { disconnectUser: jest.fn() };
       const accessJwt = { signAsync: jest.fn().mockResolvedValue('acc-tok') };
       const refreshJwt = { signAsync: jest.fn().mockResolvedValue('ref-tok') };
@@ -121,7 +130,14 @@ describe('Backend Hardening Bugfix Regressions', () => {
       expect(tx.session.deleteMany).toHaveBeenCalledWith({
         where: { userId: 'u-1' },
       });
-      expect(redis.set).toHaveBeenCalledWith('revoked:user:u-1', '1', 900);
+      expect(redis.set).toHaveBeenCalledWith(
+        'revoked:user:u-1',
+        expect.stringMatching(/^\d{13,}$/),
+        900,
+      );
+      const revokedMarker = Number(redisStore.get('revoked:user:u-1'));
+      const signedPayload = accessJwt.signAsync.mock.calls[0][0];
+      expect(signedPayload.iatMs).toBeGreaterThan(revokedMarker);
       expect(socketService.disconnectUser).toHaveBeenCalledWith('u-1');
     });
   });

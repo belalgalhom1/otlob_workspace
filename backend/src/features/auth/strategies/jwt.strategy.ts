@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../../infrastructure/redis/redis.service';
 import { JwtAccessPayload } from '../../../common/interfaces/jwt-payload.interface';
 import { AuthErrors } from '../../../common/constants/response.constants';
+import { isUserTokenRevoked } from '../../../common/utils/token-revocation.util';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -25,7 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     // Fast sub-millisecond RAM check in Redis for banned users or revoked sessions
-    const [isBanned, isRevokedSession, isRevokedUser] = await Promise.all([
+    const [isBanned, isRevokedSession, revokedUserMarker] = await Promise.all([
       this.redis.get(`banned:user:${payload.sub}`),
       this.redis.get(`revoked:session:${payload.sid}`),
       this.redis.get(`revoked:user:${payload.sub}`),
@@ -35,7 +36,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException(AuthErrors.BANNED);
     }
 
-    if (isRevokedSession || isRevokedUser) {
+    if (isRevokedSession || isUserTokenRevoked(revokedUserMarker, payload)) {
       throw new UnauthorizedException(AuthErrors.SESSION_EXPIRED);
     }
 
