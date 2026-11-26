@@ -4801,6 +4801,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No manual wallet adjustments yet'**
   String get noAdjustmentsYet;
+
+  /// No description provided for @driverStatusOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get driverStatusOnline;
+
+  /// No description provided for @driverStatusOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get driverStatusOffline;
+
+  /// No description provided for @driverStatusBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Busy'**
+  String get driverStatusBusy;
+
+  /// No description provided for @driverStatusBusyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You are Busy'**
+  String get driverStatusBusyTitle;
+
+  /// No description provided for @driverStatusBusySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish your active priority or wait for availability to resume.'**
+  String get driverStatusBusySubtitle;
+
+  /// No description provided for @driverStatusOnTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'On a Trip'**
+  String get driverStatusOnTrip;
+
+  /// No description provided for @driverStatusOnTripTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You are on a Trip'**
+  String get driverStatusOnTripTitle;
+
+  /// No description provided for @driverStatusOnTripSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'High-accuracy live GPS tracking is active for your delivery.'**
+  String get driverStatusOnTripSubtitle;
+
+  /// No description provided for @driverStatusOnBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'On Break'**
+  String get driverStatusOnBreak;
+
+  /// No description provided for @driverStatusSuspendedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Account Suspended'**
+  String get driverStatusSuspendedTitle;
+
+  /// No description provided for @driverStatusSuspendedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve your account status to continue receiving orders.'**
+  String get driverStatusSuspendedSubtitle;
+
+  /// No description provided for @liveMapTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Location'**
+  String get liveMapTitle;
+
+  /// No description provided for @liveMapCenterButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Center on me'**
+  String get liveMapCenterButton;
+
+  /// No description provided for @liveMapLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Acquiring real GPS location...'**
+  String get liveMapLoading;
+
+  /// No description provided for @liveMapGpsDisabledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS is turned off'**
+  String get liveMapGpsDisabledTitle;
+
+  /// No description provided for @liveMapGpsDisabledSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on device location to display your vehicle on the map.'**
+  String get liveMapGpsDisabledSubtitle;
+
+  /// No description provided for @liveMapPermissionDeniedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission required'**
+  String get liveMapPermissionDeniedTitle;
+
+  /// No description provided for @liveMapPermissionDeniedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow location access to display your live GPS position.'**
+  String get liveMapPermissionDeniedSubtitle;
+
+  /// No description provided for @liveMapPermissionDeniedForeverSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission is permanently denied. Enable it in app settings.'**
+  String get liveMapPermissionDeniedForeverSubtitle;
+
+  /// No description provided for @liveMapErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to acquire GPS signal'**
+  String get liveMapErrorTitle;
+
+  /// No description provided for @liveMapAllowAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Location'**
+  String get liveMapAllowAction;
+
+  /// No description provided for @liveMapOpenSettingsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get liveMapOpenSettingsAction;
+
+  /// No description provided for @liveMapRetryAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get liveMapRetryAction;
 }
 
 class _AppLocalizationsDelegate

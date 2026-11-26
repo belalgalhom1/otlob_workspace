@@ -12,6 +12,7 @@ import 'package:driver/features/order_execution/presentation/order_execution_pro
 import 'package:driver/core/providers/driver_breaks_provider.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/ranking/presentation/driver_ranking_provider.dart';
+import 'package:driver/features/wallet/presentation/wallet_provider.dart';
 import 'package:driver/core/router/app_router.dart';
 
 class _DispatchLifecycleObserver with WidgetsBindingObserver {
@@ -83,6 +84,15 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     if (data is! Map) return;
     final kind = data['kind']?.toString();
     final action = data['action']?.toString();
+    final reason = data['reason']?.toString();
+    if (reason == 'SETTLEMENT_REQUIRED' ||
+        reason == 'UNPAID_COMMISSION' ||
+        kind == 'wallet_topup' ||
+        data['topUpRequestId'] != null) {
+      ref.invalidate(driverProfileProvider);
+      ref.invalidate(driverWalletProvider);
+      return;
+    }
     if (kind == 'break') {
       debugPrint('Global listener: break notification -> refreshing breaks overview');
       ref.invalidate(breaksOverviewProvider);
@@ -138,6 +148,13 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     ref.invalidate(driverRankingSummaryProvider);
   }));
 
+  subscriptions.add(socketService.onEvent(SocketEvent.driverStatusChanged).listen((_) {
+    if (!ref.mounted) return;
+    debugPrint('Global listener: driverStatusChanged -> refreshing driver profile');
+    ref.invalidate(driverProfileProvider);
+    ref.invalidate(breaksOverviewProvider);
+  }));
+
   bool isAuthenticatedSession() =>
       ref.mounted && ref.read(authProvider).value == true;
 
@@ -168,7 +185,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
             ? profileValue['data']
             : profileValue;
         final status = data['status']?.toString();
-        if (status == 'ONLINE' || status == 'ON_DELIVERY') {
+        if (status == 'ONLINE' || status == 'ON_DELIVERY' || status == 'BUSY') {
           ref.read(coreSocketServiceProvider).connect();
           ref.read(locationServiceProvider).startTracking();
         }
@@ -254,7 +271,8 @@ final globalMessageListenerProvider = Provider<void>((ref) {
 
   void syncDispatchSweep(Object? profileData) {
     final status = profileStatusOf(profileData);
-    final shouldRun = status == 'ONLINE' || status == 'ON_DELIVERY';
+    final shouldRun =
+        status == 'ONLINE' || status == 'ON_DELIVERY' || status == 'BUSY';
     if (shouldRun && dispatchSweepTimer == null) {
       debugPrint('📍 Dispatch sweep started (driver $status)');
       dispatchSweepTimer = Timer.periodic(const Duration(seconds: 10), (_) {

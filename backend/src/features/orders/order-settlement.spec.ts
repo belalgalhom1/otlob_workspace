@@ -55,6 +55,7 @@ describe('OrderSettlementService', () => {
     driverSnapshot?: {
       walletBalance?: number;
       ordersSinceSettlement?: number;
+      hasUnpaidCommission?: boolean;
       status?: DriverStatus;
       userId?: string;
     };
@@ -119,6 +120,8 @@ describe('OrderSettlementService', () => {
             walletBalance: options?.driverSnapshot?.walletBalance ?? 0,
             ordersSinceSettlement:
               options?.driverSnapshot?.ordersSinceSettlement ?? 0,
+            hasUnpaidCommission:
+              options?.driverSnapshot?.hasUnpaidCommission ?? false,
           });
         }),
         update: jest.fn().mockImplementation(({ where, data }: any) => {
@@ -555,6 +558,298 @@ describe('OrderSettlementService', () => {
       newStatus: DriverStatus.ONLINE,
       reason: 'SETTLEMENT_REQUIRED',
     });
+  });
+
+  it('allows orders 1..9 with negative balance when threshold is 10 and locks only on order 10', async () => {
+    let statefulDriver = {
+      id: 'driver-1',
+      userId: 'drv-user-10',
+      status: DriverStatus.ONLINE,
+      walletBalance: 0,
+      ordersSinceSettlement: 0,
+      hasUnpaidCommission: false,
+    };
+    let settledOrderIds = new Set<string>();
+    const eventEmit = jest.fn();
+
+    const platformSettings = {
+      getSettings: jest.fn().mockResolvedValue({
+        maxNegativeDriverBalance: 500,
+        driverSettlementOrderThreshold: 10,
+        deliveryCommissionRate: 20,
+        driverManagerCommissionRate: 10,
+        defaultTaxRate: 14,
+      }),
+    } as any;
+
+    const txClient: any = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      order: {
+        findUnique: jest.fn().mockImplementation(({ where }: any) =>
+          Promise.resolve({
+            settledAt: settledOrderIds.has(where.id) ? new Date() : null,
+            status: 'DELIVERED' as any,
+          }),
+        ),
+        update: jest.fn().mockImplementation(({ where }: any) => {
+          settledOrderIds.add(where.id);
+          return Promise.resolve({ id: where.id });
+        }),
+      },
+      orderDeliveryGroup: {
+        update: jest.fn().mockResolvedValue({}),
+      },
+      orderVendorFulfillment: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      orderDeliveryGroupItem: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      driver: {
+        findUnique: jest
+          .fn()
+          .mockImplementation(() => Promise.resolve({ ...statefulDriver })),
+        update: jest.fn().mockImplementation(({ data }: any) => {
+          if (data.walletBalance?.increment !== undefined) {
+            statefulDriver.walletBalance += data.walletBalance.increment;
+          }
+          if (data.ordersSinceSettlement?.increment !== undefined) {
+            statefulDriver.ordersSinceSettlement +=
+              data.ordersSinceSettlement.increment;
+          }
+          if (data.hasUnpaidCommission !== undefined) {
+            statefulDriver.hasUnpaidCommission = data.hasUnpaidCommission;
+          }
+          if (data.status !== undefined) {
+            statefulDriver.status = data.status;
+          }
+          return Promise.resolve({ ...statefulDriver });
+        }),
+      },
+      driverWalletTransaction: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'tx-1' }),
+      },
+      vendor: { update: jest.fn().mockResolvedValue({ walletBalance: 0 }) },
+      vendorWalletTransaction: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+      },
+      customer: {
+        update: jest.fn().mockResolvedValue({ coinBalance: 0 }),
+      },
+      customerCoinTransaction: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+      },
+      driverTierHistory: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+
+    const prisma: any = {
+      order: {
+        findUnique: txClient.order.findUnique,
+      },
+      orderDeliveryGroup: { findMany: jest.fn().mockResolvedValue([]) },
+      driver: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'driver-1', tier: 'SILVER' }]),
+        findUnique: jest.fn().mockResolvedValue({ tier: 'SILVER' }),
+      },
+      driverManagerAssignment: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      driverManagerZoneAssignment: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      driverManager: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      orderVendorFulfillment: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn(async (cb: any) => cb(txClient)),
+    };
+
+    const statsQueue: any = { add: jest.fn().mockResolvedValue(undefined) };
+    const eventEmitter = { emit: eventEmit } as unknown as EventEmitter2;
+    const earningsCalculator: any = {
+      computeDriverShare: jest.fn().mockReturnValue(0.8),
+    };
+    const service = new OrderSettlementService(
+      prisma,
+      platformSettings,
+      eventEmitter,
+      statsQueue,
+      earningsCalculator,
+    );
+
+    // Complete 9 COD-like orders leaving negative commission debt above lockout floor (-500)
+    for (let i = 1; i <= 9; i++) {
+      await service.settleOrder(
+        makePayload({
+          orderId: `order-${i}`,
+          orderNumber: `ORD-${i}`,
+          grandTotal: 40,
+          deliveryFee: 20,
+          subtotal: 20,
+          paymentMethod: 'CASH_ON_DELIVERY',
+        }),
+      );
+      expect(statefulDriver.ordersSinceSettlement).toBe(i);
+      expect(statefulDriver.hasUnpaidCommission).toBe(false);
+      expect(statefulDriver.walletBalance).toBeLessThan(0);
+    }
+
+    expect(
+      eventEmit.mock.calls.filter((c) => c[0] === EVENTS.DRIVER_STATUS_CHANGED),
+    ).toHaveLength(0);
+
+    // 10th eligible completed order triggers SETTLEMENT_REQUIRED
+    await service.settleOrder(
+      makePayload({
+        orderId: 'order-10',
+        orderNumber: 'ORD-10',
+        grandTotal: 40,
+        deliveryFee: 20,
+        subtotal: 20,
+        paymentMethod: 'CASH_ON_DELIVERY',
+      }),
+    );
+
+    expect(statefulDriver.ordersSinceSettlement).toBe(10);
+    expect(statefulDriver.hasUnpaidCommission).toBe(true);
+    expect(statefulDriver.status).toBe(DriverStatus.ONLINE);
+    const statusCallsAfter10 = eventEmit.mock.calls.filter(
+      (c) => c[0] === EVENTS.DRIVER_STATUS_CHANGED,
+    );
+    expect(statusCallsAfter10).toHaveLength(1);
+    expect(statusCallsAfter10[0][1]).toMatchObject({
+      reason: 'SETTLEMENT_REQUIRED',
+    });
+
+    // An in-flight 11th order preserves lock without emitting a duplicate SETTLEMENT_REQUIRED notification
+    await service.settleOrder(
+      makePayload({
+        orderId: 'order-11',
+        orderNumber: 'ORD-11',
+        grandTotal: 40,
+        deliveryFee: 20,
+        subtotal: 20,
+        paymentMethod: 'CASH_ON_DELIVERY',
+      }),
+    );
+    expect(statefulDriver.ordersSinceSettlement).toBe(11);
+    expect(statefulDriver.hasUnpaidCommission).toBe(true);
+    expect(
+      eventEmit.mock.calls.filter((c) => c[0] === EVENTS.DRIVER_STATUS_CHANGED),
+    ).toHaveLength(1);
+  });
+
+  it.each([
+    { threshold: 1, safeCount: 0, triggerAt: 1 },
+    { threshold: 5, safeCount: 4, triggerAt: 5 },
+    { threshold: 10, safeCount: 9, triggerAt: 10 },
+  ])(
+    'enforces dynamic threshold=$threshold (unlocked at order $safeCount, requires settlement at $triggerAt)',
+    async ({ threshold, safeCount, triggerAt }) => {
+      if (safeCount > 0) {
+        const beforeHarness = createHarness({
+          driverSnapshot: {
+            walletBalance: -80,
+            ordersSinceSettlement: safeCount - 1,
+            hasUnpaidCommission: false,
+            status: DriverStatus.ONLINE,
+          },
+          settings: {
+            maxNegativeDriverBalance: 500,
+            driverSettlementOrderThreshold: threshold,
+          },
+        });
+        await beforeHarness.service.settleOrder(makePayload());
+        const beforeUpdate = beforeHarness.driverUpdates.find(
+          (u) => 'totalOrders' in u.data,
+        );
+        expect(beforeUpdate?.data.hasUnpaidCommission).toBe(false);
+        expect(
+          beforeHarness.eventEmit.mock.calls.filter(
+            (c) => c[0] === EVENTS.DRIVER_STATUS_CHANGED,
+          ),
+        ).toHaveLength(0);
+      }
+
+      const atThresholdHarness = createHarness({
+        driverSnapshot: {
+          walletBalance: -80,
+          ordersSinceSettlement: triggerAt - 1,
+          hasUnpaidCommission: false,
+          status: DriverStatus.ONLINE,
+        },
+        settings: {
+          maxNegativeDriverBalance: 500,
+          driverSettlementOrderThreshold: threshold,
+        },
+      });
+      await atThresholdHarness.service.settleOrder(makePayload());
+      const triggerUpdate = atThresholdHarness.driverUpdates.find(
+        (u) => 'totalOrders' in u.data,
+      );
+      expect(triggerUpdate?.data.hasUnpaidCommission).toBe(true);
+      expect(
+        atThresholdHarness.eventEmit.mock.calls.filter(
+          (c) => c[0] === EVENTS.DRIVER_STATUS_CHANGED,
+        )[0][1],
+      ).toMatchObject({ reason: 'SETTLEMENT_REQUIRED' });
+    },
+  );
+
+  it('does not trigger threshold settlement when threshold=0 unless maxNegative floor is breached', async () => {
+    const h = createHarness({
+      driverSnapshot: {
+        walletBalance: -250,
+        ordersSinceSettlement: 25,
+        hasUnpaidCommission: false,
+        status: DriverStatus.ONLINE,
+      },
+      settings: {
+        maxNegativeDriverBalance: 500,
+        driverSettlementOrderThreshold: 0,
+      },
+    });
+
+    await h.service.settleOrder(makePayload());
+    const counterUpdate = h.driverUpdates.find((u) => 'totalOrders' in u.data);
+    expect(counterUpdate?.data.hasUnpaidCommission).toBe(false);
+  });
+
+  it('does not count cancelled/non-delivered orders toward ordersSinceSettlement', async () => {
+    const h = createHarness({
+      driverSnapshot: {
+        walletBalance: -50,
+        ordersSinceSettlement: 9,
+        hasUnpaidCommission: false,
+        status: DriverStatus.ONLINE,
+      },
+      settings: {
+        maxNegativeDriverBalance: 500,
+        driverSettlementOrderThreshold: 10,
+      },
+    });
+    // Simulate a CANCELLED order reaching settlement queue
+    const prismaFindUnique = jest.fn().mockResolvedValue({
+      settledAt: null,
+      status: 'CANCELLED',
+    });
+    const serviceAny = h.service as any;
+    serviceAny.prisma.order.findUnique = prismaFindUnique;
+
+    await h.service.settleOrder(makePayload());
+    expect(h.driverUpdates).toHaveLength(0);
+    expect(
+      h.eventEmit.mock.calls.filter((c) => c[0] === EVENTS.DRIVER_STATUS_CHANGED),
+    ).toHaveLength(0);
   });
 
   it('uses single-vendor driverShare and supervisorCommissionRate when a grouped order has 1 group and 1 fulfillment', async () => {

@@ -108,15 +108,6 @@ class WalletScreen extends ConsumerWidget {
                         }),
                         const SizedBox(height: 24),
                       ],
-                      if (adjustments.isNotEmpty) ...[
-                        _buildAdjustmentHistorySection(
-                          context,
-                          adjustments,
-                          currency,
-                          l10n,
-                        ),
-                        const SizedBox(height: 24),
-                      ],
                       Text(
                         l10n.recentTransactions,
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
@@ -143,6 +134,18 @@ class WalletScreen extends ConsumerWidget {
                       return _buildTransactionItem(context, tx, l10n);
                     },
                     childCount: transactions.length,
+                  ),
+                ),
+              if (adjustments.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                    child: _buildAdjustmentHistorySection(
+                      context,
+                      adjustments,
+                      currency,
+                      l10n,
+                    ),
                   ),
                 ),
               const SliverSafeArea(

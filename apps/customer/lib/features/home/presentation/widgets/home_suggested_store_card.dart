@@ -193,31 +193,31 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                         horizontal: 8,
                                         vertical: 2.5,
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: isOpen
-                                            ? HomeDesignTokens.gold
-                                            : Colors.black.withValues(
-                                                alpha: 0.65,
-                                              ),
-                                        borderRadius:
-                                            BorderRadius.circular(999),
-                                        border: isOpen
-                                            ? null
-                                            : Border.all(
-                                                color: palette.borderSubtle,
-                                              ),
-                                      ),
-                                      child: Text(
-                                        statusLabel,
-                                        style: HomeDesignTokens.text(
-                                          size: 9.5,
-                                          weight: FontWeight.w900,
+                                        decoration: BoxDecoration(
                                           color: isOpen
-                                              ? HomeDesignTokens.darkOnGold
-                                              : const Color(0xFFF87171),
-                                          height: 1.1,
+                                              ? HomeDesignTokens.gold
+                                              : palette.discountBgRed,
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                          border: isOpen
+                                              ? null
+                                              : Border.all(
+                                                  color:
+                                                      palette.discountBorderRed,
+                                                ),
                                         ),
-                                      ),
+                                        child: Text(
+                                          statusLabel,
+                                          style: HomeDesignTokens.text(
+                                            size: 9.5,
+                                            weight: FontWeight.w900,
+                                            color: isOpen
+                                                ? HomeDesignTokens.darkOnGold
+                                                : palette.discountTextRed,
+                                            height: 1.1,
+                                          ),
+                                        ),
                                     ),
                                     // Favorite Button (24x24)
                                     GestureDetector(
@@ -343,7 +343,7 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                         style: HomeDesignTokens.numeric(
                                           size: 11.0,
                                           weight: FontWeight.w800,
-                                          color: palette.goldText,
+                                          color: palette.textPrimary,
                                           height: 1.1,
                                         ),
                                       ),

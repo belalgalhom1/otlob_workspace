@@ -126,9 +126,22 @@ void main() {
 
         expect(tester.takeException(), isNull);
 
-        final expectedHeader = locale.languageCode == 'ar'
-            ? 'سجل التسويات'
-            : 'Adjustment History';
+        final l10n = AppLocalizations.of(
+          tester.element(find.byType(WalletScreen)),
+        )!;
+        final historyTitle = l10n.recentTransactions;
+        expect(find.text(historyTitle), findsOneWidget);
+
+        final expectedHeader = l10n.adjustmentHistory;
+
+        // Adjustment History now sits below Recent Transactions; scroll down to bring it into view
+        await tester.scrollUntilVisible(
+          find.text(expectedHeader),
+          200.0,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+
         expect(find.text(expectedHeader), findsOneWidget);
         expect(find.text(longAdminNote), findsWidgets);
         final expectedCurr = locale.languageCode == 'ar' ? 'ج.م' : 'EGP';
@@ -143,6 +156,47 @@ void main() {
 
         // Verify empty note card renders no empty message/note block
         expect(find.text('   '), findsNothing);
+
+        // On a taller viewport where both headers fit, assert Adjustments is strictly below History
+        await _pumpDriverTestApp(
+          tester,
+          locale: locale,
+          viewport: const Size(412, 1200),
+          textScaler: const TextScaler.linear(1.0),
+          overrides: [
+            driverWalletProvider.overrideWith(
+              () => _FakeDriverWallet({
+                'balance': 345.0,
+                'topUpRequests': <dynamic>[],
+                'driverWallets': <dynamic>[],
+                'transactions': [
+                  {
+                    'id': 'tx-adj-with-note',
+                    'type': 'BONUS',
+                    'amount': 120.0,
+                    'balanceAfter': 345.0,
+                    'isManualAdjustment': true,
+                    'note': longAdminNote,
+                    'createdAt': '2026-11-20T03:30:00.000Z',
+                  },
+                  {
+                    'id': 'tx-delivery-1',
+                    'type': 'DELIVERY_FEE',
+                    'amount': 50.0,
+                    'balanceAfter': 250.0,
+                    'isManualAdjustment': false,
+                    'createdAt': '2026-11-19T12:00:00.000Z',
+                  },
+                ],
+              }),
+            ),
+          ],
+          child: const WalletScreen(),
+        );
+
+        final historyDy = tester.getTopLeft(find.text(historyTitle)).dy;
+        final adjustmentsDy = tester.getTopLeft(find.text(expectedHeader)).dy;
+        expect(adjustmentsDy, greaterThan(historyDy));
       },
     );
   }

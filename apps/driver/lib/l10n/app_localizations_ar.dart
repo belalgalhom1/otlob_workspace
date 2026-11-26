@@ -2454,4 +2454,79 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get noAdjustmentsYet => 'لا توجد تسويات يدوية بعد';
+
+  @override
+  String get driverStatusOnline => 'متصل';
+
+  @override
+  String get driverStatusOffline => 'غير متصل';
+
+  @override
+  String get driverStatusBusy => 'مشغول';
+
+  @override
+  String get driverStatusBusyTitle => 'أنت مشغول حالياً';
+
+  @override
+  String get driverStatusBusySubtitle =>
+      'أكمل مهمتك الحالية أو استعد لاستقبال الطلبات.';
+
+  @override
+  String get driverStatusOnTrip => 'في رحلة توصيل';
+
+  @override
+  String get driverStatusOnTripTitle => 'أنت في رحلة توصيل';
+
+  @override
+  String get driverStatusOnTripSubtitle =>
+      'تتبع GPS عالي الدقة نشط حالياً أثناء رحلتك.';
+
+  @override
+  String get driverStatusOnBreak => 'في استراحة';
+
+  @override
+  String get driverStatusSuspendedTitle => 'الحساب موقوف';
+
+  @override
+  String get driverStatusSuspendedSubtitle =>
+      'يرجى تسوية وضع الحساب لاستمرار استقبال الطلبات.';
+
+  @override
+  String get liveMapTitle => 'الموقع المباشر';
+
+  @override
+  String get liveMapCenterButton => 'توسيط موقعي';
+
+  @override
+  String get liveMapLoading => 'جاري تحديد موقع GPS الحقيقي...';
+
+  @override
+  String get liveMapGpsDisabledTitle => 'خدمة الموقع مغلقة';
+
+  @override
+  String get liveMapGpsDisabledSubtitle =>
+      'فعّل خدمات الموقع على جهازك لعرض مركبتك على الخريطة.';
+
+  @override
+  String get liveMapPermissionDeniedTitle => 'صلاحية الموقع مطلوبة';
+
+  @override
+  String get liveMapPermissionDeniedSubtitle =>
+      'اسمح للتطبيق بالوصول إلى الموقع لعرض موقعك الحقيقي.';
+
+  @override
+  String get liveMapPermissionDeniedForeverSubtitle =>
+      'تم رفض صلاحية الموقع نهائياً. يمكنك تفعيلها من إعدادات التطبيق.';
+
+  @override
+  String get liveMapErrorTitle => 'تعذر تحديد موقع GPS';
+
+  @override
+  String get liveMapAllowAction => 'السماح بالموقع';
+
+  @override
+  String get liveMapOpenSettingsAction => 'فتح الإعدادات';
+
+  @override
+  String get liveMapRetryAction => 'إعادة المحاولة';
 }

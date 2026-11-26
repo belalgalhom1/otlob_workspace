@@ -196,6 +196,7 @@ describe('Driver Adjustments (WalletTopUpRequest) Push Notification Lifecycle', 
             walletBalance: -150,
             user: { name: 'Karim Hassan' },
           }),
+          update: jest.fn(),
         },
         driverWalletTransaction: { create: jest.fn() },
       };
@@ -235,6 +236,133 @@ describe('Driver Adjustments (WalletTopUpRequest) Push Notification Lifecycle', 
           amount: 400,
           notes: 'Screenshot is blurry and missing reference',
           unsuspended: false,
+        }),
+      );
+      expect(tx.driver.update).not.toHaveBeenCalled();
+    });
+
+    it('keeps settlement lock and counter intact after a partial top-up, and resets counter once full debt is cleared', async () => {
+      const partialDriverUpdate = jest.fn().mockResolvedValue({
+        walletBalance: -150,
+        userId: 'u-drv-10',
+        status: DriverStatus.ONLINE,
+      });
+      const partialTx: any = {
+        $executeRaw: jest.fn().mockResolvedValue(1),
+        walletTopUpRequest: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'req-partial',
+            status: 'APPROVED',
+            notes: null,
+          }),
+        },
+        driver: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'drv-10',
+            userId: 'u-drv-10',
+            name: 'Sami',
+            status: DriverStatus.ONLINE,
+            hasUnpaidCommission: true,
+            ordersSinceSettlement: 10,
+            user: { name: 'Sami' },
+          }),
+          update: partialDriverUpdate,
+        },
+        platformSetting: {
+          findFirst: jest.fn().mockResolvedValue({
+            maxNegativeDriverBalance: 500,
+            driverSettlementOrderThreshold: 10,
+          }),
+        },
+        driverWalletTransaction: { create: jest.fn().mockResolvedValue({}) },
+      };
+
+      const partialService = new WalletService(
+        {
+          walletTopUpRequest: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'req-partial',
+              driverId: 'drv-10',
+              amount: 50,
+              status: 'PENDING',
+              platformWallet: { type: 'INSTAPAY', number: 'otlob@instapay' },
+            }),
+          },
+          $transaction: jest.fn((cb: any) => cb(partialTx)),
+        } as any,
+        { emit: jest.fn() } as any,
+        {} as any,
+        {} as any,
+      );
+
+      await partialService.reviewTopUpRequest('sa-1', 'req-partial', {
+        status: 'APPROVED',
+      });
+
+      const partialStateWrite = partialDriverUpdate.mock.calls[1][0].data;
+      expect(partialStateWrite.hasUnpaidCommission).toBe(true);
+      expect(partialStateWrite.ordersSinceSettlement).toBeUndefined();
+
+      // Now settle the remaining debt so walletBalance >= 0
+      const fullDriverUpdate = jest.fn().mockResolvedValue({
+        walletBalance: 0,
+        userId: 'u-drv-10',
+        status: DriverStatus.ONLINE,
+      });
+      const fullTx: any = {
+        ...partialTx,
+        walletTopUpRequest: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'req-full',
+            status: 'APPROVED',
+            notes: null,
+          }),
+        },
+        driver: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'drv-10',
+            userId: 'u-drv-10',
+            name: 'Sami',
+            status: DriverStatus.ONLINE,
+            hasUnpaidCommission: true,
+            ordersSinceSettlement: 10,
+            user: { name: 'Sami' },
+          }),
+          update: fullDriverUpdate,
+        },
+      };
+      const fullEventEmit = jest.fn();
+      const fullService = new WalletService(
+        {
+          walletTopUpRequest: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'req-full',
+              driverId: 'drv-10',
+              amount: 150,
+              status: 'PENDING',
+              platformWallet: { type: 'INSTAPAY', number: 'otlob@instapay' },
+            }),
+          },
+          $transaction: jest.fn((cb: any) => cb(fullTx)),
+        } as any,
+        { emit: fullEventEmit } as any,
+        {} as any,
+        {} as any,
+      );
+
+      await fullService.reviewTopUpRequest('sa-1', 'req-full', {
+        status: 'APPROVED',
+      });
+
+      const fullStateWrite = fullDriverUpdate.mock.calls[1][0].data;
+      expect(fullStateWrite.hasUnpaidCommission).toBe(false);
+      expect(fullStateWrite.ordersSinceSettlement).toBe(0);
+      expect(fullEventEmit).toHaveBeenCalledWith(
+        EVENTS.DRIVER_STATUS_CHANGED,
+        expect.objectContaining({
+          reason: 'UNPAID_COMMISSION_SETTLED',
         }),
       );
     });

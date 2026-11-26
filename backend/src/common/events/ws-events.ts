@@ -31,6 +31,7 @@ export const WS_EVENTS = {
   // Driver
   DRIVER_LOCATION: 'driver.location',
   DRIVER_RANK_UPDATED: 'driver.rank.updated',
+  DRIVER_STATUS_CHANGED: 'driver.status.changed',
 
   // Platform Settings
   PLATFORM_SETTINGS_UPDATED: 'platform.settings.updated',

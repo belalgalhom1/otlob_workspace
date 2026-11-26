@@ -238,6 +238,7 @@ Future<void> _pumpHome(
 
   await tester.pumpWidget(
     EasyLocalization(
+      key: ValueKey('easy_${locale.languageCode}_${themeMode.name}'),
       supportedLocales: const [Locale('en'), Locale('ar')],
       path: 'translations',
       fallbackLocale: const Locale('en'),
@@ -524,7 +525,7 @@ void main() {
     final darkScaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(darkScaffold.backgroundColor, const Color(0xFF0F0E0C));
     final darkAllLabel = tester.widget<Text>(find.text('الكل'));
-    expect(darkAllLabel.style?.color, const Color(0xFFE5A93C));
+    expect(darkAllLabel.style?.color, const Color(0xFFFFFFFF));
 
     // Header falls back to main app logo inside a circular gold ring when user has no uploaded avatar
     expect(find.byKey(const ValueKey('home_header_main_logo')), findsOneWidget);
@@ -565,7 +566,7 @@ void main() {
     final lightScaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(lightScaffold.backgroundColor, const Color(0xFFF7F6F2));
     final lightAllLabel = tester.widget<Text>(find.text('الكل'));
-    expect(lightAllLabel.style?.color, const Color(0xFFB87B14));
+    expect(lightAllLabel.style?.color, const Color(0xFF11100E));
 
     expect(find.byKey(const ValueKey('home_header_main_logo')), findsOneWidget);
     expect(find.byKey(const ValueKey('home_all_main_logo')), findsOneWidget);
@@ -1009,6 +1010,98 @@ void main() {
             .where((s) => s.axis == Axis.vertical),
         isEmpty,
       );
+    },
+  );
+
+  testWidgets(
+    'HomeScreen displays Nearby Vendors instead of Suggested for You and uses readable white texts in Dark Mode and dark texts in Light Mode',
+    (tester) async {
+      // 1. Dark Mode (English)
+      await _pumpHome(
+        tester,
+        viewport: const Size(390, 844),
+        safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+        locale: const Locale('en'),
+        themeMode: ThemeMode.dark,
+      );
+
+      expect(find.text('Nearby Vendors'), findsOneWidget);
+      expect(find.text('Suggested for You'), findsNothing);
+      expect(find.text('Suggested for you'), findsNothing);
+
+      // Verify key texts are crisp white in dark mode
+      for (final textToCheck in [
+        'Nearby Vendors',
+        'Hot Deals',
+        'See All',
+        'All',
+        'Burger King',
+        '40',
+        '4.9',
+        '105',
+        'Home',
+      ]) {
+        final finder = find.textContaining(textToCheck);
+        expect(finder, findsWidgets, reason: 'Missing text "$textToCheck"');
+        final w = tester.widget<Text>(finder.first);
+        final c = w.style?.color;
+        expect(c, isNotNull, reason: 'Missing style color for "$textToCheck"');
+        expect(
+          c!.computeLuminance(),
+          greaterThan(0.65),
+          reason:
+              'Expected light/white text in Dark Mode for "$textToCheck", got $c',
+        );
+      }
+
+      // 2. Dark Mode (Arabic)
+      await _pumpHome(
+        tester,
+        viewport: const Size(390, 844),
+        safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+        locale: const Locale('ar'),
+        themeMode: ThemeMode.dark,
+      );
+      expect(find.text('المتاجر القريبة'), findsOneWidget);
+      expect(find.text('مقترح لك'), findsNothing);
+
+      // 3. Light Mode (English)
+      await _pumpHome(
+        tester,
+        viewport: const Size(390, 844),
+        safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+        locale: const Locale('en'),
+        themeMode: ThemeMode.light,
+      );
+
+      expect(find.text('Nearby Vendors'), findsOneWidget);
+      expect(find.text('Suggested for You'), findsNothing);
+
+      // Verify key texts are deep dark ink in light mode
+      for (final textToCheck in [
+        'Nearby Vendors',
+        'Hot Deals',
+        'See All',
+        'All',
+        'Burger King',
+        '40',
+        '4.9',
+        '105',
+        'Home',
+      ]) {
+        final finder = find.textContaining(textToCheck);
+        expect(finder, findsWidgets, reason: 'Missing text "$textToCheck"');
+        final w = tester.widget<Text>(finder.first);
+        final c = w.style?.color;
+        expect(c, isNotNull, reason: 'Missing style color for "$textToCheck"');
+        expect(
+          c!.computeLuminance(),
+          lessThan(0.12),
+          reason:
+              'Expected dark readable text in Light Mode for "$textToCheck", got $c',
+        );
+      }
+      expect(tester.takeException(), isNull);
     },
   );
 }

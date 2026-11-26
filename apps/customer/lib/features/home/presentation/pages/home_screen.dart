@@ -741,7 +741,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           style: HomeDesignTokens.numeric(
                             size: 12.5,
                             weight: FontWeight.w800,
-                            color: palette.goldText,
+                            color: palette.textPrimary,
                             height: 1.1,
                           ),
                         ),
@@ -1094,8 +1094,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                                 style: HomeDesignTokens.text(
                                                   size: 11.0,
                                                   weight: FontWeight.w800,
-                                                  color: HomeDesignTokens
-                                                      .goldLight,
+                                                  color: Colors.white,
                                                   height: 1.15,
                                                 ),
                                               ),
@@ -1114,8 +1113,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                                 style: HomeDesignTokens.numeric(
                                                   size: 10.5,
                                                   weight: FontWeight.w800,
-                                                  color: HomeDesignTokens
-                                                      .goldLight,
+                                                  color: Colors.white,
                                                   height: 1.1,
                                                 ),
                                               ),
@@ -1431,13 +1429,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             weight: isSelected
                                 ? FontWeight.w900
                                 : FontWeight.w700,
-                            color: isSelected
-                                ? (palette.isDark
-                                      ? const Color(0xFFE5A93C)
-                                      : const Color(0xFFB87B14))
-                                : (palette.isDark
-                                      ? const Color(0xFFF7F4EE)
-                                      : const Color(0xFF14120E)),
+                            color: palette.textPrimary,
                             height: 1.1,
                           ),
                         ),
@@ -1807,7 +1799,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   style: HomeDesignTokens.text(
                     size: 11.0,
                     weight: FontWeight.w700,
-                    color: palette.goldText,
+                    color: palette.textMuted,
                     height: 1.15,
                   ),
                 ),
@@ -1885,8 +1877,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   s.seeAll,
                   style: HomeDesignTokens.text(
                     size: 11.5,
-                    weight: FontWeight.w700,
-                    color: palette.goldText,
+                    weight: FontWeight.w800,
+                    color: palette.textPrimary,
                     height: 1.15,
                   ),
                 ),
@@ -2048,7 +2040,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required bool isSelected,
     int badgeCount = 0,
   }) {
-    final color = isSelected ? palette.goldText : palette.textMuted;
+    final iconColor = isSelected ? palette.goldText : palette.textMuted;
+    final labelColor = isSelected ? palette.textPrimary : palette.textMuted;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -2072,7 +2065,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Icon(icon, color: color, size: 22),
+              Icon(icon, color: iconColor, size: 22),
               if (badgeCount > 0)
                 PositionedDirectional(
                   top: -5,
@@ -2113,7 +2106,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             style: HomeDesignTokens.text(
               size: 11.0,
               weight: isSelected ? FontWeight.w800 : FontWeight.w700,
-              color: color,
+              color: labelColor,
               height: 1.15,
             ),
           ),
@@ -2214,7 +2207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: HomeDesignTokens.text(
                       size: 16,
                       weight: FontWeight.w900,
-                      color: palette.goldText,
+                      color: palette.textPrimary,
                     ),
                   ),
                 ),
@@ -2307,7 +2300,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         style: HomeDesignTokens.text(
                           size: 13,
                           weight: FontWeight.w800,
-                          color: palette.goldText,
+                          color: palette.textPrimary,
                         ),
                       ),
                       style: OutlinedButton.styleFrom(

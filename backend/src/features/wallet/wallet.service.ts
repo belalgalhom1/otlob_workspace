@@ -315,6 +315,7 @@ export class WalletService {
               name: true,
               status: true,
               hasUnpaidCommission: true,
+              ordersSinceSettlement: true,
               user: { select: { name: true } },
             },
           });
@@ -336,15 +337,30 @@ export class WalletService {
           };
 
           const settings = await tx.platformSetting.findFirst({
-            select: { maxNegativeDriverBalance: true },
+            select: {
+              maxNegativeDriverBalance: true,
+              driverSettlementOrderThreshold: true,
+            },
           });
-          const maxNegative = settings?.maxNegativeDriverBalance ?? 500;
-          const isStillNegative = updatedDriver.walletBalance < -maxNegative;
+          const maxNegative = Number(settings?.maxNegativeDriverBalance ?? 500);
+          const rawThreshold = settings?.driverSettlementOrderThreshold ?? 10;
+          const settlementThreshold = Number.isFinite(Number(rawThreshold))
+            ? Math.max(0, Number(rawThreshold))
+            : 10;
+          const newBalance = Number(updatedDriver.walletBalance ?? 0);
+          const exceedsMaxNegative = newBalance < -maxNegative;
+          const thresholdStillDue =
+            settlementThreshold > 0 &&
+            Number(lockedDriver?.ordersSinceSettlement ?? 0) >=
+              settlementThreshold &&
+            newBalance < 0;
+          const isStillLocked = exceedsMaxNegative || thresholdStillDue;
+          const isStillInDebt = newBalance < 0;
 
           let nextStatus = lockedDriver?.status ?? DriverStatus.OFFLINE;
           let statusUpdate: { status?: DriverStatus } = {};
           if (
-            !isStillNegative &&
+            !exceedsMaxNegative &&
             lockedDriver?.status === DriverStatus.SUSPENDED &&
             lockedDriver?.hasUnpaidCommission
           ) {
@@ -352,14 +368,14 @@ export class WalletService {
             nextStatus = DriverStatus.OFFLINE;
           }
 
-          const cycleData = isStillNegative
-            ? {} // Still in debt — do NOT restart the settlement counter so the settle flow stays blocked
-            : { ordersSinceSettlement: 0 }; // Restart the settlement cycle only after the debt is cleared
+          // Restart the settlement cycle only once the debt is cleared (balance >= 0),
+          // so partial payments do not prematurely reset ordersSinceSettlement.
+          const cycleData = isStillInDebt ? {} : { ordersSinceSettlement: 0 };
 
           await tx.driver.update({
             where: { id: request.driverId },
             data: {
-              hasUnpaidCommission: isStillNegative, // Keep them locked if they still owe
+              hasUnpaidCommission: isStillLocked,
               ...cycleData,
               ...statusUpdate,
             },
@@ -378,7 +394,7 @@ export class WalletService {
             },
           });
 
-          if (lockedDriver?.hasUnpaidCommission && !isStillNegative) {
+          if (lockedDriver?.hasUnpaidCommission && !isStillLocked) {
             unlockNotification = {
               driverId: lockedDriver.id,
               userId: lockedDriver.userId,

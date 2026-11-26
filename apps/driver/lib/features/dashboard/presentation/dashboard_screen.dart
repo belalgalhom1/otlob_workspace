@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
+import 'package:driver/features/dashboard/presentation/widgets/driver_live_map_card.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
 import 'package:driver/core/providers/driver_breaks_provider.dart';
 import 'package:driver/core/providers/driver_dispatch_coordinator.dart';
@@ -786,9 +787,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             ? profileData['data']
             : (profileData ?? {});
             
-        final String currentStatus = data['status'] ?? 'OFFLINE';
-        final bool isOnline = currentStatus == 'ONLINE' || currentStatus == 'ON_DELIVERY';
-        final bool showBreaks = currentStatus == 'ONLINE' || currentStatus == 'ON_BREAK';
+        final String currentStatus =
+            (data['status'] ?? 'OFFLINE').toString().toUpperCase().trim();
+        final statusInfo = DriverStatusPresentation.resolve(currentStatus, l10n);
+        final bool showBreaks =
+            currentStatus == 'ONLINE' ||
+            currentStatus == 'BUSY' ||
+            currentStatus == 'ON_BREAK';
+        final String vehicleType =
+            (data['vehicleType'] ?? data['vehicle_type'])?.toString().trim() ??
+            'MOTORCYCLE';
+        final String? plateNumber =
+            (data['vehiclePlate'] ?? data['plateNumber'])?.toString().trim();
+        final String? driverName = data['name']?.toString().trim();
 
         return RefreshIndicator(
           onRefresh: _handleFullRefresh,
@@ -798,16 +809,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildStatusCard(currentStatus, isOnline, l10n),
+                _buildStatusCard(statusInfo, l10n),
+                const SizedBox(height: 16),
+                DriverLiveMapCard(
+                  driverStatus: currentStatus,
+                  vehicleType: vehicleType,
+                  plateNumber: plateNumber,
+                  driverName: driverName,
+                ),
                 if (showBreaks) ...[
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   _buildBreakNavigationCard(currentStatus, l10n),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 _buildWeeklyRankingNavigationCard(data, l10n),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 _buildStatsRow(data, currency, l10n),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 _buildActiveTaskPlaceholder(currentStatus, l10n),
               ],
             ),
@@ -817,51 +835,86 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  Widget _buildStatusCard(String status, bool isOnline, AppLocalizations l10n) {
-    final bool onBreak = status == 'ON_BREAK';
-    final Color accent = onBreak
-        ? Colors.amber.shade700
-        : (isOnline ? AppColors.success : AppColors.error);
+  Widget _buildStatusCard(
+    DriverStatusPresentation statusInfo,
+    AppLocalizations l10n,
+  ) {
+    final Color accent = statusInfo.accent;
+    final bool showActiveTools =
+        statusInfo.isWorkingShift && !statusInfo.isOnBreak;
     return Container(
-      padding: const EdgeInsets.all(24),
+      key: const ValueKey('driver_dashboard_status_card'),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: accent,
-          width: 2,
+          width: 1.8,
         ),
       ),
       child: Column(
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: accent.withValues(alpha: 0.45)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      statusInfo.label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: accent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Icon(
-            onBreak
-                ? LucideIcons.coffee
-                : (isOnline ? LucideIcons.checkCircle : LucideIcons.xCircle),
-            size: 48,
+            statusInfo.icon,
+            size: 44,
             color: accent,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
-            onBreak
-                ? l10n.youAreOnBreak
-                : (isOnline ? l10n.youAreOnline : l10n.youAreOffline),
+            statusInfo.title,
+            textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            onBreak
-              ? l10n.onBreakSubtitle
-              : (isOnline
-                ? l10n.waitingForRequests
-                : l10n.goOnlineToReceive),
+            statusInfo.subtitle,
             textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.78),
+            ),
           ),
-          if (isOnline && !onBreak) ...[
+          if (showActiveTools) ...[
             const SizedBox(height: 16),
             Material(
               color: Colors.transparent,
@@ -910,7 +963,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           // (starting a shift goes ONLINE, ending it goes OFFLINE).
           // Offline drivers get a shortcut into their shifts instead.
           // Pending Assist Offers Section
-          if (isOnline && !onBreak) ...[
+          if (showActiveTools) ...[
             Consumer(builder: (context, ref, _) {
               final offersAsync = ref.watch(pendingAssistOffersProvider);
               return offersAsync.when(
@@ -1041,7 +1094,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             }),
           ],
 
-          if (!onBreak && !isOnline) ...[
+          if (!statusInfo.isOnBreak &&
+              !statusInfo.isWorkingShift &&
+              !statusInfo.isSuspended) ...[
             const SizedBox(height: 24),
             ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 56),

@@ -20,12 +20,47 @@ LocationService locationService(Ref ref) {
   return service;
 }
 
+class DriverLocationState {
+  const DriverLocationState({
+    required this.status,
+    this.position,
+    this.errorMessage,
+  });
+
+  const DriverLocationState.loading()
+      : status = DriverLocationStatus.loading,
+        position = null,
+        errorMessage = null;
+
+  final DriverLocationStatus status;
+  final Position? position;
+  final String? errorMessage;
+}
+
+enum DriverLocationStatus {
+  loading,
+  ready,
+  serviceDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+  error,
+}
+
 class LocationService {
   final Ref _ref;
   StreamSubscription<Position>? _positionStreamSubscription;
+  StreamSubscription<Position>? _uiPositionSubscription;
   StreamSubscription<void>? _connectSub;
+  final StreamController<Position> _positionController =
+      StreamController<Position>.broadcast();
+  final ValueNotifier<DriverLocationState> _locationState =
+      ValueNotifier<DriverLocationState>(const DriverLocationState.loading());
+
   bool _isTracking = false;
   int _restartSeq = 0;
+  int _uiSeq = 0;
+  int _uiObserverCount = 0;
+  bool _hasPromptedForegroundPermission = false;
   Position? _lastPosition;
   Position? _lastEmitted;
   DateTime? _lastEmitAt;
@@ -34,6 +69,62 @@ class LocationService {
     _listenToLocaleChanges();
     _listenToSocketReconnect();
     _listenToProfileStatus();
+  }
+
+  ValueListenable<DriverLocationState> get locationState => _locationState;
+  Stream<Position> get positionStream => _positionController.stream;
+  Position? get lastPosition => _lastPosition;
+
+  VoidCallback retainUiLocationObserver() {
+    _uiObserverCount++;
+    if (_uiObserverCount == 1 && !_isTracking) {
+      unawaited(_startUiPreviewStream(requestPermission: false));
+    }
+    var released = false;
+    return () {
+      if (released) return;
+      released = true;
+      if (_uiObserverCount > 0) {
+        _uiObserverCount--;
+      }
+      if (_uiObserverCount == 0) {
+        _stopUiPreviewStream();
+      }
+    };
+  }
+
+  Future<void> refreshUiLocation({bool requestPermission = false}) async {
+    if (_isTracking) {
+      if (requestPermission) {
+        await requestPermissions();
+      }
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: _getUiPreviewSettings(),
+        ).timeout(const Duration(seconds: 8));
+        _recordLocalPosition(pos);
+      } catch (e) {
+        debugPrint('📍 LocationService: refreshUiLocation while tracking failed: $e');
+      }
+      return;
+    }
+    await _startUiPreviewStream(requestPermission: requestPermission);
+  }
+
+  Future<bool> openLocationSettings() async {
+    try {
+      return await Geolocator.openLocationSettings();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> openAppSettings() async {
+    try {
+      return await Geolocator.openAppSettings();
+    } catch (_) {
+      return false;
+    }
   }
 
   void _listenToLocaleChanges() {
@@ -99,43 +190,55 @@ class LocationService {
 
   Future<bool> requestPermissions() async {
     debugPrint('📍 LocationService: Checking permissions...');
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      debugPrint('❌ LocationService: Location services are disabled.');
-      return false;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      debugPrint('📍 LocationService: Requesting permission...');
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        debugPrint('❌ LocationService: Location permissions are denied.');
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint('❌ LocationService: Location services are disabled.');
+        _setLocationStatus(DriverLocationStatus.serviceDisabled);
         return false;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      debugPrint('❌ LocationService: Location permissions are permanently denied.');
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        debugPrint('📍 LocationService: Requesting permission...');
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          debugPrint('❌ LocationService: Location permissions are denied.');
+          _setLocationStatus(DriverLocationStatus.permissionDenied);
+          return false;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('❌ LocationService: Location permissions are permanently denied.');
+        _setLocationStatus(DriverLocationStatus.permissionDeniedForever);
+        return false;
+      }
+
+      // Request notification permission on Android 13+ (POST_NOTIFICATIONS) for foreground service
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final notifStatus = await Permission.notification.status;
+        if (!notifStatus.isGranted) {
+          await Permission.notification.request();
+        }
+      }
+
+      // Try to get background permission if needed
+      final bgStatus = await Permission.locationAlways.request();
+      if (!bgStatus.isGranted) {
+        // Background location denied, but foreground might still work
+        // Proceeding with what we have
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('❌ LocationService: Permission check error: $e');
+      _setLocationStatus(
+        DriverLocationStatus.error,
+        errorMessage: e.toString(),
+      );
       return false;
     }
-
-    // Request notification permission on Android 13+ (POST_NOTIFICATIONS) for foreground service
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      final notifStatus = await Permission.notification.status;
-      if (!notifStatus.isGranted) {
-        await Permission.notification.request();
-      }
-    }
-
-    // Try to get background permission if needed
-    final bgStatus = await Permission.locationAlways.request();
-    if (!bgStatus.isGranted) {
-      // Background location denied, but foreground might still work
-      // Proceeding with what we have
-    }
-
-    return true;
   }
 
   LocationSettings _getLocationSettings() {
@@ -201,6 +304,7 @@ class LocationService {
     final hasPermission = await requestPermissions();
     if (!hasPermission || seq != _restartSeq) return;
 
+    _stopUiPreviewStream();
     _isTracking = true;
     // Reset the coalescing baseline so the first fix of this session is always
     // broadcast (and the customer's marker appears instantly).
@@ -268,6 +372,9 @@ class LocationService {
     final sub = _positionStreamSubscription;
     _positionStreamSubscription = null;
     await sub?.cancel();
+    if (_uiObserverCount > 0) {
+      unawaited(_startUiPreviewStream(requestPermission: false));
+    }
   }
 
   void dispose() {
@@ -275,16 +382,155 @@ class LocationService {
     _connectSub = null;
     _positionStreamSubscription?.cancel();
     _positionStreamSubscription = null;
+    _uiPositionSubscription?.cancel();
+    _uiPositionSubscription = null;
+    if (!_positionController.isClosed) {
+      _positionController.close();
+    }
+    _locationState.dispose();
     _lastPosition = null;
   }
 
-  void _broadcastLocation(Position position) {
-    // Reject unreliable fixes so the customer never sees random jumps.
+  void _setLocationStatus(
+    DriverLocationStatus status, {
+    String? errorMessage,
+  }) {
+    _locationState.value = DriverLocationState(
+      status: status,
+      position: status == DriverLocationStatus.ready ? _lastPosition : null,
+      errorMessage: errorMessage,
+    );
+  }
+
+  LocationSettings _getUiPreviewSettings() {
+    return const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 8,
+    );
+  }
+
+  void _stopUiPreviewStream() {
+    _uiSeq++;
+    final sub = _uiPositionSubscription;
+    _uiPositionSubscription = null;
+    if (sub != null) {
+      unawaited(sub.cancel());
+    }
+  }
+
+  Future<void> _startUiPreviewStream({required bool requestPermission}) async {
+    if (_isTracking || _uiObserverCount <= 0) return;
+    final seq = ++_uiSeq;
+
+    if (_lastPosition == null) {
+      _locationState.value = const DriverLocationState.loading();
+    }
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+      if (!serviceEnabled) {
+        _setLocationStatus(DriverLocationStatus.serviceDisabled);
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+
+      if (permission == LocationPermission.denied &&
+          (requestPermission || !_hasPromptedForegroundPermission)) {
+        _hasPromptedForegroundPermission = true;
+        permission = await Geolocator.requestPermission();
+        if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+      }
+
+      if (permission == LocationPermission.denied) {
+        _setLocationStatus(DriverLocationStatus.permissionDenied);
+        return;
+      }
+      if (permission == LocationPermission.deniedForever) {
+        _setLocationStatus(DriverLocationStatus.permissionDeniedForever);
+        return;
+      }
+
+      if (_lastPosition == null) {
+        try {
+          final lastKnown = await Geolocator.getLastKnownPosition();
+          if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+          if (lastKnown != null) {
+            _recordLocalPosition(lastKnown);
+          }
+        } catch (_) {}
+      }
+
+      try {
+        final current = await Geolocator.getCurrentPosition(
+          locationSettings: _getUiPreviewSettings(),
+        );
+        if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+        _recordLocalPosition(current);
+      } catch (e) {
+        if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+        if (_lastPosition == null) {
+          _setLocationStatus(
+            DriverLocationStatus.error,
+            errorMessage: e.toString(),
+          );
+        }
+      }
+
+      await _uiPositionSubscription?.cancel();
+      if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+
+      // Foreground-only stream for UI display when OFFLINE/ON_BREAK; never emits
+      // backend location updates or holds foreground service locks.
+      _uiPositionSubscription = Geolocator.getPositionStream(
+        locationSettings: _getUiPreviewSettings(),
+      ).listen(
+        (Position position) {
+          if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+          _recordLocalPosition(position);
+        },
+        onError: (Object error) {
+          if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+          debugPrint('❌ LocationService: UI preview stream error: $error');
+          if (_lastPosition == null) {
+            _setLocationStatus(
+              DriverLocationStatus.error,
+              errorMessage: error.toString(),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      if (seq != _uiSeq || _isTracking || _uiObserverCount <= 0) return;
+      debugPrint('❌ LocationService: UI preview setup error: $e');
+      _setLocationStatus(
+        DriverLocationStatus.error,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  bool _recordLocalPosition(Position position) {
+    // Reject unreliable fixes so the map marker never sees random jumps.
     if (_lastPosition != null ? position.accuracy > 100 : position.accuracy > 250) {
       debugPrint('📍 LocationService: Dropping fix with accuracy ${position.accuracy}m');
-      return;
+      return false;
     }
     _lastPosition = position;
+    _locationState.value = DriverLocationState(
+      status: DriverLocationStatus.ready,
+      position: position,
+    );
+    if (!_positionController.isClosed) {
+      _positionController.add(position);
+    }
+    return true;
+  }
+
+  void _broadcastLocation(Position position) {
+    if (!_recordLocalPosition(position)) return;
 
     final now = DateTime.now();
     final active = _onDelivery;

@@ -321,7 +321,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                                 style: HomeDesignTokens.text(
                                   size: 11.0,
                                   weight: FontWeight.w800,
-                                  color: palette.goldText,
+                                  color: palette.textMuted,
                                   height: 1.15,
                                 ),
                               ),
@@ -366,7 +366,7 @@ class _OffersAutoScrollerState extends State<OffersAutoScroller> {
                                     style: HomeDesignTokens.numeric(
                                       size: 14.0,
                                       weight: FontWeight.w900,
-                                      color: palette.goldText,
+                                      color: palette.textPrimary,
                                       height: 1.0,
                                     ),
                                   ),

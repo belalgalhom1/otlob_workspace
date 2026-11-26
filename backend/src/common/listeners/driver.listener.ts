@@ -70,6 +70,28 @@ export class DriverListener {
 
     if (!event.driverUserId) return;
 
+    if (
+      event.newStatus !== DriverStatus.SUSPENDED &&
+      typeof this.socketService?.emitToUser === 'function'
+    ) {
+      Promise.resolve(
+        this.socketService.emitToUser(
+          event.driverUserId,
+          WS_EVENTS.DRIVER_STATUS_CHANGED,
+          {
+            driverId: event.driverId,
+            oldStatus: event.oldStatus,
+            newStatus: event.newStatus,
+            reason: event.reason ?? null,
+          },
+        ),
+      ).catch((err: unknown) =>
+        this.logger.error(
+          `Failed to emit ${WS_EVENTS.DRIVER_STATUS_CHANGED}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    }
+
     let dto:
       | {
           userId: string;

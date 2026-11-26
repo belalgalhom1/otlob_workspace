@@ -2475,4 +2475,79 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noAdjustmentsYet => 'No manual wallet adjustments yet';
+
+  @override
+  String get driverStatusOnline => 'Online';
+
+  @override
+  String get driverStatusOffline => 'Offline';
+
+  @override
+  String get driverStatusBusy => 'Busy';
+
+  @override
+  String get driverStatusBusyTitle => 'You are Busy';
+
+  @override
+  String get driverStatusBusySubtitle =>
+      'Finish your active priority or wait for availability to resume.';
+
+  @override
+  String get driverStatusOnTrip => 'On a Trip';
+
+  @override
+  String get driverStatusOnTripTitle => 'You are on a Trip';
+
+  @override
+  String get driverStatusOnTripSubtitle =>
+      'High-accuracy live GPS tracking is active for your delivery.';
+
+  @override
+  String get driverStatusOnBreak => 'On Break';
+
+  @override
+  String get driverStatusSuspendedTitle => 'Account Suspended';
+
+  @override
+  String get driverStatusSuspendedSubtitle =>
+      'Resolve your account status to continue receiving orders.';
+
+  @override
+  String get liveMapTitle => 'Live Location';
+
+  @override
+  String get liveMapCenterButton => 'Center on me';
+
+  @override
+  String get liveMapLoading => 'Acquiring real GPS location...';
+
+  @override
+  String get liveMapGpsDisabledTitle => 'GPS is turned off';
+
+  @override
+  String get liveMapGpsDisabledSubtitle =>
+      'Turn on device location to display your vehicle on the map.';
+
+  @override
+  String get liveMapPermissionDeniedTitle => 'Location permission required';
+
+  @override
+  String get liveMapPermissionDeniedSubtitle =>
+      'Allow location access to display your live GPS position.';
+
+  @override
+  String get liveMapPermissionDeniedForeverSubtitle =>
+      'Location permission is permanently denied. Enable it in app settings.';
+
+  @override
+  String get liveMapErrorTitle => 'Unable to acquire GPS signal';
+
+  @override
+  String get liveMapAllowAction => 'Allow Location';
+
+  @override
+  String get liveMapOpenSettingsAction => 'Open Settings';
+
+  @override
+  String get liveMapRetryAction => 'Retry';
 }

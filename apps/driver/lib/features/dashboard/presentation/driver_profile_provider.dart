@@ -44,7 +44,9 @@ class DriverProfile extends _$DriverProfile {
             : (response ?? {});
 
         final currentStatus = data['status'];
-        if (currentStatus == 'ONLINE' || currentStatus == 'ON_DELIVERY') {
+        if (currentStatus == 'ONLINE' ||
+            currentStatus == 'ON_DELIVERY' ||
+            currentStatus == 'BUSY') {
           ref.read(locationServiceProvider).startTracking();
           ref.read(coreSocketServiceProvider).connect();
         } else {

@@ -860,9 +860,11 @@ export class OrderSettlementService {
         (settings as { maxNegativeDriverBalance?: number })
           .maxNegativeDriverBalance ?? 500,
       ),
-      settlementThreshold: Number(
-        settings.driverSettlementOrderThreshold ?? 10,
-      ),
+      settlementThreshold: Number.isFinite(
+        Number(settings.driverSettlementOrderThreshold ?? 10),
+      )
+        ? Math.max(0, Number(settings.driverSettlementOrderThreshold ?? 10))
+        : 10,
       defaultTaxRate: Number(settings.defaultTaxRate ?? 0),
     };
   }
@@ -1492,19 +1494,23 @@ export class OrderSettlementService {
           status: true,
           walletBalance: true,
           ordersSinceSettlement: true,
+          hasUnpaidCommission: true,
         },
       });
 
-      const currentBalance = driverSnapshot?.walletBalance ?? 0;
+      const currentBalance = Number(driverSnapshot?.walletBalance ?? 0);
       const shouldLock = currentBalance < -plan.maxNegative;
 
       const nextSettlementCount =
-        (driverSnapshot?.ordersSinceSettlement ?? 0) + 1;
+        Number(driverSnapshot?.ordersSinceSettlement ?? 0) + 1;
       const settlementDue =
         !shouldLock &&
         plan.settlementThreshold > 0 &&
         nextSettlementCount >= plan.settlementThreshold &&
         currentBalance < 0;
+      const keepExistingLock =
+        Boolean(driverSnapshot?.hasUnpaidCommission) && currentBalance < 0;
+      const wasAlreadyLocked = Boolean(driverSnapshot?.hasUnpaidCommission);
 
       const driver = await client.driver.update({
         where: { id: paidDriverId },
@@ -1512,7 +1518,7 @@ export class OrderSettlementService {
           totalOrders: { increment: 1 },
           ordersSinceSettlement: { increment: 1 },
           hasUnpaidCommission:
-            shouldLock || settlementDue || currentBalance < 0 ? true : false,
+            shouldLock || settlementDue || keepExistingLock,
           status: shouldLock ? DriverStatus.SUSPENDED : undefined,
         },
         select: { id: true, userId: true, status: true },
@@ -1524,7 +1530,7 @@ export class OrderSettlementService {
           driver,
           prevStatus: driverSnapshot?.status ?? DriverStatus.ONLINE,
         });
-      } else if (settlementDue) {
+      } else if (settlementDue && !wasAlreadyLocked) {
         statusEffects.push({
           kind: 'SETTLEMENT',
           driver,

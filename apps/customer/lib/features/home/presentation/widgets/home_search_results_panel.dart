@@ -197,7 +197,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                   style: HomeDesignTokens.text(
                     size: 10,
                     weight: FontWeight.w700,
-                    color: palette.goldText,
+                    color: palette.textPrimary,
                   ),
                 ),
               ),
@@ -354,8 +354,14 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                               decoration: BoxDecoration(
                                 color: isOpen
                                     ? HomeDesignTokens.gold
-                                    : palette.cardSurface2,
+                                    : palette.discountBgRed,
                                 borderRadius: BorderRadius.circular(999),
+                                border: isOpen
+                                    ? null
+                                    : Border.all(
+                                        color: palette.discountBorderRed,
+                                        width: 0.8,
+                                      ),
                               ),
                               child: Text(
                                 isOpen
@@ -366,7 +372,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                                   weight: FontWeight.w900,
                                   color: isOpen
                                       ? HomeDesignTokens.darkOnGold
-                                      : const Color(0xFFF87171),
+                                      : palette.discountTextRed,
                                   height: 1.1,
                                 ),
                               ),
@@ -425,7 +431,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                                   style: HomeDesignTokens.text(
                                     size: 10,
                                     weight: FontWeight.w700,
-                                    color: palette.goldText,
+                                    color: palette.textPrimary,
                                   ),
                                 ),
                               ),
@@ -585,7 +591,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                       style: HomeDesignTokens.numeric(
                         size: 11.5,
                         weight: FontWeight.w900,
-                        color: palette.goldText,
+                        color: palette.textPrimary,
                       ),
                     ),
                   ],
