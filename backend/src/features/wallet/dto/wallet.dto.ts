@@ -6,9 +6,10 @@ import {
   IsInt,
   Min,
   IsUrl,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { WalletType } from '@prisma/client';
 
 export class CreateMobileWalletDto {
@@ -43,9 +44,18 @@ export class CreateWalletTopUpDto {
 }
 
 export class ReviewWalletTopUpDto {
-  @ApiProperty({ example: 'APPROVED' })
+  @ApiProperty({ example: 'APPROVED', enum: ['APPROVED', 'REJECTED'] })
   @IsEnum(['APPROVED', 'REJECTED'])
   status!: 'APPROVED' | 'REJECTED';
+
+  @ApiPropertyOptional({
+    example: 'Transfer receipt verified / Receipt amount mismatch',
+    description: 'Optional review notes or rejection reason visible to driver',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  notes?: string;
 }
 
 export class ProcessManualTransactionDto {

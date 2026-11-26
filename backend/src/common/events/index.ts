@@ -6,4 +6,5 @@ export * from './order.events';
 export * from './dispatch.events';
 export * from './driver.events';
 export * from './driver-assist.events';
+export * from './wallet.events';
 export * from './misc.events';

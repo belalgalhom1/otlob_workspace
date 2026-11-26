@@ -66,6 +66,10 @@ export const EVENTS = {
 
   // Platform settings
   SETTINGS_UPDATED: 'platform.settings.updated',
+
+  // Wallet & Driver Adjustments
+  WALLET_TOPUP_SUBMITTED: 'wallet.topup.submitted',
+  WALLET_TOPUP_REVIEWED: 'wallet.topup.reviewed',
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

@@ -120,7 +120,7 @@ export class NotificationsService {
     const userIds = [...new Set(dtos.map((d) => d.userId))];
 
     const users = await this.prisma.user.findMany({
-      where: { id: { in: userIds } },
+      where: { id: { in: userIds }, isBanned: false, deletedAt: null },
       select: {
         id: true,
         language: true,
@@ -163,20 +163,39 @@ export class NotificationsService {
 
       // 2. Prepare Push
       const user = userMap.get(p.userId);
-      if (!user) continue;
+      if (!user) {
+        this.logger.warn(
+          `Push skipped for user ${p.userId}: user missing, banned, or deleted`,
+        );
+        continue;
+      }
       if (
         user.notificationSettings &&
         !this.isTypeAllowed(p.type, user.notificationSettings)
       ) {
+        this.logger.log(
+          `Push suppressed for user ${p.userId}: type ${p.type} disabled in settings`,
+        );
         continue;
       }
-      if (!user.devices.length) continue;
+      const tokens = Array.from(
+        new Set(user.devices.map((d) => d.token).filter(Boolean)),
+      );
+      if (!tokens.length) {
+        this.logger.warn(
+          `Push skipped for user ${p.userId}: no registered FCM devices (type=${p.type})`,
+        );
+        continue;
+      }
 
       const isArabic = user.language === Language.AR;
       const pushTitle = isArabic ? (p.titleAr ?? p.title) : p.title;
       const pushBody = (isArabic ? (p.bodyAr ?? p.body) : p.body) || pushTitle;
-      const tokens = user.devices.map((d) => d.token);
-      const parsedData = p.data ?? undefined;
+      const parsedData = this.sanitizePushData(p.data);
+
+      this.logger.log(
+        `Push queuing → user ${p.userId} | type=${p.type} | lang=${user.language} | ${tokens.length} device(s)`,
+      );
 
       pushPromises.push(
         this.pushService
@@ -200,11 +219,13 @@ export class NotificationsService {
     titleAr: string | null,
     body: string | null,
     bodyAr: string | null,
-    data?: Record<string, string>,
+    data?: Record<string, any>,
   ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
+        isBanned: true,
+        deletedAt: true,
         language: true,
         devices: { select: { token: true } },
         notificationSettings: {
@@ -220,35 +241,57 @@ export class NotificationsService {
       },
     });
 
-    if (!user) {
-      this.logger.warn(`User ${userId} not found, skipping push`);
+    if (!user || user.isBanned || user.deletedAt) {
+      this.logger.warn(
+        `User ${userId} missing/banned/deleted, skipping push (type=${type})`,
+      );
       return;
     }
 
     if (user.notificationSettings) {
       if (!this.isTypeAllowed(type, user.notificationSettings)) {
-        this.logger.debug(
-          `Push suppressed for user ${userId}: type ${type} disabled`,
+        this.logger.log(
+          `Push suppressed for user ${userId}: type ${type} disabled in settings`,
         );
         return;
       }
     }
 
-    if (!user.devices.length) {
-      this.logger.debug(`No devices for user ${userId}, skipping push`);
+    const tokens = Array.from(
+      new Set(user.devices.map((d) => d.token).filter(Boolean)),
+    );
+    if (!tokens.length) {
+      this.logger.warn(
+        `No registered FCM devices for user ${userId}, skipping push (type=${type})`,
+      );
       return;
     }
 
     const isArabic = user.language === Language.AR;
     const pushTitle = isArabic ? (titleAr ?? title) : title;
     const pushBody = (isArabic ? (bodyAr ?? body) : body) || pushTitle;
-    const tokens = user.devices.map((d) => d.token);
+    const sanitizedData = this.sanitizePushData(data);
 
-    await this.pushService.sendToDevices(tokens, pushTitle, pushBody, data);
-
-    this.logger.debug(
-      `Push dispatched → user ${userId} | lang: ${user.language} | ${tokens.length} device(s)`,
+    await this.pushService.sendToDevices(
+      tokens,
+      pushTitle,
+      pushBody,
+      sanitizedData,
     );
+
+    this.logger.log(
+      `Push queued → user ${userId} | type=${type} | lang=${user.language} | ${tokens.length} device(s)`,
+    );
+  }
+
+  private sanitizePushData(
+    data?: Record<string, any> | null,
+  ): Record<string, string> | undefined {
+    if (!data || typeof data !== 'object') return undefined;
+    const entries = Object.entries(data)
+      .filter(([, v]) => v !== undefined && v !== null)
+      .map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)]);
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
   }
 
   private isTypeAllowed(

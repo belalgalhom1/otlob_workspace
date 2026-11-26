@@ -207,4 +207,15 @@ export class WalletController {
   uploadReceipt(@UploadedFile() file: Express.Multer.File) {
     return this.walletService.uploadReceipt(file);
   }
+
+  @ApiStandardResponse(WalletTopUpRequestResponseDto)
+  @Get('topups/:id')
+  @Roles(Role.ADMIN)
+  @RequirePermissions(Permission.MANAGE_FINANCE)
+  @ApiOperation({
+    summary: 'View a specific driver top-up / adjustment request',
+  })
+  getTopUpRequestById(@Param('id') id: string) {
+    return this.walletService.getTopUpRequestById(id);
+  }
 }

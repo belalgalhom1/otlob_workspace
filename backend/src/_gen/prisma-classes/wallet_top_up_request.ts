@@ -21,7 +21,13 @@ export class WalletTopUpRequest {
   status: TopUpStatus = TopUpStatus.PENDING;
 
   @ApiPropertyOptional({ type: String })
+  notes?: string;
+
+  @ApiPropertyOptional({ type: String })
   approvedById?: string;
+
+  @ApiPropertyOptional({ type: Date })
+  reviewedAt?: Date;
 
   @ApiProperty({ type: Date })
   createdAt: Date;

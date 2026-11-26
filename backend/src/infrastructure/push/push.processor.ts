@@ -31,6 +31,10 @@ export const FCM_CONFIG = {
     },
   },
   apns: {
+    headers: {
+      'apns-priority': '10',
+      'apns-push-type': 'alert',
+    },
     payload: {
       aps: {
         contentAvailable: true,
@@ -57,7 +61,9 @@ export class PushProcessor extends WorkerHost {
     switch (job.name) {
       case PUSH_JOBS.SEND_TO_TOPIC:
         if (!title || !body)
-          throw new UnrecoverableError('Missing required fields: title and body');
+          throw new UnrecoverableError(
+            'Missing required fields: title and body',
+          );
         if (!topic)
           throw new UnrecoverableError('Topic is missing for send_topic job');
         return this.handleSendToTopic(
@@ -70,7 +76,9 @@ export class PushProcessor extends WorkerHost {
         if (!tokens || tokens.length === 0)
           return { skipped: true, reason: 'No tokens' };
         if (!title || !body)
-          throw new UnrecoverableError('Missing required fields: title and body');
+          throw new UnrecoverableError(
+            'Missing required fields: title and body',
+          );
         return this.handleSendToDevices(
           tokens,
           { title, body },
@@ -150,12 +158,22 @@ export class PushProcessor extends WorkerHost {
         failureCount += response.failureCount;
 
         response.responses.forEach((resp, idx) => {
-          if (
-            !resp.success &&
-            INVALID_TOKEN_CODES.has(resp.error?.code ?? '')
-          ) {
+          if (!resp.success) {
             const token = chunkTokens[idx];
-            if (token) invalidTokens.push(token);
+            const tokenSuffix = token ? `...${token.slice(-10)}` : 'unknown';
+            const errorCode = resp.error?.code ?? 'unknown_error';
+            const errorMessage = resp.error?.message ?? 'Unknown FCM error';
+
+            if (INVALID_TOKEN_CODES.has(errorCode)) {
+              if (token) invalidTokens.push(token);
+              this.logger.warn(
+                `🗑️ Invalid FCM token (${tokenSuffix}) flagged for cleanup: [${errorCode}] ${errorMessage}`,
+              );
+            } else {
+              this.logger.error(
+                `❌ FCM send failed for token (${tokenSuffix}): [${errorCode}] ${errorMessage}`,
+              );
+            }
           }
         });
       } catch (error: unknown) {
@@ -256,10 +274,9 @@ export class PushProcessor extends WorkerHost {
   ): Record<string, string> {
     if (!data) return {};
     return Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [
-        k,
-        typeof v === 'string' ? v : JSON.stringify(v),
-      ]),
+      Object.entries(data)
+        .filter(([, v]) => v !== undefined && v !== null)
+        .map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)]),
     );
   }
 

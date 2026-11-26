@@ -13,6 +13,7 @@ import { DispatchListener } from './dispatch.listener';
 import { CartListener } from './cart.listener';
 import { ReviewListener } from './review.listener';
 import { SettingsListener } from './settings.listener';
+import { WalletListener } from './wallet.listener';
 import { CartModule } from '../../features/cart/cart.module';
 import { OrderSharedModule } from '../orders/order-shared.module';
 
@@ -30,6 +31,7 @@ const LISTENERS = [
   CartListener,
   ReviewListener,
   SettingsListener,
+  WalletListener,
 ];
 
 @Global()

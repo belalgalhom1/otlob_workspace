@@ -2056,7 +2056,9 @@ model WalletTopUpRequest {
   amount           Int
   receiptUrl       String
   status           TopUpStatus @default(PENDING)
+  notes            String?
   approvedById     String?
+  reviewedAt       DateTime?   @db.Timestamptz(3)
   createdAt        DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime    @updatedAt @db.Timestamptz(3)
 

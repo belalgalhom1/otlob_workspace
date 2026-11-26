@@ -26,7 +26,11 @@ import {
 } from '@prisma/client';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { CommonSuccess } from 'src/common/constants/response.constants';
-import { DriverStatusChangedEvent } from 'src/common/events';
+import {
+  DriverStatusChangedEvent,
+  WalletTopUpReviewedEvent,
+  WalletTopUpSubmittedEvent,
+} from 'src/common/events';
 import { EVENTS } from 'src/common/events/event-names';
 import { DriverStatus } from '@prisma/client';
 import { DriverManagersService } from '../drivers/driver-managers.service';
@@ -106,7 +110,7 @@ export class WalletService {
   // ─── Driver: Top-Up Requests ──────────────────────────────────────────────
 
   async submitTopUpRequest(driverUserId: string, dto: CreateWalletTopUpDto) {
-    const driver = await this.getDriver(driverUserId);
+    const driver = await this.getDriver(driverUserId, true);
 
     const platformWallet = await this.prisma.mobileWallet.findUnique({
       where: { id: dto.platformWalletId, isPlatform: true, isActive: true },
@@ -136,6 +140,26 @@ export class WalletService {
         },
       });
 
+      const driverName =
+        (driver as { user?: { name?: string | null }; name?: string | null })
+          .user?.name ||
+        (driver as { name?: string | null }).name ||
+        'Driver';
+
+      this.eventEmitter.emit(
+        EVENTS.WALLET_TOPUP_SUBMITTED,
+        new WalletTopUpSubmittedEvent(
+          request.id,
+          driver.id,
+          driver.userId,
+          driverName,
+          request.amount,
+          platformWallet.type,
+          platformWallet.number,
+          request.receiptUrl,
+        ),
+      );
+
       return request;
     } catch (e: any) {
       // Lost a concurrent submit race against the partial unique index:
@@ -154,7 +178,10 @@ export class WalletService {
     const driver = await this.getDriver(driverUserId);
     return this.prisma.walletTopUpRequest.findMany({
       where: { driverId: driver.id },
-      include: { platformWallet: true },
+      include: {
+        platformWallet: true,
+        approvedBy: { select: { id: true, name: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -178,6 +205,7 @@ export class WalletService {
           },
         },
         platformWallet: true,
+        approvedBy: { select: { id: true, name: true, role: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -192,6 +220,36 @@ export class WalletService {
     }));
   }
 
+  async getTopUpRequestById(requestId: string) {
+    const request: any = await this.prisma.walletTopUpRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        driver: {
+          include: {
+            user: {
+              select: { id: true, name: true, phone: true, avatar: true },
+            },
+          },
+        },
+        platformWallet: true,
+        approvedBy: { select: { id: true, name: true, role: true } },
+      },
+    });
+
+    if (!request) throw new NotFoundException(WalletErrors.REQUEST_NOT_FOUND);
+
+    return {
+      ...request,
+      driver: request.driver
+        ? {
+            ...request.driver,
+            avatar:
+              request.driver.avatar ?? request.driver.user?.avatar ?? null,
+          }
+        : request.driver,
+    };
+  }
+
   async reviewTopUpRequest(
     actorUserId: string,
     requestId: string,
@@ -199,17 +257,27 @@ export class WalletService {
   ) {
     const request = await this.prisma.walletTopUpRequest.findUnique({
       where: { id: requestId },
+      include: {
+        platformWallet: { select: { type: true, number: true } },
+      },
     });
 
     if (!request) throw new NotFoundException(WalletErrors.REQUEST_NOT_FOUND);
     if (request.status !== 'PENDING')
       throw new BadRequestException(WalletErrors.REQUEST_ALREADY_PROCESSED);
 
-    const { updated, unlockNotification } = await this.prisma.$transaction(
-      async (tx) => {
+    const trimmedNotes = dto.notes?.trim() || null;
+
+    const { updated, unlockNotification, driverSummary } =
+      await this.prisma.$transaction(async (tx) => {
         const updatedCount = await tx.walletTopUpRequest.updateMany({
           where: { id: requestId, status: 'PENDING' },
-          data: { status: dto.status, approvedById: actorUserId },
+          data: {
+            status: dto.status,
+            approvedById: actorUserId,
+            notes: trimmedNotes,
+            reviewedAt: new Date(),
+          },
         });
 
         if (updatedCount.count === 0) {
@@ -226,6 +294,15 @@ export class WalletService {
           prevStatus: DriverStatus;
           nextStatus: DriverStatus;
         } | null = null;
+        let driverSummary: {
+          userId: string;
+          name: string;
+          newBalance: number | null;
+        } = {
+          userId: '',
+          name: 'Driver',
+          newBalance: null,
+        };
 
         if (dto.status === 'APPROVED') {
           await tx.$executeRaw`SELECT id FROM drivers WHERE id = ${request.driverId} FOR UPDATE`;
@@ -235,8 +312,10 @@ export class WalletService {
             select: {
               id: true,
               userId: true,
+              name: true,
               status: true,
               hasUnpaidCommission: true,
+              user: { select: { name: true } },
             },
           });
 
@@ -245,6 +324,16 @@ export class WalletService {
             data: { walletBalance: { increment: request.amount } },
             select: { walletBalance: true, userId: true, status: true },
           });
+
+          driverSummary = {
+            userId: lockedDriver?.userId ?? updatedDriver.userId ?? '',
+            name:
+              (lockedDriver as { user?: { name?: string | null } } | null)?.user
+                ?.name ??
+              lockedDriver?.name ??
+              'Driver',
+            newBalance: updatedDriver.walletBalance,
+          };
 
           const settings = await tx.platformSetting.findFirst({
             select: { maxNegativeDriverBalance: true },
@@ -283,6 +372,7 @@ export class WalletService {
               amount: request.amount,
               balanceAfter: updatedDriver.walletBalance,
               description: 'Approved Top-up transfer',
+              note: trimmedNotes,
               referenceId: request.id,
               idempotencyKey: `topup:${request.id}`,
             },
@@ -296,11 +386,29 @@ export class WalletService {
               nextStatus,
             };
           }
+        } else {
+          const driverRow = await tx.driver?.findUnique?.({
+            where: { id: request.driverId },
+            select: {
+              userId: true,
+              name: true,
+              walletBalance: true,
+              user: { select: { name: true } },
+            },
+          });
+          driverSummary = {
+            userId: driverRow?.userId ?? '',
+            name:
+              (driverRow as { user?: { name?: string | null } } | null)?.user
+                ?.name ??
+              driverRow?.name ??
+              'Driver',
+            newBalance: driverRow?.walletBalance ?? null,
+          };
         }
 
-        return { updated, unlockNotification };
-      },
-    );
+        return { updated, unlockNotification, driverSummary };
+      });
 
     if (unlockNotification) {
       this.eventEmitter.emit(
@@ -311,6 +419,28 @@ export class WalletService {
           unlockNotification.prevStatus,
           unlockNotification.nextStatus,
           'UNPAID_COMMISSION_SETTLED',
+        ),
+      );
+    }
+
+    const reqWithWallet = request;
+
+    if (driverSummary.userId) {
+      this.eventEmitter.emit(
+        EVENTS.WALLET_TOPUP_REVIEWED,
+        new WalletTopUpReviewedEvent(
+          request.id,
+          request.driverId,
+          driverSummary.userId,
+          driverSummary.name,
+          actorUserId,
+          dto.status,
+          request.amount,
+          trimmedNotes,
+          driverSummary.newBalance,
+          reqWithWallet.platformWallet?.type ?? null,
+          reqWithWallet.platformWallet?.number ?? null,
+          Boolean(unlockNotification),
         ),
       );
     }
@@ -651,8 +781,13 @@ export class WalletService {
     return { orderId: null, referenceId: reference };
   }
 
-  private async getDriver(userId: string) {
-    const driver = await this.prisma.driver.findUnique({ where: { userId } });
+  private async getDriver(userId: string, includeUser = false) {
+    const driver = await this.prisma.driver.findUnique({
+      where: { userId },
+      ...(includeUser
+        ? { include: { user: { select: { id: true, name: true } } } }
+        : {}),
+    });
     if (!driver) throw new NotFoundException(DriverErrors.PROFILE_NOT_FOUND);
     return driver;
   }

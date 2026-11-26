@@ -108,16 +108,10 @@ export class DriverListener {
         data: { reason: 'SETTLEMENT_REQUIRED' },
       };
     } else if (event.reason === 'UNPAID_COMMISSION_SETTLED') {
-      dto = {
-        userId: event.driverUserId,
-        title: 'Account Unsuspended',
-        titleAr: 'تم فك تعليق الحساب',
-        body: 'Your wallet top-up was approved. You can now go online and receive orders!',
-        bodyAr:
-          'تمت الموافقة على شحن محفظتك. يمكنك الآن تسجيل الدخول واستقبال الطلبات!',
-        type: NotificationType.SYSTEM,
-        data: { reason: 'UNPAID_COMMISSION_SETTLED' },
-      };
+      // WalletListener.handleTopUpReviewed already sends the unified
+      // approval + account-unsuspended notification with /wallet deep link;
+      // skipping here prevents duplicate push notifications on approval.
+      return;
     }
 
     if (!dto) return;

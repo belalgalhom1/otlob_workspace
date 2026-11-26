@@ -28,6 +28,7 @@ export interface CreateNotificationPayload {
   bodyAr?: string | null;
   type: NotificationType;
   data?: Record<string, any>;
+  dedupeKey?: string;
 }
 
 /**
@@ -180,6 +181,11 @@ export class EventsProcessor extends WorkerHost {
         return `notify:driver_assist_requested:${data.requestId}`;
       case EVENT_JOBS.ORDER_STATUS_CHANGED:
         return this.orderStatusIdempotencyKey(data as OrderStatusChangedEvent);
+      case EVENT_JOBS.NOTIFY: {
+        const dedupeKey = (data as { dto?: { dedupeKey?: string } })?.dto
+          ?.dedupeKey;
+        return dedupeKey ? `notify:dedupe:${dedupeKey}` : null;
+      }
       default:
         return null;
     }
