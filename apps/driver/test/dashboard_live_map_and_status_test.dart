@@ -124,19 +124,15 @@ class _MutableFakeGeolocatorPlatform extends GeolocatorPlatform {
   @override
   Future<Position?> getLastKnownPosition({
     bool forceLocationManager = false,
-  }) async =>
-      currentPosition;
+  }) async => currentPosition;
 
   @override
   Future<Position> getCurrentPosition({
     LocationSettings? locationSettings,
-  }) async =>
-      currentPosition;
+  }) async => currentPosition;
 
   @override
-  Stream<Position> getPositionStream({
-    LocationSettings? locationSettings,
-  }) =>
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
       _streamController.stream;
 
   Future<void> dispose() => _streamController.close();
@@ -216,6 +212,8 @@ void main() {
   Widget buildDashboard({
     required _MutableDriverProfile profileNotifier,
     Locale locale = const Locale('en'),
+    ThemeData? theme,
+    Stream<bool>? connectivityStream,
     Key? scopeKey,
   }) {
     return ProviderScope(
@@ -228,12 +226,18 @@ void main() {
           _FakeDriverOrdersRepository(),
         ),
         orderExecutionProvider.overrideWith(_FakeOrderExecution.new),
-        breaksOverviewProvider.overrideWith((ref) async => const BreaksOverview()),
-        driverRankingSummaryProvider.overrideWith((ref) async => _makeFakeRank()),
-        isOnlineStreamProvider.overrideWith((ref) => Stream.value(true)),
+        breaksOverviewProvider.overrideWith(
+          (ref) async => const BreaksOverview(),
+        ),
+        driverRankingSummaryProvider.overrideWith(
+          (ref) async => _makeFakeRank(),
+        ),
+        isOnlineStreamProvider.overrideWith(
+          (ref) => connectivityStream ?? Stream.value(true),
+        ),
       ],
       child: MaterialApp(
-        theme: AppTheme.lightTheme,
+        theme: theme ?? AppTheme.darkTheme,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: locale,
@@ -243,9 +247,79 @@ void main() {
   }
 
   testWidgets(
-    'displays driver status above live map and updates dynamically across ONLINE, OFFLINE, BUSY, ON_DELIVERY, ON_BREAK, SUSPENDED in EN & AR',
+    'renders compact status bar above full-width white live map without offline warning card or shifts button, and updates dynamically in EN & AR',
     (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       final profileNotifier = _MutableDriverProfile({
+        'status': 'OFFLINE',
+        'name': 'Captain Kareem',
+        'vehicleType': 'MOTORCYCLE',
+        'vehiclePlate': 'hag',
+        'totalOrders': 12,
+        'walletBalance': -5.0,
+        'tier': 'BRONZE',
+      });
+
+      // Verify in DARK theme that map is STILL crisp white (AppMapStyle.navigationLight)
+      await tester.pumpWidget(
+        buildDashboard(
+          profileNotifier: profileNotifier,
+          theme: AppTheme.darkTheme,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+
+      final statusBarFinder = find.byKey(
+        const ValueKey('driver_dashboard_status_card'),
+      );
+      final mapFinder = find.byType(DriverLiveMapCard);
+      expect(statusBarFinder, findsOneWidget);
+      expect(mapFinder, findsOneWidget);
+      expect(find.byType(FlutterMap), findsOneWidget);
+      expect(find.byType(InDriveVehicleMarker), findsOneWidget);
+
+      // Large offline warning box and shifts button must be completely removed.
+      expect(find.text('You are Offline'), findsNothing);
+      expect(find.text('Go to Shifts to start working'), findsNothing);
+      expect(find.text('الذهاب إلى الورديات لبدء العمل'), findsNothing);
+
+      // Compact status bar sits directly above the map and stays compact (< 64px).
+      final statusRect = tester.getRect(statusBarFinder);
+      final mapRect = tester.getRect(mapFinder);
+      expect(statusRect.bottom, lessThanOrEqualTo(mapRect.top + 1));
+      expect(statusRect.height, lessThan(64));
+
+      // Live map spans the full dashboard width and occupies dominant vertical space.
+      expect(mapRect.width, closeTo(390, 0.5));
+      expect(mapRect.height, greaterThanOrEqualTo(350));
+
+      // Map tiles always use navigationLight (white map) even in dark theme.
+      final tileLayer = tester.widget<AppMapTileLayer>(
+        find.byType(AppMapTileLayer),
+      );
+      expect(tileLayer.style, equals(AppMapStyle.navigationLight));
+
+      // Keep GPS accuracy badge, recenter button, KPIs, No Active Tasks, and bottom nav.
+      expect(find.text('GPS ±4m'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('dashboard_live_map_recenter_btn')),
+        findsOneWidget,
+      );
+      expect(find.text('Offline'), findsOneWidget);
+      expect(find.text('Wallet Balance'), findsOneWidget);
+      expect(find.text('Completed'), findsOneWidget);
+      expect(find.text('No Active Tasks'), findsOneWidget);
+      expect(find.byType(BottomNavigationBar), findsOneWidget);
+
+      // Transition to ONLINE -> BUSY -> ON_DELIVERY -> ON_BREAK -> SUSPENDED
+      profileNotifier.updateProfile({
         'status': 'ONLINE',
         'name': 'Captain Kareem',
         'vehicleType': 'CAR',
@@ -253,30 +327,9 @@ void main() {
         'totalOrders': 12,
         'tier': 'GOLD',
       });
-
-      await tester.pumpWidget(buildDashboard(profileNotifier: profileNotifier));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 150));
+      expect(find.text('Online'), findsOneWidget);
 
-      final statusCardFinder = find.byKey(
-        const ValueKey('driver_dashboard_status_card'),
-      );
-      final mapCardFinder = find.byType(DriverLiveMapCard);
-      expect(statusCardFinder, findsOneWidget);
-      expect(mapCardFinder, findsOneWidget);
-      expect(find.byType(FlutterMap), findsOneWidget);
-      expect(find.byType(InDriveVehicleMarker), findsOneWidget);
-
-      // Verify Status Card sits above Map Card
-      expect(
-        tester.getTopLeft(statusCardFinder).dy,
-        lessThan(tester.getTopLeft(mapCardFinder).dy),
-      );
-
-      // Verify Status Card + Map show ONLINE
-      expect(find.text('Online'), findsWidgets);
-
-      // Transition to BUSY
       profileNotifier.updateProfile({
         'status': 'BUSY',
         'name': 'Captain Kareem',
@@ -284,9 +337,8 @@ void main() {
         'vehiclePlate': 'ABC 123',
       });
       await tester.pump();
-      expect(find.text('Busy'), findsWidgets);
+      expect(find.text('Busy'), findsOneWidget);
 
-      // Transition to ON_DELIVERY ("On a Trip")
       profileNotifier.updateProfile({
         'status': 'ON_DELIVERY',
         'name': 'Captain Kareem',
@@ -294,9 +346,8 @@ void main() {
         'vehiclePlate': 'ABC 123',
       });
       await tester.pump();
-      expect(find.text('On a Trip'), findsWidgets);
+      expect(find.text('On a Trip'), findsOneWidget);
 
-      // Transition to ON_BREAK
       profileNotifier.updateProfile({
         'status': 'ON_BREAK',
         'name': 'Captain Kareem',
@@ -304,9 +355,8 @@ void main() {
         'vehiclePlate': 'ABC 123',
       });
       await tester.pump();
-      expect(find.text('On Break'), findsWidgets);
+      expect(find.text('On Break'), findsOneWidget);
 
-      // Transition to SUSPENDED
       profileNotifier.updateProfile({
         'status': 'SUSPENDED',
         'name': 'Captain Kareem',
@@ -314,19 +364,20 @@ void main() {
         'vehiclePlate': 'ABC 123',
       });
       await tester.pump();
-      expect(find.text('Suspended'), findsWidgets);
+      expect(find.text('Suspended'), findsOneWidget);
 
-      // Transition to OFFLINE
-      profileNotifier.updateProfile({
-        'status': 'OFFLINE',
-        'name': 'Captain Kareem',
-        'vehicleType': 'CAR',
-        'vehiclePlate': 'ABC 123',
-      });
+      // Verify scrolling down works smoothly and bottom navigation remains fixed.
+      final navRectBefore = tester.getRect(find.byType(BottomNavigationBar));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -250),
+      );
       await tester.pump();
-      expect(find.text('Offline'), findsWidgets);
+      final navRectAfter = tester.getRect(find.byType(BottomNavigationBar));
+      expect(navRectAfter, equals(navRectBefore));
 
-      // Verify Arabic RTL status rendering cleanly
+      // Verify Arabic RTL on a compact Android viewport (360x640) in light theme.
+      tester.view.physicalSize = const Size(360, 640);
       final arProfileNotifier = _MutableDriverProfile({
         'status': 'ON_DELIVERY',
         'name': 'كابتن كريم',
@@ -337,13 +388,22 @@ void main() {
         buildDashboard(
           profileNotifier: arProfileNotifier,
           locale: const Locale('ar'),
+          theme: AppTheme.lightTheme,
           scopeKey: UniqueKey(),
         ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 150));
-      expect(find.text('في رحلة توصيل'), findsWidgets);
+      expect(find.text('في رحلة توصيل'), findsOneWidget);
       expect(find.byType(InDriveVehicleMarker), findsOneWidget);
+      final arTileLayer = tester.widget<AppMapTileLayer>(
+        find.byType(AppMapTileLayer),
+      );
+      expect(arTileLayer.style, equals(AppMapStyle.navigationLight));
+      expect(
+        tester.getRect(find.byType(DriverLiveMapCard)).width,
+        closeTo(360, 0.5),
+      );
       expect(tester.takeException(), isNull);
     },
   );

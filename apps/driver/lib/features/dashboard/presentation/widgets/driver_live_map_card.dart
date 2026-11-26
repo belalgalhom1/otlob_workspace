@@ -183,7 +183,8 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
     _releaseObserver = service.retainUiLocationObserver();
     service.locationState.addListener(_handleLocationStateChanged);
 
-    final initialPos = service.locationState.value.position ?? service.lastPosition;
+    final initialPos =
+        service.locationState.value.position ?? service.lastPosition;
     if (initialPos != null) {
       _applyNewPosition(initialPos, animate: false);
     }
@@ -236,7 +237,8 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
     if (!mounted || _fromLatLng == null || _toLatLng == null) return;
     final t = Curves.easeOutCubic.transform(_markerAnimController.value);
     final lat =
-        _fromLatLng!.latitude + (_toLatLng!.latitude - _fromLatLng!.latitude) * t;
+        _fromLatLng!.latitude +
+        (_toLatLng!.latitude - _fromLatLng!.latitude) * t;
     final lng =
         _fromLatLng!.longitude +
         (_toLatLng!.longitude - _fromLatLng!.longitude) * t;
@@ -263,13 +265,16 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
           );
 
     double resolvedHeading = _displayHeading;
-    if (pos.heading.isFinite && pos.heading >= 0 && (pos.speed > 0.4 || pos.heading > 0)) {
+    if (pos.heading.isFinite &&
+        pos.heading >= 0 &&
+        (pos.speed > 0.4 || pos.heading > 0)) {
       resolvedHeading = pos.heading % 360.0;
     } else if (_displayLatLng != null && distanceMoved >= 2.0) {
       resolvedHeading = _computeBearing(_displayLatLng!, nextLatLng);
     }
 
-    final movingNow = (pos.speed.isFinite && pos.speed > 0.6) || distanceMoved >= 3.0;
+    final movingNow =
+        (pos.speed.isFinite && pos.speed > 0.6) || distanceMoved >= 3.0;
     _lastAccuracyMeters = pos.accuracy.isFinite ? pos.accuracy : null;
 
     if (!animate || _displayLatLng == null || distanceMoved < 0.3) {
@@ -336,171 +341,41 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
     final l10n = AppLocalizations.of(context)!;
     final isAr = l10n.localeName == 'ar';
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final statusInfo = DriverStatusPresentation.resolve(widget.driverStatus, l10n);
+    final statusInfo = DriverStatusPresentation.resolve(
+      widget.driverStatus,
+      l10n,
+    );
     final vehicleNorm =
         VehicleTypeHelper.normalize(widget.vehicleType) ??
         VehicleTypeHelper.motorcycle;
-    final resolvedVehicleType =
-        vehicleNorm.isEmpty ? VehicleTypeHelper.motorcycle : vehicleNorm;
-    final vehicleLabel = VehicleTypeHelper.label(
-      resolvedVehicleType,
-      isArabic: isAr,
-    );
-    final vehicleIcon = VehicleTypeHelper.icon(resolvedVehicleType);
+    final resolvedVehicleType = vehicleNorm.isEmpty
+        ? VehicleTypeHelper.motorcycle
+        : vehicleNorm;
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final mapHeight = screenHeight < 680 ? 220.0 : 265.0;
+    final double mapHeight = (screenHeight * 0.48).clamp(280.0, 440.0);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: statusInfo.isWorkingShift
-              ? statusInfo.accent.withValues(alpha: 0.35)
-              : Theme.of(context).dividerColor.withValues(alpha: 0.5),
-          width: 1.2,
+    return SizedBox(
+      width: double.infinity,
+      height: mapHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(
+                context,
+              ).dividerColor.withValues(alpha: isDark ? 0.35 : 0.6),
+              width: 1,
+            ),
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildHeaderBar(
-            context,
-            l10n: l10n,
-            statusInfo: statusInfo,
-            vehicleIcon: vehicleIcon,
-            vehicleLabel: vehicleLabel,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: SizedBox(
-                height: mapHeight,
-                child: _buildMapArea(
-                  context,
-                  l10n: l10n,
-                  isDark: isDark,
-                  isAr: isAr,
-                  statusInfo: statusInfo,
-                  vehicleNorm: resolvedVehicleType,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderBar(
-    BuildContext context, {
-    required AppLocalizations l10n,
-    required DriverStatusPresentation statusInfo,
-    required IconData vehicleIcon,
-    required String vehicleLabel,
-  }) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final plate = widget.plateNumber?.trim() ?? '';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: statusInfo.accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              LucideIcons.mapPin,
-              size: 18,
-              color: statusInfo.accent,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.liveMapTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: onSurface,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Icon(
-                      vehicleIcon,
-                      size: 13,
-                      color: onSurface.withValues(alpha: 0.65),
-                    ),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        plate.isNotEmpty ? '$vehicleLabel • $plate' : vehicleLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: onSurface.withValues(alpha: 0.68),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: statusInfo.accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: statusInfo.accent.withValues(alpha: 0.45),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: statusInfo.accent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  statusInfo.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: statusInfo.accent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        child: _buildMapArea(
+          context,
+          l10n: l10n,
+          isDark: isDark,
+          isAr: isAr,
+          statusInfo: statusInfo,
+          vehicleNorm: resolvedVehicleType,
+        ),
       ),
     );
   }
@@ -514,7 +389,8 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
     required String vehicleNorm,
   }) {
     final locationState =
-        _locationService?.locationState.value ?? const DriverLocationState.loading();
+        _locationService?.locationState.value ??
+        const DriverLocationState.loading();
     final centerPoint = _displayLatLng;
 
     if (centerPoint == null) {
@@ -526,11 +402,22 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
       );
     }
 
-    final resolvedVehicleType =
-        vehicleNorm.isEmpty ? VehicleTypeHelper.motorcycle : vehicleNorm;
+    final resolvedVehicleType = vehicleNorm.isEmpty
+        ? VehicleTypeHelper.motorcycle
+        : vehicleNorm;
     final labelText = (widget.plateNumber?.trim().isNotEmpty ?? false)
         ? widget.plateNumber!.trim()
         : null;
+
+    final pillBg = isDark
+        ? AppColors.backgroundDark.withValues(alpha: 0.92)
+        : Colors.white.withValues(alpha: 0.95);
+    final pillFg = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimaryLight;
+    final pillBorder = isDark
+        ? Colors.white.withValues(alpha: 0.14)
+        : AppColors.borderLight;
 
     return Stack(
       fit: StackFit.expand,
@@ -561,10 +448,10 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
             },
           ),
           children: [
-            AppMapTileLayer(
-              style: isDark
-                  ? AppMapStyle.navigationDark
-                  : AppMapStyle.navigationLight,
+            // Always render the crisp white/light navigation map in both
+            // light and dark app themes.
+            const AppMapTileLayer(
+              style: AppMapStyle.navigationLight,
               userAgentPackageName: 'com.otlobegy.driver',
             ),
             MarkerLayer(
@@ -594,27 +481,35 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
         if (_lastAccuracyMeters != null)
           Positioned.directional(
             textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-            bottom: 10,
-            start: 10,
+            bottom: 12,
+            start: 12,
             child: IgnorePointer(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: (isDark ? AppColors.backgroundDark : Colors.white)
-                      .withValues(alpha: 0.9),
+                  color: pillBg,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: Theme.of(context).dividerColor.withValues(alpha: 0.4),
-                  ),
+                  border: Border.all(color: pillBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.14),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Directionality(
                   textDirection: TextDirection.ltr,
                   child: Text(
                     'GPS ±${_lastAccuracyMeters!.round()}m',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
+                      color: pillFg,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                 ),
@@ -623,20 +518,27 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
           ),
         Positioned.directional(
           textDirection: isAr ? TextDirection.rtl : TextDirection.ltr,
-          bottom: 10,
-          end: 10,
+          bottom: 12,
+          end: 12,
           child: Material(
-            color: _followDriver
-                ? (isDark ? AppColors.surfaceDark : Colors.white)
-                : AppColors.primary,
+            color: _followDriver ? pillBg : AppColors.primary,
             elevation: 4,
-            borderRadius: BorderRadius.circular(999),
+            shadowColor: Colors.black.withValues(alpha: 0.25),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(999),
+              side: BorderSide(
+                color: _followDriver ? pillBorder : AppColors.primaryVariant,
+              ),
+            ),
             child: InkWell(
               key: const ValueKey('dashboard_live_map_recenter_btn'),
               onTap: _recenterOnDriver,
               borderRadius: BorderRadius.circular(999),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -653,9 +555,7 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: _followDriver
-                            ? Theme.of(context).colorScheme.onSurface
-                            : AppColors.onPrimary,
+                        color: _followDriver ? pillFg : AppColors.onPrimary,
                       ),
                     ),
                   ],
@@ -675,8 +575,9 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
     required DriverLocationState locationState,
   }) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final bgColor =
-        isDark ? AppColors.backgroundDark.withValues(alpha: 0.7) : AppColors.surfaceLight;
+    final bgColor = isDark
+        ? AppColors.backgroundDark.withValues(alpha: 0.7)
+        : AppColors.surfaceLight;
 
     if (locationState.status == DriverLocationStatus.loading) {
       return Container(
@@ -738,7 +639,9 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
         subtitle = l10n.liveMapPermissionDeniedSubtitle;
         buttonLabel = l10n.liveMapAllowAction;
         onAction = () {
-          unawaited(_locationService?.refreshUiLocation(requestPermission: true));
+          unawaited(
+            _locationService?.refreshUiLocation(requestPermission: true),
+          );
         };
         break;
       case DriverLocationStatus.permissionDeniedForever:
@@ -763,7 +666,9 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
         subtitle = l10n.liveMapPermissionDeniedSubtitle;
         buttonLabel = l10n.liveMapRetryAction;
         onAction = () {
-          unawaited(_locationService?.refreshUiLocation(requestPermission: true));
+          unawaited(
+            _locationService?.refreshUiLocation(requestPermission: true),
+          );
         };
         break;
     }
@@ -810,12 +715,18 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.onPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
               ),
               icon: const Icon(Icons.my_location_rounded, size: 16),
               label: Text(
                 buttonLabel,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
               ),
             ),
           ],
