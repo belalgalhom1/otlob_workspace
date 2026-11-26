@@ -20,10 +20,20 @@ class NotificationRouter extends Notifier<PendingNotificationRoute?> {
 
   void clear() => state = null;
 
-  /// Maps an FCM data payload to an in-app destination. Chat pushes for order
-  /// conversations carry BOTH `conversationId` and `orderId`, so `conversationId`
-  /// is checked first.
+  /// Maps an FCM data payload to an in-app destination. Wallet adjustments,
+  /// chat pushes, and order updates are routed to their specific destinations.
   void handleTap(Map<String, String> data) {
+    final kind = (data['kind'] ?? '').trim().toLowerCase();
+    final route = (data['route'] ?? '').trim().toLowerCase();
+    final topUpId = (data['topUpId'] ?? data['requestId'] ?? '').trim();
+    if (kind == 'wallet_topup' ||
+        route == 'wallet_topup_details' ||
+        route == '/wallet/topups' ||
+        (topUpId.isNotEmpty && route.contains('wallet_topup'))) {
+      state = PendingNotificationRoute(kind: 'wallet_topup', id: topUpId);
+      return;
+    }
+
     final conversationId = (data['conversationId'] ?? '').trim();
     final orderId = (data['orderId'] ?? '').trim();
     if (conversationId.isNotEmpty) {

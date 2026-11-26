@@ -20,7 +20,11 @@ class _$WalletTopUpRequest extends WalletTopUpRequest {
   @override
   final TopUpStatus status;
   @override
+  final String? notes;
+  @override
   final String? approvedById;
+  @override
+  final DateTime? reviewedAt;
   @override
   final DateTime createdAt;
   @override
@@ -37,7 +41,9 @@ class _$WalletTopUpRequest extends WalletTopUpRequest {
     required this.amount,
     required this.receiptUrl,
     required this.status,
+    this.notes,
     this.approvedById,
+    this.reviewedAt,
     required this.createdAt,
     required this.updatedAt,
   }) : super._();
@@ -60,7 +66,9 @@ class _$WalletTopUpRequest extends WalletTopUpRequest {
         amount == other.amount &&
         receiptUrl == other.receiptUrl &&
         status == other.status &&
+        notes == other.notes &&
         approvedById == other.approvedById &&
+        reviewedAt == other.reviewedAt &&
         createdAt == other.createdAt &&
         updatedAt == other.updatedAt;
   }
@@ -74,7 +82,9 @@ class _$WalletTopUpRequest extends WalletTopUpRequest {
     _$hash = $jc(_$hash, amount.hashCode);
     _$hash = $jc(_$hash, receiptUrl.hashCode);
     _$hash = $jc(_$hash, status.hashCode);
+    _$hash = $jc(_$hash, notes.hashCode);
     _$hash = $jc(_$hash, approvedById.hashCode);
+    _$hash = $jc(_$hash, reviewedAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
     _$hash = $jc(_$hash, updatedAt.hashCode);
     _$hash = $jf(_$hash);
@@ -90,7 +100,9 @@ class _$WalletTopUpRequest extends WalletTopUpRequest {
           ..add('amount', amount)
           ..add('receiptUrl', receiptUrl)
           ..add('status', status)
+          ..add('notes', notes)
           ..add('approvedById', approvedById)
+          ..add('reviewedAt', reviewedAt)
           ..add('createdAt', createdAt)
           ..add('updatedAt', updatedAt))
         .toString();
@@ -126,9 +138,17 @@ class WalletTopUpRequestBuilder
   TopUpStatus? get status => _$this._status;
   set status(TopUpStatus? status) => _$this._status = status;
 
+  String? _notes;
+  String? get notes => _$this._notes;
+  set notes(String? notes) => _$this._notes = notes;
+
   String? _approvedById;
   String? get approvedById => _$this._approvedById;
   set approvedById(String? approvedById) => _$this._approvedById = approvedById;
+
+  DateTime? _reviewedAt;
+  DateTime? get reviewedAt => _$this._reviewedAt;
+  set reviewedAt(DateTime? reviewedAt) => _$this._reviewedAt = reviewedAt;
 
   DateTime? _createdAt;
   DateTime? get createdAt => _$this._createdAt;
@@ -151,7 +171,9 @@ class WalletTopUpRequestBuilder
       _amount = $v.amount;
       _receiptUrl = $v.receiptUrl;
       _status = $v.status;
+      _notes = $v.notes;
       _approvedById = $v.approvedById;
+      _reviewedAt = $v.reviewedAt;
       _createdAt = $v.createdAt;
       _updatedAt = $v.updatedAt;
       _$v = null;
@@ -206,7 +228,9 @@ class WalletTopUpRequestBuilder
             r'WalletTopUpRequest',
             'status',
           ),
+          notes: notes,
           approvedById: approvedById,
+          reviewedAt: reviewedAt,
           createdAt: BuiltValueNullFieldError.checkNotNull(
             createdAt,
             r'WalletTopUpRequest',

@@ -32,8 +32,10 @@ class WalletScreen extends ConsumerWidget {
         final balance = data['balance'] ?? 0.0;
         final transactions = data['transactions'] as List<dynamic>? ?? [];
         final adjustments = _extractAdjustments(transactions);
-        final topUpRequests = data['topUpRequests'] as List<dynamic>? ?? [];
-        final pendingTopUps = topUpRequests.where((e) => e['status'] == 'PENDING').toList();
+        final topUpRequests = (data['topUpRequests'] as List<dynamic>? ?? [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
         final profileValue = ref.watch(driverProfileProvider).value;
         final profileData = (profileValue is Map && profileValue['data'] is Map)
             ? profileValue['data'] as Map
@@ -63,49 +65,13 @@ class WalletScreen extends ConsumerWidget {
                       ],
                       _buildBalanceCard(context, ref, balance, currency, l10n),
                       const SizedBox(height: 32),
-                      if (pendingTopUps.isNotEmpty) ...[
-                        Text(
-                          l10n.pendingApproval,
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                      if (topUpRequests.isNotEmpty) ...[
+                        _buildTopUpRequestsSection(
+                          context,
+                          topUpRequests,
+                          currency,
+                          l10n,
                         ),
-                        const SizedBox(height: 16),
-                        ...pendingTopUps.map((tx) {
-                          final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
-                          final isDark = Theme.of(context).brightness == Brightness.dark;
-                          final warnAccent = isDark ? AppColors.warning : const Color(0xFF92400E);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.warning.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(LucideIcons.clock, color: warnAccent),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    l10n.pendingApproval,
-                                    style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Directionality(
-                                    textDirection: ui.TextDirection.ltr,
-                                    child: Text(
-                                      '+${amount.toStringAsFixed(2)} $currency',
-                                      textAlign: TextAlign.end,
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: warnAccent),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
                         const SizedBox(height: 24),
                       ],
                       Text(
@@ -455,6 +421,273 @@ class WalletScreen extends ConsumerWidget {
       }
     }
     return result;
+  }
+
+  String _formatPlatformWalletLabel(
+    Map<String, dynamic> tx,
+    bool isArabic,
+  ) {
+    final walletMap =
+        tx['platformWallet'] is Map ? tx['platformWallet'] as Map : null;
+    final rawType =
+        (walletMap?['type'] ?? tx['platformWalletType'] ?? '')
+            .toString()
+            .trim()
+            .toUpperCase();
+    final rawNumber =
+        (walletMap?['number'] ?? tx['platformWalletNumber'] ?? '')
+            .toString()
+            .trim();
+    if (rawType.isEmpty && rawNumber.isEmpty) return '';
+
+    final baseLabel = rawType == 'INSTAPAY'
+        ? (isArabic ? 'إنستا باي' : 'InstaPay')
+        : (isArabic ? 'محفظة إلكترونية' : 'Mobile Wallet');
+    if (rawNumber.isEmpty) return baseLabel;
+    return isArabic ? '$baseLabel - \u2066$rawNumber\u2069' : '$baseLabel - $rawNumber';
+  }
+
+  Widget _buildTopUpRequestsSection(
+    BuildContext context,
+    List<Map<String, dynamic>> topUpRequests,
+    String currency,
+    AppLocalizations l10n,
+  ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final warnAccent = isDark ? AppColors.warning : const Color(0xFF92400E);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              LucideIcons.fileText,
+              size: 18,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.topUpRequestsTitle,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...topUpRequests.map((tx) {
+          final status =
+              (tx['status'] ?? 'PENDING').toString().trim().toUpperCase();
+          final amount =
+              double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
+          final createdAtStr = tx['createdAt']?.toString();
+          final createdAt = (createdAtStr != null
+                  ? DateTime.tryParse(createdAtStr)
+                  : null)
+              ?.toLocal();
+          final reviewedAtStr = tx['reviewedAt']?.toString();
+          final reviewedAt = (reviewedAtStr != null
+                  ? DateTime.tryParse(reviewedAtStr)
+                  : null)
+              ?.toLocal();
+          final rawNotes = (tx['notes'] ?? '').toString().trim();
+          final walletLabel = _formatPlatformWalletLabel(tx, isArabic);
+
+          late final Color accent;
+          late final IconData statusIcon;
+          late final String statusLabel;
+          if (status == 'APPROVED') {
+            accent = AppColors.success;
+            statusIcon = LucideIcons.checkCircle2;
+            statusLabel = l10n.approved;
+          } else if (status == 'REJECTED') {
+            accent = AppColors.error;
+            statusIcon = LucideIcons.circleAlert;
+            statusLabel = l10n.rejected;
+          } else {
+            accent = warnAccent;
+            statusIcon = LucideIcons.clock;
+            statusLabel = l10n.pendingApproval;
+          }
+
+          final isRejected = status == 'REJECTED';
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(statusIcon, size: 14, color: accent),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  statusLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: accent,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Directionality(
+                      textDirection: ui.TextDirection.ltr,
+                      child: Text(
+                        '+${amount.toStringAsFixed(2)} $currency',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          color: accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (walletLabel.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        LucideIcons.banknote,
+                        size: 14,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.65,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          walletLabel,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.85,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (createdAt != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _formatTxDate(createdAt, l10n),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
+                if (reviewedAt != null && status != 'PENDING') ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    '${l10n.reviewedAtLabel}: ${_formatTxDate(reviewedAt, l10n)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
+                if (rawNotes.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isRejected
+                          ? AppColors.error.withValues(alpha: 0.08)
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isRejected
+                            ? AppColors.error.withValues(alpha: 0.25)
+                            : theme.dividerColor.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isRejected
+                              ? l10n.rejectionReasonLabel
+                              : l10n.adminNoteLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: isRejected
+                                ? AppColors.error
+                                : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.75,
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          rawNotes,
+                          softWrap: true,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.4,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.9,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }),
+      ],
+    );
   }
 
   Widget _buildAdjustmentHistorySection(

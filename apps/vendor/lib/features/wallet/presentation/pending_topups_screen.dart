@@ -9,6 +9,7 @@ import 'package:vendor/core/utils/error_utils.dart';
 import '../data/wallet_localization.dart';
 import '../data/wallet_providers.dart';
 import '../data/wallet_models.dart';
+import 'topup_details_screen.dart';
 
 class PendingTopUpsScreen extends ConsumerStatefulWidget {
   const PendingTopUpsScreen({super.key});
@@ -181,7 +182,21 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                   ),
                 ],
               ),
-              child: Padding(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DriverAdjustmentDetailsScreen(
+                          requestId: topUp.id,
+                          initialRequest: topUp,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
@@ -237,6 +252,16 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                                   ),
                                 ],
                               ),
+                              if (topUp.platformWalletLabel(isArabic: isAr).isNotEmpty) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  topUp.platformWalletLabel(isArabic: isAr),
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -314,6 +339,8 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                       ],
                     ),
                   ],
+                ),
+                  ),
                 ),
               ),
             );
@@ -450,14 +477,15 @@ class _PendingTopUpsScreenState extends ConsumerState<PendingTopUpsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AppFieldLabel(label: l10n.optionalNotes),
+                  AppFieldLabel(label: l10n.reviewNotesLabel),
                   TextField(
                     controller: controller,
                     enabled: !submitting,
                     maxLines: 3,
+                    maxLength: 500,
                     decoration: AppDialogStyles.inputDecoration(
                       dialogContext,
-                      hintText: l10n.optionalNotes,
+                      hintText: isApprove ? l10n.optionalNotes : l10n.rejectionReasonHint,
                       icon: LucideIcons.messageSquare,
                       isMultiline: true,
                     ),

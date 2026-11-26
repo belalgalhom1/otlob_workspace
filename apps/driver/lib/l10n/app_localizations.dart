@@ -4939,6 +4939,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry'**
   String get liveMapRetryAction;
+
+  /// No description provided for @topUpRequestsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjustment Requests'**
+  String get topUpRequestsTitle;
+
+  /// No description provided for @rejectionReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejection Reason'**
+  String get rejectionReasonLabel;
+
+  /// No description provided for @adminNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin Note'**
+  String get adminNoteLabel;
+
+  /// No description provided for @reviewedAtLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviewed At'**
+  String get reviewedAtLabel;
 }
 
 class _AppLocalizationsDelegate

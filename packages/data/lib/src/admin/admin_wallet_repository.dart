@@ -45,6 +45,11 @@ class AdminWalletRepository {
     return ResponseParser.parse(response);
   }
 
+  Future<dynamic> walletGetTopUpById({required String id}) async {
+    final response = await _api.walletControllerGetTopUpRequestById(id: id);
+    return ResponseParser.parse(response);
+  }
+
   Future<dynamic> walletGetAllPlatformWallets() async {
     final response = await _api.walletControllerGetAllPlatformWallets();
     return ResponseParser.parse(response);

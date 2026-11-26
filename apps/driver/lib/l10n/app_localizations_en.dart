@@ -2550,4 +2550,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get liveMapRetryAction => 'Retry';
+
+  @override
+  String get topUpRequestsTitle => 'Adjustment Requests';
+
+  @override
+  String get rejectionReasonLabel => 'Rejection Reason';
+
+  @override
+  String get adminNoteLabel => 'Admin Note';
+
+  @override
+  String get reviewedAtLabel => 'Reviewed At';
 }

@@ -933,5 +933,20 @@
   "removeDriverGroupNoneFound": "ليس لدى السائق ورديات لإزالتها في هذه المجموعة.",
   "removeDriverFromGroupTitle": "إزالة من مجموعة الورديات",
   "removeDriverFromGroupAction": "إزالة الكل ({count})",
-  "remove": "إزالة"
+  "remove": "إزالة",
+  "driverAdjustmentDetails": "تفاصيل تسوية السائق",
+  "adjustmentSummary": "ملخص التسوية",
+  "driverDetails": "بيانات السائق",
+  "reviewNotesLabel": "ملاحظات المراجعة / السبب",
+  "rejectionReasonHint": "أدخل سبب الرفض أو ملاحظة اختيارية للسائق...",
+  "reviewedByLabel": "تمت المراجعة بواسطة",
+  "reviewedAtLabel": "تاريخ المراجعة",
+  "submittedAtLabel": "تاريخ التقديم",
+  "driverCurrentBalance": "رصيد المحفظة الحالي",
+  "transferReceipt": "إيصال التحويل",
+  "tapToZoom": "اضغط على الإيصال للتكبير",
+  "noReceiptAvailable": "لا يوجد إيصال مرفق",
+  "noPermissionToReviewAdjustment": "ليس لديك صلاحية المالية لعرض طلب التسوية هذا.",
+  "requestAlreadyReviewed": "تمت مراجعة طلب التسوية هذا بالفعل.",
+  "callDriver": "الاتصال بالسائق"
 }

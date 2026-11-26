@@ -235,6 +235,7 @@ import 'package:api/src/model/update_driver_profile_dto.dart';
 import 'package:api/src/model/update_driver_status_dto.dart';
 import 'package:api/src/model/update_legal_document_dto.dart';
 import 'package:api/src/model/update_menu_category_dto.dart';
+import 'package:api/src/model/update_message_dto.dart';
 import 'package:api/src/model/update_notification_settings_dto.dart';
 import 'package:api/src/model/update_offer_dto.dart';
 import 'package:api/src/model/update_option_group_dto.dart';
@@ -496,6 +497,7 @@ part 'serializers.g.dart';
   UpdateDriverStatusDto,
   UpdateLegalDocumentDto,
   UpdateMenuCategoryDto,
+  UpdateMessageDto,
   UpdateNotificationSettingsDto,
   UpdateOfferDto,
   UpdateOptionGroupDto,

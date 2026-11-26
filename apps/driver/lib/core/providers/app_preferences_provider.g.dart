@@ -41,7 +41,7 @@ final class AppPreferencesProvider
   }
 }
 
-String _$appPreferencesHash() => r'21a40090825ea955515bcb1a7667d982559c3129';
+String _$appPreferencesHash() => r'dfa2b48e268c4447f8f3012f5df9340b892c5c94';
 
 abstract class _$AppPreferences extends $Notifier<AppPreferencesState> {
   AppPreferencesState build();

@@ -42,7 +42,7 @@ final class DriverOrdersHistoryProvider
 }
 
 String _$driverOrdersHistoryHash() =>
-    r'f6fc54d95fa751f7174e6029377b189bcad90807';
+    r'6814e6362d011f7be7d4dd280dfbd2ab9560a4e0';
 
 abstract class _$DriverOrdersHistory
     extends $Notifier<DriverOrdersHistoryState> {

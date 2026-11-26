@@ -1052,5 +1052,20 @@
       }
     }
   },
-  "remove": "Remove"
+  "remove": "Remove",
+  "driverAdjustmentDetails": "Driver Adjustment Details",
+  "adjustmentSummary": "Adjustment Summary",
+  "driverDetails": "Driver Details",
+  "reviewNotesLabel": "Review Notes / Reason",
+  "rejectionReasonHint": "Enter rejection reason or optional note for the driver...",
+  "reviewedByLabel": "Reviewed By",
+  "reviewedAtLabel": "Reviewed At",
+  "submittedAtLabel": "Submitted At",
+  "driverCurrentBalance": "Current Wallet Balance",
+  "transferReceipt": "Transfer Receipt",
+  "tapToZoom": "Tap receipt to zoom",
+  "noReceiptAvailable": "No receipt image attached",
+  "noPermissionToReviewAdjustment": "You do not have finance permission to view this driver adjustment.",
+  "requestAlreadyReviewed": "This adjustment request has already been reviewed.",
+  "callDriver": "Call Driver"
 }

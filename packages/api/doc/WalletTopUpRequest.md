@@ -14,7 +14,9 @@ Name | Type | Description | Notes
 **amount** | **num** |  | 
 **receiptUrl** | **String** |  | 
 **status** | [**TopUpStatus**](TopUpStatus.md) |  | 
+**notes** | **String** |  | [optional] 
 **approvedById** | **String** |  | [optional] 
+**reviewedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
 **updatedAt** | [**DateTime**](DateTime.md) |  | 
 

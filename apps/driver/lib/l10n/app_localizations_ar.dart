@@ -2529,4 +2529,16 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get liveMapRetryAction => 'إعادة المحاولة';
+
+  @override
+  String get topUpRequestsTitle => 'طلبات التسوية';
+
+  @override
+  String get rejectionReasonLabel => 'سبب الرفض';
+
+  @override
+  String get adminNoteLabel => 'ملاحظة الإدارة';
+
+  @override
+  String get reviewedAtLabel => 'تاريخ المراجعة';
 }

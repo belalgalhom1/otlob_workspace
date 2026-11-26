@@ -25,19 +25,102 @@ class PushNotificationService {
     audioAttributesUsage: AudioAttributesUsage.notification,
   );
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
+  final FirebaseMessaging? _messagingOverride;
+  final FlutterLocalNotificationsPlugin? _localNotificationsOverride;
+  final Stream<RemoteMessage>? _onMessageOverride;
+  final Stream<RemoteMessage>? _onMessageOpenedAppOverride;
+  FlutterLocalNotificationsPlugin? _localNotificationsLazy;
+
+  FirebaseMessaging get _messaging =>
+      _messagingOverride ?? FirebaseMessaging.instance;
+  FlutterLocalNotificationsPlugin get _localNotifications =>
+      _localNotificationsOverride ??
+      (_localNotificationsLazy ??= FlutterLocalNotificationsPlugin());
+
   final DevicesPushNotificationsApi _devicesApi;
   final StreamController<RemoteMessage> _openedAppController =
       StreamController<RemoteMessage>.broadcast();
-
+  bool _initialized = false;
+  bool _tapListenersInitialized = false;
   bool _listenersInitialized = false;
+  bool _topicsSubscribed = false;
   RemoteMessage? _pendingInitialLocalMessage;
+  String? _registeredToken;
+  String? _pendingTopicRole;
+  StreamSubscription<String>? _tokenRefreshSub;
+  StreamSubscription<RemoteMessage>? _foregroundMessageSub;
+  StreamSubscription<RemoteMessage>? _openedAppSub;
+  StreamSubscription<bool>? _connectivitySub;
 
-  PushNotificationService(this._devicesApi);
+  PushNotificationService(
+    this._devicesApi, {
+    FirebaseMessaging? messaging,
+    FlutterLocalNotificationsPlugin? localNotifications,
+    Stream<RemoteMessage>? onMessageStream,
+    Stream<RemoteMessage>? onMessageOpenedAppStream,
+    Stream<bool>? connectivityChanges,
+  })  : _messagingOverride = messaging,
+        _localNotificationsOverride = localNotifications,
+        _onMessageOverride = onMessageStream,
+        _onMessageOpenedAppOverride = onMessageOpenedAppStream {
+    if (connectivityChanges != null) {
+      _connectivitySub = connectivityChanges.listen((isOnline) {
+        if (isOnline && _initialized) {
+          unawaited(ensureTokenRegistered());
+        }
+      });
+    }
+  }
+
+  /// Attaches notification tap listeners (background onMessageOpenedApp and local
+  /// notification launch payloads) early without prompting for OS permissions.
+  Future<void> ensureTapListenersInitialized() async {
+    if (_tapListenersInitialized) return;
+    _tapListenersInitialized = true;
+
+    try {
+      const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
+      const iosInit = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+      const initSettings = InitializationSettings(
+        android: androidInit,
+        iOS: iosInit,
+      );
+      await _localNotifications
+          .initialize(
+            settings: initSettings,
+            onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
+          )
+          .timeout(const Duration(seconds: 3));
+
+      final launchDetails = await _localNotifications
+          .getNotificationAppLaunchDetails()
+          .timeout(const Duration(seconds: 2), onTimeout: () => null);
+      if (launchDetails?.didNotificationLaunchApp == true) {
+        _pendingInitialLocalMessage ??=
+            _decodeLocalPayload(launchDetails?.notificationResponse?.payload);
+      }
+    } catch (e) {
+      debugPrint('FCM: Local notification tap setup warning: $e');
+    }
+
+    try {
+      final openedStream =
+          _onMessageOpenedAppOverride ?? FirebaseMessaging.onMessageOpenedApp;
+      _openedAppSub ??= openedStream.listen((RemoteMessage message) {
+        debugPrint('Message clicked! Routing to payload: ${message.data}');
+        _openedAppController.add(message);
+      });
+    } catch (e) {
+      debugPrint('FCM: onMessageOpenedApp listener warning: $e');
+    }
+  }
 
   Future<void> initialize() async {
+    _initialized = true;
     try {
       // Request permission (iOS specifically, Android 13+)
       final settings = await _messaging
@@ -72,55 +155,32 @@ class PushNotificationService {
       }
     }
 
+    await ensureTapListenersInitialized();
+
     if (!_listenersInitialized) {
       try {
-        // Initialize local notifications for foreground display and tap routing
-        const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
-        const iosInit = DarwinInitializationSettings(
-          requestAlertPermission: false,
-          requestBadgePermission: false,
-          requestSoundPermission: false,
-        );
-        const initSettings = InitializationSettings(
-          android: androidInit,
-          iOS: iosInit,
-        );
-        await _localNotifications
-            .initialize(
-              settings: initSettings,
-              onDidReceiveNotificationResponse: _handleLocalNotificationResponse,
-            )
-            .timeout(const Duration(seconds: 3));
-
-        final launchDetails = await _localNotifications
-            .getNotificationAppLaunchDetails()
-            .timeout(const Duration(seconds: 2), onTimeout: () => null);
-        if (launchDetails?.didNotificationLaunchApp == true) {
-          _pendingInitialLocalMessage =
-              _decodeLocalPayload(launchDetails?.notificationResponse?.payload);
-        }
-
         await _createAndroidNotificationChannel(_localNotifications);
       } catch (e) {
-        debugPrint('FCM: Local notifications initialization warning: $e');
+        debugPrint('FCM: Android notification channel warning: $e');
       }
 
       // Attach listeners before fetching token so delayed APNs registration
-      // on iOS never prevents token refresh or foreground message delivery.
-      _messaging.onTokenRefresh.listen((newToken) async {
+      // on iOS never prevents token refresh, registration, or topic subscription.
+      _tokenRefreshSub ??= _messaging.onTokenRefresh.listen((newToken) async {
         debugPrint('FCM Token refreshed: $newToken');
+        _topicsSubscribed = false;
         await _registerToken(newToken);
+        final role = _pendingTopicRole;
+        if (role != null) {
+          await subscribeToRoleTopics(role);
+        }
       });
 
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      final msgStream = _onMessageOverride ?? FirebaseMessaging.onMessage;
+      _foregroundMessageSub ??= msgStream.listen((RemoteMessage message) {
         debugPrint(
             'Received foreground message: ${message.notification?.title}');
         _handleRemoteMessage(message);
-      });
-
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        debugPrint('Message clicked! Routing to payload: ${message.data}');
-        _openedAppController.add(message);
       });
 
       _listenersInitialized = true;
@@ -133,22 +193,45 @@ class PushNotificationService {
     }
   }
 
-  Stream<RemoteMessage> get onMessage => FirebaseMessaging.onMessage;
+  /// Retries FCM token registration and pending role topic subscription if a
+  /// previous attempt failed or iOS APNs registration completed later.
+  Future<void> ensureTokenRegistered({String? role}) async {
+    if (role != null && role.trim().isNotEmpty) {
+      _pendingTopicRole = role;
+    }
+    final token = await getToken(waitForApns: false);
+    if (token != null && _registeredToken != token) {
+      await _registerToken(token);
+    }
+    final pendingRole = _pendingTopicRole;
+    if (pendingRole != null && !_topicsSubscribed) {
+      await subscribeToRoleTopics(pendingRole);
+    }
+  }
+
+  Stream<RemoteMessage> get onMessage =>
+      _onMessageOverride ?? FirebaseMessaging.onMessage;
   Stream<RemoteMessage> get onMessageOpenedApp => _openedAppController.stream;
 
   Future<RemoteMessage?> getInitialMessage() async {
-    final fcmInitial = await _messaging.getInitialMessage();
-    if (fcmInitial != null) return fcmInitial;
+    try {
+      final fcmInitial = await _messaging.getInitialMessage();
+      if (fcmInitial != null) return fcmInitial;
+    } catch (e) {
+      debugPrint('FCM: getInitialMessage warning: $e');
+    }
 
     final pendingLocal = _pendingInitialLocalMessage;
     _pendingInitialLocalMessage = null;
     if (pendingLocal != null) return pendingLocal;
 
-    final launchDetails =
-        await _localNotifications.getNotificationAppLaunchDetails();
-    if (launchDetails?.didNotificationLaunchApp == true) {
-      return _decodeLocalPayload(launchDetails?.notificationResponse?.payload);
-    }
+    try {
+      final launchDetails =
+          await _localNotifications.getNotificationAppLaunchDetails();
+      if (launchDetails?.didNotificationLaunchApp == true) {
+        return _decodeLocalPayload(launchDetails?.notificationResponse?.payload);
+      }
+    } catch (_) {}
     return null;
   }
 
@@ -177,7 +260,9 @@ class PushNotificationService {
     return null;
   }
 
-  Future<void> _registerToken(String token) async {
+  Future<bool> _registerToken(String token) async {
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) return false;
     try {
       final platform = kIsWeb
           ? RegisterDeviceDtoPlatformEnum.WEB
@@ -186,15 +271,19 @@ class PushNotificationService {
               : RegisterDeviceDtoPlatformEnum.ANDROID);
 
       final dto = RegisterDeviceDto((b) => b
-        ..token = token
+        ..token = trimmed
         ..platform = platform);
 
       await _devicesApi
           .devicesControllerRegister(registerDeviceDto: dto)
           .timeout(const Duration(seconds: 5));
-      debugPrint('FCM Token registered with backend successfully');
+      _registeredToken = trimmed;
+      debugPrint('FCM Token registered with backend successfully ($platform)');
+      return true;
     } catch (e) {
+      _registeredToken = null;
       debugPrint('Failed to register FCM token: $e');
+      return false;
     }
   }
 
@@ -208,6 +297,7 @@ class PushNotificationService {
         await _devicesApi
             .devicesControllerRemove(token: resolvedToken)
             .timeout(const Duration(seconds: 3));
+        _registeredToken = null;
         debugPrint('FCM Token removed from backend successfully');
       }
     } catch (e) {
@@ -267,13 +357,25 @@ class PushNotificationService {
   /// Subscribes the device to the global 'topic_all' and a role-specific topic.
   /// Allowed roles: 'CUSTOMER', 'DRIVER', 'VENDOR', 'ADMIN'.
   Future<void> subscribeToRoleTopics(String role) async {
+    _pendingTopicRole = role;
     try {
       if (!kIsWeb && Platform.isIOS) {
-        final apnsToken = await _messaging
+        String? apnsToken = await _messaging
             .getAPNSToken()
             .timeout(const Duration(seconds: 2), onTimeout: () => null);
         if (apnsToken == null) {
-          debugPrint('FCM: APNs token not available on iOS; skipping topic subscription.');
+          for (var i = 0; i < 2 && apnsToken == null; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 500));
+            apnsToken = await _messaging
+                .getAPNSToken()
+                .timeout(const Duration(seconds: 2), onTimeout: () => null);
+          }
+        }
+        if (apnsToken == null) {
+          _topicsSubscribed = false;
+          debugPrint(
+            'FCM: APNs token not yet available on iOS; deferring topic subscription ($role) to token refresh.',
+          );
           return;
         }
       }
@@ -304,12 +406,14 @@ class PushNotificationService {
       ];
 
       await Future.wait(subscriptions).timeout(const Duration(seconds: 5));
+      _topicsSubscribed = true;
       debugPrint(
         specificTopic != null
             ? 'FCM: Subscribed to topic_all and $specificTopic'
             : 'FCM: Subscribed to topic_all',
       );
     } catch (e) {
+      _topicsSubscribed = false;
       debugPrint('FCM: Failed to subscribe to topics: $e');
     }
   }
@@ -344,6 +448,9 @@ class PushNotificationService {
   }
 
   Future<void> unsubscribeFromRoleTopics(String? role) async {
+    _pendingTopicRole = null;
+    _topicsSubscribed = false;
+    _registeredToken = null;
     try {
       final unsubscribes = <Future<void>>[
         _messaging.unsubscribeFromTopic('topic_all'),
@@ -384,6 +491,14 @@ class PushNotificationService {
     } catch (e) {
       debugPrint('FCM: Failed to unsubscribe from topics: $e');
     }
+  }
+
+  void dispose() {
+    unawaited(_tokenRefreshSub?.cancel());
+    unawaited(_foregroundMessageSub?.cancel());
+    unawaited(_openedAppSub?.cancel());
+    unawaited(_connectivitySub?.cancel());
+    unawaited(_openedAppController.close());
   }
 }
 

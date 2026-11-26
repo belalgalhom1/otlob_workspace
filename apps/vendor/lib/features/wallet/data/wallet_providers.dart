@@ -1,10 +1,25 @@
 import 'package:vendor/core/providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:data/data.dart';
-import 'package:api/api.dart' show ReviewWalletTopUpDto, CreateMobileWalletDto, CreateMobileWalletDtoTypeEnum;
+import 'package:api/api.dart'
+    show
+        CreateMobileWalletDto,
+        CreateMobileWalletDtoTypeEnum,
+        ReviewWalletTopUpDto,
+        ReviewWalletTopUpDtoStatusEnum;
 import 'package:core/core.dart';
 import 'wallet_models.dart';
 part 'wallet_providers.g.dart';
+
+@riverpod
+Future<WalletTopUpRequest> topUpDetails(Ref ref, String id) async {
+  final repo = ref.watch(adminWalletRepositoryProvider);
+  final result = await repo.walletGetTopUpById(id: id);
+  if (result is Map) {
+    return WalletTopUpRequest.fromJson(Map<String, dynamic>.from(result));
+  }
+  throw Exception('Invalid top-up details payload');
+}
 
 @riverpod
 class PendingTopUps extends _$PendingTopUps {
@@ -21,11 +36,29 @@ class PendingTopUps extends _$PendingTopUps {
   }
 
   Future<void> reviewTopUp(String id, String status, {String? notes}) async {
-    final repo = ref.read(adminWalletRepositoryProvider);
-    await repo.walletReviewTopUp(id: id, reviewWalletTopUpDto: ReviewWalletTopUpDto((b) => b
-      ..status = status
-    ));
-    ref.invalidateSelf();
+    final link = ref.keepAlive();
+    try {
+      final repo = ref.read(adminWalletRepositoryProvider);
+      final trimmedNotes = notes?.trim();
+      await repo.walletReviewTopUp(
+        id: id,
+        reviewWalletTopUpDto: ReviewWalletTopUpDto(
+          (b) => b
+            ..status =
+                ReviewWalletTopUpDtoStatusEnum.valueOf(status.toUpperCase())
+            ..notes =
+                (trimmedNotes != null && trimmedNotes.isNotEmpty)
+                    ? trimmedNotes
+                    : null,
+        ),
+      );
+      if (ref.mounted) {
+        ref.invalidate(topUpDetailsProvider(id));
+        ref.invalidateSelf();
+      }
+    } finally {
+      link.close();
+    }
   }
 }
 

@@ -48,7 +48,7 @@ final class AccessControlNotifierProvider
 }
 
 String _$accessControlNotifierHash() =>
-    r'b6ab59779afd5b588b3ddfcb466edac61862df78';
+    r'30e1c20c037a9e4750ad06808e1619107768283f';
 
 abstract class _$AccessControlNotifier
     extends $Notifier<AsyncValue<AccessControlStateData>> {

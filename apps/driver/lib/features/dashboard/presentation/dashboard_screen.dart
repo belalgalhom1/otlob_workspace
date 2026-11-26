@@ -28,6 +28,7 @@ import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/utils/error_utils.dart';
 import 'package:core/core.dart';
 import 'package:driver/core/providers/app_preferences_provider.dart';
+import 'package:driver/core/providers/notification_router.dart';
 import 'package:data/providers.dart';
 
 final pendingAssistOffersProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
@@ -60,6 +61,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   @override
   void initState() {
     super.initState();
+    _selectedIndex = ref.read(driverDashboardTabProvider);
     _refreshAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -102,6 +104,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(driverDashboardTabProvider, (previous, next) {
+      if (!mounted) return;
+      if (_selectedIndex != next) {
+        setState(() {
+          _selectedIndex = next;
+        });
+      }
+      if (next == 1) {
+        ref.invalidate(driverWalletProvider);
+      }
+    });
+
     final profileState = ref.watch(driverProfileProvider);
     final appPreferences = ref.watch(appPreferencesProvider);
     final inboxCounts = ref.watch(inboxCountsProvider);
@@ -246,6 +260,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           setState(() {
             _selectedIndex = index;
           });
+          ref.read(driverDashboardTabProvider.notifier).setTab(index);
         },
         type: BottomNavigationBarType.fixed,
         items: [

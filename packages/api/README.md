@@ -403,6 +403,7 @@ Class | Method | HTTP request | Description
 [*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerGetMyDriverWallets**](doc/WalletFinancialsApi.md#walletcontrollergetmydriverwallets) | **GET** /wallet/driver | Get my personal driver wallets
 [*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerGetMyTopUpRequests**](doc/WalletFinancialsApi.md#walletcontrollergetmytopuprequests) | **GET** /wallet/topups/me | View my top-up requests history
 [*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerGetPendingTopUps**](doc/WalletFinancialsApi.md#walletcontrollergetpendingtopups) | **GET** /wallet/topups/pending | View pending driver top-up requests
+[*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerGetTopUpRequestById**](doc/WalletFinancialsApi.md#walletcontrollergettopuprequestbyid) | **GET** /wallet/topups/{id} | View a specific driver top-up / adjustment request
 [*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerGetVendorTransactions**](doc/WalletFinancialsApi.md#walletcontrollergetvendortransactions) | **GET** /wallet/vendors/{vendorId}/transactions | Get vendor wallet transaction history
 [*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerProcessDriverTransaction**](doc/WalletFinancialsApi.md#walletcontrollerprocessdrivertransaction) | **POST** /wallet/admin/drivers/{driverId}/transaction | Manually adjust driver wallet (Payout, Penalty, etc.)
 [*WalletFinancialsApi*](doc/WalletFinancialsApi.md) | [**walletControllerProcessVendorTransaction**](doc/WalletFinancialsApi.md#walletcontrollerprocessvendortransaction) | **POST** /wallet/admin/vendors/{vendorId}/transaction | Manually adjust vendor wallet (Payout, Refund, etc.)
@@ -635,6 +636,7 @@ Class | Method | HTTP request | Description
  - [UpdateDriverStatusDto](doc/UpdateDriverStatusDto.md)
  - [UpdateLegalDocumentDto](doc/UpdateLegalDocumentDto.md)
  - [UpdateMenuCategoryDto](doc/UpdateMenuCategoryDto.md)
+ - [UpdateMessageDto](doc/UpdateMessageDto.md)
  - [UpdateNotificationSettingsDto](doc/UpdateNotificationSettingsDto.md)
  - [UpdateOfferDto](doc/UpdateOfferDto.md)
  - [UpdateOptionGroupDto](doc/UpdateOptionGroupDto.md)

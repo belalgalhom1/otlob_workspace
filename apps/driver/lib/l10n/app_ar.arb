@@ -906,5 +906,9 @@
   "liveMapErrorTitle": "تعذر تحديد موقع GPS",
   "liveMapAllowAction": "السماح بالموقع",
   "liveMapOpenSettingsAction": "فتح الإعدادات",
-  "liveMapRetryAction": "إعادة المحاولة"
+  "liveMapRetryAction": "إعادة المحاولة",
+  "topUpRequestsTitle": "طلبات التسوية",
+  "rejectionReasonLabel": "سبب الرفض",
+  "adminNoteLabel": "ملاحظة الإدارة",
+  "reviewedAtLabel": "تاريخ المراجعة"
 }

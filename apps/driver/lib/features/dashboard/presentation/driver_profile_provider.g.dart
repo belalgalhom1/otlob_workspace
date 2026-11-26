@@ -41,7 +41,7 @@ final class DriverProfileProvider
   }
 }
 
-String _$driverProfileHash() => r'a8107a7cda381b260d2509f1688b26f7e703810c';
+String _$driverProfileHash() => r'1d8e1a75fe939adc416d2fb21df45e6eb0663843';
 
 abstract class _$DriverProfile extends $Notifier<AsyncValue<dynamic>> {
   AsyncValue<dynamic> build();

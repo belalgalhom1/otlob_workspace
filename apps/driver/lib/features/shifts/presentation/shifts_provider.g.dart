@@ -41,7 +41,7 @@ final class DriverShiftsProvider
   }
 }
 
-String _$driverShiftsHash() => r'c01d3077b66e42a0b3059e1b4671ba81d406cdfc';
+String _$driverShiftsHash() => r'415892d4a381441812894f2090208cf01bdb3546';
 
 abstract class _$DriverShifts extends $Notifier<AsyncValue<List<dynamic>>> {
   AsyncValue<List<dynamic>> build();

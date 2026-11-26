@@ -1006,5 +1006,9 @@
   "liveMapErrorTitle": "Unable to acquire GPS signal",
   "liveMapAllowAction": "Allow Location",
   "liveMapOpenSettingsAction": "Open Settings",
-  "liveMapRetryAction": "Retry"
+  "liveMapRetryAction": "Retry",
+  "topUpRequestsTitle": "Adjustment Requests",
+  "rejectionReasonLabel": "Rejection Reason",
+  "adminNoteLabel": "Admin Note",
+  "reviewedAtLabel": "Reviewed At"
 }

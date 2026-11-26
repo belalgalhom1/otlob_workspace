@@ -34,14 +34,13 @@ DeliveryIncidentType _$valueOf(String name) {
   }
 }
 
-final BuiltSet<DeliveryIncidentType> _$values = BuiltSet<DeliveryIncidentType>(
-  const <DeliveryIncidentType>[
-    _$ORDER_CANCELLED,
-    _$DRIVER_REASSIGNED,
-    _$DRIVER_UNASSIGNED,
-    _$DELIVERY_FAILURE,
-  ],
-);
+final BuiltSet<DeliveryIncidentType> _$values =
+    BuiltSet<DeliveryIncidentType>(const <DeliveryIncidentType>[
+      _$ORDER_CANCELLED,
+      _$DRIVER_REASSIGNED,
+      _$DRIVER_UNASSIGNED,
+      _$DELIVERY_FAILURE,
+    ]);
 
 class _$DeliveryIncidentTypeMeta {
   const _$DeliveryIncidentTypeMeta();

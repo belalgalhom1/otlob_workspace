@@ -25,6 +25,8 @@ import 'package:vendor/features/vendors/presentation/vendor_provider.dart';
 import 'package:vendor/features/vendors/presentation/vertical_provider.dart';
 import 'package:vendor/features/vendors/presentation/verticals_screen.dart';
 import 'package:vendor/features/promotions/presentation/promotions_screen.dart';
+import 'package:vendor/features/wallet/data/wallet_providers.dart';
+import 'package:vendor/features/wallet/presentation/topup_details_screen.dart';
 import 'package:vendor/features/wallet/presentation/wallet_dashboard_screen.dart';
 import 'package:vendor/features/audit_logs/presentation/audit_logs_screen.dart';
 import 'package:vendor/features/audit_logs/data/audit_logs_provider.dart';
@@ -66,8 +68,10 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _selectedIndex = 0;
+  int _walletInitialTabIndex = 0;
   String? _highlightOrderId;
   bool _isStatsExpanded = false;
+  bool _userInfoLoaded = false;
   String? _userRole;
   String? _userName;
   String? _vendorId;
@@ -94,10 +98,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   /// Routes banked notification taps (background + terminated cold starts):
   /// orders open the orders tab with the order expanded, chats open the
-  /// conversation directly.
+  /// conversation directly, and wallet adjustments open Wallet -> Details.
   void _consumePendingNotificationRoute() {
+    if (!_userInfoLoaded || !mounted) return;
     final pending = ref.read(notificationRouterProvider);
-    if (pending == null || !mounted) return;
+    if (pending == null) return;
     ref.read(notificationRouterProvider.notifier).clear();
     if (pending.kind == 'order') {
       setState(() {
@@ -116,6 +121,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
       );
+    } else if (pending.kind == 'wallet_topup') {
+      final l10n = AppLocalizations.of(context)!;
+      if (!_hasPermission('MANAGE_FINANCE') ||
+          _userRole == 'VENDOR_MEMBER' ||
+          _userRole == 'DRIVER_MANAGER') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.noPermissionToReviewAdjustment),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      setState(() {
+        _walletInitialTabIndex = 0;
+        _selectedIndex = 11;
+      });
+      ref.invalidate(pendingTopUpsProvider);
+      if (pending.id.isNotEmpty) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DriverAdjustmentDetailsScreen(
+              requestId: pending.id,
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -199,29 +231,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       vRole = map['role'] as String?;
     }
     if (mounted) {
+      final hasPendingRoute = ref.read(notificationRouterProvider) != null;
       setState(() {
+        _userInfoLoaded = true;
         _userRole = role;
         _userName = name;
         _vendorId = vId;
         _vendorRole = vRole;
         _userPermissions = perms;
-        if (role == 'ADMIN') {
-          if (_hasPermission('VIEW_STATISTICS')) {
-            _selectedIndex = 0;
-          } else if (_hasPermission('MANAGE_ORDERS')) {
-            _selectedIndex = 1;
-          } else if (_hasPermission('MANAGE_VENDORS')) {
-            _selectedIndex = 2;
-          } else if (_hasPermission('MANAGE_DRIVERS')) {
+        if (!hasPendingRoute) {
+          if (role == 'ADMIN') {
+            if (_hasPermission('VIEW_STATISTICS')) {
+              _selectedIndex = 0;
+            } else if (_hasPermission('MANAGE_ORDERS')) {
+              _selectedIndex = 1;
+            } else if (_hasPermission('MANAGE_VENDORS')) {
+              _selectedIndex = 2;
+            } else if (_hasPermission('MANAGE_DRIVERS')) {
+              _selectedIndex = 3;
+            } else if (_hasPermission('MANAGE_USERS')) {
+              _selectedIndex = 4;
+            } else {
+              _selectedIndex = 0;
+            }
+          } else if (role == 'DRIVER_MANAGER') {
             _selectedIndex = 3;
-          } else if (_hasPermission('MANAGE_USERS')) {
-            _selectedIndex = 4;
-          } else {
-            _selectedIndex = 0;
           }
-        } else if (role == 'DRIVER_MANAGER') {
-          _selectedIndex = 3;
         }
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _consumePendingNotificationRoute();
       });
     }
   }
@@ -1195,6 +1234,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           userRole: _userRole,
           canManageFinance: _hasPermission('MANAGE_FINANCE'),
           canViewStatistics: _hasPermission('VIEW_STATISTICS'),
+          initialTabIndex: _walletInitialTabIndex,
         );
       case 12:
         return const AuditLogsScreen();

@@ -9,7 +9,10 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:driver/features/notifications/presentation/notifications_provider.dart';
 import 'package:driver/core/providers/driver_dispatch_coordinator.dart';
+import 'package:driver/core/providers/notification_router.dart';
+import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 import 'package:driver/features/order_execution/presentation/order_execution_provider.dart';
+import 'package:driver/features/wallet/presentation/wallet_provider.dart';
 import 'package:driver/l10n/app_localizations.dart';
 import 'package:driver/core/utils/error_utils.dart';
 
@@ -168,7 +171,19 @@ class NotificationsScreen extends ConsumerWidget {
                       } catch (_) {}
                     }
                     final notifType = notification['type']?.toString();
-                    if (data != null && data['orderId'] != null) {
+                    final isWalletNotification =
+                        (data != null &&
+                            DriverNotificationRouter.isWalletPayload(data)) ||
+                        (notifType == 'PAYMENT' &&
+                            (data?['route']?.toString() == '/wallet' ||
+                                data?['kind']?.toString() == 'wallet_topup' ||
+                                data?['topUpId'] != null ||
+                                data?['requestId'] != null));
+                    if (isWalletNotification) {
+                      ref.invalidate(driverWalletProvider);
+                      ref.invalidate(driverProfileProvider);
+                      context.push('/wallet');
+                    } else if (data != null && data['orderId'] != null) {
                       if (notifType == 'CHAT_MESSAGE') {
                         context.push('/chat/${data['orderId']}');
                       } else if (ref.read(orderExecutionProvider).value !=

@@ -2615,4 +2615,51 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get remove => 'إزالة';
+
+  @override
+  String get driverAdjustmentDetails => 'تفاصيل تسوية السائق';
+
+  @override
+  String get adjustmentSummary => 'ملخص التسوية';
+
+  @override
+  String get driverDetails => 'بيانات السائق';
+
+  @override
+  String get reviewNotesLabel => 'ملاحظات المراجعة / السبب';
+
+  @override
+  String get rejectionReasonHint =>
+      'أدخل سبب الرفض أو ملاحظة اختيارية للسائق...';
+
+  @override
+  String get reviewedByLabel => 'تمت المراجعة بواسطة';
+
+  @override
+  String get reviewedAtLabel => 'تاريخ المراجعة';
+
+  @override
+  String get submittedAtLabel => 'تاريخ التقديم';
+
+  @override
+  String get driverCurrentBalance => 'رصيد المحفظة الحالي';
+
+  @override
+  String get transferReceipt => 'إيصال التحويل';
+
+  @override
+  String get tapToZoom => 'اضغط على الإيصال للتكبير';
+
+  @override
+  String get noReceiptAvailable => 'لا يوجد إيصال مرفق';
+
+  @override
+  String get noPermissionToReviewAdjustment =>
+      'ليس لديك صلاحية المالية لعرض طلب التسوية هذا.';
+
+  @override
+  String get requestAlreadyReviewed => 'تمت مراجعة طلب التسوية هذا بالفعل.';
+
+  @override
+  String get callDriver => 'الاتصال بالسائق';
 }

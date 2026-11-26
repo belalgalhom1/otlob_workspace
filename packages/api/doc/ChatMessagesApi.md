@@ -18,7 +18,7 @@ Method | HTTP request | Description
 
 
 # **messagesControllerDelete**
-> ApiControllerRoot200Response messagesControllerDelete(messageId, conversationId)
+> ApiControllerRoot200Response messagesControllerDelete(conversationId, messageId)
 
 Delete a message
 
@@ -27,11 +27,11 @@ Delete a message
 import 'package:api/api.dart';
 
 final api = Api().getChatMessagesApi();
+final String conversationId = 123e4567-e89b-12d3-a456-426614174000; // String | The unique identifier of the conversation
 final String messageId = messageId_example; // String | The unique identifier of the message
-final JsonObject conversationId = 123e4567-e89b-12d3-a456-426614174000; // JsonObject | The unique identifier of the conversation
 
 try {
-    final response = api.messagesControllerDelete(messageId, conversationId);
+    final response = api.messagesControllerDelete(conversationId, messageId);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling ChatMessagesApi->messagesControllerDelete: $e\n');
@@ -42,8 +42,8 @@ try {
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
+ **conversationId** | **String**| The unique identifier of the conversation | 
  **messageId** | **String**| The unique identifier of the message | 
- **conversationId** | [**JsonObject**](.md)| The unique identifier of the conversation | 
 
 ### Return type
 
@@ -192,7 +192,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **messagesControllerUpdate**
-> ApiControllerRoot200Response messagesControllerUpdate(messageId, conversationId)
+> ApiControllerRoot200Response messagesControllerUpdate(conversationId, messageId, updateMessageDto)
 
 Update a message
 
@@ -201,11 +201,12 @@ Update a message
 import 'package:api/api.dart';
 
 final api = Api().getChatMessagesApi();
+final String conversationId = 123e4567-e89b-12d3-a456-426614174000; // String | The unique identifier of the conversation
 final String messageId = messageId_example; // String | The unique identifier of the message
-final JsonObject conversationId = 123e4567-e89b-12d3-a456-426614174000; // JsonObject | The unique identifier of the conversation
+final UpdateMessageDto updateMessageDto = ; // UpdateMessageDto | 
 
 try {
-    final response = api.messagesControllerUpdate(messageId, conversationId);
+    final response = api.messagesControllerUpdate(conversationId, messageId, updateMessageDto);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling ChatMessagesApi->messagesControllerUpdate: $e\n');
@@ -216,8 +217,9 @@ try {
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
+ **conversationId** | **String**| The unique identifier of the conversation | 
  **messageId** | **String**| The unique identifier of the message | 
- **conversationId** | [**JsonObject**](.md)| The unique identifier of the conversation | 
+ **updateMessageDto** | [**UpdateMessageDto**](UpdateMessageDto.md)|  | 
 
 ### Return type
 
@@ -229,7 +231,7 @@ Name | Type | Description  | Notes
 
 ### HTTP request headers
 
- - **Content-Type**: Not defined
+ - **Content-Type**: application/json
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:core/core.dart';
 import 'package:vendor/core/providers.dart';
+import 'package:vendor/features/chat/presentation/inbox_counts_provider.dart';
+import 'package:vendor/features/notifications/presentation/notifications_provider.dart';
 import 'package:vendor/features/orders/presentation/orders_provider.dart';
+import 'package:vendor/features/wallet/data/wallet_providers.dart';
 import 'package:vendor/main.dart' show rootScaffoldMessengerKey;
 
 class _OrdersLifecycleObserver with WidgetsBindingObserver {
@@ -151,7 +154,43 @@ final globalOrderListenerProvider = Provider<void>((ref) {
       .onEvent(SocketEvent.orderAssistTimedOut)
       .listen((_) => fetchOrders());
 
+  void refreshTopUpIfNeeded(Map<dynamic, dynamic> rawData) {
+    final nested = rawData['data'] is Map ? rawData['data'] as Map : rawData;
+    final kind = (nested['kind'] ?? rawData['kind'] ?? '').toString().trim().toLowerCase();
+    final route = (nested['route'] ?? rawData['route'] ?? '').toString().trim().toLowerCase();
+    final type = (rawData['type'] ?? '').toString().trim().toUpperCase();
+    final topUpId = (nested['topUpId'] ?? nested['requestId'] ?? rawData['topUpId'] ?? rawData['requestId'] ?? '')
+        .toString()
+        .trim();
+
+    if (kind == 'wallet_topup' ||
+        route == 'wallet_topup_details' ||
+        (type == 'PAYMENT' && topUpId.isNotEmpty)) {
+      ref.invalidate(pendingTopUpsProvider);
+      if (topUpId.isNotEmpty) {
+        ref.invalidate(topUpDetailsProvider(topUpId));
+      }
+      ref.read(inboxCountsProvider.notifier).refresh();
+    }
+  }
+
+  final notifNewSub = socketService
+      .onEvent(SocketEvent.notificationNew)
+      .listen((data) {
+    if (data is Map) {
+      refreshTopUpIfNeeded(data);
+    }
+  });
+
   final pushSub = pushService.onMessage.listen((message) {
+    final kind = (message.data['kind'] ?? '').toString().trim().toLowerCase();
+    final route = (message.data['route'] ?? '').toString().trim().toLowerCase();
+    if (kind == 'wallet_topup' || route == 'wallet_topup_details') {
+      refreshTopUpIfNeeded(message.data);
+      ref.invalidate(notificationsProvider);
+      return;
+    }
+
     final hasConvo =
         (message.data['conversationId']?.toString().trim() ?? '').isNotEmpty;
     if (hasConvo) return;
@@ -173,10 +212,14 @@ final globalOrderListenerProvider = Provider<void>((ref) {
 
   final socketConnectSub = socketService.onConnect.listen((_) {
     fetchOrders(immediate: true);
+    unawaited(pushService.ensureTokenRegistered());
   });
 
   final lifecycleObserver = _OrdersLifecycleObserver(
-    onResume: () => fetchOrders(immediate: true),
+    onResume: () {
+      fetchOrders(immediate: true);
+      unawaited(pushService.ensureTokenRegistered());
+    },
   );
 
   final connectivitySub = ref
@@ -198,6 +241,7 @@ final globalOrderListenerProvider = Provider<void>((ref) {
     orderAssistProposedSub.cancel();
     orderAssistDecidedSub.cancel();
     orderAssistTimedOutSub.cancel();
+    notifNewSub.cancel();
     pushSub.cancel();
     socketConnectSub.cancel();
     connectivitySub.cancel();
