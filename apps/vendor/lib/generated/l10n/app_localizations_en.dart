@@ -2632,4 +2632,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remove => 'Remove';
+
+  @override
+  String get driverAdjustmentDetails => 'Driver Adjustment Details';
+
+  @override
+  String get adjustmentSummary => 'Adjustment Summary';
+
+  @override
+  String get driverDetails => 'Driver Details';
+
+  @override
+  String get reviewNotesLabel => 'Review Notes / Reason';
+
+  @override
+  String get rejectionReasonHint =>
+      'Enter rejection reason or optional note for the driver...';
+
+  @override
+  String get reviewedByLabel => 'Reviewed By';
+
+  @override
+  String get reviewedAtLabel => 'Reviewed At';
+
+  @override
+  String get submittedAtLabel => 'Submitted At';
+
+  @override
+  String get driverCurrentBalance => 'Current Wallet Balance';
+
+  @override
+  String get transferReceipt => 'Transfer Receipt';
+
+  @override
+  String get tapToZoom => 'Tap receipt to zoom';
+
+  @override
+  String get noReceiptAvailable => 'No receipt image attached';
+
+  @override
+  String get noPermissionToReviewAdjustment =>
+      'You do not have finance permission to view this driver adjustment.';
+
+  @override
+  String get requestAlreadyReviewed =>
+      'This adjustment request has already been reviewed.';
+
+  @override
+  String get callDriver => 'Call Driver';
 }

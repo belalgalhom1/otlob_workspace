@@ -17,6 +17,7 @@ Method | HTTP request | Description
 [**walletControllerGetMyDriverWallets**](WalletFinancialsApi.md#walletcontrollergetmydriverwallets) | **GET** /wallet/driver | Get my personal driver wallets
 [**walletControllerGetMyTopUpRequests**](WalletFinancialsApi.md#walletcontrollergetmytopuprequests) | **GET** /wallet/topups/me | View my top-up requests history
 [**walletControllerGetPendingTopUps**](WalletFinancialsApi.md#walletcontrollergetpendingtopups) | **GET** /wallet/topups/pending | View pending driver top-up requests
+[**walletControllerGetTopUpRequestById**](WalletFinancialsApi.md#walletcontrollergettopuprequestbyid) | **GET** /wallet/topups/{id} | View a specific driver top-up / adjustment request
 [**walletControllerGetVendorTransactions**](WalletFinancialsApi.md#walletcontrollergetvendortransactions) | **GET** /wallet/vendors/{vendorId}/transactions | Get vendor wallet transaction history
 [**walletControllerProcessDriverTransaction**](WalletFinancialsApi.md#walletcontrollerprocessdrivertransaction) | **POST** /wallet/admin/drivers/{driverId}/transaction | Manually adjust driver wallet (Payout, Penalty, etc.)
 [**walletControllerProcessVendorTransaction**](WalletFinancialsApi.md#walletcontrollerprocessvendortransaction) | **POST** /wallet/admin/vendors/{vendorId}/transaction | Manually adjust vendor wallet (Payout, Refund, etc.)
@@ -314,6 +315,47 @@ try {
 
 ### Parameters
 This endpoint does not need any parameter.
+
+### Return type
+
+[**WalletControllerGetPendingTopUps200Response**](WalletControllerGetPendingTopUps200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **walletControllerGetTopUpRequestById**
+> WalletControllerGetPendingTopUps200Response walletControllerGetTopUpRequestById(id)
+
+View a specific driver top-up / adjustment request
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getWalletFinancialsApi();
+final String id = id_example; // String | 
+
+try {
+    final response = api.walletControllerGetTopUpRequestById(id);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling WalletFinancialsApi->walletControllerGetTopUpRequestById: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **id** | **String**|  | 
 
 ### Return type
 

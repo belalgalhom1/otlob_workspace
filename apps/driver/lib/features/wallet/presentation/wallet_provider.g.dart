@@ -43,7 +43,7 @@ final class DriverWalletProvider
   }
 }
 
-String _$driverWalletHash() => r'b50a711975beaf0f778a0a33427148103656e4f8';
+String _$driverWalletHash() => r'0edebc2a15ce1b02f827af5fade79fd62669b2e1';
 
 abstract class _$DriverWallet
     extends $Notifier<AsyncValue<Map<String, dynamic>>> {

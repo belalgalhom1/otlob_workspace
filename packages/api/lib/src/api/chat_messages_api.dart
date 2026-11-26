@@ -12,6 +12,7 @@ import 'package:api/src/api_util.dart';
 import 'package:api/src/model/api_controller_root200_response.dart';
 import 'package:api/src/model/mark_read_dto.dart';
 import 'package:api/src/model/send_message_dto.dart';
+import 'package:api/src/model/update_message_dto.dart';
 
 class ChatMessagesApi {
 
@@ -25,8 +26,8 @@ class ChatMessagesApi {
   /// 
   ///
   /// Parameters:
-  /// * [messageId] - The unique identifier of the message
   /// * [conversationId] - The unique identifier of the conversation
+  /// * [messageId] - The unique identifier of the message
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -37,8 +38,8 @@ class ChatMessagesApi {
   /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<ApiControllerRoot200Response>> messagesControllerDelete({ 
+    required String conversationId,
     required String messageId,
-    required JsonObject conversationId,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -46,7 +47,7 @@ class ChatMessagesApi {
     ProgressCallback? onSendProgress,
     ProgressCallback? onReceiveProgress,
   }) async {
-    final _path = r'/chat/conversations/{conversationId}/messages/{messageId}'.replaceAll('{' r'messageId' '}', encodeQueryParameter(_serializers, messageId, const FullType(String)).toString()).replaceAll('{' r'conversationId' '}', encodeQueryParameter(_serializers, conversationId, const FullType(JsonObject)).toString());
+    final _path = r'/chat/conversations/{conversationId}/messages/{messageId}'.replaceAll('{' r'conversationId' '}', encodeQueryParameter(_serializers, conversationId, const FullType(String)).toString()).replaceAll('{' r'messageId' '}', encodeQueryParameter(_serializers, messageId, const FullType(String)).toString());
     final _options = Options(
       method: r'DELETE',
       headers: <String, dynamic>{
@@ -405,8 +406,9 @@ class ChatMessagesApi {
   /// 
   ///
   /// Parameters:
-  /// * [messageId] - The unique identifier of the message
   /// * [conversationId] - The unique identifier of the conversation
+  /// * [messageId] - The unique identifier of the message
+  /// * [updateMessageDto] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -417,8 +419,9 @@ class ChatMessagesApi {
   /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<ApiControllerRoot200Response>> messagesControllerUpdate({ 
+    required String conversationId,
     required String messageId,
-    required JsonObject conversationId,
+    required UpdateMessageDto updateMessageDto,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -426,7 +429,7 @@ class ChatMessagesApi {
     ProgressCallback? onSendProgress,
     ProgressCallback? onReceiveProgress,
   }) async {
-    final _path = r'/chat/conversations/{conversationId}/messages/{messageId}'.replaceAll('{' r'messageId' '}', encodeQueryParameter(_serializers, messageId, const FullType(String)).toString()).replaceAll('{' r'conversationId' '}', encodeQueryParameter(_serializers, conversationId, const FullType(JsonObject)).toString());
+    final _path = r'/chat/conversations/{conversationId}/messages/{messageId}'.replaceAll('{' r'conversationId' '}', encodeQueryParameter(_serializers, conversationId, const FullType(String)).toString()).replaceAll('{' r'messageId' '}', encodeQueryParameter(_serializers, messageId, const FullType(String)).toString());
     final _options = Options(
       method: r'PATCH',
       headers: <String, dynamic>{
@@ -442,11 +445,31 @@ class ChatMessagesApi {
         ],
         ...?extra,
       },
+      contentType: 'application/json',
       validateStatus: validateStatus,
     );
 
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(UpdateMessageDto);
+      _bodyData = _serializers.serialize(updateMessageDto, specifiedType: _type);
+
+    } catch(error, stackTrace) {
+      throw DioException(
+         requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
     final _response = await _dio.request<Object>(
       _path,
+      data: _bodyData,
       options: _options,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,

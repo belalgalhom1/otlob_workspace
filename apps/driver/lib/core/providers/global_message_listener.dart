@@ -12,6 +12,9 @@ import 'package:driver/features/order_execution/presentation/order_execution_pro
 import 'package:driver/core/providers/driver_breaks_provider.dart';
 import 'package:driver/features/auth/presentation/auth_provider.dart';
 import 'package:driver/features/ranking/presentation/driver_ranking_provider.dart';
+import 'package:driver/features/notifications/presentation/notifications_provider.dart';
+import 'package:driver/features/wallet/presentation/wallet_provider.dart';
+import 'package:driver/core/providers/notification_router.dart';
 import 'package:driver/core/router/app_router.dart';
 
 class _DispatchLifecycleObserver with WidgetsBindingObserver {
@@ -45,6 +48,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   ref.read(locationServiceProvider);
 
   final coordinator = ref.read(driverDispatchCoordinatorProvider);
+  unawaited(pushService.ensureTapListenersInitialized());
 
   // Every subscription hangs off the socket/push services (which are keepAlive),
   // so a disposed provider must cancel them — otherwise events fire against a
@@ -76,11 +80,17 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     ref.invalidate(configurationProvider);
   }));
 
-  // 1c. Break & Assist/Order notifications.
+  // 1c. Wallet adjustment, Break, and Assist/Order notifications.
   subscriptions.add(socketService.onEvent(SocketEvent.notificationNew).listen((eventData) {
     if (!ref.mounted) return;
     final data = eventData is Map ? eventData['data'] : null;
     if (data is! Map) return;
+    if (DriverNotificationRouter.isWalletPayload(data)) {
+      debugPrint('Global listener: wallet_topup notification -> refreshing wallet & profile');
+      ref.invalidate(driverWalletProvider);
+      ref.invalidate(driverProfileProvider);
+      return;
+    }
     final kind = data['kind']?.toString();
     final action = data['action']?.toString();
     if (kind == 'break') {
@@ -146,6 +156,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     if (!ref.mounted || !isAuthenticatedSession()) return;
     debugPrint('Global listener: Socket connected/reconnected -> Checking pending dispatches & active order');
     ref.invalidate(configurationProvider);
+    unawaited(pushService.ensureTokenRegistered(role: 'DRIVER'));
     coordinator.checkPendingDispatches(checkOnline: false);
     ref.read(orderExecutionProvider.notifier).refresh();
   }));
@@ -157,9 +168,11 @@ final globalMessageListenerProvider = Provider<void>((ref) {
       ref.invalidate(configurationProvider);
       if (!isAuthenticatedSession()) return;
       debugPrint('📱 Driver App Resumed: Reconnecting + checking pending dispatches & active order');
-      // Break decisions may have landed while backgrounded (missed socket).
+      unawaited(pushService.ensureTokenRegistered(role: 'DRIVER'));
+      // Break and adjustment decisions may have landed while backgrounded.
       ref.invalidate(breaksOverviewProvider);
       ref.invalidate(driverRankingSummaryProvider);
+      ref.invalidate(driverWalletProvider);
       // Make sure the socket and GPS stream are up again so live dispatch
       // events keep flowing instead of relying only on the HTTP fallback.
       final profileValue = ref.read(driverProfileProvider).value;
@@ -180,41 +193,100 @@ final globalMessageListenerProvider = Provider<void>((ref) {
     },
   );
 
+  void consumePendingNavigation() {
+    if (!ref.mounted || !isAuthenticatedSession()) return;
+    final router = ref.read(appRouterProvider);
+    final currentPath = router.routerDelegate.currentConfiguration.uri.path;
+    const blockedPaths = {
+      '/',
+      '/login',
+      '/terms-acceptance',
+      '/maintenance',
+      '/update-required',
+    };
+    if (blockedPaths.contains(currentPath)) return;
+
+    final pending = ref.read(driverNotificationRouterProvider);
+    if (pending == null) return;
+    ref.read(driverNotificationRouterProvider.notifier).clear();
+
+    switch (pending.destination) {
+      case DriverNotificationDestination.wallet:
+        ref.invalidate(driverWalletProvider);
+        ref.invalidate(driverProfileProvider);
+        ref.invalidate(driverNotificationsProvider);
+        if (currentPath == '/wallet') {
+          return;
+        }
+        if (currentPath == '/dashboard') {
+          ref.read(driverDashboardTabProvider.notifier).setTab(1);
+        } else {
+          router.push('/wallet');
+        }
+        return;
+      case DriverNotificationDestination.chat:
+        if (pending.id != null && pending.id!.isNotEmpty) {
+          router.push(
+            '/chat/${pending.id}',
+            extra: <String, dynamic>{
+              'type': pending.chatType ?? 'order',
+              if (pending.title != null) 'title': pending.title!,
+            },
+          );
+        }
+        return;
+      case DriverNotificationDestination.order:
+        if (pending.id != null && pending.id!.isNotEmpty) {
+          ref.read(orderExecutionProvider.notifier).refresh();
+          ref.read(orderExecutionProvider.notifier).selectOrder(pending.id!);
+          router.go('/order-execution');
+        }
+        return;
+    }
+  }
+
+  final router = ref.read(appRouterProvider);
+  void onRouteChanged() {
+    if (!ref.mounted) return;
+    consumePendingNavigation();
+  }
+  router.routerDelegate.addListener(onRouteChanged);
+
   void handlePushData(Map<String, dynamic> data, {bool navigate = false}) {
+    if (DriverNotificationRouter.isWalletPayload(data)) {
+      if (isAuthenticatedSession()) {
+        ref.invalidate(driverWalletProvider);
+        ref.invalidate(driverProfileProvider);
+        ref.invalidate(driverNotificationsProvider);
+      }
+      if (navigate) {
+        ref.read(driverNotificationRouterProvider.notifier).handleTap(data);
+        consumePendingNavigation();
+      }
+      return;
+    }
     if (data['type'] == 'DISPATCH' || data.containsKey('dispatchId')) {
-      coordinator.checkPendingDispatches(checkOnline: false);
+      if (isAuthenticatedSession()) {
+        coordinator.checkPendingDispatches(checkOnline: false);
+      }
       return;
     }
     if (data['action'] == 'assist_offer' || data.containsKey('requestId')) {
-      ref.invalidate(pendingAssistOffersProvider);
-      return;
-    }
-    final conversationId = data['conversationId']?.toString().trim() ?? '';
-    final orderId = data['orderId']?.toString().trim() ?? '';
-    if (conversationId.isNotEmpty) {
-      if (navigate) {
-        final rawChatType = (data['chatType'] ?? data['type'] ?? '')
-            .toString()
-            .toLowerCase();
-        final chatType = (rawChatType == 'order' || rawChatType == 'support')
-            ? rawChatType
-            : (orderId.isNotEmpty ? 'order' : 'support');
-        ref.read(appRouterProvider).push(
-          '/chat/$conversationId',
-          extra: <String, dynamic>{
-            'type': chatType,
-            if (data['title'] != null) 'title': data['title'].toString(),
-          },
-        );
+      if (isAuthenticatedSession()) {
+        ref.invalidate(pendingAssistOffersProvider);
       }
       return;
     }
-    if (orderId.isNotEmpty) {
+
+    if (navigate) {
+      final banked =
+          ref.read(driverNotificationRouterProvider.notifier).handleTap(data);
+      if (banked) {
+        consumePendingNavigation();
+      }
+    } else if ((data['orderId']?.toString().trim() ?? '').isNotEmpty &&
+        isAuthenticatedSession()) {
       ref.read(orderExecutionProvider.notifier).refresh();
-      if (navigate) {
-        ref.read(orderExecutionProvider.notifier).selectOrder(orderId);
-        ref.read(appRouterProvider).go('/order-execution');
-      }
     }
   }
 
@@ -226,13 +298,13 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   }));
 
   subscriptions.add(pushService.onMessageOpenedApp.listen((message) {
-    if (!ref.mounted || !isAuthenticatedSession()) return;
+    if (!ref.mounted) return;
     debugPrint('Global listener: FCM opened app -> ${message.data}');
     handlePushData(message.data, navigate: true);
   }));
 
   pushService.getInitialMessage().then((message) {
-    if (!ref.mounted || !isAuthenticatedSession()) return;
+    if (!ref.mounted) return;
     if (message != null) {
       debugPrint('Global listener: FCM cold start message -> ${message.data}');
       handlePushData(message.data, navigate: true);
@@ -368,6 +440,7 @@ final globalMessageListenerProvider = Provider<void>((ref) {
   );
 
   ref.onDispose(() {
+    router.routerDelegate.removeListener(onRouteChanged);
     for (final sub in subscriptions) {
       sub.cancel();
     }

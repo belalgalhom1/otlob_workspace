@@ -2475,4 +2475,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noAdjustmentsYet => 'No manual wallet adjustments yet';
+
+  @override
+  String get topUpRequestsTitle => 'Adjustment Requests';
+
+  @override
+  String get rejectionReasonLabel => 'Rejection Reason';
+
+  @override
+  String get adminNoteLabel => 'Admin Note';
+
+  @override
+  String get reviewedAtLabel => 'Reviewed At';
 }

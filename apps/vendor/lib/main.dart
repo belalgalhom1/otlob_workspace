@@ -230,23 +230,23 @@ class _NotificationTapListenerState
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
+    Future.microtask(() async {
       try {
         final push = ref.read(pushNotificationServiceProvider);
+        await push.ensureTapListenersInitialized();
         _openedAppSub = push.onMessageOpenedApp.listen((message) {
           final data = message.data.map(
             (key, value) => MapEntry(key, value?.toString() ?? ''),
           );
           ref.read(notificationRouterProvider.notifier).handleTap(data);
         });
-        push.getInitialMessage().then((message) {
-          if (message != null && mounted) {
-            final data = message.data.map(
-              (key, value) => MapEntry(key, value?.toString() ?? ''),
-            );
-            ref.read(notificationRouterProvider.notifier).handleTap(data);
-          }
-        });
+        final initial = await push.getInitialMessage();
+        if (initial != null && mounted) {
+          final data = initial.data.map(
+            (key, value) => MapEntry(key, value?.toString() ?? ''),
+          );
+          ref.read(notificationRouterProvider.notifier).handleTap(data);
+        }
       } catch (_) {}
     });
   }

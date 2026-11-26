@@ -18,7 +18,9 @@ part 'wallet_top_up_request.g.dart';
 /// * [amount] 
 /// * [receiptUrl] 
 /// * [status] 
+/// * [notes] 
 /// * [approvedById] 
+/// * [reviewedAt] 
 /// * [createdAt] 
 /// * [updatedAt] 
 @BuiltValue()
@@ -42,8 +44,14 @@ abstract class WalletTopUpRequest implements Built<WalletTopUpRequest, WalletTop
   TopUpStatus get status;
   // enum statusEnum {  PENDING,  APPROVED,  REJECTED,  };
 
+  @BuiltValueField(wireName: r'notes')
+  String? get notes;
+
   @BuiltValueField(wireName: r'approvedById')
   String? get approvedById;
+
+  @BuiltValueField(wireName: r'reviewedAt')
+  DateTime? get reviewedAt;
 
   @BuiltValueField(wireName: r'createdAt')
   DateTime get createdAt;
@@ -104,11 +112,25 @@ class _$WalletTopUpRequestSerializer implements PrimitiveSerializer<WalletTopUpR
       object.status,
       specifiedType: const FullType(TopUpStatus),
     );
+    if (object.notes != null) {
+      yield r'notes';
+      yield serializers.serialize(
+        object.notes,
+        specifiedType: const FullType(String),
+      );
+    }
     if (object.approvedById != null) {
       yield r'approvedById';
       yield serializers.serialize(
         object.approvedById,
         specifiedType: const FullType(String),
+      );
+    }
+    if (object.reviewedAt != null) {
+      yield r'reviewedAt';
+      yield serializers.serialize(
+        object.reviewedAt,
+        specifiedType: const FullType(DateTime),
       );
     }
     yield r'createdAt';
@@ -186,12 +208,26 @@ class _$WalletTopUpRequestSerializer implements PrimitiveSerializer<WalletTopUpR
           ) as TopUpStatus;
           result.status = valueDes;
           break;
+        case r'notes':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(String),
+          ) as String;
+          result.notes = valueDes;
+          break;
         case r'approvedById':
           final valueDes = serializers.deserialize(
             value,
             specifiedType: const FullType(String),
           ) as String;
           result.approvedById = valueDes;
+          break;
+        case r'reviewedAt':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(DateTime),
+          ) as DateTime;
+          result.reviewedAt = valueDes;
           break;
         case r'createdAt':
           final valueDes = serializers.deserialize(

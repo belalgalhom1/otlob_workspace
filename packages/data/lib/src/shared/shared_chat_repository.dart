@@ -115,7 +115,7 @@ class SharedChatRepository {
 
   Future<dynamic> deleteMessage(String conversationId, String messageId) async {
     final response = await _messagesApi.messagesControllerDelete(
-      conversationId: JsonObject(conversationId),
+      conversationId: conversationId,
       messageId: messageId,
     );
     return ResponseParser.parse(response);

@@ -91,7 +91,11 @@ final coreLocationServiceProvider = Provider<CoreLocationService>((ref) {
 // Provides the PushNotificationService
 final pushNotificationServiceProvider = Provider<PushNotificationService>((ref) {
   final api = ref.watch(apiClientProvider);
-  return PushNotificationService(api.getDevicesPushNotificationsApi());
+  final connectivity = ref.watch(connectivityServiceProvider);
+  return PushNotificationService(
+    api.getDevicesPushNotificationsApi(),
+    connectivityChanges: connectivity.onConnectivityChanged,
+  );
 });
 
 final mediaConfigServiceProvider = Provider<MediaConfigService>((ref) {

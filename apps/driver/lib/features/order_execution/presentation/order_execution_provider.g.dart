@@ -41,7 +41,7 @@ final class OrderExecutionProvider
   }
 }
 
-String _$orderExecutionHash() => r'696e9804ee52f878d244cf3fc81427eb6dc4fa5b';
+String _$orderExecutionHash() => r'75b37ca1ee48e3983a442a7a87c69b85391b6f25';
 
 abstract class _$OrderExecution extends $Notifier<AsyncValue<dynamic>> {
   AsyncValue<dynamic> build();

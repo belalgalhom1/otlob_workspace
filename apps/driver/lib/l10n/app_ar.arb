@@ -883,5 +883,9 @@
   "locationRequiredMessage": "يرجى تفعيل خدمات الموقع لمواصلة استخدام التطبيق.",
   "locationRequiredButton": "تفعيل الموقع",
   "adjustmentHistory": "سجل التسويات",
-  "noAdjustmentsYet": "لا توجد تسويات يدوية بعد"
+  "noAdjustmentsYet": "لا توجد تسويات يدوية بعد",
+  "topUpRequestsTitle": "طلبات التسوية",
+  "rejectionReasonLabel": "سبب الرفض",
+  "adminNoteLabel": "ملاحظة الإدارة",
+  "reviewedAtLabel": "تاريخ المراجعة"
 }

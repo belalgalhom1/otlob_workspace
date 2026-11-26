@@ -159,14 +159,9 @@ class _TopUpBottomSheetState extends ConsumerState<TopUpBottomSheet> {
             items: widget.platformWallets.map((wallet) {
               final isAr = Localizations.localeOf(context).languageCode == 'ar';
               final rawType = (wallet['type'] ?? '').toString().toUpperCase();
-              final friendlyType = switch (rawType) {
-                'VODAFONE' => isAr ? 'فودافون كاش' : 'Vodafone Cash',
-                'ORANGE' => isAr ? 'أورنج كاش' : 'Orange Cash',
-                'ETISALAT' => isAr ? 'اتصالات كاش' : 'Etisalat Cash',
-                'WE' => isAr ? 'وي باي' : 'WE Pay',
-                'INSTAPAY' => isAr ? 'إنستا باي' : 'InstaPay',
-                _ => rawType,
-              };
+              final friendlyType = rawType.contains('INSTAPAY')
+                  ? (isAr ? 'إنستا باي' : 'InstaPay')
+                  : (isAr ? 'محفظة إلكترونية' : 'Mobile Wallet');
               final number = wallet['number']?.toString() ?? '';
               return DropdownMenuItem<String>(
                 value: wallet['id'],

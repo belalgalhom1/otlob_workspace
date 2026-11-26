@@ -5101,6 +5101,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove'**
   String get remove;
+
+  /// No description provided for @driverAdjustmentDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver Adjustment Details'**
+  String get driverAdjustmentDetails;
+
+  /// No description provided for @adjustmentSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjustment Summary'**
+  String get adjustmentSummary;
+
+  /// No description provided for @driverDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver Details'**
+  String get driverDetails;
+
+  /// No description provided for @reviewNotesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Notes / Reason'**
+  String get reviewNotesLabel;
+
+  /// No description provided for @rejectionReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter rejection reason or optional note for the driver...'**
+  String get rejectionReasonHint;
+
+  /// No description provided for @reviewedByLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviewed By'**
+  String get reviewedByLabel;
+
+  /// No description provided for @reviewedAtLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviewed At'**
+  String get reviewedAtLabel;
+
+  /// No description provided for @submittedAtLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted At'**
+  String get submittedAtLabel;
+
+  /// No description provided for @driverCurrentBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Wallet Balance'**
+  String get driverCurrentBalance;
+
+  /// No description provided for @transferReceipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer Receipt'**
+  String get transferReceipt;
+
+  /// No description provided for @tapToZoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap receipt to zoom'**
+  String get tapToZoom;
+
+  /// No description provided for @noReceiptAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No receipt image attached'**
+  String get noReceiptAvailable;
+
+  /// No description provided for @noPermissionToReviewAdjustment.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have finance permission to view this driver adjustment.'**
+  String get noPermissionToReviewAdjustment;
+
+  /// No description provided for @requestAlreadyReviewed.
+  ///
+  /// In en, this message translates to:
+  /// **'This adjustment request has already been reviewed.'**
+  String get requestAlreadyReviewed;
+
+  /// No description provided for @callDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Call Driver'**
+  String get callDriver;
 }
 
 class _AppLocalizationsDelegate

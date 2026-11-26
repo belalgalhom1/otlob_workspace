@@ -244,6 +244,7 @@ doc/UpdateDriverProfileDto.md
 doc/UpdateDriverStatusDto.md
 doc/UpdateLegalDocumentDto.md
 doc/UpdateMenuCategoryDto.md
+doc/UpdateMessageDto.md
 doc/UpdateNotificationSettingsDto.md
 doc/UpdateOfferDto.md
 doc/UpdateOptionGroupDto.md
@@ -552,6 +553,7 @@ lib/src/model/update_driver_profile_dto.dart
 lib/src/model/update_driver_status_dto.dart
 lib/src/model/update_legal_document_dto.dart
 lib/src/model/update_menu_category_dto.dart
+lib/src/model/update_message_dto.dart
 lib/src/model/update_notification_settings_dto.dart
 lib/src/model/update_offer_dto.dart
 lib/src/model/update_option_group_dto.dart

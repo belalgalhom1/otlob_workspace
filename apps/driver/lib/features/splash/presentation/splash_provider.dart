@@ -126,12 +126,9 @@ class Splash extends _$Splash {
         return AppStartupState.unauthenticated;
       }
 
-      if (profile['status'] == 'SUSPENDED') {
-        return AppStartupState.suspended;
-      }
-
-      // Connect socket and initialize push notifications in the background
-      // so neither blocks navigation into the app.
+      // Connect socket and initialize push notifications for both active and
+      // SUSPENDED drivers so suspended accounts reliably register FCM tokens and
+      // receive adjustment approval/rejection notifications.
       unawaited(
         ref
             .read(coreSocketServiceProvider)
@@ -152,6 +149,10 @@ class Splash extends _$Splash {
           }
         }),
       );
+
+      if (profile['status'] == 'SUSPENDED') {
+        return AppStartupState.suspended;
+      }
 
       final termsStatus = await termsFuture;
       if (termsStatus != null && termsStatus['needsAcceptance'] == true) {

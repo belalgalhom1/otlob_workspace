@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -12,10 +13,16 @@ part 'review_wallet_top_up_dto.g.dart';
 ///
 /// Properties:
 /// * [status] 
+/// * [notes] - Optional review notes or rejection reason visible to driver
 @BuiltValue()
 abstract class ReviewWalletTopUpDto implements Built<ReviewWalletTopUpDto, ReviewWalletTopUpDtoBuilder> {
   @BuiltValueField(wireName: r'status')
-  String get status;
+  ReviewWalletTopUpDtoStatusEnum get status;
+  // enum statusEnum {  APPROVED,  REJECTED,  };
+
+  /// Optional review notes or rejection reason visible to driver
+  @BuiltValueField(wireName: r'notes')
+  String? get notes;
 
   ReviewWalletTopUpDto._();
 
@@ -43,8 +50,15 @@ class _$ReviewWalletTopUpDtoSerializer implements PrimitiveSerializer<ReviewWall
     yield r'status';
     yield serializers.serialize(
       object.status,
-      specifiedType: const FullType(String),
+      specifiedType: const FullType(ReviewWalletTopUpDtoStatusEnum),
     );
+    if (object.notes != null) {
+      yield r'notes';
+      yield serializers.serialize(
+        object.notes,
+        specifiedType: const FullType(String),
+      );
+    }
   }
 
   @override
@@ -71,9 +85,16 @@ class _$ReviewWalletTopUpDtoSerializer implements PrimitiveSerializer<ReviewWall
         case r'status':
           final valueDes = serializers.deserialize(
             value,
+            specifiedType: const FullType(ReviewWalletTopUpDtoStatusEnum),
+          ) as ReviewWalletTopUpDtoStatusEnum;
+          result.status = valueDes;
+          break;
+        case r'notes':
+          final valueDes = serializers.deserialize(
+            value,
             specifiedType: const FullType(String),
           ) as String;
-          result.status = valueDes;
+          result.notes = valueDes;
           break;
         default:
           unhandled.add(key);
@@ -102,5 +123,20 @@ class _$ReviewWalletTopUpDtoSerializer implements PrimitiveSerializer<ReviewWall
     );
     return result.build();
   }
+}
+
+class ReviewWalletTopUpDtoStatusEnum extends EnumClass {
+
+  @BuiltValueEnumConst(wireName: r'APPROVED')
+  static const ReviewWalletTopUpDtoStatusEnum APPROVED = _$reviewWalletTopUpDtoStatusEnum_APPROVED;
+  @BuiltValueEnumConst(wireName: r'REJECTED')
+  static const ReviewWalletTopUpDtoStatusEnum REJECTED = _$reviewWalletTopUpDtoStatusEnum_REJECTED;
+
+  static Serializer<ReviewWalletTopUpDtoStatusEnum> get serializer => _$reviewWalletTopUpDtoStatusEnumSerializer;
+
+  const ReviewWalletTopUpDtoStatusEnum._(String name): super(name);
+
+  static BuiltSet<ReviewWalletTopUpDtoStatusEnum> get values => _$reviewWalletTopUpDtoStatusEnumValues;
+  static ReviewWalletTopUpDtoStatusEnum valueOf(String name) => _$reviewWalletTopUpDtoStatusEnumValueOf(name);
 }
 

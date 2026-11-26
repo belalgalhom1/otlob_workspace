@@ -983,5 +983,9 @@
   "locationRequiredMessage": "Enable location services to continue using the app.",
   "locationRequiredButton": "Enable location",
   "adjustmentHistory": "Adjustment History",
-  "noAdjustmentsYet": "No manual wallet adjustments yet"
+  "noAdjustmentsYet": "No manual wallet adjustments yet",
+  "topUpRequestsTitle": "Adjustment Requests",
+  "rejectionReasonLabel": "Rejection Reason",
+  "adminNoteLabel": "Admin Note",
+  "reviewedAtLabel": "Reviewed At"
 }

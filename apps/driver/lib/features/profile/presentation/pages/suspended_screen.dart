@@ -20,6 +20,17 @@ class SuspendedScreen extends ConsumerStatefulWidget {
 
 class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
   bool _isChecking = false;
+  bool _hasRedirected = false;
+
+  String? _extractProfileStatus(dynamic profile) {
+    final profileMap = (profile is Map && profile['data'] is Map)
+        ? profile['data'] as Map
+        : profile;
+    if (profileMap is Map) {
+      return profileMap['status']?.toString();
+    }
+    return null;
+  }
 
   Future<void> _checkAccountStatus() async {
     setState(() => _isChecking = true);
@@ -30,11 +41,9 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
       final profile = await repo.getMyProfile();
       if (!mounted) return;
 
-      final profileMap = (profile is Map && profile['data'] is Map)
-          ? profile['data'] as Map
-          : profile;
-      final status = profileMap?['status']?.toString();
+      final status = _extractProfileStatus(profile);
       if (status != null && status != 'SUSPENDED') {
+        _hasRedirected = true;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -105,10 +114,21 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
     final num balance = walletData?['balance'] ?? 0.0;
     final platformWallets =
         walletData?['platformWallets'] as List<dynamic>? ?? [];
+    ref.listen<AsyncValue<dynamic>>(driverProfileProvider, (previous, next) {
+      if (!mounted || _hasRedirected) return;
+      final status = _extractProfileStatus(next.value);
+      if (status != null && status != 'SUSPENDED') {
+        _hasRedirected = true;
+        context.go('/dashboard');
+      }
+    });
+
     final topUpRequests =
         walletData?['topUpRequests'] as List<dynamic>? ?? [];
     final pendingTopUps =
         topUpRequests.where((e) => e['status'] == 'PENDING').toList();
+    final rejectedTopUps =
+        topUpRequests.where((e) => e['status'] == 'REJECTED').take(3).toList();
 
     final bool isUnpaidCommission =
         profileData['hasUnpaidCommission'] == true || balance < 0;
@@ -279,6 +299,100 @@ class _SuspendedScreenState extends ConsumerState<SuspendedScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  );
+                }),
+              ],
+              if (rejectedTopUps.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    l10n.topUpRequestsTitle,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ...rejectedTopUps.map((rawTx) {
+                  final tx = rawTx is Map ? rawTx : const <String, dynamic>{};
+                  final amount =
+                      double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
+                  final notes = (tx['notes'] ?? '').toString().trim();
+                  final localTheme = Theme.of(context);
+                  return InkWell(
+                    onTap: () => context.push('/wallet'),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                LucideIcons.circleAlert,
+                                size: 18,
+                                color: AppColors.error,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  l10n.rejected,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.error,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: AlignmentDirectional.centerEnd,
+                                  child: Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: Text(
+                                      '+${amount.toStringAsFixed(2)} $currency',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontFeatures: [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                        color: AppColors.error,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (notes.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              '${l10n.rejectionReasonLabel}: $notes',
+                              softWrap: true,
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.4,
+                                color: localTheme.colorScheme.onSurface
+                                    .withValues(alpha: 0.85),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   );
                 }),

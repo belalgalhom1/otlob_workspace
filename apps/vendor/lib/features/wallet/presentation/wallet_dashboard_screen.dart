@@ -13,11 +13,13 @@ class WalletDashboardScreen extends ConsumerWidget {
   final String? userRole;
   final bool? canManageFinance;
   final bool? canViewStatistics;
+  final int initialTabIndex;
   const WalletDashboardScreen({
     super.key,
     this.userRole,
     this.canManageFinance,
     this.canViewStatistics,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -115,7 +117,9 @@ class WalletDashboardScreen extends ConsumerWidget {
     }
 
     return DefaultTabController(
+      key: ValueKey('wallet_tabs_$initialTabIndex'),
       length: 2,
+      initialIndex: initialTabIndex.clamp(0, 1),
       child: Scaffold(
         backgroundColor: theme.colorScheme.surface,
         body: SafeArea(

@@ -8,6 +8,7 @@ import 'package:vendor/core/utils/error_utils.dart';
 import 'notifications_provider.dart';
 import '../../chat/presentation/inbox_counts_provider.dart';
 import '../../chat/presentation/pages/admin_chat_screen.dart';
+import '../../wallet/presentation/topup_details_screen.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -223,12 +224,28 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   }
                                   
                                   // Handle deep links
-                                  if (type == 'ORDER_UPDATE' && n['data'] != null && n['data']['orderId'] != null) {
+                                  final rawData = n['data'] is Map ? n['data'] as Map : const <String, dynamic>{};
+                                  final kind = (rawData['kind'] ?? '').toString().trim().toLowerCase();
+                                  final route = (rawData['route'] ?? '').toString().trim().toLowerCase();
+                                  final topUpId = (rawData['topUpId'] ?? rawData['requestId'] ?? '').toString().trim();
+
+                                  if ((kind == 'wallet_topup' ||
+                                          route == 'wallet_topup_details' ||
+                                          (type == 'PAYMENT' && topUpId.isNotEmpty)) &&
+                                      topUpId.isNotEmpty) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => DriverAdjustmentDetailsScreen(
+                                          requestId: topUpId,
+                                        ),
+                                      ),
+                                    );
+                                  } else if (type == 'ORDER_UPDATE' && rawData['orderId'] != null) {
                                     // Could open order details
-                                  } else if (type == 'CHAT_MESSAGE' && n['data'] != null) {
-                                    final convoId = n['data']['conversationId'] ?? n['data']['conversation_id'];
+                                  } else if (type == 'CHAT_MESSAGE' && rawData.isNotEmpty) {
+                                    final convoId = rawData['conversationId'] ?? rawData['conversation_id'];
                                     if (convoId != null) {
-                                      final chatType = n['data']['chatType'] ?? n['data']['chat_type'] ?? 'SUPPORT';
+                                      final chatType = rawData['chatType'] ?? rawData['chat_type'] ?? 'SUPPORT';
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
                                           builder: (context) => AdminChatScreen(
