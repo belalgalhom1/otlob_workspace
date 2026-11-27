@@ -115,8 +115,8 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final coverHeight = constraints.maxHeight.isFinite
-                        ? (constraints.maxHeight * 0.52).clamp(46.0, 64.0)
-                        : 56.0;
+                        ? (constraints.maxHeight * 0.48).clamp(40.0, 60.0)
+                        : 52.0;
                     return Column(
                       mainAxisSize: MainAxisSize.max,
                       children: [
@@ -191,7 +191,7 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
-                                        vertical: 2.5,
+                                        vertical: 2,
                                       ),
                                         decoration: BoxDecoration(
                                           color: isOpen
@@ -210,7 +210,7 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                         child: Text(
                                           statusLabel,
                                           style: HomeDesignTokens.text(
-                                            size: 9.5,
+                                            size: 11.0,
                                             weight: FontWeight.w900,
                                             color: isOpen
                                                 ? HomeDesignTokens.darkOnGold
@@ -272,83 +272,91 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
-                                vertical: 3,
+                                vertical: 2.5,
                               ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.center,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: HomeDesignTokens.text(
-                                            size: 13.0,
-                                            weight: FontWeight.w900,
-                                            color: palette.textPrimary,
-                                            height: 1.15,
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment:
+                                              AlignmentDirectional.centerStart,
+                                          child: Text(
+                                            name,
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            style: HomeDesignTokens.text(
+                                              size: 14.5,
+                                              weight: FontWeight.w900,
+                                              color: palette.textPrimary,
+                                              height: 1.12,
+                                            ),
                                           ),
                                         ),
-                                        if (metaText.isNotEmpty) ...[
-                                          const SizedBox(height: 1.5),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.location_on_rounded,
-                                                size: 11,
-                                                color: palette.goldText,
-                                              ),
-                                              const SizedBox(width: 2),
-                                              Expanded(
-                                                child: Text(
-                                                  metaText,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: HomeDesignTokens.text(
-                                                    size: 11.0,
-                                                    weight: FontWeight.w600,
-                                                    color: palette.textMuted,
-                                                    height: 1.1,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.star_rounded,
+                                            size: 14,
+                                            color: palette.goldText,
+                                          ),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            rating.toStringAsFixed(1),
+                                            style: HomeDesignTokens.numeric(
+                                              size: 12.5,
+                                              weight: FontWeight.w800,
+                                              color: palette.textPrimary,
+                                              height: 1.1,
+                                            ),
                                           ),
                                         ],
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.star_rounded,
-                                        size: 13,
-                                        color: palette.goldText,
-                                      ),
-                                      const SizedBox(width: 2),
-                                      Text(
-                                        rating.toStringAsFixed(1),
-                                        style: HomeDesignTokens.numeric(
-                                          size: 11.0,
-                                          weight: FontWeight.w800,
-                                          color: palette.textPrimary,
-                                          height: 1.1,
-                                        ),
                                       ),
                                     ],
                                   ),
+                                  if (metaText.isNotEmpty) ...[
+                                    const SizedBox(height: 1.5),
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.location_on_rounded,
+                                          size: 12,
+                                          color: palette.goldText,
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Expanded(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: AlignmentDirectional
+                                                .centerStart,
+                                            child: Text(
+                                              metaText,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              style: HomeDesignTokens.text(
+                                                size: 12.5,
+                                                weight: FontWeight.w600,
+                                                color: palette.textMuted,
+                                                height: 1.08,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

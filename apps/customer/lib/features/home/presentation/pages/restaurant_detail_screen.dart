@@ -145,15 +145,6 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
   void _selectCategory(String catId) {
     setState(() => _selectedCategory = catId);
 
-    // Scroll menu product list back to top (NO scroll-spy auto-switching).
-    if (_menuScrollController.hasClients) {
-      _menuScrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-      );
-    }
-
     // Smoothly auto-center the tapped category tile horizontally.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -627,7 +618,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
 
           final bottomInset = MediaQuery.paddingOf(context).bottom;
 
-          // A. Outer Viewport-Locked Container (Zero Outer Scroll)
+          // A. Unified Full-Page Scrollable Store View (Banner + Info + Categories + 3-Col Product Grid)
           return Scaffold(
             backgroundColor: palette.bgMain,
             resizeToAvoidBottomInset: false,
@@ -636,131 +627,175 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
               children: [
                 SafeArea(
                   bottom: false,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      // B. Top Store Banner & Controls (106px fixed, shrink: 0)
-                      _buildTopBanner(
-                        context: context,
-                        fullVendor: fullVendor,
-                        vendorId: resolvedVendorId,
-                        palette: palette,
-                      ),
-
-                      // C. Main Content Wrapper (flex: 1, min-height: 0, overflow: hidden)
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            14,
-                            8,
-                            14,
-                            10 + bottomInset,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // D. Store Header, Expandable Description & Branch Row
-                              _buildStoreHeaderSection(
+                      ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(
+                          context,
+                        ).copyWith(scrollbars: false),
+                        child: CustomScrollView(
+                          key: const ValueKey('store_menu_vertical_list'),
+                          controller: _menuScrollController,
+                          physics: const BouncingScrollPhysics(),
+                          slivers: [
+                            // B. Top Store Banner (168px full-bleed, scrolls naturally with the page)
+                            SliverToBoxAdapter(
+                              child: _buildTopBanner(
                                 context: context,
                                 fullVendor: fullVendor,
-                                storeName: storeName,
-                                description: description,
-                                branches: branches,
-                                currentBranch: currentBranch,
-                                workingHours: workingHours,
-                                isOpen: isOpen,
-                                isAr: isAr,
-                                s: s,
-                                palette: palette,
                                 vendorId: resolvedVendorId,
-                              ),
-
-                              const SizedBox(height: 8),
-
-                              // E. Direct Order CTA Section
-                              _buildDirectOrderCta(
-                                context: context,
-                                vendorId: resolvedVendorId,
-                                storeName: storeName,
-                                s: s,
                                 palette: palette,
                               ),
+                            ),
 
-                              if (categories.isNotEmpty) ...[
-                                const SizedBox(height: 8),
-                                // F. Horizontal Visual Category Bar
-                                _buildVisualCategoryBar(
-                                  categories: categories,
-                                  allMenu: allMenu,
-                                  fullVendor: fullVendor,
-                                  s: s,
-                                  isAr: isAr,
-                                  palette: palette,
+                            // D, E, F, G1. Store Header, CTA, Categories & Menu Search
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  14,
+                                  10,
+                                  14,
+                                  8,
                                 ),
-                              ],
-
-                              const SizedBox(height: 8),
-
-                              // G. Menu Header, Strict Product-Name Search & Scrollable Product List
-                              Expanded(
                                 child: Column(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
+                                    _buildStoreHeaderSection(
+                                      context: context,
+                                      fullVendor: fullVendor,
+                                      storeName: storeName,
+                                      description: description,
+                                      branches: branches,
+                                      currentBranch: currentBranch,
+                                      workingHours: workingHours,
+                                      isOpen: isOpen,
+                                      isAr: isAr,
+                                      s: s,
+                                      palette: palette,
+                                      vendorId: resolvedVendorId,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildDirectOrderCta(
+                                      context: context,
+                                      vendorId: resolvedVendorId,
+                                      storeName: storeName,
+                                      s: s,
+                                      palette: palette,
+                                    ),
+                                    if (categories.isNotEmpty) ...[
+                                      const SizedBox(height: 10),
+                                      _buildVisualCategoryBar(
+                                        categories: categories,
+                                        allMenu: allMenu,
+                                        fullVendor: fullVendor,
+                                        s: s,
+                                        isAr: isAr,
+                                        palette: palette,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 10),
                                     _buildMenuHeaderAndSearch(
                                       s: s,
                                       isPharmacy: isPharmacy,
                                       palette: palette,
                                     ),
-                                    const SizedBox(height: 6),
-                                    Expanded(
-                                      child: filteredMenu.isEmpty
-                                          ? _buildEmptyMenuState(
-                                              s: s,
-                                              isAr: isAr,
-                                              palette: palette,
-                                            )
-                                          : ScrollConfiguration(
-                                              behavior:
-                                                  ScrollConfiguration.of(
-                                                    context,
-                                                  ).copyWith(scrollbars: false),
-                                              child: ListView.separated(
-                                                key: const ValueKey(
-                                                  'store_menu_vertical_list',
-                                                ),
-                                                controller:
-                                                    _menuScrollController,
-                                                physics:
-                                                    const BouncingScrollPhysics(),
-                                                padding: EdgeInsets.only(
-                                                  bottom: cartState.totalItems >
-                                                          0
-                                                      ? 84
-                                                      : 4,
-                                                ),
-                                                itemCount: filteredMenu.length,
-                                                separatorBuilder: (_, _) =>
-                                                    const SizedBox(height: 8),
-                                                itemBuilder: (context, index) =>
-                                                    _buildProductCard(
-                                                  context: context,
-                                                  item: filteredMenu[index],
-                                                  cartState: cartState,
-                                                  s: s,
-                                                  isAr: isAr,
-                                                  isOpen: isOpen,
-                                                  isPharmacy: isPharmacy,
-                                                  palette: palette,
-                                                ),
-                                              ),
-                                            ),
-                                    ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+
+                            // G2. 3-Column Product Grid (or Empty State)
+                            if (filteredMenu.isEmpty)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    14,
+                                    16,
+                                    14,
+                                    24 + bottomInset,
+                                  ),
+                                  child: _buildEmptyMenuState(
+                                    s: s,
+                                    isAr: isAr,
+                                    palette: palette,
+                                  ),
+                                ),
+                              )
+                            else
+                              SliverPadding(
+                                padding: EdgeInsets.fromLTRB(
+                                  14,
+                                  2,
+                                  14,
+                                  (cartState.totalItems > 0 ? 92 : 20) +
+                                      bottomInset,
+                                ),
+                                sliver: SliverLayoutBuilder(
+                                  builder: (context, sliverConstraints) {
+                                    final double maxWidth =
+                                        sliverConstraints.crossAxisExtent;
+                                    final int crossAxisCount = maxWidth >= 840
+                                        ? 5
+                                        : (maxWidth >= 560 ? 4 : 3);
+                                    const double crossAxisSpacing = 10.0;
+                                    const double mainAxisSpacing = 10.0;
+                                    final double cardWidth =
+                                        ((maxWidth -
+                                                    (crossAxisCount - 1) *
+                                                        crossAxisSpacing) /
+                                                crossAxisCount)
+                                            .clamp(80.0, 240.0);
+                                    final double textScale =
+                                        MediaQuery.textScalerOf(context)
+                                            .scale(1.0)
+                                            .clamp(1.0, 1.15);
+                                    final double mainAxisExtent =
+                                        (cardWidth - 5.0) +
+                                        (78.0 * textScale).ceilToDouble();
+
+                                    return SliverGrid(
+                                      delegate: SliverChildBuilderDelegate(
+                                        (context, index) => _buildProductCard(
+                                          context: context,
+                                          item: filteredMenu[index],
+                                          cartState: cartState,
+                                          s: s,
+                                          isAr: isAr,
+                                          isOpen: isOpen,
+                                          isPharmacy: isPharmacy,
+                                          palette: palette,
+                                        ),
+                                        childCount: filteredMenu.length,
+                                      ),
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: crossAxisCount,
+                                            crossAxisSpacing: crossAxisSpacing,
+                                            mainAxisSpacing: mainAxisSpacing,
+                                            mainAxisExtent: mainAxisExtent,
+                                          ),
+                                    );
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      // Persistent floating Back & Favorite controls over top corners
+                      PositionedDirectional(
+                        top: 12,
+                        start: 12,
+                        child: _buildBackButton(context),
+                      ),
+                      PositionedDirectional(
+                        top: 12,
+                        end: 12,
+                        child: _buildFavoriteBannerButton(
+                          context: context,
+                          vendorId: resolvedVendorId,
                         ),
                       ),
                     ],
@@ -858,9 +893,6 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
         ?.toString()
         .trim();
     final hasCover = coverRaw != null && coverRaw.isNotEmpty;
-    final isFav = ref.watch(
-      favoritesProvider.select((favorites) => favorites.contains(vendorId)),
-    );
 
     const fallbackGradient = DecoratedBox(
       decoration: BoxDecoration(
@@ -893,65 +925,50 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                 placeholder: (_, _) => fallbackGradient,
                 errorWidget: (_, _, _) => fallbackGradient,
               ),
+          ],
+        ),
+      ),
+    );
+  }
 
-            // Top-Right Back Button (RTL start: top 12, start 12)
-            PositionedDirectional(
-              top: 12,
-              start: 12,
-              child: _buildBackButton(context),
-            ),
-
-            // Top-Left Action Buttons (RTL end: top 12, end 12, gap 6px)
-            PositionedDirectional(
-              top: 12,
-              end: 12,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    key: const ValueKey('store_detail_favorite_btn'),
-                    onTap: () {
-                      final authStatus = ref.read(authControllerProvider);
-                      if (authStatus != AuthStatus.authenticated) {
-                        AuthPromptDialog.show(context);
-                        return;
-                      }
-                      ref
-                          .read(favoritesProvider.notifier)
-                          .toggleFavorite(vendorId);
-                    },
-                    child: ClipOval(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withValues(alpha: 0.55),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.25),
-                              width: 1,
-                            ),
-                          ),
-                          alignment: Alignment.center,
-                          child: Icon(
-                            isFav
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
-                            size: 17,
-                            color: isFav
-                                ? const Color(0xFFF87171)
-                                : Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+  Widget _buildFavoriteBannerButton({
+    required BuildContext context,
+    required String vendorId,
+  }) {
+    final isFav = ref.watch(
+      favoritesProvider.select((favorites) => favorites.contains(vendorId)),
+    );
+    return GestureDetector(
+      key: const ValueKey('store_detail_favorite_btn'),
+      onTap: () {
+        final authStatus = ref.read(authControllerProvider);
+        if (authStatus != AuthStatus.authenticated) {
+          AuthPromptDialog.show(context);
+          return;
+        }
+        ref.read(favoritesProvider.notifier).toggleFavorite(vendorId);
+      },
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black.withValues(alpha: 0.55),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 1,
               ),
             ),
-          ],
+            alignment: Alignment.center,
+            child: Icon(
+              isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              size: 17,
+              color: isFav ? const Color(0xFFF87171) : Colors.white,
+            ),
+          ),
         ),
       ),
     );
@@ -1199,9 +1216,9 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
             ),
             style: StoreDetailPalette.text(
               size: 12.5,
-              weight: FontWeight.w400,
+              weight: FontWeight.w500,
               color: palette.textPrimary,
-              height: 1.3,
+              height: 1.35,
             ),
           ),
         ],
@@ -1305,15 +1322,18 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                   CustomChatIcon(size: 17, color: palette.goldText),
                   const SizedBox(width: 8),
                   Flexible(
-                    child: Text(
-                      s.chatWithVendor,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: StoreDetailPalette.text(
-                        size: 13,
-                        weight: FontWeight.w800,
-                        color: palette.goldText,
-                        height: 1.15,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        s.chatWithVendor,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: StoreDetailPalette.text(
+                          size: 13.5,
+                          weight: FontWeight.w800,
+                          color: palette.goldText,
+                          height: 1.15,
+                        ),
                       ),
                     ),
                   ),
@@ -1333,15 +1353,18 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
             ),
             const SizedBox(width: 4),
             Flexible(
-              child: Text(
-                s.chatWithVendorSubtext,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: StoreDetailPalette.text(
-                  size: 11.5,
-                  weight: FontWeight.w600,
-                  color: palette.textPrimary,
-                  height: 1.15,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  s.chatWithVendorSubtext,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: StoreDetailPalette.text(
+                    size: 12.0,
+                    weight: FontWeight.w600,
+                    color: palette.textPrimary,
+                    height: 1.15,
+                  ),
                 ),
               ),
             ),
@@ -1711,6 +1734,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
               constraints: const BoxConstraints(maxWidth: 250),
               child: Container(
                 height: 40,
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: palette.inputBg,
                   borderRadius: BorderRadius.circular(12),
@@ -1722,16 +1746,6 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                 child: Stack(
                   alignment: AlignmentDirectional.centerStart,
                   children: [
-                    PositionedDirectional(
-                      start: 12,
-                      child: IgnorePointer(
-                        child: Icon(
-                          LucideIcons.search,
-                          size: 16,
-                          color: palette.gold,
-                        ),
-                      ),
-                    ),
                     TextField(
                       key: const ValueKey('store_menu_search_field'),
                       controller: _searchController,
@@ -1742,28 +1756,43 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                       textAlignVertical: TextAlignVertical.center,
                       cursorColor: palette.gold,
                       style: StoreDetailPalette.text(
-                        size: 13,
+                        size: 13.5,
                         weight: FontWeight.w600,
                         color: palette.textPrimary,
                         height: 1.2,
                       ),
                       decoration: InputDecoration(
                         isDense: true,
+                        filled: false,
+                        fillColor: Colors.transparent,
                         hintText: s.search,
                         hintStyle: StoreDetailPalette.text(
-                          size: 13,
+                          size: 13.5,
                           weight: FontWeight.w600,
-                          color: palette.textPrimary.withValues(alpha: 0.72),
+                          color: palette.textMuted.withValues(alpha: 0.78),
                           height: 1.2,
                         ),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
                         contentPadding: const EdgeInsetsDirectional.only(
                           start: 36,
                           end: 32,
                           top: 9,
                           bottom: 9,
+                        ),
+                      ),
+                    ),
+                    PositionedDirectional(
+                      start: 12,
+                      child: IgnorePointer(
+                        child: Icon(
+                          LucideIcons.search,
+                          size: 16,
+                          color: palette.gold,
                         ),
                       ),
                     ),
@@ -1803,7 +1832,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // G2. Product Card (56x56 Thumbnail + Optional Badge + Text Stack + Quick Add)
+  // G2. Product Grid Card (3-Col Square Image + Floating '+' + Name + Price)
   // ---------------------------------------------------------------------------
   Widget _buildProductCard({
     required BuildContext context,
@@ -1827,8 +1856,9 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
         int.tryParse(item['stripsPerPackage']?.toString() ?? '') ?? 1;
     final bool isStripProduct = sellByStrip && stripsPerPackage >= 2;
 
-    final cartProductLines =
-        cartState.allItems.where((ci) => ci.product.id == productId);
+    final cartProductLines = cartState.allItems
+        .where((ci) => ci.product.id == productId)
+        .toList();
     final int totalCartQty =
         cartProductLines.fold<int>(0, (sum, ci) => sum + ci.quantity);
     final int totalCartUnits = isStripProduct
@@ -1846,6 +1876,27 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     final bool hasMenuVariants =
         (item['hasVariants'] == true || menuVariants.isNotEmpty) &&
             menuVariants.isNotEmpty;
+    final bool hasOptionGroups =
+        (item['optionGroups'] as List?)?.isNotEmpty == true;
+    final bool hasVariantsWithOptions =
+        (item['variants'] as List?)?.any(
+              (v) => (v['optionGroups'] as List?)?.isNotEmpty == true,
+            ) ??
+            false;
+    final bool isPharmacyWithStrips =
+        isPharmacy && sellByStrip && item['stripsPerPackage'] != null;
+    final bool hasCustomizations = hasMenuVariants ||
+        hasOptionGroups ||
+        hasVariantsWithOptions ||
+        isPharmacyWithStrips;
+
+    final CartItem? simpleCartLine =
+        (!hasCustomizations && cartProductLines.length == 1)
+            ? cartProductLines.first
+            : null;
+    final bool canInlineDecrement =
+        simpleCartLine != null && simpleCartLine.backendId != null;
+
     final int? effectiveItemStock = itemStock == null
         ? null
         : (isStripProduct ? itemStock * stripsPerPackage : itemStock);
@@ -1894,7 +1945,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
         ? comparePrice.toStringAsFixed(comparePrice % 1 == 0 ? 0 : 2)
         : '';
     final pricePrefix =
-        hasMenuVariants ? (isAr ? 'يبدأ من ' : 'From ') : '';
+        hasMenuVariants ? (isAr ? 'من ' : 'From ') : '';
 
     final resolvedImg = (item['imageUrl'] ?? item['image'])?.toString().trim();
     final formattedThumbUrl = (resolvedImg != null && resolvedImg.isNotEmpty)
@@ -1954,19 +2005,6 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
         return;
       }
 
-      final hasOptionGroups = (item['optionGroups'] as List?)?.isNotEmpty == true;
-      final hasVariantsWithOptions =
-          (item['variants'] as List?)?.any(
-                (v) => (v['optionGroups'] as List?)?.isNotEmpty == true,
-              ) ??
-              false;
-      final isPharmacyWithStrips =
-          isPharmacy && sellByStrip && item['stripsPerPackage'] != null;
-      final hasCustomizations = hasMenuVariants ||
-          hasOptionGroups ||
-          hasVariantsWithOptions ||
-          isPharmacyWithStrips;
-
       if (hasCustomizations) {
         setState(() => _selectedUnit = 'package');
         _showProductBottomSheet(
@@ -1981,8 +2019,8 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
         return;
       }
 
-      // Entry Point 1 — Product Card Quick Add (+ أضف):
-      // Capture 56x56 thumbnail global rect and fly to existing Cart UI.
+      // Entry Point 1 — Product Grid Quick Add (+):
+      // Capture square product image global rect and fly to FloatingCartOverlay.
       final srcRect = _measureRect(thumbKey);
       _launchFlyToCart(
         srcRect: srcRect,
@@ -2010,215 +2048,379 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
       }
     }
 
-    final quickAddLabel = isItemOutOfStock
-        ? s.outOfStock
-        : (totalCartQty > 0
-            ? (isAr ? '+ أضف ($totalCartQty)' : '+ Add ($totalCartQty)')
-            : (isAr ? '+ أضف' : '+ Add'));
+    Future<void> onQuickDecrement() async {
+      if (!canInlineDecrement) {
+        openSheet();
+        return;
+      }
+      try {
+        await ref
+            .read(cartProvider.notifier)
+            .updateQuantity(simpleCartLine, simpleCartLine.quantity - 1);
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(ErrorUtils.translate(context, e)),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
 
-    return GestureDetector(
-      onTap: openSheet,
-      child: Container(
-        key: ValueKey('store_product_card_$productId'),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: palette.bgCard,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: palette.borderGold,
-            width: 1,
-          ),
-          boxShadow: [palette.cardShadow],
+    return Container(
+      key: ValueKey('store_product_card_$productId'),
+      decoration: BoxDecoration(
+        color: palette.bgCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: palette.borderGold,
+          width: 1,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Thumbnail (68x68, radius 14, zoomed-out BoxFit.contain, borderGold + optional top-start badge)
-            Stack(
-              clipBehavior: Clip.none,
+        boxShadow: [palette.cardShadow],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: openSheet,
+          borderRadius: BorderRadius.circular(14),
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.15,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  key: thumbKey,
-                  width: 68,
-                  height: 68,
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: palette.bgCard2,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: palette.borderGold,
-                      width: 1,
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(11),
-                    child: formattedThumbUrl.isNotEmpty
-                        ? TransparentBgNetworkImage(
-                            imageUrl: formattedThumbUrl,
-                            mode: BackgroundRemovalMode.autoUniform,
-                            width: 62,
-                            height: 62,
-                            fit: BoxFit.contain,
-                            maxCacheDimension: 220,
-                            placeholderBuilder: (_) =>
-                                ColoredBox(color: palette.bgCard2),
-                            fallbackBuilder: (_) => Center(
-                              child: Icon(
-                                Icons.fastfood_rounded,
-                                size: 26,
-                                color: palette.textMuted,
+                // Top Square Image Box with Discount Badge & Floating '+' Button
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(5, 5, 5, 0),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: Container(
+                      key: thumbKey,
+                      decoration: BoxDecoration(
+                        color: palette.bgCard2,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: formattedThumbUrl.isNotEmpty
+                                ? TransparentBgNetworkImage(
+                                    imageUrl: formattedThumbUrl,
+                                    mode: BackgroundRemovalMode.autoUniform,
+                                    fit: BoxFit.contain,
+                                    maxCacheDimension: 260,
+                                    placeholderBuilder: (_) =>
+                                        ColoredBox(color: palette.bgCard2),
+                                    fallbackBuilder: (_) => Center(
+                                      child: Icon(
+                                        Icons.fastfood_rounded,
+                                        size: 28,
+                                        color: palette.textMuted.withValues(
+                                          alpha: 0.65,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Center(
+                                    child: Icon(
+                                      Icons.fastfood_rounded,
+                                      size: 28,
+                                      color: palette.textMuted.withValues(
+                                        alpha: 0.65,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                          if (badgeText != null)
+                            PositionedDirectional(
+                              top: 4,
+                              start: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: palette.gold,
+                                  borderRadius: BorderRadius.circular(9999),
+                                ),
+                                child: Text(
+                                  badgeText,
+                                  style: StoreDetailPalette.text(
+                                    size: 9.5,
+                                    weight: FontWeight.w900,
+                                    color: palette.darkOnGold,
+                                    height: 1.0,
+                                  ),
+                                ),
                               ),
                             ),
-                          )
-                        : Center(
-                            child: Icon(
-                              Icons.fastfood_rounded,
-                              size: 26,
-                              color: palette.textMuted,
+                          if (isItemOutOfStock)
+                            PositionedDirectional(
+                              bottom: 4,
+                              start: 4,
+                              end: 4,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.72),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                alignment: Alignment.center,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    s.outOfStock,
+                                    maxLines: 1,
+                                    style: StoreDetailPalette.text(
+                                      size: 9.5,
+                                      weight: FontWeight.w800,
+                                      color: Colors.white,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else if (isOpen)
+                            PositionedDirectional(
+                              bottom: 5,
+                              end: 5,
+                              child: _buildGridAddControl(
+                                productId: productId,
+                                totalCartQty: totalCartQty,
+                                canInlineDecrement: canInlineDecrement,
+                                palette: palette,
+                                onAdd: onQuickAdd,
+                                onDecrement: onQuickDecrement,
+                              ),
                             ),
-                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                if (badgeText != null)
-                  PositionedDirectional(
-                    top: -6,
-                    start: -4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: palette.gold,
-                        borderRadius: BorderRadius.circular(9999),
-                      ),
-                      child: Text(
-                        badgeText,
-                        style: StoreDetailPalette.text(
-                          size: 9.5,
-                          weight: FontWeight.w900,
-                          color: palette.darkOnGold,
-                          height: 1.0,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
 
-            const SizedBox(width: 12),
-
-            // Text Stack (Name 14px w900, Desc 11.5px 1-line, Price 13px Inter w900 gold)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: StoreDetailPalette.text(
-                      size: 14,
-                      weight: FontWeight.w900,
-                      color: palette.textPrimary,
-                      height: 1.2,
-                    ),
-                  ),
-                  if (description.trim().isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      description.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: StoreDetailPalette.text(
-                        size: 11.5,
-                        weight: FontWeight.w400,
-                        color: palette.textPrimary,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 5),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                // Bottom Text Stack: 2-line Name, optional 1-line Description, Price
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(7, 6, 7, 7),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
-                        if (pricePrefix.isNotEmpty)
-                          Text(
-                            pricePrefix,
-                            style: StoreDetailPalette.text(
-                              size: 12,
-                              weight: FontWeight.w800,
-                              color: palette.goldText,
-                              height: 1.1,
-                            ),
-                          ),
                         Text(
-                          '$priceStr ${s.egp}',
-                          style: StoreDetailPalette.numeric(
-                            size: 13,
-                            weight: FontWeight.w900,
-                            color: palette.goldText,
-                            height: 1.1,
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: StoreDetailPalette.text(
+                            size: 12.0,
+                            weight: FontWeight.w800,
+                            color: palette.textPrimary,
+                            height: 1.2,
                           ),
                         ),
-                        if (hasDiscount) ...[
-                          const SizedBox(width: 6),
+                        if (description.trim().isNotEmpty) ...[
+                          const SizedBox(height: 2),
                           Text(
-                            compareStr,
-                            style: StoreDetailPalette.numeric(
-                              size: 11,
-                              weight: FontWeight.w600,
-                              color: palette.textMuted,
-                              height: 1.1,
-                              decoration: TextDecoration.lineThrough,
-                              decorationColor: palette.textMuted,
+                            description.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: StoreDetailPalette.text(
+                              size: 10.5,
+                              weight: FontWeight.w500,
+                              color: palette.textPrimary,
+                              height: 1.15,
                             ),
                           ),
                         ],
+                        const SizedBox(height: 5),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (pricePrefix.isNotEmpty)
+                                Text(
+                                  pricePrefix,
+                                  style: StoreDetailPalette.text(
+                                    size: 10.5,
+                                    weight: FontWeight.w700,
+                                    color: palette.goldText,
+                                    height: 1.05,
+                                  ),
+                                ),
+                              Text(
+                                '$priceStr ${s.egp}',
+                                style: StoreDetailPalette.numeric(
+                                  size: 12.5,
+                                  weight: FontWeight.w900,
+                                  color: palette.goldText,
+                                  height: 1.05,
+                                ),
+                              ),
+                              if (hasDiscount) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  compareStr,
+                                  style: StoreDetailPalette.numeric(
+                                    size: 10.0,
+                                    weight: FontWeight.w600,
+                                    color: palette.textMuted,
+                                    height: 1.05,
+                                    decoration: TextDecoration.lineThrough,
+                                    decorationColor: palette.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
 
-            const SizedBox(width: 10),
+  Widget _buildGridAddControl({
+    required String productId,
+    required int totalCartQty,
+    required bool canInlineDecrement,
+    required StoreDetailPalette palette,
+    required VoidCallback onAdd,
+    required VoidCallback onDecrement,
+  }) {
+    if (totalCartQty <= 0) {
+      return Material(
+        color: palette.gold,
+        shape: const CircleBorder(),
+        elevation: 3,
+        shadowColor: Colors.black.withValues(alpha: 0.28),
+        child: InkWell(
+          key: ValueKey('store_quick_add_$productId'),
+          onTap: onAdd,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: Icon(
+              Icons.add_rounded,
+              size: 19,
+              color: palette.darkOnGold,
+            ),
+          ),
+        ),
+      );
+    }
 
-            // Quick Add Button (+ أضف)
-            if (isOpen)
-              Material(
-                color: isItemOutOfStock ? palette.bgCard2 : palette.gold,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  key: ValueKey('store_quick_add_$productId'),
-                  onTap: isItemOutOfStock ? null : onQuickAdd,
-                  hoverColor: palette.goldHover,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 8,
-                    ),
-                    child: Text(
-                      quickAddLabel,
-                      style: StoreDetailPalette.text(
-                        size: 12,
-                        weight: FontWeight.w900,
-                        color: isItemOutOfStock
-                            ? palette.textMuted
-                            : palette.darkOnGold,
-                        height: 1.15,
-                      ),
-                    ),
+    if (canInlineDecrement) {
+      return Material(
+        color: palette.gold,
+        borderRadius: BorderRadius.circular(999),
+        elevation: 3,
+        shadowColor: Colors.black.withValues(alpha: 0.28),
+        child: SizedBox(
+          height: 28,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                key: ValueKey('store_quick_dec_$productId'),
+                onTap: onDecrement,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(999),
+                  right: Radius.circular(999),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Icon(
+                    totalCartQty == 1
+                        ? Icons.delete_outline_rounded
+                        : Icons.remove_rounded,
+                    size: 15,
+                    color: palette.darkOnGold,
                   ),
                 ),
               ),
-          ],
+              Text(
+                '$totalCartQty',
+                style: StoreDetailPalette.numeric(
+                  size: 11.5,
+                  weight: FontWeight.w900,
+                  color: palette.darkOnGold,
+                  height: 1.0,
+                ),
+              ),
+              InkWell(
+                key: ValueKey('store_quick_add_$productId'),
+                onTap: onAdd,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(999),
+                  right: Radius.circular(999),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Icon(
+                    Icons.add_rounded,
+                    size: 16,
+                    color: palette.darkOnGold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: palette.gold,
+      borderRadius: BorderRadius.circular(999),
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.28),
+      child: InkWell(
+        key: ValueKey('store_quick_add_$productId'),
+        onTap: onAdd,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$totalCartQty',
+                style: StoreDetailPalette.numeric(
+                  size: 11.5,
+                  weight: FontWeight.w900,
+                  color: palette.darkOnGold,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.add_rounded,
+                size: 15,
+                color: palette.darkOnGold,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2323,17 +2525,17 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                     ),
                     const SizedBox(height: 10),
                     Expanded(
-                      child: SingleChildScrollView(
+                      child: GridView.builder(
                         physics: const NeverScrollableScrollPhysics(),
-                        child: Column(
-                          children: List.generate(
-                            4,
-                            (_) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: box(height: 92, radius: 16),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 10,
+                              childAspectRatio: 0.62,
                             ),
-                          ),
-                        ),
+                        itemCount: 6,
+                        itemBuilder: (_, _) => box(height: 180, radius: 14),
                       ),
                     ),
                   ],

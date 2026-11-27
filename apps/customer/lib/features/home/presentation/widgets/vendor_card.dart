@@ -153,8 +153,8 @@ class VendorCard extends ConsumerWidget {
                               Text(
                                 '($ratingCount)',
                                 style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 12,
+                                  color: isDark ? const Color(0xFFE5E2DC) : const Color(0xFF33302B),
+                                  fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -168,29 +168,29 @@ class VendorCard extends ConsumerWidget {
                       Row(
                         children: [
                           if (vendor['distanceKm'] != null) ...[
-                            Icon(Icons.near_me_outlined, size: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                            Icon(Icons.near_me_outlined, size: 14, color: isDark ? const Color(0xFFE5E2DC) : const Color(0xFF33302B)),
                             const SizedBox(width: 4),
                             Text(
                               isAr
                                   ? '${num.tryParse(vendor['distanceKm'].toString())?.toStringAsFixed(1) ?? '0.0'} كم'
                                   : '${num.tryParse(vendor['distanceKm'].toString())?.toStringAsFixed(1) ?? '0.0'} km',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                                color: isDark ? Colors.white : const Color(0xFF11100E),
                               ),
                             ),
                             const SizedBox(width: 12),
                           ],
                           if (timeLabel != null) ...[
-                            Icon(Icons.access_time_rounded, size: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                            Icon(Icons.access_time_rounded, size: 14, color: isDark ? const Color(0xFFE5E2DC) : const Color(0xFF33302B)),
                             const SizedBox(width: 4),
                             Text(
                               timeLabel,
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                                color: isDark ? Colors.white : const Color(0xFF11100E),
                               ),
                             ),
                           ],

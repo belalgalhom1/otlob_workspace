@@ -399,6 +399,19 @@ void main() {
     expect(find.text('Search for what you want'), findsOneWidget);
     expect(find.text('Double Cheese Burger'), findsOneWidget);
     expect(find.text('Burger King'), findsWidgets);
+    // Verify store distance + delivery time never uses ellipsis truncation
+    final metaText = tester.widget<Text>(find.text('0.9 km • 17-27 mins'));
+    expect(metaText.overflow, isNot(TextOverflow.ellipsis));
+
+    // Also verify tight 360x740 viewport at 1.3x text scale has zero overflow
+    await _pumpHome(
+      tester,
+      viewport: const Size(360, 740),
+      safeAreaPadding: const EdgeInsets.only(top: 24, bottom: 12),
+      locale: const Locale('ar'),
+      textScaler: const TextScaler.linear(1.3),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Tapping anywhere on Custom Courier banner opens /custom-delivery', (

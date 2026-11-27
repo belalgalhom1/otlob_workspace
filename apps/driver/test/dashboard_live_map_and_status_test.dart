@@ -366,20 +366,21 @@ void main() {
       await tester.pump();
       expect(find.text('Suspended'), findsOneWidget);
 
-      // Verify scrolling down works smoothly and bottom navigation remains fixed.
-      final navRectBefore = tester.getRect(find.byType(BottomNavigationBar));
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, -250),
+      // Verify zero vertical scrollables on Dashboard Home tab and full fit above bottom nav.
+      final verticalScrollables = tester
+          .widgetList<Scrollable>(find.byType(Scrollable))
+          .where((s) => s.axis == Axis.vertical);
+      expect(verticalScrollables, isEmpty);
+      final dockRect = tester.getRect(
+        find.byKey(const ValueKey('driver_dashboard_cockpit_dock')),
       );
-      await tester.pump();
-      final navRectAfter = tester.getRect(find.byType(BottomNavigationBar));
-      expect(navRectAfter, equals(navRectBefore));
+      final navRect = tester.getRect(find.byType(BottomNavigationBar));
+      expect(dockRect.bottom, lessThanOrEqualTo(navRect.top + 0.5));
 
       // Verify Arabic RTL on a compact Android viewport (360x640) in light theme.
       tester.view.physicalSize = const Size(360, 640);
       final arProfileNotifier = _MutableDriverProfile({
-        'status': 'ON_DELIVERY',
+        'status': 'ONLINE',
         'name': 'كابتن كريم',
         'vehicleType': 'TUK_TUK',
         'totalOrders': 7,
@@ -394,8 +395,17 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 150));
-      expect(find.text('في رحلة توصيل'), findsOneWidget);
+      expect(find.text('متصل'), findsOneWidget);
       expect(find.byType(InDriveVehicleMarker), findsOneWidget);
+      final arVerticalScrollables = tester
+          .widgetList<Scrollable>(find.byType(Scrollable))
+          .where((s) => s.axis == Axis.vertical);
+      expect(arVerticalScrollables, isEmpty);
+      final arDockRect = tester.getRect(
+        find.byKey(const ValueKey('driver_dashboard_cockpit_dock')),
+      );
+      final arNavRect = tester.getRect(find.byType(BottomNavigationBar));
+      expect(arDockRect.bottom, lessThanOrEqualTo(arNavRect.top + 0.5));
       final arTileLayer = tester.widget<AppMapTileLayer>(
         find.byType(AppMapTileLayer),
       );

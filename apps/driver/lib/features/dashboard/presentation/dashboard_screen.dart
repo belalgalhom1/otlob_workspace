@@ -942,47 +942,102 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             (data['vehiclePlate'] ?? data['plateNumber'])?.toString().trim();
         final String? driverName = data['name']?.toString().trim();
 
-        return RefreshIndicator(
-          onRefresh: _handleFullRefresh,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildCompactStatusBar(
-                  statusInfo: statusInfo,
-                  isNetworkOnline: isNetworkOnline,
-                  vehicleType: vehicleType,
-                  plateNumber: plateNumber,
-                  l10n: l10n,
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildCompactStatusBar(
+              statusInfo: statusInfo,
+              isNetworkOnline: isNetworkOnline,
+              vehicleType: vehicleType,
+              plateNumber: plateNumber,
+              l10n: l10n,
+            ),
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  DriverLiveMapCard(
+                    driverStatus: currentStatus,
+                    vehicleType: vehicleType,
+                    plateNumber: plateNumber,
+                    driverName: driverName,
+                    expandToFill: true,
+                  ),
+                  if (showActiveTools)
+                    Positioned(
+                      top: 10,
+                      left: 12,
+                      right: 12,
+                      child: _buildPendingAssistOffers(l10n),
+                    ),
+                ],
+              ),
+            ),
+            Container(
+              key: const ValueKey('driver_dashboard_cockpit_dock'),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                border: Border(
+                  top: BorderSide(
+                    color: Theme.of(
+                      context,
+                    ).dividerColor.withValues(alpha: isDark ? 0.25 : 0.45),
+                    width: 1,
+                  ),
                 ),
-                DriverLiveMapCard(
-                  driverStatus: currentStatus,
-                  vehicleType: vehicleType,
-                  plateNumber: plateNumber,
-                  driverName: driverName,
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.08),
+                    blurRadius: 14,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1.12,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (showActiveTools) _buildPendingAssistOffers(l10n),
-                      if (showBreaks) ...[
-                        _buildBreakNavigationCard(currentStatus, l10n),
-                        const SizedBox(height: 12),
-                      ],
-                      _buildWeeklyRankingNavigationCard(data, l10n),
-                      const SizedBox(height: 12),
-                      _buildStatsRow(data, currency, l10n),
-                      const SizedBox(height: 12),
                       _buildActiveTaskPlaceholder(currentStatus, l10n),
+                      const SizedBox(height: 8),
+                      _buildStatsRow(data, currency, l10n),
+                      const SizedBox(height: 8),
+                      if (showBreaks)
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: _buildWeeklyRankingNavigationCard(
+                                  data,
+                                  l10n,
+                                  compact: true,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildBreakNavigationCard(
+                                  currentStatus,
+                                  l10n,
+                                  compact: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        _buildWeeklyRankingNavigationCard(data, l10n),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         );
       },
     );
@@ -1025,8 +1080,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       key: const ValueKey('driver_dashboard_status_card'),
       width: double.infinity,
       padding: const EdgeInsetsDirectional.symmetric(
-        horizontal: 16,
-        vertical: 9,
+        horizontal: 14,
+        vertical: 8,
       ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -1039,67 +1094,98 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: effectiveAccent.withValues(alpha: isDark ? 0.16 : 0.12),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: effectiveAccent.withValues(alpha: 0.45),
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.15,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: effectiveAccent.withValues(alpha: isDark ? 0.16 : 0.11),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: effectiveAccent.withValues(alpha: 0.45),
+                ),
               ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: effectiveAccent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  effectiveLabel,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: effectiveAccent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Icon(
-                  vehicleIcon,
-                  size: 14,
-                  color: onSurface.withValues(alpha: 0.65),
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    vehicleSummary,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: onSurface.withValues(alpha: 0.72),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: effectiveAccent,
+                      shape: BoxShape.circle,
+                      boxShadow: statusInfo.isWorkingShift && isNetworkOnline
+                          ? [
+                              BoxShadow(
+                                color: effectiveAccent.withValues(alpha: 0.55),
+                                blurRadius: 6,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    effectiveLabel,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: effectiveAccent,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: onSurface.withValues(alpha: isDark ? 0.07 : 0.05),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: onSurface.withValues(alpha: isDark ? 0.1 : 0.08),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        vehicleIcon,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            vehicleSummary,
+                            maxLines: 1,
+                            softWrap: false,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: onSurface.withValues(alpha: 0.85),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1293,8 +1379,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   Widget _buildWeeklyRankingNavigationCard(
     Map<dynamic, dynamic> profileData,
-    AppLocalizations l10n,
-  ) {
+    AppLocalizations l10n, {
+    bool compact = false,
+  }) {
     final isAr = l10n.localeName == 'ar';
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final rankingAsync = ref.watch(driverRankingSummaryProvider);
@@ -1317,7 +1404,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         onTap: () => context.push('/ranking'),
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 12,
+            vertical: compact ? 9 : 10,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
@@ -1328,40 +1418,50 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: compact ? 32 : 34,
+                height: compact ? 32 : 34,
                 decoration: BoxDecoration(
                   color: visuals.background,
                   shape: BoxShape.circle,
                   border: Border.all(color: visuals.border),
                 ),
-                child: Icon(visuals.icon, color: visuals.primary, size: 19),
+                child: Icon(
+                  visuals.icon,
+                  color: visuals.primary,
+                  size: compact ? 16 : 17,
+                ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: compact ? 8 : 10),
               Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       children: [
                         Flexible(
-                          child: Text(
-                            visuals.label(isAr),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w700,
-                              color: visuals.primary,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              visuals.label(isAr),
+                              maxLines: 1,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontSize: compact ? 13 : 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: visuals.primary,
+                              ),
                             ),
                           ),
                         ),
                         if (livePct != null) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
+                              horizontal: 6,
+                              vertical: 1.5,
                             ),
                             decoration: BoxDecoration(
                               color: visuals.background,
@@ -1370,9 +1470,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             child: Directionality(
                               textDirection: TextDirection.ltr,
                               child: Text(
-                                '${livePct.toStringAsFixed(1)}%',
+                                '${livePct.toStringAsFixed(0)}%',
                                 style: TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 10.5,
                                   fontWeight: FontWeight.w700,
                                   color: visuals.primary,
                                   fontFeatures: const [
@@ -1385,16 +1485,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         ],
                       ],
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 1.5),
                     Text(
-                      isAr
-                          ? 'عرض مؤشرات الأداء الأسبوعي (القبول، الإتمام، الانضباط)'
-                          : 'View weekly performance KPIs (Acceptance, Completion, Punctuality)',
-                      maxLines: 2,
+                      compact
+                          ? (isAr ? 'الأداء الأسبوعي' : 'Weekly KPIs')
+                          : (isAr
+                                ? 'مؤشرات الأداء الأسبوعي (القبول، الإتمام، الانضباط)'
+                                : 'Weekly performance KPIs & badge'),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
-                        height: 1.35,
+                        fontSize: 11.5,
                         color: Theme.of(
                           context,
                         ).colorScheme.onSurface.withValues(alpha: 0.65),
@@ -1403,8 +1504,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const AppAdaptiveChevron(size: 18),
+              const SizedBox(width: 4),
+              const AppAdaptiveChevron(size: 16),
             ],
           ),
         ),
@@ -1414,8 +1515,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   Widget _buildBreakNavigationCard(
     String currentStatus,
-    AppLocalizations l10n,
-  ) {
+    AppLocalizations l10n, {
+    bool compact = false,
+  }) {
     final breaksAsync = ref.watch(breaksOverviewProvider);
     final overview = breaksAsync.value;
     final bool onBreak =
@@ -1425,7 +1527,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final Color cardBg = onBreak
-        ? Colors.amber.shade700.withValues(alpha: 0.12)
+        ? Colors.amber.shade700.withValues(alpha: 0.14)
         : Theme.of(context).colorScheme.surface;
     final Color borderCol = onBreak
         ? Colors.amber.shade700
@@ -1438,7 +1540,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         onTap: () => context.push('/breaks'),
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 12,
+            vertical: compact ? 9 : 10,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: borderCol, width: onBreak ? 1.4 : 1.0),
@@ -1446,8 +1551,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: compact ? 32 : 34,
+                height: compact ? 32 : 34,
                 decoration: BoxDecoration(
                   color: onBreak
                       ? Colors.amber.shade700
@@ -1457,78 +1562,68 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 child: Icon(
                   LucideIcons.coffee,
                   color: onBreak ? Colors.white : AppColors.primary,
-                  size: 19,
+                  size: compact ? 16 : 17,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: compact ? 8 : 10),
               Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       children: [
                         Flexible(
-                          child: Text(
-                            onBreak
-                                ? (isAr
-                                      ? 'أنت في فترة استراحة'
-                                      : 'You are on break')
-                                : (hasPending
-                                      ? (isAr
-                                            ? 'طلب استراحة قيد الانتظار'
-                                            : 'Break request pending')
-                                      : (isAr
-                                            ? 'إدارة استراحات السائق'
-                                            : 'Driver Breaks')),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w700,
-                              color: onBreak
-                                  ? (isDark
-                                        ? Colors.amber.shade300
-                                        : Colors.amber.shade900)
-                                  : null,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              onBreak
+                                  ? (isAr ? 'استراحة نشطة' : 'Break Active')
+                                  : (hasPending
+                                        ? (isAr
+                                              ? 'استراحة معلقة'
+                                              : 'Break Pending')
+                                        : (isAr
+                                              ? 'الاستراحات'
+                                              : 'Driver Breaks')),
+                              maxLines: 1,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontSize: compact ? 13 : 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: onBreak
+                                    ? (isDark
+                                          ? Colors.amber.shade300
+                                          : Colors.amber.shade900)
+                                    : null,
+                              ),
                             ),
                           ),
                         ),
                         if (hasPending && !onBreak) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
+                            width: 7,
+                            height: 7,
                             decoration: BoxDecoration(
                               color: Colors.amber.shade700,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              isAr ? 'معلق' : 'Pending',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              shape: BoxShape.circle,
                             ),
                           ),
                         ],
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 1.5),
                     Text(
                       onBreak
-                          ? (isAr
-                                ? 'اضغط لإدارة أو إنهاء الاستراحة'
-                                : 'Tap to manage or end break')
-                          : (isAr
-                                ? 'طلب استراحة وعرض السجل السابق'
-                                : 'Request break and view history'),
+                          ? (isAr ? 'إنهاء الاستراحة' : 'Manage / End')
+                          : (isAr ? 'طلب وسجل' : 'Request & history'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         color: Theme.of(
                           context,
                         ).colorScheme.onSurface.withValues(alpha: 0.65),
@@ -1537,8 +1632,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const AppAdaptiveChevron(size: 18),
+              const SizedBox(width: 4),
+              const AppAdaptiveChevron(size: 16),
             ],
           ),
         ),
@@ -1583,7 +1678,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               },
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Expanded(
             child: _buildStatCard(
               l10n.completedOrders,
@@ -1613,14 +1708,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     ).dividerColor.withValues(alpha: isDark ? 0.28 : 0.55);
 
     final content = Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor, width: 1),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 34,
@@ -1629,52 +1723,62 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               color: color.withValues(alpha: isDark ? 0.14 : 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: color, size: 17),
           ),
-          const SizedBox(height: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: onSurface.withValues(alpha: 0.68),
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      color: onSurface.withValues(alpha: 0.68),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: AlignmentDirectional.centerStart,
-                child: isNumericValue
-                    ? Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: Text(
+                const SizedBox(height: 2),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: isNumericValue
+                      ? Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: Text(
+                            value,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w800,
+                              color: onSurface,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        )
+                      : Text(
                           value,
                           maxLines: 1,
                           style: TextStyle(
-                            fontSize: 17.5,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w800,
                             color: onSurface,
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
-                      )
-                    : Text(
-                        value,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontSize: 17.5,
-                          fontWeight: FontWeight.w700,
-                          color: onSurface,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1703,7 +1807,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     if (status != 'ON_DELIVERY' && !hasAssignedExecution) {
       return Container(
         key: const ValueKey('driver_dashboard_no_active_tasks'),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(14),
@@ -1716,38 +1820,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
                 color: onSurface.withValues(alpha: isDark ? 0.08 : 0.06),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 LucideIcons.map,
-                size: 20,
-                color: onSurface.withValues(alpha: 0.55),
+                size: 17,
+                color: onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     l10n.noActiveTasks,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
                       color: onSurface,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     l10n.noActiveTasksSubtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
-                      height: 1.35,
-                      color: onSurface.withValues(alpha: 0.65),
+                      fontSize: 11.5,
+                      color: onSurface.withValues(alpha: 0.68),
                     ),
                   ),
                 ],
@@ -1761,30 +1869,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return Material(
       color: AppColors.primary,
       borderRadius: BorderRadius.circular(14),
+      elevation: 2,
+      shadowColor: AppColors.primary.withValues(alpha: 0.3),
       child: InkWell(
         onTap: () => context.push('/order-execution'),
         borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.onPrimary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.onPrimary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   LucideIcons.navigation,
                   color: AppColors.onPrimary,
-                  size: 22,
+                  size: 19,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       activeExecOrder is Map &&
@@ -1793,25 +1904,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 ? 'رحلة نشطة قيد التنفيذ'
                                 : 'Active Ride in Progress')
                           : l10n.activeDeliveryInProgress,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.onPrimary,
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 1.5),
                     Text(
                       l10n.tapToViewRoute,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: AppColors.onPrimary.withValues(alpha: 0.78),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w500,
+                        color: AppColors.onPrimary.withValues(alpha: 0.82),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
-              const AppAdaptiveChevron(color: AppColors.onPrimary, size: 20),
+              const AppAdaptiveChevron(color: AppColors.onPrimary, size: 18),
             ],
           ),
         ),

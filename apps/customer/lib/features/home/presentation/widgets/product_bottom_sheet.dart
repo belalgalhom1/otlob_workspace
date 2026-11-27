@@ -623,8 +623,8 @@ class _ProductBottomSheetState extends ConsumerState<ProductBottomSheet> {
                                 Text(
                                   description.trim(),
                                   style: StoreDetailPalette.text(
-                                    size: 13,
-                                    weight: FontWeight.w400,
+                                    size: 13.5,
+                                    weight: FontWeight.w500,
                                     color: palette.textPrimary,
                                     height: 1.35,
                                   ),

@@ -76,49 +76,59 @@ Future<void> _pumpDriverTestApp(
 void main() {
   for (final locale in const [Locale('en'), Locale('ar')]) {
     testWidgets(
-      'Driver WalletScreen displays Adjustment History, renders long multi-line notes without truncation, hides empty note blocks, and fits narrow viewport (${locale.languageCode})',
+      'Driver WalletScreen omits Adjustment History, keeps full multi-line notes in Transaction History, and places Adjustment Requests below Transaction History (${locale.languageCode})',
       (tester) async {
         const longAdminNote =
             'Performance bonus granted by operations for completing 15 peak-hour rain deliveries safely across Zamalek and Dokki without customer complaints.';
+
+        final sampleWalletPayload = {
+          'balance': 345.0,
+          'topUpRequests': [
+            {
+              'id': 'topup-req-1',
+              'amount': 250.0,
+              'status': 'PENDING',
+              'createdAt': '2026-11-21T09:00:00.000Z',
+              'platformWallet': {'type': 'INSTAPAY', 'number': 'otlob@instapay'},
+            },
+          ],
+          'driverWallets': <dynamic>[],
+          'transactions': [
+            {
+              'id': 'tx-adj-with-note',
+              'type': 'BONUS',
+              'amount': 120.0,
+              'balanceAfter': 345.0,
+              'isManualAdjustment': true,
+              'note': longAdminNote,
+              'createdAt': '2026-11-20T03:30:00.000Z',
+            },
+            {
+              'id': 'tx-adj-empty-note',
+              'type': 'PENALTY',
+              'amount': -25.0,
+              'balanceAfter': 225.0,
+              'isManualAdjustment': true,
+              'note': '   ',
+              'createdAt': '2026-11-19T14:15:00.000Z',
+            },
+            {
+              'id': 'tx-delivery-1',
+              'type': 'DELIVERY_FEE',
+              'amount': 50.0,
+              'balanceAfter': 250.0,
+              'isManualAdjustment': false,
+              'createdAt': '2026-11-19T12:00:00.000Z',
+            },
+          ],
+        };
 
         await _pumpDriverTestApp(
           tester,
           locale: locale,
           overrides: [
             driverWalletProvider.overrideWith(
-              () => _FakeDriverWallet({
-                'balance': 345.0,
-                'topUpRequests': <dynamic>[],
-                'driverWallets': <dynamic>[],
-                'transactions': [
-                  {
-                    'id': 'tx-adj-with-note',
-                    'type': 'BONUS',
-                    'amount': 120.0,
-                    'balanceAfter': 345.0,
-                    'isManualAdjustment': true,
-                    'note': longAdminNote,
-                    'createdAt': '2026-11-20T03:30:00.000Z',
-                  },
-                  {
-                    'id': 'tx-adj-empty-note',
-                    'type': 'PENALTY',
-                    'amount': -25.0,
-                    'balanceAfter': 225.0,
-                    'isManualAdjustment': true,
-                    'note': '   ',
-                    'createdAt': '2026-11-19T14:15:00.000Z',
-                  },
-                  {
-                    'id': 'tx-delivery-1',
-                    'type': 'DELIVERY_FEE',
-                    'amount': 50.0,
-                    'balanceAfter': 250.0,
-                    'isManualAdjustment': false,
-                    'createdAt': '2026-11-19T12:00:00.000Z',
-                  },
-                ],
-              }),
+              () => _FakeDriverWallet(sampleWalletPayload),
             ),
           ],
           child: const WalletScreen(),
@@ -130,34 +140,39 @@ void main() {
           tester.element(find.byType(WalletScreen)),
         )!;
         final historyTitle = l10n.recentTransactions;
+        final requestsTitle = l10n.topUpRequestsTitle;
         expect(find.text(historyTitle), findsOneWidget);
 
-        final expectedHeader = l10n.adjustmentHistory;
+        // Adjustment History section must be completely removed.
+        expect(find.text(l10n.adjustmentHistory), findsNothing);
 
-        // Adjustment History now sits below Recent Transactions; scroll down to bring it into view
+        // Scroll to bring Transaction History notes & Adjustment Requests into view
         await tester.scrollUntilVisible(
-          find.text(expectedHeader),
+          find.text(longAdminNote),
+          160.0,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(longAdminNote), findsOneWidget);
+        final Text noteWidget = tester.widget<Text>(find.text(longAdminNote));
+        expect(noteWidget.maxLines, isNull);
+        expect(noteWidget.overflow, isNot(TextOverflow.ellipsis));
+        expect(find.text('   '), findsNothing);
+
+        await tester.scrollUntilVisible(
+          find.text(requestsTitle),
           200.0,
           scrollable: find.byType(Scrollable).first,
         );
         await tester.pumpAndSettle();
 
-        expect(find.text(expectedHeader), findsOneWidget);
-        expect(find.text(longAdminNote), findsWidgets);
+        expect(find.text(requestsTitle), findsOneWidget);
+        expect(find.text(l10n.adjustmentHistory), findsNothing);
         final expectedCurr = locale.languageCode == 'ar' ? 'ج.م' : 'EGP';
-        expect(find.text('+120.00 $expectedCurr'), findsOneWidget);
-        expect(find.text('-25.00 $expectedCurr'), findsOneWidget);
+        expect(find.text('+250.00 $expectedCurr'), findsOneWidget);
 
-        // Verify the note Text inside Adjustment History is NOT limited with ellipsis
-        final noteFinder = find.text(longAdminNote).first;
-        final Text noteWidget = tester.widget<Text>(noteFinder);
-        expect(noteWidget.maxLines, isNull);
-        expect(noteWidget.overflow, isNot(TextOverflow.ellipsis));
-
-        // Verify empty note card renders no empty message/note block
-        expect(find.text('   '), findsNothing);
-
-        // On a taller viewport where both headers fit, assert Adjustments is strictly below History
+        // On a taller viewport where both headers fit, assert Adjustment Requests sits strictly below Transaction History
         await _pumpDriverTestApp(
           tester,
           locale: locale,
@@ -165,38 +180,16 @@ void main() {
           textScaler: const TextScaler.linear(1.0),
           overrides: [
             driverWalletProvider.overrideWith(
-              () => _FakeDriverWallet({
-                'balance': 345.0,
-                'topUpRequests': <dynamic>[],
-                'driverWallets': <dynamic>[],
-                'transactions': [
-                  {
-                    'id': 'tx-adj-with-note',
-                    'type': 'BONUS',
-                    'amount': 120.0,
-                    'balanceAfter': 345.0,
-                    'isManualAdjustment': true,
-                    'note': longAdminNote,
-                    'createdAt': '2026-11-20T03:30:00.000Z',
-                  },
-                  {
-                    'id': 'tx-delivery-1',
-                    'type': 'DELIVERY_FEE',
-                    'amount': 50.0,
-                    'balanceAfter': 250.0,
-                    'isManualAdjustment': false,
-                    'createdAt': '2026-11-19T12:00:00.000Z',
-                  },
-                ],
-              }),
+              () => _FakeDriverWallet(sampleWalletPayload),
             ),
           ],
           child: const WalletScreen(),
         );
 
+        expect(find.text(l10n.adjustmentHistory), findsNothing);
         final historyDy = tester.getTopLeft(find.text(historyTitle)).dy;
-        final adjustmentsDy = tester.getTopLeft(find.text(expectedHeader)).dy;
-        expect(adjustmentsDy, greaterThan(historyDy));
+        final requestsDy = tester.getTopLeft(find.text(requestsTitle)).dy;
+        expect(requestsDy, greaterThan(historyDy));
       },
     );
   }

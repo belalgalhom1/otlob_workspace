@@ -351,14 +351,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                   double searchHeight = contentBudget >= 540.0 ? 44.0 : 40.0;
                   double categoriesHeight = hasOffers
-                      ? (contentBudget * 0.128).clamp(68.0, 82.0)
-                      : (contentBudget * 0.140).clamp(72.0, 86.0);
+                      ? (contentBudget * 0.132).clamp(70.0, 84.0)
+                      : (contentBudget * 0.144).clamp(74.0, 88.0);
                   double hotDealsHeight = hasOffers
-                      ? (contentBudget * 0.208).clamp(112.0, 134.0)
+                      ? (contentBudget * 0.212).clamp(114.0, 136.0)
                       : 0.0;
                   double storesHeight = hasOffers
-                      ? (contentBudget * 0.212).clamp(112.0, 138.0)
-                      : (contentBudget * 0.240).clamp(124.0, 148.0);
+                      ? (contentBudget * 0.218).clamp(116.0, 142.0)
+                      : (contentBudget * 0.244).clamp(126.0, 150.0);
 
                   final double fixedTotal =
                       searchHeight +
@@ -657,7 +657,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: HomeDesignTokens.text(
-                              size: 11.0,
+                              size: 12.0,
                               weight: FontWeight.w600,
                               color: palette.textMuted,
                               height: 1.05,
@@ -668,7 +668,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         Icon(
                           Icons.location_on_rounded,
                           color: palette.goldText,
-                          size: 11.5,
+                          size: 12.5,
                         ),
                       ],
                     ),
@@ -684,7 +684,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: HomeDesignTokens.text(
-                              size: 13.5,
+                              size: 14.5,
                               weight: FontWeight.w800,
                               color: palette.textPrimary,
                               height: 1.15,
@@ -694,7 +694,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         const SizedBox(width: 2),
                         Icon(
                           Icons.keyboard_arrow_down_rounded,
-                          size: 14,
+                          size: 15,
                           color: palette.goldText,
                         ),
                       ],
@@ -739,7 +739,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         Text(
                           '$coinBalance',
                           style: HomeDesignTokens.numeric(
-                            size: 12.5,
+                            size: 13.5,
                             weight: FontWeight.w800,
                             color: palette.textPrimary,
                             height: 1.1,
@@ -1056,9 +1056,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             Padding(
                               padding: const EdgeInsets.fromLTRB(
                                 14,
-                                10,
+                                8,
                                 14,
-                                26,
+                                24,
                               ),
                               child: MediaQuery.withClampedTextScaling(
                                 maxScaleFactor: 1.12,
@@ -1070,7 +1070,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 9,
-                                          vertical: 2.5,
+                                          vertical: 2,
                                         ),
                                         decoration: BoxDecoration(
                                           color: HomeDesignTokens.gold
@@ -1092,7 +1092,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: HomeDesignTokens.text(
-                                                  size: 11.0,
+                                                  size: 12.0,
                                                   weight: FontWeight.w800,
                                                   color: Colors.white,
                                                   height: 1.15,
@@ -1105,13 +1105,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                                 Icons.star_rounded,
                                                 color:
                                                     HomeDesignTokens.goldLight,
-                                                size: 11.5,
+                                                size: 12.5,
                                               ),
                                               const SizedBox(width: 2),
                                               Text(
                                                 linkedRating.toStringAsFixed(1),
                                                 style: HomeDesignTokens.numeric(
-                                                  size: 10.5,
+                                                  size: 11.5,
                                                   weight: FontWeight.w800,
                                                   color: Colors.white,
                                                   height: 1.1,
@@ -1121,7 +1121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 3),
                                     ],
                                     if (title.isNotEmpty)
                                       FractionallySizedBox(
@@ -1131,10 +1131,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: HomeDesignTokens.text(
-                                            size: 17.0,
+                                            size: 18.5,
                                             weight: FontWeight.w900,
                                             color: Colors.white,
-                                            height: 1.2,
+                                            height: 1.18,
                                             shadows: const [
                                               Shadow(
                                                 blurRadius: 8,
@@ -1154,7 +1154,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                             style: HomeDesignTokens.text(
-                                              size: 12.0,
+                                              size: 13.0,
                                               weight: FontWeight.w600,
                                               color: Colors.white.withValues(
                                                 alpha: 0.90,
@@ -1263,6 +1263,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Container(
       key: _searchFieldKey,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: palette.inputSurface,
         borderRadius: BorderRadius.circular(12),
@@ -1285,16 +1286,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Stack(
           alignment: AlignmentDirectional.centerStart,
           children: [
-            PositionedDirectional(
-              start: 13,
-              child: IgnorePointer(
-                child: Icon(
-                  LucideIcons.search,
-                  color: palette.goldText,
-                  size: 18,
-                ),
-              ),
-            ),
             TextField(
               controller: _searchController,
               focusNode: _searchFocusNode,
@@ -1308,7 +1299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               textAlignVertical: TextAlignVertical.center,
               cursorColor: HomeDesignTokens.gold,
               style: HomeDesignTokens.text(
-                size: 13.0,
+                size: 14.5,
                 weight: FontWeight.w600,
                 color: palette.textPrimary,
                 height: 1.2,
@@ -1317,21 +1308,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 isDense: true,
                 hintText: s.searchRestaurant,
                 hintStyle: HomeDesignTokens.text(
-                  size: 13.0,
+                  size: 14.5,
                   weight: FontWeight.w600,
                   color: palette.textMuted,
                   height: 1.2,
                 ),
                 filled: false,
+                fillColor: Colors.transparent,
                 contentPadding: EdgeInsetsDirectional.only(
                   start: 40,
                   end: _searchController.text.isNotEmpty ? 34 : 12,
-                  top: 10,
-                  bottom: 10,
+                  top: 8,
+                  bottom: 8,
                 ),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+              ),
+            ),
+            PositionedDirectional(
+              start: 13,
+              child: IgnorePointer(
+                child: Icon(
+                  LucideIcons.search,
+                  color: palette.goldText,
+                  size: 19,
+                ),
               ),
             ),
             if (_searchController.text.isNotEmpty)
@@ -1411,26 +1416,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  // Category Label below image (11.5px w900 active / 11px w700 inactive)
+                  const SizedBox(height: 3),
+                  // Category Label below image (13px w900 active / 12.5px w700 inactive)
                   MediaQuery.withClampedTextScaling(
                     maxScaleFactor: 1.12,
                     child: SizedBox(
-                      height: 17,
+                      height: 20,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
                           name,
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
                           textAlign: TextAlign.center,
                           style: HomeDesignTokens.text(
-                            size: isSelected ? 11.5 : 11.0,
+                            size: isSelected ? 13.0 : 12.5,
                             weight: isSelected
                                 ? FontWeight.w900
                                 : FontWeight.w700,
                             color: palette.textPrimary,
-                            height: 1.1,
+                            height: 1.15,
                           ),
                         ),
                       ),
@@ -1612,15 +1617,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         CrossAxisAlignment.center,
                                     children: [
                                       Flexible(
-                                        child: Text(
-                                          s.customDeliveryBannerTitle,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: HomeDesignTokens.text(
-                                            size: 16.0,
-                                            weight: FontWeight.w900,
-                                            color: palette.courierTitleColor,
-                                            height: 1.1,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment:
+                                              AlignmentDirectional.centerStart,
+                                          child: Text(
+                                            s.customDeliveryBannerTitle,
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            style: HomeDesignTokens.text(
+                                              size: 17.5,
+                                              weight: FontWeight.w900,
+                                              color: palette.courierTitleColor,
+                                              height: 1.12,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -1642,7 +1652,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         child: Text(
                                           '24/7',
                                           style: HomeDesignTokens.numeric(
-                                            size: 9.5,
+                                            size: 10.5,
                                             weight: FontWeight.w900,
                                             color: palette.courierBadgeText,
                                             height: 1.0,
@@ -1651,7 +1661,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 3),
+                                  const SizedBox(height: 2),
                                   Flexible(
                                     child: FittedBox(
                                       fit: BoxFit.scaleDown,
@@ -1664,7 +1674,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           maxLines: 2,
                                           softWrap: true,
                                           style: HomeDesignTokens.text(
-                                            size: 11.8,
+                                            size: 13.0,
                                             weight: FontWeight.w600,
                                             color: palette.courierSubtitleColor,
                                             height: 1.2,
@@ -1673,7 +1683,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 5),
+                                  const SizedBox(height: 4),
                                   Material(
                                     color: HomeDesignTokens.gold,
                                     borderRadius: BorderRadius.circular(12),
@@ -1682,13 +1692,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
-                                          vertical: 5,
+                                          horizontal: 16,
+                                          vertical: 4.5,
                                         ),
                                         child: Text(
                                           s.orderNow,
                                           style: HomeDesignTokens.text(
-                                            size: 12.0,
+                                            size: 13.0,
                                             weight: FontWeight.w900,
                                             color: HomeDesignTokens.darkOnGold,
                                             height: 1.15,
@@ -1785,7 +1795,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: HomeDesignTokens.text(
-                    size: 14.5,
+                    size: 16.0,
                     weight: FontWeight.w900,
                     color: palette.textPrimary,
                     height: 1.15,
@@ -1797,7 +1807,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Text(
                   s.isArabic ? 'اسحب للمزيد ←' : 'Swipe for more →',
                   style: HomeDesignTokens.text(
-                    size: 11.0,
+                    size: 12.5,
                     weight: FontWeight.w700,
                     color: palette.textMuted,
                     height: 1.15,
@@ -1862,7 +1872,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: HomeDesignTokens.text(
-                    size: 14.5,
+                    size: 16.0,
                     weight: FontWeight.w900,
                     color: palette.textPrimary,
                     height: 1.15,
@@ -1876,7 +1886,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Text(
                   s.seeAll,
                   style: HomeDesignTokens.text(
-                    size: 11.5,
+                    size: 13.0,
                     weight: FontWeight.w800,
                     color: palette.textPrimary,
                     height: 1.15,
@@ -1910,7 +1920,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       Text(
                         s.noResults,
                         style: HomeDesignTokens.text(
-                          size: 13.0,
+                          size: 14.5,
                           weight: FontWeight.w700,
                           color: palette.textMuted,
                         ),
@@ -2085,7 +2095,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Text(
                           badgeCount > 99 ? '99+' : '$badgeCount',
                           style: HomeDesignTokens.numeric(
-                            size: 10,
+                            size: 11,
                             weight: FontWeight.w900,
                             color: HomeDesignTokens.darkOnGold,
                             height: 1.0,
@@ -2098,16 +2108,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
           const SizedBox(height: 3),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: HomeDesignTokens.text(
-              size: 11.0,
-              weight: isSelected ? FontWeight.w800 : FontWeight.w700,
-              color: labelColor,
-              height: 1.15,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              textAlign: TextAlign.center,
+              style: HomeDesignTokens.text(
+                size: 12.5,
+                weight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                color: labelColor,
+                height: 1.12,
+              ),
             ),
           ),
         ],
@@ -2135,7 +2148,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               message,
               textAlign: TextAlign.center,
               style: HomeDesignTokens.text(
-                size: 13,
+                size: 14.5,
                 weight: FontWeight.w600,
                 color: palette.textPrimary,
               ),
@@ -2156,7 +2169,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Text(
                 AppStrings.of(context).retry,
                 style: HomeDesignTokens.text(
-                  size: 13,
+                  size: 14.5,
                   weight: FontWeight.w900,
                   color: HomeDesignTokens.darkOnGold,
                 ),
@@ -2205,7 +2218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Text(
                     s.deliveryAddress,
                     style: HomeDesignTokens.text(
-                      size: 16,
+                      size: 18,
                       weight: FontWeight.w900,
                       color: palette.textPrimary,
                     ),
@@ -2223,7 +2236,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ? 'لا توجد عناوين محفوظة.'
                           : 'No saved addresses.',
                       style: HomeDesignTokens.text(
-                        size: 13,
+                        size: 14.5,
                         color: palette.textMuted,
                       ),
                     ),
@@ -2248,7 +2261,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       title: Text(
                         addr['label'] ?? s.address,
                         style: HomeDesignTokens.text(
-                          size: 13.5,
+                          size: 15,
                           weight: isSelected
                               ? FontWeight.w800
                               : FontWeight.w600,
@@ -2260,7 +2273,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: HomeDesignTokens.text(
-                          size: 11.5,
+                          size: 13,
                           color: palette.textMuted,
                         ),
                       ),
@@ -2298,7 +2311,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       label: Text(
                         s.isArabic ? 'إدارة العناوين' : 'Manage Addresses',
                         style: HomeDesignTokens.text(
-                          size: 13,
+                          size: 14.5,
                           weight: FontWeight.w800,
                           color: palette.textPrimary,
                         ),

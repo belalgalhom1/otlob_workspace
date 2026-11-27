@@ -69,7 +69,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                   ? 'جاري البحث عن المنتجات والمتاجر...'
                   : 'Searching products & stores...',
               style: HomeDesignTokens.text(
-                size: 11.5,
+                size: 13.0,
                 weight: FontWeight.w700,
                 color: palette.textMuted,
               ),
@@ -135,7 +135,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                 s.noResults,
                 textAlign: TextAlign.center,
                 style: HomeDesignTokens.text(
-                  size: 13.5,
+                  size: 15.0,
                   weight: FontWeight.w800,
                   color: palette.textPrimary,
                 ),
@@ -147,7 +147,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                     : 'Try searching for another product or store',
                 textAlign: TextAlign.center,
                 style: HomeDesignTokens.text(
-                  size: 11,
+                  size: 12.5,
                   weight: FontWeight.w600,
                   color: palette.textMuted,
                 ),
@@ -180,7 +180,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
               Text(
                 s.searchResults,
                 style: HomeDesignTokens.text(
-                  size: 12.5,
+                  size: 14.5,
                   weight: FontWeight.w900,
                   color: palette.textPrimary,
                 ),
@@ -195,7 +195,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                 child: Text(
                   summaryBadge,
                   style: HomeDesignTokens.text(
-                    size: 10,
+                    size: 11.5,
                     weight: FontWeight.w700,
                     color: palette.textPrimary,
                   ),
@@ -338,7 +338,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: HomeDesignTokens.text(
-                                  size: 12.5,
+                                  size: 14.5,
                                   weight: FontWeight.w900,
                                   color: palette.textPrimary,
                                   height: 1.15,
@@ -348,8 +348,8 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                             const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 1.5,
+                                horizontal: 7,
+                                vertical: 2,
                               ),
                               decoration: BoxDecoration(
                                 color: isOpen
@@ -368,7 +368,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                                     ? (isAr ? 'مفتوح' : 'Open')
                                     : (isAr ? 'مغلق' : 'Closed'),
                                 style: HomeDesignTokens.text(
-                                  size: 8.5,
+                                  size: 10.0,
                                   weight: FontWeight.w900,
                                   color: isOpen
                                       ? HomeDesignTokens.darkOnGold
@@ -385,14 +385,14 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                             if (rating > 0) ...[
                               const Icon(
                                 Icons.star_rounded,
-                                size: 12,
+                                size: 13,
                                 color: HomeDesignTokens.gold,
                               ),
                               const SizedBox(width: 2),
                               Text(
                                 rating.toStringAsFixed(1),
                                 style: HomeDesignTokens.numeric(
-                                  size: 10.5,
+                                  size: 12.0,
                                   weight: FontWeight.w800,
                                   color: palette.textPrimary,
                                 ),
@@ -402,7 +402,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                                 Text(
                                   '•',
                                   style: HomeDesignTokens.text(
-                                    size: 10,
+                                    size: 11.5,
                                     color: palette.textMuted,
                                   ),
                                 ),
@@ -416,7 +416,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: HomeDesignTokens.text(
-                                    size: 10,
+                                    size: 11.5,
                                     weight: FontWeight.w600,
                                     color: palette.textMuted,
                                   ),
@@ -429,7 +429,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: HomeDesignTokens.text(
-                                    size: 10,
+                                    size: 11.5,
                                     weight: FontWeight.w700,
                                     color: palette.textPrimary,
                                   ),
@@ -564,7 +564,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: HomeDesignTokens.text(
-                      size: 12,
+                      size: 14.0,
                       weight: FontWeight.w800,
                       color: palette.textPrimary,
                       height: 1.2,
@@ -577,7 +577,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: HomeDesignTokens.text(
-                        size: 10,
+                        size: 11.5,
                         weight: FontWeight.w500,
                         color: palette.textMuted,
                         height: 1.15,
@@ -589,7 +589,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
                     Text(
                       priceText,
                       style: HomeDesignTokens.numeric(
-                        size: 11.5,
+                        size: 13.0,
                         weight: FontWeight.w900,
                         color: palette.textPrimary,
                       ),
@@ -608,7 +608,7 @@ class HomeSearchResultsPanel extends ConsumerWidget {
               child: Text(
                 isAr ? 'اطلب' : 'Order',
                 style: HomeDesignTokens.text(
-                  size: 10.5,
+                  size: 12.0,
                   weight: FontWeight.w900,
                   color: HomeDesignTokens.darkOnGold,
                   height: 1.1,

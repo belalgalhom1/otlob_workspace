@@ -449,4 +449,223 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'Store detail search disables theme fill and descriptions use crisp white in Dark Mode and dark ink in Light Mode',
+    (tester) async {
+      await _pumpStoreDetail(
+        tester,
+        themeMode: ThemeMode.dark,
+        locale: const Locale('en'),
+      );
+
+      final searchTextField = tester.widget<TextField>(
+        find.byKey(const ValueKey('store_menu_search_field')),
+      );
+      expect(searchTextField.decoration?.filled, isFalse);
+      expect(searchTextField.decoration?.fillColor, Colors.transparent);
+
+      final darkVendorDesc = tester.widget<Text>(
+        find.text('Fresh Egyptian dairy desserts daily.'),
+      );
+      expect(darkVendorDesc.style?.color, const Color(0xFFFFFFFF));
+
+      final darkProductDesc = tester.widget<Text>(
+        find.text('Classic creamy rice pudding'),
+      );
+      expect(darkProductDesc.style?.color, const Color(0xFFFFFFFF));
+
+      await _pumpStoreDetail(
+        tester,
+        themeMode: ThemeMode.light,
+        locale: const Locale('en'),
+      );
+
+      final lightVendorDesc = tester.widget<Text>(
+        find.text('Fresh Egyptian dairy desserts daily.'),
+      );
+      expect(lightVendorDesc.style?.color, const Color(0xFF11100E));
+
+      final lightProductDesc = tester.widget<Text>(
+        find.text('Classic creamy rice pudding'),
+      );
+      expect(lightProductDesc.style?.color, const Color(0xFF11100E));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Menu renders a 3-column product grid on mobile with consistent sizing, wraps next 3 onto row 2, handles long names, and works in EN LTR and AR RTL',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await EasyLocalization.ensureInitialized();
+
+      final basePayload = _sampleStorePayload();
+      final sixItems = [
+        ...(basePayload['menu'] as List<dynamic>),
+        {
+          'id': 'p-4',
+          'category': 'cat-1',
+          'categoryId': 'cat-1',
+          'name': 'Super Extra Creamy Royal Pistachio Qashtouta Family Box',
+          'nameAr': 'قشطوطة فستق ملكي بالكريمة الطازجة حجم عائلي كبير جداً',
+          'description': 'Serves 4 people',
+          'descriptionAr': 'تكفي ٤ أفراد',
+          'price': 185,
+          'basePrice': 185,
+          'comparePrice': 220,
+          'tracksStock': false,
+          'imageUrl': '',
+          'variants': <dynamic>[],
+          'optionGroups': <dynamic>[],
+        },
+        {
+          'id': 'p-5',
+          'category': 'cat-2',
+          'categoryId': 'cat-2',
+          'name': 'Mango Kunafa Bowl',
+          'nameAr': 'كنافة بالمانجو',
+          'description': 'Fresh seasonal mango',
+          'descriptionAr': 'مانجو طازج موسمي',
+          'price': 90,
+          'basePrice': 90,
+          'tracksStock': false,
+          'imageUrl': '',
+          'variants': <dynamic>[],
+          'optionGroups': <dynamic>[],
+        },
+        {
+          'id': 'p-6',
+          'category': 'cat-2',
+          'categoryId': 'cat-2',
+          'name': 'Om Ali Nuts',
+          'nameAr': 'أم علي بالمكسرات',
+          'description': 'Baked hot with nuts',
+          'descriptionAr': 'ساخنة بالمكسرات',
+          'price': 70,
+          'basePrice': 70,
+          'tracksStock': false,
+          'imageUrl': '',
+          'variants': <dynamic>[],
+          'optionGroups': <dynamic>[],
+        },
+      ];
+      final sixItemPayload = {...basePayload, 'menu': sixItems};
+
+      for (final locale in const [Locale('en'), Locale('ar')]) {
+        const viewport = Size(390, 920);
+        tester.view.physicalSize = viewport;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final cart = _RecordingCart();
+        await tester.pumpWidget(
+          EasyLocalization(
+            key: UniqueKey(),
+            supportedLocales: const [Locale('ar'), Locale('en')],
+            path: 'unused',
+            fallbackLocale: const Locale('ar'),
+            startLocale: locale,
+            useOnlyLangCode: true,
+            assetLoader: const _TestAssetLoader(),
+            child: ProviderScope(
+              overrides: [
+                baseUrlProvider.overrideWithValue(
+                  'https://api.otlob-egy.online',
+                ),
+                authControllerProvider.overrideWith(_AuthController.new),
+                data_providers.customerVendorsRepositoryProvider
+                    .overrideWithValue(_FakeVendorsRepo(sixItemPayload)),
+                favoritesProvider.overrideWith(_FakeFavorites.new),
+                cartProvider.overrideWith(() => cart),
+              ],
+              child: Builder(
+                builder: (context) => MaterialApp(
+                  localizationsDelegates: context.localizationDelegates,
+                  supportedLocales: context.supportedLocales,
+                  locale: context.locale,
+                  theme: ThemeData.light(),
+                  darkTheme: ThemeData.dark(),
+                  themeMode: locale.languageCode == 'en'
+                      ? ThemeMode.light
+                      : ThemeMode.dark,
+                  home: MediaQuery(
+                    data: const MediaQueryData(
+                      size: viewport,
+                      padding: EdgeInsets.only(top: 44, bottom: 24),
+                      textScaler: TextScaler.linear(1.25),
+                    ),
+                    child: VendorDetailScreen(restaurant: sixItemPayload),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(CustomScrollView), findsOneWidget);
+        expect(find.byType(SliverGrid), findsOneWidget);
+
+        final bannerBefore = tester.getRect(
+          find.byKey(const ValueKey('store_detail_banner')),
+        );
+        final r1 = tester.getRect(
+          find.byKey(const ValueKey('store_product_card_p-1')),
+        );
+        final r2 = tester.getRect(
+          find.byKey(const ValueKey('store_product_card_p-2')),
+        );
+        final r3 = tester.getRect(
+          find.byKey(const ValueKey('store_product_card_p-3')),
+        );
+
+        // First 3 items sit on the exact same row with equal width & height
+        expect(r1.top, closeTo(r2.top, 0.5));
+        expect(r2.top, closeTo(r3.top, 0.5));
+        expect(r1.width, closeTo(r2.width, 0.5));
+        expect(r2.width, closeTo(r3.width, 0.5));
+        expect(r1.height, closeTo(r2.height, 0.5));
+
+        if (locale.languageCode == 'en') {
+          expect(r1.right, lessThan(r2.left));
+          expect(r2.right, lessThan(r3.left));
+        } else {
+          // Arabic RTL flows right-to-left
+          expect(r1.left, greaterThan(r2.right));
+          expect(r2.left, greaterThan(r3.right));
+        }
+
+        // Scroll page down: verify the whole page scrolls (banner moves up) and row 2 (p-4..p-6) is visible
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('store_product_card_p-4')),
+          140,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+
+        final r4 = tester.getRect(
+          find.byKey(const ValueKey('store_product_card_p-4')),
+        );
+        final r5 = tester.getRect(
+          find.byKey(const ValueKey('store_product_card_p-5')),
+        );
+        final r6 = tester.getRect(
+          find.byKey(const ValueKey('store_product_card_p-6')),
+        );
+        expect(r4.top, closeTo(r5.top, 0.5));
+        expect(r5.top, closeTo(r6.top, 0.5));
+        expect(
+          tester
+              .getRect(find.byKey(const ValueKey('store_product_card_p-1')))
+              .top,
+          lessThan(r4.top),
+        );
+        expect(bannerBefore.height, 168.0);
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
 }

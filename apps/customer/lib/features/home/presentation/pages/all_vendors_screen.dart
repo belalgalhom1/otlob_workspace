@@ -270,7 +270,10 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                                 v['deliveryTime'] ?? '30 mins',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                style: TextStyle(
+                                  color: isDark ? const Color(0xFFE5E2DC) : const Color(0xFF33302B),
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 4),
@@ -412,6 +415,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
 
   Widget _buildSearchBar(AppStrings s, bool isDark) {
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -422,11 +426,23 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchChanged,
+        style: TextStyle(
+          color: isDark ? Colors.white : const Color(0xFF11100E),
+          fontSize: 14.5,
+          fontWeight: FontWeight.w600,
+        ),
         decoration: InputDecoration(
+          filled: false,
+          fillColor: Colors.transparent,
           hintText: s.searchInStores,
-          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+          hintStyle: TextStyle(
+            color: isDark ? const Color(0xFFE5E2DC) : const Color(0xFF33302B),
+            fontSize: 14.5,
+          ),
           prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary, size: 22),
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         ),
       ),
@@ -549,7 +565,10 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                   const SizedBox(height: 2),
                   Text(
                     v['deliveryTime']?.toString() ?? '20-30 min',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                    style: TextStyle(
+                      color: isDark ? const Color(0xFFE5E2DC) : const Color(0xFF33302B),
+                      fontSize: 11.5,
+                    ),
                   ),
                 ],
               ),

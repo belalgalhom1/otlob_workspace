@@ -31,7 +31,6 @@ class WalletScreen extends ConsumerWidget {
       data: (data) {
         final balance = data['balance'] ?? 0.0;
         final transactions = data['transactions'] as List<dynamic>? ?? [];
-        final adjustments = _extractAdjustments(transactions);
         final topUpRequests = (data['topUpRequests'] as List<dynamic>? ?? [])
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
@@ -55,34 +54,28 @@ class WalletScreen extends ConsumerWidget {
                 bottom: false,
                 sliver: SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
                     child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (settlementRequired) ...[
-                        _buildSettlementBanner(context, l10n),
-                        const SizedBox(height: 24),
-                      ],
-                      _buildBalanceCard(context, ref, balance, currency, l10n),
-                      const SizedBox(height: 32),
-                      if (topUpRequests.isNotEmpty) ...[
-                        _buildTopUpRequestsSection(
-                          context,
-                          topUpRequests,
-                          currency,
-                          l10n,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (settlementRequired) ...[
+                          _buildSettlementBanner(context, l10n),
+                          const SizedBox(height: 24),
+                        ],
+                        _buildBalanceCard(context, ref, balance, currency, l10n),
+                        const SizedBox(height: 28),
+                        Text(
+                          l10n.recentTransactions,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
-                        const SizedBox(height: 24),
                       ],
-                      Text(
-                        l10n.recentTransactions,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                    ),
                   ),
                 ),
-              ),
               ),
               if (transactions.isEmpty)
                 SliverToBoxAdapter(
@@ -102,13 +95,13 @@ class WalletScreen extends ConsumerWidget {
                     childCount: transactions.length,
                   ),
                 ),
-              if (adjustments.isNotEmpty)
+              if (topUpRequests.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                    child: _buildAdjustmentHistorySection(
+                    child: _buildTopUpRequestsSection(
                       context,
-                      adjustments,
+                      topUpRequests,
                       currency,
                       l10n,
                     ),
@@ -406,23 +399,6 @@ class WalletScreen extends ConsumerWidget {
     }
   }
 
-  List<Map<String, dynamic>> _extractAdjustments(List<dynamic> transactions) {
-    final result = <Map<String, dynamic>>[];
-    for (final raw in transactions) {
-      if (raw is! Map) continue;
-      final tx = Map<String, dynamic>.from(raw);
-      final type = (tx['type'] ?? '').toString().toUpperCase().trim();
-      final isManual = tx['isManualAdjustment'] == true ||
-          type == 'ADJUSTMENT' ||
-          type == 'BONUS' ||
-          type == 'PENALTY';
-      if (isManual) {
-        result.add(tx);
-      }
-    }
-    return result;
-  }
-
   String _formatPlatformWalletLabel(
     Map<String, dynamic> tx,
     bool isArabic,
@@ -675,168 +651,6 @@ class WalletScreen extends ConsumerWidget {
                             height: 1.4,
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.9,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildAdjustmentHistorySection(
-    BuildContext context,
-    List<Map<String, dynamic>> adjustments,
-    String currency,
-    AppLocalizations l10n,
-  ) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(
-              LucideIcons.slidersHorizontal,
-              size: 18,
-              color: AppColors.primary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                l10n.adjustmentHistory,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ...adjustments.map((tx) {
-          final type = (tx['type'] ?? 'ADJUSTMENT').toString().toUpperCase().trim();
-          final amount = double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
-          final isCredit = amount >= 0;
-          final dateStr = tx['createdAt']?.toString();
-          final date = (dateStr != null ? DateTime.tryParse(dateStr) : null)
-                  ?.toLocal() ??
-              DateTime.now();
-          final rawNote = tx['note']?.toString().trim();
-          final hasNote = rawNote != null && rawNote.isNotEmpty;
-
-          final (icon, accent) = _transactionVisuals(type, isCredit);
-          final amountColor = isCredit ? AppColors.success : AppColors.error;
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: accent.withValues(alpha: 0.25),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.14),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, color: accent, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                _transactionTypeLabel(type, l10n),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14.5,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                              ),
-                              Text(
-                                '${isCredit ? '+' : '-'}${amount.abs().toStringAsFixed(2)} $currency',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 14.5,
-                                  color: amountColor,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            _formatTxDate(date, l10n),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (hasNote) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: accent.withValues(alpha: 0.18),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Icon(
-                            LucideIcons.messageSquare,
-                            size: 14,
-                            color: accent,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            rawNote,
-                            softWrap: true,
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.45,
-                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                         ),

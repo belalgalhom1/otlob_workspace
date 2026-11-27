@@ -130,12 +130,14 @@ class DriverLiveMapCard extends ConsumerStatefulWidget {
     required this.vehicleType,
     this.plateNumber,
     this.driverName,
+    this.expandToFill = false,
   });
 
   final String driverStatus;
   final String vehicleType;
   final String? plateNumber;
   final String? driverName;
+  final bool expandToFill;
 
   @override
   ConsumerState<DriverLiveMapCard> createState() => _DriverLiveMapCardState();
@@ -354,29 +356,35 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
     final screenHeight = MediaQuery.sizeOf(context).height;
     final double mapHeight = (screenHeight * 0.48).clamp(280.0, 440.0);
 
+    final mapSurface = DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(
+              context,
+            ).dividerColor.withValues(alpha: isDark ? 0.35 : 0.6),
+            width: 1,
+          ),
+        ),
+      ),
+      child: _buildMapArea(
+        context,
+        l10n: l10n,
+        isDark: isDark,
+        isAr: isAr,
+        statusInfo: statusInfo,
+        vehicleNorm: resolvedVehicleType,
+      ),
+    );
+
+    if (widget.expandToFill) {
+      return SizedBox.expand(child: mapSurface);
+    }
+
     return SizedBox(
       width: double.infinity,
       height: mapHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: Theme.of(
-                context,
-              ).dividerColor.withValues(alpha: isDark ? 0.35 : 0.6),
-              width: 1,
-            ),
-          ),
-        ),
-        child: _buildMapArea(
-          context,
-          l10n: l10n,
-          isDark: isDark,
-          isAr: isAr,
-          statusInfo: statusInfo,
-          vehicleNorm: resolvedVehicleType,
-        ),
-      ),
+      child: mapSurface,
     );
   }
 
@@ -675,61 +683,67 @@ class _DriverLiveMapCardState extends ConsumerState<DriverLiveMapCard>
 
     return Container(
       color: bgColor,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 26, color: iconColor),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: onSurface.withValues(alpha: 0.68),
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onAction,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.onPrimary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 24, color: iconColor),
                 ),
-              ),
-              icon: const Icon(Icons.my_location_rounded, size: 16),
-              label: Text(
-                buttonLabel,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12.5,
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: onSurface,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: onSurface.withValues(alpha: 0.68),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: onAction,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  ),
+                  icon: const Icon(Icons.my_location_rounded, size: 16),
+                  label: Text(
+                    buttonLabel,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
