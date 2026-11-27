@@ -102,13 +102,18 @@ class VendorCard extends ConsumerWidget {
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     icon: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: isFav ? Colors.red : Colors.grey, size: 16),
-                    onPressed: () {
+                    onPressed: () async {
                       final authStatus = ref.read(authControllerProvider);
                       if (authStatus != AuthStatus.authenticated) {
                         AuthPromptDialog.show(context);
                         return;
                       }
-                      ref.read(favoritesProvider.notifier).toggleFavorite(vendorId);
+                      final result = await ref
+                          .read(favoritesProvider.notifier)
+                          .toggleFavorite(vendorId);
+                      if (context.mounted) {
+                        showVendorFavoriteFeedback(context, isFavorite: result);
+                      }
                     },
                   ),
                 ),

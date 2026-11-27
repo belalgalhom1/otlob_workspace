@@ -61,6 +61,9 @@ class AppStrings {
   String get menu => 'app.menu'.tr(context: _context);
   String get viewCart => 'app.viewCart'.tr(context: _context);
   String get addedToCart => 'app.addedToCart'.tr(context: _context);
+  String get addedToFavorites => 'app.addedToFavorites'.tr(context: _context);
+  String get removedFromFavorites => 'app.removedFromFavorites'.tr(context: _context);
+  String get favoriteUpdateFailed => 'app.favoriteUpdateFailed'.tr(context: _context);
   String get cart => 'app.cart'.tr(context: _context);
   String get clearAll => 'app.clearAll'.tr(context: _context);
   String get emptyCart => 'app.emptyCart'.tr(context: _context);

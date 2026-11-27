@@ -940,13 +940,18 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     );
     return GestureDetector(
       key: const ValueKey('store_detail_favorite_btn'),
-      onTap: () {
+      onTap: () async {
         final authStatus = ref.read(authControllerProvider);
         if (authStatus != AuthStatus.authenticated) {
           AuthPromptDialog.show(context);
           return;
         }
-        ref.read(favoritesProvider.notifier).toggleFavorite(vendorId);
+        final result = await ref
+            .read(favoritesProvider.notifier)
+            .toggleFavorite(vendorId);
+        if (context.mounted) {
+          showVendorFavoriteFeedback(context, isFavorite: result);
+        }
       },
       child: ClipOval(
         child: BackdropFilter(

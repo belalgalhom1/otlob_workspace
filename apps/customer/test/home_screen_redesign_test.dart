@@ -103,11 +103,13 @@ class _TestFavorites extends Favorites {
   Set<String> build() => {'v1'};
 
   @override
-  Future<void> toggleFavorite(String vendorId) async {
+  Future<bool?> toggleFavorite(String vendorId) async {
     if (state.contains(vendorId)) {
       state = {...state}..remove(vendorId);
+      return false;
     } else {
       state = {...state, vendorId};
+      return true;
     }
   }
 }

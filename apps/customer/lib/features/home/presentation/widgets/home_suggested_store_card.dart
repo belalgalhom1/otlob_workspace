@@ -222,7 +222,7 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                     // Favorite Button (24x24)
                                     GestureDetector(
                                       behavior: HitTestBehavior.opaque,
-                                      onTap: () {
+                                      onTap: () async {
                                         final authStatus = ref.read(
                                           authControllerProvider,
                                         );
@@ -231,9 +231,15 @@ class HomeSuggestedStoreCard extends ConsumerWidget {
                                           AuthPromptDialog.show(context);
                                           return;
                                         }
-                                        ref
+                                        final result = await ref
                                             .read(favoritesProvider.notifier)
                                             .toggleFavorite(vendorId);
+                                        if (context.mounted) {
+                                          showVendorFavoriteFeedback(
+                                            context,
+                                            isFavorite: result,
+                                          );
+                                        }
                                       },
                                       child: Container(
                                         width: 24,

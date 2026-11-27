@@ -49,11 +49,13 @@ class _FakeFavorites extends Favorites {
   Set<String> build() => {};
 
   @override
-  Future<void> toggleFavorite(String vendorId) async {
+  Future<bool?> toggleFavorite(String vendorId) async {
     if (state.contains(vendorId)) {
       state = {...state}..remove(vendorId);
+      return false;
     } else {
       state = {...state, vendorId};
+      return true;
     }
   }
 }
@@ -664,6 +666,42 @@ void main() {
           lessThan(r4.top),
         );
         expect(bannerBefore.height, 168.0);
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets(
+    'Tapping favorite button shows localized message when adding and removing vendor from favorites (EN & AR)',
+    (tester) async {
+      for (final entry in const [
+        (
+          locale: Locale('en'),
+          addedMsg: 'Added to favorites',
+          removedMsg: 'Removed from favorites',
+        ),
+        (
+          locale: Locale('ar'),
+          addedMsg: 'تمت الإضافة إلى المفضلة',
+          removedMsg: 'تمت الإزالة من المفضلة',
+        ),
+      ]) {
+        await _pumpStoreDetail(tester, locale: entry.locale);
+
+        final favBtn = find.byKey(const ValueKey('store_detail_favorite_btn'));
+        expect(favBtn, findsOneWidget);
+
+        // 1. Add to favorites -> shows added message
+        await tester.tap(favBtn);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.text(entry.addedMsg), findsOneWidget);
+
+        // 2. Remove from favorites -> shows removed message
+        await tester.tap(favBtn);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.text(entry.removedMsg), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
     },
