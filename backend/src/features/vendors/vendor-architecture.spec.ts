@@ -12,6 +12,7 @@ import {
 import { VendorsProcessor } from './vendors.processor';
 import { VendorBranchesService } from './branches/vendor-branches.service';
 import { VendorsService } from './vendors.service';
+import { VendorVerticalsService } from './verticals/vendor-verticals.service';
 
 describe('Vendors Architecture & Shared Helpers', () => {
   describe('isVendorScheduleOpen', () => {
@@ -567,6 +568,72 @@ describe('Vendors Architecture & Shared Helpers', () => {
       expect(mapped.status).toBe('CLOSED');
       expect(mapped.isClosedBySchedule).toBe(true);
       expect(mapped.branches[0].isOpen).toBe(false);
+    });
+  });
+
+  describe('VendorVerticalsService.findAll', () => {
+    it('includes active non-deleted vendors and counts for each business type', async () => {
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          id: 'vert-1',
+          name: 'Restaurants',
+          nameAr: 'مطاعم',
+          isActive: true,
+          vendors: [
+            {
+              id: 'v1',
+              storeName: 'Koshary El Tahrir',
+              storeNameAr: 'كشري التحرير',
+              slug: 'koshary',
+              logo: null,
+              status: 'OPEN',
+              isContracted: true,
+              _count: { branches: 2 },
+            },
+          ],
+          _count: { vendors: 1 },
+        },
+      ]);
+
+      const service = new VendorVerticalsService(
+        { vendorVertical: { findMany } } as any,
+        {} as any,
+      );
+
+      const verticals = await service.findAll();
+
+      expect(verticals).toHaveLength(1);
+      expect(verticals[0].vendors).toHaveLength(1);
+      expect(findMany).toHaveBeenCalledWith({
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        include: {
+          vendors: {
+            where: { deletedAt: null },
+            orderBy: { storeName: 'asc' },
+            select: {
+              id: true,
+              storeName: true,
+              storeNameAr: true,
+              slug: true,
+              logo: true,
+              status: true,
+              isContracted: true,
+              _count: {
+                select: {
+                  branches: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              vendors: {
+                where: { deletedAt: null },
+              },
+            },
+          },
+        },
+      });
     });
   });
 });

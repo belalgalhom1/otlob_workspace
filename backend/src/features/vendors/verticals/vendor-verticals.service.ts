@@ -39,6 +39,33 @@ export class VendorVerticalsService {
   async findAll() {
     return this.prisma.vendorVertical.findMany({
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      include: {
+        vendors: {
+          where: { deletedAt: null },
+          orderBy: { storeName: 'asc' },
+          select: {
+            id: true,
+            storeName: true,
+            storeNameAr: true,
+            slug: true,
+            logo: true,
+            status: true,
+            isContracted: true,
+            _count: {
+              select: {
+                branches: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            vendors: {
+              where: { deletedAt: null },
+            },
+          },
+        },
+      },
     });
   }
 
