@@ -13,6 +13,10 @@ import { LocationRepository } from '../../location/location.repository';
 import { VendorCacheService } from '../helpers/vendor-cache.service';
 import { assertVendorExists } from '../helpers/vendor-lookup.helper';
 import {
+  evaluateBranchEffectiveOpen,
+  isVendorScheduleOpen,
+} from '../helpers/vendor-schedule.helper';
+import {
   CreateVendorBranchDto,
   UpdateVendorBranchDto,
 } from './dto/vendor-branch.dto';
@@ -41,7 +45,7 @@ export class VendorBranchesService {
 
     // Raw SQL to include the PostGIS location as GeoJSON — same pattern as
     // addresses and zones in this codebase.
-    return this.prisma.$queryRaw<any[]>`
+    const rows = await this.prisma.$queryRaw<any[]>`
       SELECT
         vb.id,
         vb.name,
@@ -51,6 +55,9 @@ export class VendorBranchesService {
         vb."isOpen",
         vb."isContracted",
         vb."commissionRate",
+        vb."workingHours",
+        vb."isScheduleActive",
+        vb."is24Hours",
         vb."vendorId",
         vb."zoneId",
         vb."createdAt",
@@ -65,6 +72,8 @@ export class VendorBranchesService {
       WHERE vb."vendorId" = ${vendorId}
       ORDER BY vb."createdAt" ASC
     `;
+
+    return rows.map((row) => this.enrichBranchScheduleStatus(row));
   }
 
   // ─── Get single branch ────────────────────────────────────────────────────
@@ -80,6 +89,9 @@ export class VendorBranchesService {
         vb."isOpen",
         vb."isContracted",
         vb."commissionRate",
+        vb."workingHours",
+        vb."isScheduleActive",
+        vb."is24Hours",
         vb."vendorId",
         vb."zoneId",
         vb."createdAt",
@@ -96,7 +108,7 @@ export class VendorBranchesService {
     `;
 
     if (!rows.length) throw new NotFoundException(VendorBranchErrors.NOT_FOUND);
-    return rows[0];
+    return this.enrichBranchScheduleStatus(rows[0]);
   }
 
   // ─── Create ───────────────────────────────────────────────────────────────
@@ -111,10 +123,26 @@ export class VendorBranchesService {
     );
 
     const id = crypto.randomUUID();
+    const is24Hours = dto.is24Hours ?? false;
+    const isScheduleActive = dto.isScheduleActive ?? true;
+    const workingHoursJson = is24Hours
+      ? JSON.stringify([])
+      : dto.workingHours !== undefined
+        ? JSON.stringify(dto.workingHours)
+        : null;
+    const initialIsOpen =
+      dto.isOpen !== undefined
+        ? dto.isOpen
+        : is24Hours
+          ? true
+          : isScheduleActive && dto.workingHours !== undefined
+            ? isVendorScheduleOpen(dto.workingHours)
+            : true;
 
     await this.prisma.$executeRaw`
       INSERT INTO vendor_branches (
         id, "vendorId", name, "nameAr", address, phone, "isOpen", "isContracted", "commissionRate",
+        "workingHours", "isScheduleActive", "is24Hours",
         location, "zoneId", "updatedAt"
       ) VALUES (
         ${id},
@@ -123,9 +151,12 @@ export class VendorBranchesService {
         ${dto.nameAr ?? null},
         ${dto.address},
         ${dto.phone ?? null},
-        ${dto.isOpen ?? true},
+        ${initialIsOpen},
         ${dto.isContracted ?? null},
         ${dto.commissionRate ?? null},
+        CAST(${workingHoursJson} AS jsonb),
+        ${isScheduleActive},
+        ${is24Hours},
         ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326),
         ${resolvedZoneId},
         NOW()
@@ -178,6 +209,41 @@ export class VendorBranchesService {
     );
 
     if (hasScalarChanges || finalZoneId !== branch.zoneId) {
+      const isManualOpenToggleOnly =
+        dto.isOpen !== undefined &&
+        dto.workingHours === undefined &&
+        dto.isScheduleActive === undefined &&
+        dto.is24Hours === undefined;
+
+      const scheduleSettingsChanged =
+        dto.workingHours !== undefined ||
+        dto.isScheduleActive !== undefined ||
+        dto.is24Hours !== undefined;
+
+      const nextIs24Hours =
+        dto.is24Hours !== undefined
+          ? dto.is24Hours
+          : branch.is24Hours === true;
+      const nextIsScheduleActive =
+        dto.isScheduleActive !== undefined
+          ? dto.isScheduleActive
+          : isManualOpenToggleOnly
+            ? false
+            : dto.workingHours !== undefined
+              ? true
+              : branch.isScheduleActive !== false;
+      const nextWorkingHours =
+        dto.workingHours !== undefined ? dto.workingHours : branch.workingHours;
+
+      let computedIsOpen: boolean | undefined = dto.isOpen;
+      if (computedIsOpen === undefined && scheduleSettingsChanged) {
+        if (nextIs24Hours) {
+          computedIsOpen = true;
+        } else if (nextIsScheduleActive && nextWorkingHours) {
+          computedIsOpen = isVendorScheduleOpen(nextWorkingHours);
+        }
+      }
+
       await this.prisma.vendorBranch.update({
         where: { id: branchId },
         data: {
@@ -185,12 +251,28 @@ export class VendorBranchesService {
           ...(dto.nameAr !== undefined && { nameAr: dto.nameAr }),
           ...(dto.address !== undefined && { address: dto.address }),
           ...(dto.phone !== undefined && { phone: dto.phone }),
-          ...(dto.isOpen !== undefined && { isOpen: dto.isOpen }),
+          ...(computedIsOpen !== undefined && { isOpen: computedIsOpen }),
           ...(dto.isContracted !== undefined && {
             isContracted: dto.isContracted,
           }),
           ...(dto.commissionRate !== undefined && {
             commissionRate: dto.commissionRate,
+          }),
+          ...(dto.workingHours !== undefined && {
+            workingHours: dto.workingHours,
+          }),
+          ...(dto.workingHours !== undefined &&
+            dto.isScheduleActive === undefined && {
+              isScheduleActive: true,
+            }),
+          ...(isManualOpenToggleOnly && {
+            isScheduleActive: false,
+          }),
+          ...(dto.isScheduleActive !== undefined && {
+            isScheduleActive: dto.isScheduleActive,
+          }),
+          ...(dto.is24Hours !== undefined && {
+            is24Hours: dto.is24Hours,
           }),
           ...(finalZoneId !== undefined && {
             zoneId: finalZoneId,
@@ -201,6 +283,20 @@ export class VendorBranchesService {
 
     await this.invalidateZonesCache(vendorId);
     return this.findOne(vendorId, branchId);
+  }
+
+  private enrichBranchScheduleStatus(row: any) {
+    const evalResult = evaluateBranchEffectiveOpen({
+      isOpen: row.isOpen !== false,
+      is24Hours: row.is24Hours === true,
+      isScheduleActive: row.isScheduleActive !== false,
+      workingHours: row.workingHours,
+    });
+    return {
+      ...row,
+      effectiveIsOpen: evalResult.isOpen,
+      isClosedBySchedule: evalResult.isClosedBySchedule,
+    };
   }
 
   // ─── Delete ───────────────────────────────────────────────────────────────

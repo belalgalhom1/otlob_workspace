@@ -245,8 +245,9 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
               password: passwordController.text,
               role: selectedRole,
               phone: PhoneUtils.normalize(phoneController.text),
-              vendorId: selectedVendorId,
-              vendorRole: selectedVendorRole,
+              vendorId: selectedRole == 'VENDOR_MEMBER' ? selectedVendorId : null,
+              vendorRole:
+                  selectedRole == 'VENDOR_MEMBER' ? selectedVendorRole : null,
               title: titleController.text.isNotEmpty ? titleController.text : null,
               titleAr: titleArController.text.isNotEmpty ? titleArController.text : null,
               permissions: (selectedRole == 'ADMIN' || selectedRole == 'DRIVER_MANAGER')
@@ -261,10 +262,11 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
               email: emailController.text,
               phone: PhoneUtils.normalize(phoneController.text),
               role: selectedRole,
-              vendorId: selectedVendorId,
+              vendorId: selectedRole == 'VENDOR_MEMBER' ? selectedVendorId : null,
               oldVendorId: initialVendorId,
               oldMemberId: initialMemberId,
-              vendorRole: selectedVendorRole,
+              vendorRole:
+                  selectedRole == 'VENDOR_MEMBER' ? selectedVendorRole : null,
               password: passwordController.text.isNotEmpty
                   ? passwordController.text
                   : null,
@@ -495,7 +497,11 @@ class _UserFormDialogState extends ConsumerState<UserFormDialog> {
             const SizedBox(height: 16),
             AppFieldLabel(label: l10n.assignToVendor),
             DropdownButtonFormField<String>(
-              initialValue: selectedVendorId,
+              initialValue: widget.vendors.any(
+                (v) => v['id']?.toString() == selectedVendorId,
+              )
+                  ? selectedVendorId
+                  : null,
               isExpanded: true,
               dropdownColor: AppDialogStyles.dropdownColor(context),
               style: theme.textTheme.bodyMedium?.copyWith(

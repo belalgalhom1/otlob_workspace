@@ -2,7 +2,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:data/data.dart';
 import 'package:api/api.dart';
-import 'package:flutter/foundation.dart';
 import 'package:core/core.dart';
 
 part 'user_provider.g.dart';
@@ -74,42 +73,49 @@ class UserNotifier extends _$UserNotifier {
     String? titleAr,
     List<String>? permissions,
   }) async {
+    final normalizedRole = role.toUpperCase();
+    final trimmedVendorId = vendorId?.trim();
+    final hasVendorAssignment =
+        normalizedRole == 'VENDOR_MEMBER' &&
+        trimmedVendorId != null &&
+        trimmedVendorId.isNotEmpty;
+    final resolvedVendorRole =
+        (vendorRole != null && vendorRole.trim().isNotEmpty)
+            ? vendorRole.trim().toUpperCase()
+            : 'STAFF';
+
     final repository = ref.read(adminUsersRepositoryProvider);
     final result = await repository.addUser(RegisterDto((b) {
       b.name = name;
       b.email = email;
       b.password = password;
-      b.role = RegisterDtoRoleEnum.valueOf(role.toUpperCase());
+      b.role = RegisterDtoRoleEnum.valueOf(normalizedRole);
       if (phone != null) b.phone = phone;
+      if (hasVendorAssignment) {
+        b.vendorId = trimmedVendorId;
+        b.vendorRole = RegisterDtoVendorRoleEnum.valueOf(resolvedVendorRole);
+      }
     }));
     if (result == null) throw Exception('Failed to add user');
-    
-    if (role == 'VENDOR_MEMBER' && vendorId != null && vendorRole != null) {
-      final userId = result['id'];
-      if (userId != null) {
-        try {
-          final membersRepo = ref.read(vendorMembersRepositoryProvider);
-          await membersRepo.adminAddMember(
-            vendorId,
-            AddVendorMemberDto((b) => b
-              ..userId = userId
-              ..role = AddVendorMemberDtoRoleEnum.valueOf(vendorRole.toUpperCase())
-            ),
-          );
-        } catch (e) {
-          debugPrint('Failed to assign vendor member: $e');
-        }
-      }
-    }
 
-    final userIdStr = result['id'];
-    if (userIdStr != null && (title != null || titleAr != null || permissions != null)) {
+    final userIdStr = (result is Map
+            ? (result['id'] ??
+                (result['user'] is Map ? result['user']['id'] : null))
+            : null)
+        ?.toString();
+    if (userIdStr != null &&
+        userIdStr.isNotEmpty &&
+        (title != null || titleAr != null || permissions != null)) {
       await repository.updateUser(
         userIdStr,
         AdminUpdateUserDto((b) {
           if (title != null) b.title = title;
           if (titleAr != null) b.titleAr = titleAr;
-          if (permissions != null) b.permissions.replace(permissions.map((e) => AdminUpdateUserDtoPermissionsEnum.valueOf(e)));
+          if (permissions != null) {
+            b.permissions.replace(
+              permissions.map((e) => AdminUpdateUserDtoPermissionsEnum.valueOf(e)),
+            );
+          }
         }),
       );
     }

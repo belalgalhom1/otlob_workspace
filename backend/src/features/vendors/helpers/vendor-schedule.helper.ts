@@ -90,3 +90,37 @@ export function isVendorScheduleOpen(
     return false;
   }
 }
+
+export interface BranchScheduleInput {
+  isOpen: boolean;
+  is24Hours?: boolean | null;
+  isScheduleActive?: boolean | null;
+  workingHours?: unknown;
+}
+
+/**
+ * Evaluate a branch's real-time open status combining its manual `isOpen`
+ * switch with its `is24Hours`, `isScheduleActive`, and `workingHours` schedule.
+ */
+export function evaluateBranchEffectiveOpen(
+  branch: BranchScheduleInput,
+  referenceNow: Date = new Date(),
+): { isOpen: boolean; isClosedBySchedule: boolean } {
+  if (!branch.isOpen) {
+    return { isOpen: false, isClosedBySchedule: false };
+  }
+  if (branch.is24Hours) {
+    return { isOpen: true, isClosedBySchedule: false };
+  }
+  if (
+    branch.isScheduleActive !== false &&
+    Array.isArray(branch.workingHours) &&
+    branch.workingHours.length > 0
+  ) {
+    const openNow = isVendorScheduleOpen(branch.workingHours, referenceNow);
+    if (!openNow) {
+      return { isOpen: false, isClosedBySchedule: true };
+    }
+  }
+  return { isOpen: true, isClosedBySchedule: false };
+}

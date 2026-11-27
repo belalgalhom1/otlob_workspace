@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -309,17 +310,23 @@ class DataExportService {
     for (var i = 0; i < headers.length; i++) {
       final h = headers[i].toLowerCase();
       if (h == '#' || h.contains('ترتيب') || h.contains('rank')) {
-        widths[i] = const pw.FixedColumnWidth(28);
+        widths[i] = const pw.FixedColumnWidth(38);
       } else if (h.contains('هاتف') || h.contains('phone')) {
         widths[i] = const pw.FixedColumnWidth(76);
       } else if (h.contains('سائق') || h.contains('driver')) {
         widths[i] = const pw.FlexColumnWidth(2.0);
+      } else if (h.contains('متجر') || h.contains('store')) {
+        widths[i] = const pw.FlexColumnWidth(1.5);
+      } else if (h == 'أفضل منتج' || h == 'top product') {
+        widths[i] = const pw.FlexColumnWidth(1.4);
       } else if (h.contains('يبدأ') || h.contains('ينتهي') || h.contains('start') || h.contains('end') || h.contains('تاريخ') || h.contains('date')) {
         widths[i] = const pw.FixedColumnWidth(66);
       } else if (h.contains('فترة') || h.contains('period')) {
         widths[i] = const pw.FixedColumnWidth(50);
       } else if (h.contains('أرباح') || h.contains('رسوم') || h.contains('مسؤول') || h.contains('earnings') || h.contains('fee') || h.contains('cut') || h.contains('profit')) {
         widths[i] = const pw.FlexColumnWidth(1.6);
+      } else if (h.contains('عمولة') || h.contains('commission') || h.contains('إيرادات') || h.contains('revenue') || h.contains('محفظة') || h.contains('wallet')) {
+        widths[i] = const pw.FlexColumnWidth(1.1);
       } else {
         widths[i] = const pw.FlexColumnWidth(1.0);
       }
@@ -339,6 +346,30 @@ class DataExportService {
     bool isRtl = true,
   }) async {
     final shareOrigin = _resolveShareOrigin(context);
+    final bytes = await buildSectionsPdfBytes(
+      title: title,
+      subtitle: subtitle,
+      entityName: entityName,
+      sections: sections,
+      isRtl: isRtl,
+    );
+    final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
+    await Printing.sharePdf(
+      bytes: bytes,
+      filename: '${filename}_$stamp.pdf',
+      bounds: shareOrigin,
+    );
+  }
+
+  static Future<Uint8List> buildSectionsPdfBytes({
+    required String title,
+    String? subtitle,
+    String? entityName,
+    required List<ExportSection> sections,
+    bool isRtl = true,
+    pw.Font? baseFont,
+    pw.Font? boldFontOverride,
+  }) async {
     // Resolve entity/driver name if not explicitly passed
     String? resolvedEntity = entityName?.trim();
     if ((resolvedEntity == null || resolvedEntity.isEmpty) && title.contains(':')) {
@@ -348,12 +379,17 @@ class DataExportService {
 
     pw.Font font;
     pw.Font boldFont;
-    try {
-      font = await PdfGoogleFonts.cairoRegular();
-      boldFont = await PdfGoogleFonts.cairoBold();
-    } catch (_) {
-      font = pw.Font.helvetica();
-      boldFont = pw.Font.helveticaBold();
+    if (baseFont != null && boldFontOverride != null) {
+      font = baseFont;
+      boldFont = boldFontOverride;
+    } else {
+      try {
+        font = await PdfGoogleFonts.cairoRegular();
+        boldFont = await PdfGoogleFonts.cairoBold();
+      } catch (_) {
+        font = pw.Font.helvetica();
+        boldFont = pw.Font.helveticaBold();
+      }
     }
 
     final direction = isRtl ? pw.TextDirection.rtl : pw.TextDirection.ltr;
@@ -611,12 +647,7 @@ class DataExportService {
       );
     }
 
-    final stamp = DateFormat('yyyyMMdd').format(DateTime.now());
-    await Printing.sharePdf(
-      bytes: await doc.save(),
-      filename: '${filename}_$stamp.pdf',
-      bounds: shareOrigin,
-    );
+    return doc.save();
   }
 
   /// Combined single-file CSV for multiple sections (blank line + titled

@@ -48,6 +48,7 @@ import {
   CommonSuccess,
   DriverErrors,
   UserErrors,
+  VendorErrors,
 } from 'src/common/constants/response.constants';
 import {
   JWT_ACCESS_SERVICE,
@@ -130,7 +131,14 @@ export class AuthService {
             });
           }
 
-          if (dto.role === Role.VENDOR_MEMBER && dto.vendorId) {
+          if (isAdminCreated && dto.role === Role.VENDOR_MEMBER && dto.vendorId) {
+            const vendor = await tx.vendor.findFirst({
+              where: { id: dto.vendorId, deletedAt: null },
+              select: { id: true },
+            });
+            if (!vendor) {
+              throw new NotFoundException(VendorErrors.NOT_FOUND);
+            }
             await tx.vendorMember.create({
               data: {
                 userId: u.id,

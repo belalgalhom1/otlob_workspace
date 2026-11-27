@@ -1,14 +1,17 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { VendorStatus } from '@prisma/client';
 import {
   VendorErrors,
   ZoneErrors,
 } from '../../common/constants/response.constants';
 import { VendorCacheService } from './helpers/vendor-cache.service';
 import { assertVendorExists } from './helpers/vendor-lookup.helper';
-import { isVendorScheduleOpen } from './helpers/vendor-schedule.helper';
+import {
+  evaluateBranchEffectiveOpen,
+  isVendorScheduleOpen,
+} from './helpers/vendor-schedule.helper';
 import { VendorsProcessor } from './vendors.processor';
 import { VendorBranchesService } from './branches/vendor-branches.service';
+import { VendorsService } from './vendors.service';
 
 describe('Vendors Architecture & Shared Helpers', () => {
   describe('isVendorScheduleOpen', () => {
@@ -69,6 +72,70 @@ describe('Vendors Architecture & Shared Helpers', () => {
         },
       };
       expect(isVendorScheduleOpen([badEntry], thu1200Cairo)).toBe(false);
+    });
+  });
+
+  describe('evaluateBranchEffectiveOpen', () => {
+    const thu1200Cairo = new Date('2026-01-15T10:00:00Z');
+    const thu2130Cairo = new Date('2026-01-15T19:30:00Z');
+    const daytimeSchedule = [
+      { day: 4, isClosed: false, openTime: '09:00', closeTime: '18:00' },
+    ];
+
+    it('keeps branch closed when manual isOpen is false', () => {
+      expect(
+        evaluateBranchEffectiveOpen(
+          {
+            isOpen: false,
+            is24Hours: true,
+            isScheduleActive: true,
+            workingHours: daytimeSchedule,
+          },
+          thu1200Cairo,
+        ),
+      ).toEqual({ isOpen: false, isClosedBySchedule: false });
+    });
+
+    it('treats 24-hour branch as open regardless of schedule window', () => {
+      expect(
+        evaluateBranchEffectiveOpen(
+          {
+            isOpen: true,
+            is24Hours: true,
+            isScheduleActive: true,
+            workingHours: daytimeSchedule,
+          },
+          thu2130Cairo,
+        ),
+      ).toEqual({ isOpen: true, isClosedBySchedule: false });
+    });
+
+    it('marks branch closed by schedule outside workingHours when isScheduleActive is true', () => {
+      expect(
+        evaluateBranchEffectiveOpen(
+          {
+            isOpen: true,
+            is24Hours: false,
+            isScheduleActive: true,
+            workingHours: daytimeSchedule,
+          },
+          thu2130Cairo,
+        ),
+      ).toEqual({ isOpen: false, isClosedBySchedule: true });
+    });
+
+    it('ignores schedule when isScheduleActive is false', () => {
+      expect(
+        evaluateBranchEffectiveOpen(
+          {
+            isOpen: true,
+            is24Hours: false,
+            isScheduleActive: false,
+            workingHours: daytimeSchedule,
+          },
+          thu2130Cairo,
+        ),
+      ).toEqual({ isOpen: true, isClosedBySchedule: false });
     });
   });
 
@@ -150,14 +217,16 @@ describe('Vendors Architecture & Shared Helpers', () => {
       jest.useRealTimers();
     });
 
-    it('invalidates vendor caches whenever cron opens or closes stores', async () => {
+    it('syncs branch isOpen state from per-branch schedules and invalidates affected vendor caches', async () => {
       const updateMany = jest.fn().mockResolvedValue({ count: 1 });
       const prisma = {
-        vendor: {
+        vendorBranch: {
           findMany: jest.fn().mockResolvedValue([
             {
-              id: 'v-open',
-              status: VendorStatus.CLOSED,
+              id: 'b-open',
+              vendorId: 'v-1',
+              isOpen: false,
+              is24Hours: false,
               workingHours: [
                 {
                   day: 4,
@@ -168,8 +237,17 @@ describe('Vendors Architecture & Shared Helpers', () => {
               ],
             },
             {
-              id: 'v-close',
-              status: VendorStatus.OPEN,
+              id: 'b-24h',
+              vendorId: 'v-1',
+              isOpen: false,
+              is24Hours: true,
+              workingHours: null,
+            },
+            {
+              id: 'b-close',
+              vendorId: 'v-2',
+              isOpen: true,
+              is24Hours: false,
               workingHours: [
                 {
                   day: 4,
@@ -196,16 +274,16 @@ describe('Vendors Architecture & Shared Helpers', () => {
       await (processor as any).handleVendorWorkingHours();
 
       expect(updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['v-open'] } },
-        data: { status: VendorStatus.OPEN },
+        where: { id: { in: ['b-open', 'b-24h'] } },
+        data: { isOpen: true },
       });
       expect(updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['v-close'] } },
-        data: { status: VendorStatus.CLOSED },
+        where: { id: { in: ['b-close'] } },
+        data: { isOpen: false },
       });
       expect(vendorCache.invalidateManyVendorDetails).toHaveBeenCalledWith([
-        'v-open',
-        'v-close',
+        'v-1',
+        'v-2',
       ]);
     });
   });
@@ -230,14 +308,24 @@ describe('Vendors Architecture & Shared Helpers', () => {
     });
   });
 
-  describe('VendorBranchesService zone resolution & cache delegation', () => {
+  describe('VendorBranchesService zone resolution, schedule sync & cache delegation', () => {
     it('delegates requested & auto-detected zone validation to LocationRepository and invalidates via VendorCacheService', async () => {
       const prisma = {
         vendor: { findFirst: jest.fn().mockResolvedValue({ id: 'v1' }) },
         $executeRaw: jest.fn().mockResolvedValue(1),
         $queryRaw: jest
           .fn()
-          .mockResolvedValue([{ id: 'b1', vendorId: 'v1', zoneId: 'z-auto' }]),
+          .mockResolvedValue([
+            {
+              id: 'b1',
+              vendorId: 'v1',
+              zoneId: 'z-auto',
+              isOpen: true,
+              isScheduleActive: true,
+              is24Hours: false,
+              workingHours: null,
+            },
+          ]),
       };
       const vendorCache = {
         invalidateVendorDetails: jest.fn().mockResolvedValue(undefined),
@@ -262,6 +350,7 @@ describe('Vendors Architecture & Shared Helpers', () => {
       } as any);
 
       expect(branch.zoneId).toBe('z-auto');
+      expect(branch.effectiveIsOpen).toBe(true);
       expect(locationRepository.isPointInZone).toHaveBeenCalledWith(
         'z-wrong',
         31.25,
@@ -273,6 +362,56 @@ describe('Vendors Architecture & Shared Helpers', () => {
         29.96,
       );
       expect(vendorCache.invalidateVendorDetails).toHaveBeenCalledWith('v1');
+    });
+
+    it('immediately syncs isOpen when updating branch workingHours or is24Hours', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-01-15T10:00:00Z')); // Thu 12:00 Cairo
+
+      try {
+        const update = jest.fn().mockResolvedValue({});
+        const prisma = {
+          vendor: { findFirst: jest.fn().mockResolvedValue({ id: 'v1' }) },
+          vendorBranch: { update },
+          $queryRaw: jest.fn().mockResolvedValue([
+            {
+              id: 'b1',
+              vendorId: 'v1',
+              zoneId: 'z1',
+              isOpen: false,
+              isScheduleActive: true,
+              is24Hours: false,
+              workingHours: null,
+              location: { type: 'Point', coordinates: [31.25, 29.96] },
+            },
+          ]),
+        };
+        const vendorCache = {
+          invalidateVendorDetails: jest.fn().mockResolvedValue(undefined),
+        };
+        const service = new VendorBranchesService(
+          prisma as any,
+          { del: jest.fn() } as any,
+          vendorCache as any,
+          {} as any,
+        );
+
+        await service.update('v1', 'b1', {
+          workingHours: [
+            { day: 4, isClosed: false, openTime: '09:00', closeTime: '18:00' },
+          ],
+        } as any);
+
+        expect(update).toHaveBeenCalledWith({
+          where: { id: 'b1' },
+          data: expect.objectContaining({
+            isOpen: true,
+            isScheduleActive: true,
+          }),
+        });
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('rejects branch location outside every active zone', async () => {
@@ -299,6 +438,135 @@ describe('Vendors Architecture & Shared Helpers', () => {
       ).rejects.toThrow(
         new BadRequestException(ZoneErrors.INVALID_LOCATION_FOR_ZONE),
       );
+    });
+  });
+
+  describe('VendorsService.mapVendorForApp per-branch working hours', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      // Thursday 2026-01-15 12:00 Cairo
+      jest.setSystemTime(new Date('2026-01-15T10:00:00Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('evaluates each branch independently and keeps vendor OPEN when at least one branch is open', () => {
+      const service = new VendorsService(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+      );
+
+      const mapped = (service as any).mapVendorForApp({
+        id: 'v1',
+        status: 'OPEN',
+        storeName: 'Store',
+        storeNameAr: null,
+        slug: 'store',
+        description: null,
+        descriptionAr: null,
+        coverImage: null,
+        logo: null,
+        branches: [
+          {
+            id: 'b-open',
+            name: 'Day Branch',
+            nameAr: null,
+            address: 'Addr 1',
+            phone: null,
+            isOpen: true,
+            is24Hours: false,
+            isScheduleActive: true,
+            workingHours: [
+              {
+                day: 4,
+                isClosed: false,
+                openTime: '09:00',
+                closeTime: '18:00',
+              },
+            ],
+          },
+          {
+            id: 'b-closed',
+            name: 'Night Branch',
+            nameAr: null,
+            address: 'Addr 2',
+            phone: null,
+            isOpen: true,
+            is24Hours: false,
+            isScheduleActive: true,
+            workingHours: [
+              {
+                day: 4,
+                isClosed: false,
+                openTime: '20:00',
+                closeTime: '02:00',
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(mapped.status).toBe('OPEN');
+      expect(mapped.isClosedBySchedule).toBe(false);
+      expect(mapped.branches[0].isOpen).toBe(true);
+      expect(mapped.branches[0].isClosedBySchedule).toBe(false);
+      expect(mapped.branches[1].isOpen).toBe(false);
+      expect(mapped.branches[1].isClosedBySchedule).toBe(true);
+    });
+
+    it('marks vendor CLOSED by schedule when all branches are closed by schedule', () => {
+      const service = new VendorsService(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+      );
+
+      const mapped = (service as any).mapVendorForApp({
+        id: 'v1',
+        status: 'OPEN',
+        storeName: 'Store',
+        storeNameAr: null,
+        slug: 'store',
+        description: null,
+        descriptionAr: null,
+        coverImage: null,
+        logo: null,
+        branches: [
+          {
+            id: 'b-closed',
+            name: 'Night Branch',
+            nameAr: null,
+            address: 'Addr 2',
+            phone: null,
+            isOpen: true,
+            is24Hours: false,
+            isScheduleActive: true,
+            workingHours: [
+              {
+                day: 4,
+                isClosed: false,
+                openTime: '20:00',
+                closeTime: '02:00',
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(mapped.status).toBe('CLOSED');
+      expect(mapped.isClosedBySchedule).toBe(true);
+      expect(mapped.branches[0].isOpen).toBe(false);
     });
   });
 });

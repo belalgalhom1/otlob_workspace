@@ -13,6 +13,8 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { Prisma } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateVendorBranchDto {
@@ -58,6 +60,7 @@ export class CreateVendorBranchDto {
   @ApiProperty({ example: true, required: false, default: true })
   @IsBoolean()
   @IsOptional()
+  @Type(() => Boolean)
   isOpen?: boolean;
 
   @ApiProperty({
@@ -68,6 +71,7 @@ export class CreateVendorBranchDto {
   })
   @IsBoolean()
   @IsOptional()
+  @Type(() => Boolean)
   isContracted?: boolean;
 
   @ApiProperty({
@@ -81,6 +85,27 @@ export class CreateVendorBranchDto {
   @Max(100)
   @IsOptional()
   commissionRate?: number;
+
+  @ApiProperty({
+    example: [
+      { day: 0, openTime: '09:00', closeTime: '22:00', isClosed: false },
+    ],
+    required: false,
+  })
+  @IsOptional()
+  workingHours?: Prisma.InputJsonValue;
+
+  @ApiProperty({ example: true, required: false, default: true })
+  @IsBoolean()
+  @IsOptional()
+  @Type(() => Boolean)
+  isScheduleActive?: boolean;
+
+  @ApiProperty({ example: false, required: false, default: false })
+  @IsBoolean()
+  @IsOptional()
+  @Type(() => Boolean)
+  is24Hours?: boolean;
 }
 
 export class UpdateVendorBranchDto {
@@ -131,6 +156,7 @@ export class UpdateVendorBranchDto {
   @ApiProperty({ example: false, required: false })
   @IsBoolean()
   @IsOptional()
+  @Type(() => Boolean)
   isOpen?: boolean;
 
   @ApiProperty({
@@ -141,6 +167,7 @@ export class UpdateVendorBranchDto {
   })
   @IsBoolean()
   @IsOptional()
+  @Type(() => Boolean)
   isContracted?: boolean;
 
   @ApiProperty({
@@ -154,4 +181,25 @@ export class UpdateVendorBranchDto {
   @Max(100)
   @IsOptional()
   commissionRate?: number;
+
+  @ApiProperty({
+    example: [
+      { day: 0, openTime: '09:00', closeTime: '22:00', isClosed: false },
+    ],
+    required: false,
+  })
+  @IsOptional()
+  workingHours?: Prisma.InputJsonValue;
+
+  @ApiProperty({ example: true, required: false })
+  @IsBoolean()
+  @IsOptional()
+  @Type(() => Boolean)
+  isScheduleActive?: boolean;
+
+  @ApiProperty({ example: false, required: false })
+  @IsBoolean()
+  @IsOptional()
+  @Type(() => Boolean)
+  is24Hours?: boolean;
 }

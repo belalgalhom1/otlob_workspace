@@ -146,11 +146,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Future<void> _handleHomeRefresh() async {
+  Future<void> _handleHomeRefresh({bool showHeaderIndicator = true}) async {
     if (_isRefreshing) return;
     setState(() {
       _isRefreshing = true;
-      _pullRefreshOffset = _refreshTriggerDistance;
+      if (showHeaderIndicator) {
+        _pullRefreshOffset = _refreshTriggerDistance;
+      }
     });
     try {
       final authStatus = ref.read(authControllerProvider);
@@ -303,15 +305,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _pullRefreshOffset * 0.35,
                   0,
                 ),
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    14,
-                    6,
-                    14,
-                    bottomNavHeight + 4 + bottomInset,
-                  ),
-                  child: isSearching
-                      ? Column(
+                child: isSearching
+                    ? Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          14,
+                          6,
+                          14,
+                          bottomNavHeight + 4 + bottomInset,
+                        ),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             SizedBox(
@@ -327,141 +329,171 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ),
                           ],
-                        )
-                      : GestureDetector(
-                          key: const ValueKey('home_body_pull_refresh_area'),
-                          behavior: HitTestBehavior.translucent,
-                          onVerticalDragUpdate: _onPullDragUpdate,
-                          onVerticalDragEnd: _onPullDragEnd,
-                          onVerticalDragCancel: _onPullDragCancel,
-                          child: ClipRect(
-                            child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final availableHeight = constraints.maxHeight;
-                  final hasOffers = data.offers.isNotEmpty;
-                  final int gapCount = hasOffers ? 5 : 4;
-                  final double minGap = availableHeight >= 600.0 ? 6.0 : 4.0;
-                  final double targetGap = (availableHeight * 0.011).clamp(
-                    minGap,
-                    11.0,
-                  );
-                  final double contentBudget = (availableHeight -
-                          (gapCount * targetGap))
-                      .clamp(0.0, availableHeight);
-
-                  double searchHeight = contentBudget >= 540.0 ? 44.0 : 40.0;
-                  double categoriesHeight = hasOffers
-                      ? (contentBudget * 0.132).clamp(70.0, 84.0)
-                      : (contentBudget * 0.144).clamp(74.0, 88.0);
-                  double hotDealsHeight = hasOffers
-                      ? (contentBudget * 0.212).clamp(114.0, 136.0)
-                      : 0.0;
-                  double storesHeight = hasOffers
-                      ? (contentBudget * 0.218).clamp(116.0, 142.0)
-                      : (contentBudget * 0.244).clamp(126.0, 150.0);
-
-                  final double fixedTotal =
-                      searchHeight +
-                      categoriesHeight +
-                      hotDealsHeight +
-                      storesHeight;
-
-                  final double remainingForFlex =
-                      (contentBudget - fixedTotal).clamp(0.0, contentBudget);
-
-                  double bannerHeight;
-                  double courierHeight;
-
-                  if (hasOffers) {
-                    bannerHeight = (remainingForFlex * (1.28 / 2.28)).clamp(
-                      96.0,
-                      144.0,
-                    );
-                    courierHeight = (remainingForFlex * (1.0 / 2.28)).clamp(
-                      84.0,
-                      118.0,
-                    );
-                  } else {
-                    bannerHeight = (remainingForFlex * (1.30 / 2.30)).clamp(
-                      126.0,
-                      166.0,
-                    );
-                    courierHeight = (remainingForFlex * (1.0 / 2.30)).clamp(
-                      100.0,
-                      134.0,
-                    );
-                  }
-
-                  // Guarantee zero RenderFlex overflow under any screen height
-                  final double totalNeeded =
-                      fixedTotal + bannerHeight + courierHeight;
-                  final double maxAllowed = (availableHeight - (gapCount * 3.0))
-                      .clamp(0.0, availableHeight);
-                  if (totalNeeded > maxAllowed && totalNeeded > 0) {
-                    final double scale = maxAllowed / totalNeeded;
-                    bannerHeight *= scale;
-                    searchHeight *= scale;
-                    categoriesHeight *= scale;
-                    courierHeight *= scale;
-                    hotDealsHeight *= scale;
-                    storesHeight *= scale;
-                  }
-
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Section 1: Hero Promotional Carousel (~126px–135px+)
-                      SizedBox(
-                        height: bannerHeight,
-                        child: _buildTopBanners(context, data, palette),
-                      ),
-
-                      // Section 2: Search Bar (~44px)
-                      SizedBox(
-                        height: searchHeight,
-                        child: _buildSearch(palette),
-                      ),
-
-                      // Section 3: Business Types / Categories Grid (5-col row, ~48–52px icons)
-                      SizedBox(
-                        height: categoriesHeight,
-                        child: _buildMainCategoryTabs(data, palette),
-                      ),
-
-                      // Section 4: Custom Courier Card
-                      SizedBox(
-                        height: courierHeight,
-                        child: _buildCustomCourierBanner(
-                          courierHeight,
-                          palette,
                         ),
-                      ),
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final viewportHeight = (constraints.maxHeight -
+                                  bottomNavHeight -
+                                  4 -
+                                  bottomInset -
+                                  6)
+                              .clamp(420.0, 1200.0);
+                          final hasOffers = data.offers.isNotEmpty;
+                          final double sectionGap =
+                              (viewportHeight * 0.015).clamp(8.0, 12.0);
+                          final double searchHeight =
+                              viewportHeight >= 540.0 ? 44.0 : 40.0;
+                          final double categoriesHeight = hasOffers
+                              ? (viewportHeight * 0.132).clamp(70.0, 84.0)
+                              : (viewportHeight * 0.144).clamp(74.0, 88.0);
+                          final double hotDealsHeight = hasOffers
+                              ? (viewportHeight * 0.212).clamp(114.0, 136.0)
+                              : 0.0;
+                          final double bannerHeight = hasOffers
+                              ? (viewportHeight * 0.195).clamp(108.0, 144.0)
+                              : (viewportHeight * 0.225).clamp(124.0, 162.0);
+                          final double courierHeight = hasOffers
+                              ? (viewportHeight * 0.158).clamp(88.0, 114.0)
+                              : (viewportHeight * 0.180).clamp(98.0, 128.0);
 
-                      // Section 5: Hot Deals (Horizontal Snap Carousel, ~124px–134px)
-                      if (hasOffers)
-                        SizedBox(
-                          height: hotDealsHeight,
-                          child: _buildOffersStrip(data, palette),
-                        ),
+                          return RefreshIndicator(
+                            color: HomeDesignTokens.gold,
+                            backgroundColor: palette.cardSurface1,
+                            onRefresh: () =>
+                                _handleHomeRefresh(showHeaderIndicator: false),
+                            child: CustomScrollView(
+                              key: const ValueKey('home_body_scroll_view'),
+                              physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics(),
+                              ),
+                              slivers: [
+                                SliverPadding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    14,
+                                    6,
+                                    14,
+                                    0,
+                                  ),
+                                  sliver: SliverToBoxAdapter(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        // Section 1: Hero Promotional Carousel
+                                        SizedBox(
+                                          height: bannerHeight,
+                                          child: _buildTopBanners(
+                                            context,
+                                            data,
+                                            palette,
+                                          ),
+                                        ),
+                                        SizedBox(height: sectionGap),
 
-                      // Section 6: Suggested Stores (Horizontal Scroll Row, ~126px–138px)
-                      SizedBox(
-                        height: storesHeight,
-                        child: _buildSuggestedStoresSection(
-                          context,
-                          data,
-                          data.products,
-                          palette,
-                        ),
+                                        // Section 2: Search Bar
+                                        SizedBox(
+                                          height: searchHeight,
+                                          child: _buildSearch(palette),
+                                        ),
+                                        SizedBox(height: sectionGap),
+
+                                        // Section 3: Business Types / Categories Row
+                                        SizedBox(
+                                          height: categoriesHeight,
+                                          child: _buildMainCategoryTabs(
+                                            data,
+                                            palette,
+                                          ),
+                                        ),
+                                        SizedBox(height: sectionGap),
+
+                                        // Section 4: Custom Courier Card
+                                        SizedBox(
+                                          height: courierHeight,
+                                          child: _buildCustomCourierBanner(
+                                            courierHeight,
+                                            palette,
+                                          ),
+                                        ),
+
+                                        // Section 5: Hot Deals Carousel
+                                        if (hasOffers) ...[
+                                          SizedBox(height: sectionGap),
+                                          SizedBox(
+                                            height: hotDealsHeight,
+                                            child: _buildOffersStrip(
+                                              data,
+                                              palette,
+                                            ),
+                                          ),
+                                        ],
+
+                                        SizedBox(height: sectionGap + 2),
+                                        // Section 6 Header: Nearby Vendors
+                                        _buildSuggestedStoresHeader(
+                                          context,
+                                          data,
+                                          palette,
+                                        ),
+                                        const SizedBox(height: 8),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                // Section 6 Grid: 3 Vendor Cards per Row, stacked vertically
+                                if (data.products.isEmpty)
+                                  SliverPadding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      14,
+                                      0,
+                                      14,
+                                      bottomNavHeight + 18 + bottomInset,
+                                    ),
+                                    sliver: SliverToBoxAdapter(
+                                      child: _buildEmptyStoresCard(
+                                        context,
+                                        palette,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  SliverPadding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      14,
+                                      0,
+                                      14,
+                                      bottomNavHeight + 18 + bottomInset,
+                                    ),
+                                    sliver: SliverGrid(
+                                      key: const ValueKey('home_vendors_grid'),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 3,
+                                        crossAxisSpacing: 8,
+                                        mainAxisSpacing: 10,
+                                        mainAxisExtent: 144,
+                                      ),
+                                      delegate: SliverChildBuilderDelegate(
+                                        (context, index) {
+                                          final vendor = data.products[index];
+                                          return HomeSuggestedStoreCard(
+                                            key: ValueKey(
+                                              '${_selectedType}_${vendor['id']}',
+                                            ),
+                                            vendor: vendor,
+                                          );
+                                        },
+                                        childCount: data.products.length,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
               ),
               if (_pullRefreshOffset > 2 || _isRefreshing)
                 Positioned(
@@ -1831,12 +1863,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // 6. Suggested Stores Section (Horizontal Scroll Row, ~126px–138px)
+  // 6. Nearby Vendors Section Header & Empty State (paired with 3-col SliverGrid)
   // ---------------------------------------------------------------------------
-  Widget _buildSuggestedStoresSection(
+  Widget _buildSuggestedStoresHeader(
     BuildContext context,
     HomeData data,
-    List<Map<String, dynamic>> filtered,
     HomePalette palette,
   ) {
     final s = AppStrings.of(context);
@@ -1857,92 +1888,77 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MediaQuery.withClampedTextScaling(
-          maxScaleFactor: 1.15,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: HomeDesignTokens.text(
-                    size: 16.0,
-                    weight: FontWeight.w900,
-                    color: palette.textPrimary,
-                    height: 1.15,
-                  ),
-                ),
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.15,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: HomeDesignTokens.text(
+                size: 16.0,
+                weight: FontWeight.w900,
+                color: palette.textPrimary,
+                height: 1.15,
               ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () =>
-                    context.push('/all-vendors', extra: _selectedType),
-                child: Text(
-                  s.seeAll,
-                  style: HomeDesignTokens.text(
-                    size: 13.0,
-                    weight: FontWeight.w800,
-                    color: palette.textPrimary,
-                    height: 1.15,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => context.push('/all-vendors', extra: _selectedType),
+            child: Text(
+              s.seeAll,
+              style: HomeDesignTokens.text(
+                size: 13.0,
+                weight: FontWeight.w800,
+                color: palette.textPrimary,
+                height: 1.15,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyStoresCard(
+    BuildContext context,
+    HomePalette palette,
+  ) {
+    final s = AppStrings.of(context);
+    return Container(
+      height: 112,
+      decoration: BoxDecoration(
+        color: palette.cardSurface1,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: palette.borderSubtle,
+          width: 1,
         ),
-        const SizedBox(height: 4),
-        Expanded(
-          child: filtered.isEmpty
-              ? Container(
-                  decoration: BoxDecoration(
-                    color: palette.cardSurface1,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: palette.borderSubtle,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.search_off_rounded,
-                        size: 22,
-                        color: palette.textMuted,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        s.noResults,
-                        style: HomeDesignTokens.text(
-                          size: 14.5,
-                          weight: FontWeight.w700,
-                          color: palette.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final vendor = filtered[index];
-                    return HomeSuggestedStoreCard(
-                      key: ValueKey('${_selectedType}_${vendor['id']}'),
-                      vendor: vendor,
-                    );
-                  },
-                ),
-        ),
-      ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 22,
+            color: palette.textMuted,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            s.noResults,
+            style: HomeDesignTokens.text(
+              size: 14.5,
+              weight: FontWeight.w700,
+              color: palette.textMuted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

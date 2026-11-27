@@ -324,7 +324,7 @@ void main() {
 
   for (final entry in viewports.entries) {
     testWidgets(
-      'HomeScreen zero-scroll RTL layout fits with zero overflow on ${entry.key}',
+      'HomeScreen RTL 3-column vendor grid fits with zero overflow on ${entry.key}',
       (tester) async {
         await _pumpHome(
           tester,
@@ -335,11 +335,15 @@ void main() {
 
         expect(tester.takeException(), isNull);
 
-        // Verify ZERO vertical scrollables exist on HomeScreen
-        final verticalScrollables = tester
-            .widgetList<Scrollable>(find.byType(Scrollable))
-            .where((s) => s.axis == Axis.vertical);
-        expect(verticalScrollables, isEmpty);
+        // Verify HomeScreen body scrolls vertically with a 3-column vendor grid
+        expect(
+          find.byKey(const ValueKey('home_body_scroll_view')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('home_vendors_grid')),
+          findsOneWidget,
+        );
 
         // Verify real dynamic data bindings are all rendered simultaneously
         expect(find.text('السكه الجديد'), findsOneWidget);
@@ -358,8 +362,10 @@ void main() {
         // Real cart badge count in bottom nav
         expect(find.text('3'), findsOneWidget);
 
-        // Verify all key sections are inside the viewport vertically with zero bottom-nav overlap
+        // Verify 3-column card width and key layout bounds
+        final viewportWidth = entry.value.size.width;
         final viewportHeight = entry.value.size.height;
+        final expectedCardWidth = (viewportWidth - 28.0 - 16.0) / 3.0;
         final headerLogoRect = tester.getRect(
           find.byKey(const ValueKey('home_header_logo')),
         );
@@ -373,10 +379,9 @@ void main() {
         );
         expect(headerLogoRect.width, 40.0);
         expect(headerLogoRect.height, 40.0);
-        expect(storeRect.width, 192.0);
+        expect(storeRect.width, closeTo(expectedCardWidth, 0.5));
         expect(courierRect.top, greaterThan(0));
         expect(offersRect.bottom, lessThanOrEqualTo(storeRect.top));
-        expect(storeRect.bottom, lessThanOrEqualTo(navRect.top));
         expect(navRect.bottom, lessThanOrEqualTo(viewportHeight + 0.5));
         expect(
           navRect.height,
@@ -385,6 +390,70 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'HomeScreen arranges vendors 3 per row and stacks additional rows directly below',
+    (tester) async {
+      final sixVendorsData = HomeData(
+        categories: _buildSampleHomeData().categories,
+        promotions: _buildSampleHomeData().promotions,
+        offers: _buildSampleHomeData().offers,
+        products: [
+          for (var i = 1; i <= 6; i++)
+            {
+              'id': 'v$i',
+              'name': 'Store $i',
+              'nameAr': 'متجر $i',
+              'vendor': 'Category',
+              'status': i.isOdd ? 'OPEN' : 'CLOSED',
+              'rating': 4.5,
+              'distanceKm': 1.0 + i * 0.2,
+              'deliveryTime': '15-25 دقيقة',
+              'deliveryTimeEn': '15-25 mins',
+              'image': '',
+              'logo': '',
+              'coverImage': '',
+            },
+        ],
+      );
+
+      await _pumpHome(
+        tester,
+        viewport: const Size(390, 844),
+        safeAreaPadding: const EdgeInsets.only(top: 47, bottom: 34),
+        locale: const Locale('ar'),
+        data: sixVendorsData,
+      );
+
+      // Scroll down so both rows of 3 vendor cards are visible on screen
+      await tester.drag(
+        find.byKey(const ValueKey('home_body_scroll_view')),
+        const Offset(0, -300),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(tester.takeException(), isNull);
+      final cards = find.byType(HomeSuggestedStoreCard);
+      expect(cards, findsNWidgets(6));
+
+      final rects = [
+        for (var i = 0; i < 6; i++) tester.getRect(cards.at(i)),
+      ];
+
+      // Row 1: 3 cards share the same top Y coordinate
+      expect(rects[0].top, closeTo(rects[1].top, 0.5));
+      expect(rects[1].top, closeTo(rects[2].top, 0.5));
+
+      // Row 2: 3 cards sit directly below Row 1 and align column-for-column
+      expect(rects[3].top, greaterThan(rects[0].bottom));
+      expect(rects[3].top, closeTo(rects[4].top, 0.5));
+      expect(rects[4].top, closeTo(rects[5].top, 0.5));
+      expect(rects[3].left, closeTo(rects[0].left, 0.5));
+      expect(rects[4].left, closeTo(rects[1].left, 0.5));
+      expect(rects[5].left, closeTo(rects[2].left, 0.5));
+    },
+  );
 
   testWidgets('HomeScreen fits cleanly in LTR English & 1.3x text scale', (
     tester,
@@ -1020,10 +1089,8 @@ void main() {
 
       expect(homeBuildCount, greaterThanOrEqualTo(2));
       expect(
-        tester
-            .widgetList<Scrollable>(find.byType(Scrollable))
-            .where((s) => s.axis == Axis.vertical),
-        isEmpty,
+        find.byKey(const ValueKey('home_body_scroll_view')),
+        findsOneWidget,
       );
     },
   );

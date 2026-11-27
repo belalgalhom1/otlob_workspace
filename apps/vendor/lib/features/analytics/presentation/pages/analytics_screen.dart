@@ -16,6 +16,78 @@ class AnalyticsScreen extends ConsumerStatefulWidget {
   final void Function(int index)? onNavigate;
   const AnalyticsScreen({super.key, this.onNavigate});
 
+  static ExportSection buildVendorsExportSection(
+    List<AnalyticsVendor> all, {
+    required String query,
+    String? sortBy,
+    required bool ar,
+  }) {
+    var vendors = all.where((v) {
+      if (query.isEmpty) return true;
+      final name = ar ? (v.storeNameAr ?? v.storeName) : v.storeName;
+      return name.toLowerCase().contains(query);
+    }).toList();
+    switch (sortBy) {
+      case 'revenue':
+        vendors.sort((a, b) => b.totalRevenue.compareTo(a.totalRevenue));
+        break;
+      case 'commission':
+        vendors.sort((a, b) => b.totalCommission.compareTo(a.totalCommission));
+        break;
+      case 'wallet':
+        vendors.sort((a, b) => b.walletBalance.compareTo(a.walletBalance));
+        break;
+      default:
+        vendors.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
+    }
+    return ExportSection(
+      title: ar ? 'أفضل المتاجر' : 'Top Vendors',
+      headers: ar
+          ? const [
+              'الترتيب',
+              'المتجر',
+              'الطلبات',
+              'الإيرادات',
+              'العمولة',
+              'رصيد المحفظة',
+              'أفضل منتج',
+              'طلبات أفضل منتج',
+            ]
+          : const [
+              'Rank',
+              'Store',
+              'Orders',
+              'Revenue',
+              'Commission',
+              'Wallet Balance',
+              'Top Product',
+              'Top Product Orders',
+            ],
+      rows: [
+        for (var i = 0; i < vendors.length; i++)
+          [
+            '${i + 1}',
+            ar
+                ? (vendors[i].storeNameAr ?? vendors[i].storeName)
+                : vendors[i].storeName,
+            '${vendors[i].totalOrders}',
+            vendors[i].totalRevenue.toStringAsFixed(2),
+            vendors[i].totalCommission.toStringAsFixed(2),
+            vendors[i].walletBalance.toStringAsFixed(2),
+            vendors[i].topProduct != null
+                ? (ar
+                    ? (vendors[i].topProduct!.nameAr ??
+                        vendors[i].topProduct!.name)
+                    : vendors[i].topProduct!.name)
+                : '',
+            vendors[i].topProduct != null
+                ? '${vendors[i].topProduct!.totalOrders}'
+                : '',
+          ],
+      ],
+    );
+  }
+
   @override
   ConsumerState<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
@@ -63,6 +135,7 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
         return [
           _SortOption('orders', ordersLabel, LucideIcons.shoppingBag),
           _SortOption('revenue', l10n.analyticsRevenue, LucideIcons.trendingUp),
+          _SortOption('commission', isAr ? 'العمولة' : 'Commission', LucideIcons.percent),
           _SortOption('wallet', l10n.analyticsBal, LucideIcons.wallet),
         ];
       case 3: // Products
@@ -942,47 +1015,11 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen>
     final List<AnalyticsVendor> all = await ref
         .read(analyticsRepositoryProvider)
         .getTopVendors(limit: 20, from: from, to: to);
-    var vendors = all.where((v) {
-      if (query.isEmpty) return true;
-      final name = ar ? (v.storeNameAr ?? v.storeName) : v.storeName;
-      return name.toLowerCase().contains(query);
-    }).toList();
-    switch (sortBy) {
-      case 'revenue':
-        vendors.sort((a, b) => b.totalRevenue.compareTo(a.totalRevenue));
-        break;
-      case 'wallet':
-        vendors.sort((a, b) => b.walletBalance.compareTo(a.walletBalance));
-        break;
-      default:
-        vendors.sort((a, b) => b.totalOrders.compareTo(a.totalOrders));
-    }
-    return ExportSection(
-      title: ar ? 'أفضل المتاجر' : 'Top Vendors',
-      headers: ar
-          ? const ['الترتيب', 'المتجر', 'الطلبات', 'الإيرادات', 'رصيد المحفظة', 'أفضل منتج', 'طلبات أفضل منتج']
-          : const ['Rank', 'Store', 'Orders', 'Revenue', 'Wallet Balance', 'Top Product', 'Top Product Orders'],
-      rows: [
-        for (var i = 0; i < vendors.length; i++)
-          [
-            '${i + 1}',
-            ar
-                ? (vendors[i].storeNameAr ?? vendors[i].storeName)
-                : vendors[i].storeName,
-            '${vendors[i].totalOrders}',
-            vendors[i].totalRevenue.toStringAsFixed(2),
-            vendors[i].walletBalance.toStringAsFixed(2),
-            vendors[i].topProduct != null
-                ? (ar
-                    ? (vendors[i].topProduct!.nameAr ??
-                        vendors[i].topProduct!.name)
-                    : vendors[i].topProduct!.name)
-                : '',
-            vendors[i].topProduct != null
-                ? '${vendors[i].topProduct!.totalOrders}'
-                : '',
-          ],
-      ],
+    return AnalyticsScreen.buildVendorsExportSection(
+      all,
+      query: query,
+      sortBy: sortBy,
+      ar: ar,
     );
   }
 

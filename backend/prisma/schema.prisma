@@ -513,9 +513,6 @@ model Vendor {
   // Vendor-owned wallet. Every VendorMember reads this same balance and ledger.
   walletBalance      Int                       @default(0)
   isContracted       Boolean                   @default(false)
-  workingHours       Json?
-  isScheduleActive   Boolean                   @default(true)
-  is24Hours          Boolean                   @default(false)
   verticalId         String
   deletedAt          DateTime?                 @db.Timestamptz(3)
   createdAt          DateTime                  @default(now()) @db.Timestamptz(3)
@@ -563,21 +560,24 @@ model VendorMember {
 }
 
 model VendorBranch {
-  id        String                  @id @default(uuid())
-  name      String
-  nameAr    String?
-  address   String
-  phone     String?
-  isOpen    Boolean                 @default(true)
-  isContracted Boolean?
-  commissionRate Int?
-  location  Unsupported("geometry")
-  vendorId  String
-  zoneId    String
-  createdAt DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime                @updatedAt @db.Timestamptz(3)
-  vendor    Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  zone      Zone                    @relation(fields: [zoneId], references: [id])
+  id               String                  @id @default(uuid())
+  name             String
+  nameAr           String?
+  address          String
+  phone            String?
+  isOpen           Boolean                 @default(true)
+  isContracted     Boolean?
+  commissionRate   Int?
+  workingHours     Json?
+  isScheduleActive Boolean                 @default(true)
+  is24Hours        Boolean                 @default(false)
+  location         Unsupported("geometry")
+  vendorId         String
+  zoneId           String
+  createdAt        DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                @updatedAt @db.Timestamptz(3)
+  vendor           Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  zone             Zone                    @relation(fields: [zoneId], references: [id])
 
   vendorMembers VendorMember[]
 

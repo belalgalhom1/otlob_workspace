@@ -99,6 +99,9 @@ class AnalyticsVendor {
   final num walletBalance;
   final int totalOrders;
   final num totalRevenue;
+  final num totalCommission;
+  final num? commissionRate;
+  final bool? isContracted;
   final AnalyticsTopProduct? topProduct;
 
   AnalyticsVendor({
@@ -110,6 +113,9 @@ class AnalyticsVendor {
     required this.walletBalance,
     required this.totalOrders,
     required this.totalRevenue,
+    this.totalCommission = 0,
+    this.commissionRate,
+    this.isContracted,
     this.topProduct,
   });
 
@@ -131,6 +137,9 @@ class AnalyticsVendor {
       walletBalance: json['walletBalance'] as num? ?? 0,
       totalOrders: json['totalOrders'] as int? ?? 0,
       totalRevenue: json['totalRevenue'] as num? ?? 0,
+      totalCommission: json['totalCommission'] as num? ?? 0,
+      commissionRate: json['commissionRate'] as num?,
+      isContracted: json['isContracted'] as bool?,
       topProduct: json['topProduct'] != null ? AnalyticsTopProduct.fromJson(json['topProduct']) : null,
     );
   }

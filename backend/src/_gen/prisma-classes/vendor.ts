@@ -50,15 +50,6 @@ export class Vendor {
   @ApiProperty({ type: Boolean })
   isContracted: boolean;
 
-  @ApiPropertyOptional({ type: Object })
-  workingHours?: object;
-
-  @ApiProperty({ type: Boolean })
-  isScheduleActive: boolean = true;
-
-  @ApiProperty({ type: Boolean })
-  is24Hours: boolean = false;
-
   @ApiProperty({ type: String })
   verticalId: string;
 

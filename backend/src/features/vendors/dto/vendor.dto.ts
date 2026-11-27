@@ -12,7 +12,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { VendorStatus, Prisma } from '@prisma/client';
+import { VendorStatus } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateVendorDto {
@@ -67,21 +67,6 @@ export class CreateVendorDto {
   @IsOptional()
   @Type(() => Boolean)
   isContracted?: boolean;
-
-  @ApiProperty({
-    example: [
-      { day: 0, openTime: '09:00', closeTime: '22:00', isClosed: false },
-    ],
-    required: false,
-  })
-  @IsOptional()
-  workingHours?: Prisma.InputJsonValue;
-
-  @ApiProperty({ example: false, required: false, default: false })
-  @IsBoolean()
-  @IsOptional()
-  @Type(() => Boolean)
-  is24Hours?: boolean;
 }
 
 export class UpdateVendorDto {
@@ -136,27 +121,6 @@ export class UpdateVendorDto {
   @IsOptional()
   @Type(() => Boolean)
   isContracted?: boolean;
-
-  @ApiProperty({
-    example: [
-      { day: 0, openTime: '09:00', closeTime: '22:00', isClosed: false },
-    ],
-    required: false,
-  })
-  @IsOptional()
-  workingHours?: Prisma.InputJsonValue;
-
-  @ApiProperty({ example: true, required: false })
-  @IsBoolean()
-  @IsOptional()
-  @Type(() => Boolean)
-  isScheduleActive?: boolean;
-
-  @ApiProperty({ example: false, required: false, default: false })
-  @IsBoolean()
-  @IsOptional()
-  @Type(() => Boolean)
-  is24Hours?: boolean;
 }
 
 export class UpdateVendorStatusDto {

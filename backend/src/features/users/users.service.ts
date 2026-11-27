@@ -28,6 +28,7 @@ import {
   CommonSuccess,
   CommonErrors,
   UserErrors,
+  VendorErrors,
 } from 'src/common/constants/response.constants';
 import { Role, VendorMemberRole, Prisma, DriverStatus } from '@prisma/client';
 import type { JwtAccessPayload } from 'src/common/interfaces/jwt-payload.interface';
@@ -643,6 +644,13 @@ export class UsersService {
         });
       } else {
         if (dto.vendorId) {
+          const vendor = await tx.vendor.findFirst({
+            where: { id: dto.vendorId, deletedAt: null },
+            select: { id: true },
+          });
+          if (!vendor) {
+            throw new NotFoundException(VendorErrors.NOT_FOUND);
+          }
           const existingSameVendor = await tx.vendorMember.findFirst({
             where: { userId, vendorId: dto.vendorId },
             select: { branchId: true },

@@ -13,7 +13,7 @@ import { LocationRepository } from 'src/features/location/location.repository';
 import { StorageService } from 'src/infrastructure/storage/storage.service';
 import { PlatformSettingsService } from 'src/features/platform-settings/platform-settings.service';
 import { VendorCacheService } from './helpers/vendor-cache.service';
-import { isVendorScheduleOpen } from './helpers/vendor-schedule.helper';
+import { evaluateBranchEffectiveOpen } from './helpers/vendor-schedule.helper';
 import {
   CreateVendorDto,
   UpdateVendorDto,
@@ -73,8 +73,6 @@ export class VendorsService {
               dto.commissionRate ?? settings.defaultCommissionRate,
             phone: dto.phone ?? null,
             isContracted: dto.isContracted ?? false,
-            workingHours: dto.workingHours ?? Prisma.DbNull,
-            is24Hours: dto.is24Hours ?? false,
           },
           include: this.vendorIncludes(),
         });
@@ -191,6 +189,9 @@ export class VendorsService {
         branchIsOpen: boolean;
         branchIsContracted: boolean | null;
         branchCommissionRate: number | null;
+        branchWorkingHours: Prisma.JsonValue;
+        branchIsScheduleActive: boolean;
+        branchIs24Hours: boolean;
         branchZoneId: string;
         inZone: boolean;
         distanceKm: number;
@@ -210,6 +211,9 @@ export class VendorsService {
               vb."isOpen" AS "branchIsOpen",
               vb."isContracted" AS "branchIsContracted",
               vb."commissionRate" AS "branchCommissionRate",
+              vb."workingHours" AS "branchWorkingHours",
+              vb."isScheduleActive" AS "branchIsScheduleActive",
+              vb."is24Hours" AS "branchIs24Hours",
               vb."zoneId" AS "branchZoneId",
               ${targetZoneId ? Prisma.sql`(vb."zoneId" = ${targetZoneId})` : Prisma.sql`false`} AS "inZone",
               ${hasCoords ? Prisma.sql`ROUND((ST_Distance(vb.location::geography, ST_SetSRID(ST_MakePoint(${dto.lng}, ${dto.lat}), 4326)::geography) / 1000.0)::numeric, 1)::float` : Prisma.sql`0.0::float`} AS "distanceKm",
@@ -233,6 +237,9 @@ export class VendorsService {
             "branchIsOpen",
             "branchIsContracted",
             "branchCommissionRate",
+            "branchWorkingHours",
+            "branchIsScheduleActive",
+            "branchIs24Hours",
             "branchZoneId",
             "inZone",
             "distanceKm"
@@ -273,6 +280,9 @@ export class VendorsService {
                 isOpen: branch.branchIsOpen,
                 isContracted: branch.branchIsContracted,
                 commissionRate: branch.branchCommissionRate,
+                workingHours: branch.branchWorkingHours,
+                isScheduleActive: branch.branchIsScheduleActive,
+                is24Hours: branch.branchIs24Hours,
                 zoneId: branch.branchZoneId,
                 distanceKm: branch.distanceKm,
               },
@@ -431,19 +441,6 @@ export class VendorsService {
         ...(dto.isContracted !== undefined && {
           isContracted: dto.isContracted,
         }),
-        ...(dto.workingHours !== undefined && {
-          workingHours: dto.workingHours,
-        }),
-        ...(dto.workingHours !== undefined &&
-          dto.isScheduleActive === undefined && {
-            isScheduleActive: true, // Auto-enable if working hours are modified and flag isn't explicitly passed
-          }),
-        ...(dto.isScheduleActive !== undefined && {
-          isScheduleActive: dto.isScheduleActive,
-        }),
-        ...(dto.is24Hours !== undefined && {
-          is24Hours: dto.is24Hours,
-        }),
       },
       include: this.vendorIncludes(),
     });
@@ -594,7 +591,7 @@ export class VendorsService {
 
     const updated = await this.prisma.vendor.update({
       where: { id },
-      data: { status: dto.status, isScheduleActive: false },
+      data: { status: dto.status },
       include: this.vendorIncludes(),
     });
     await this.invalidateVendorCaches(id, vendor?.slug);
@@ -688,6 +685,23 @@ export class VendorsService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
+  private branchPublicSelect() {
+    return {
+      id: true,
+      name: true,
+      nameAr: true,
+      address: true,
+      phone: true,
+      isOpen: true,
+      isContracted: true,
+      commissionRate: true,
+      workingHours: true,
+      isScheduleActive: true,
+      is24Hours: true,
+      zoneId: true,
+    };
+  }
+
   private vendorIncludes() {
     return {
       vertical: {
@@ -698,6 +712,9 @@ export class VendorsService {
           slug: true,
           iconUrl: true,
         },
+      },
+      branches: {
+        select: this.branchPublicSelect(),
       },
       _count: {
         select: {
@@ -710,19 +727,6 @@ export class VendorsService {
   private vendorDetailsIncludes() {
     return {
       ...this.vendorIncludes(),
-      branches: {
-        select: {
-          id: true,
-          name: true,
-          nameAr: true,
-          address: true,
-          phone: true,
-          isOpen: true,
-          isContracted: true,
-          commissionRate: true,
-          zoneId: true,
-        },
-      },
       categories: {
         where: { isActive: true },
         orderBy: { sortOrder: Prisma.SortOrder.asc },
@@ -780,6 +784,29 @@ export class VendorsService {
     };
   }
 
+  private mapBranchForApp<
+    T extends {
+      isOpen?: boolean;
+      is24Hours?: boolean | null;
+      isScheduleActive?: boolean | null;
+      workingHours?: Prisma.JsonValue;
+    },
+  >(branch: T) {
+    const manualIsOpen = branch.isOpen !== false;
+    const scheduleEval = evaluateBranchEffectiveOpen({
+      isOpen: manualIsOpen,
+      is24Hours: branch.is24Hours === true,
+      isScheduleActive: branch.isScheduleActive !== false,
+      workingHours: branch.workingHours,
+    });
+    return {
+      ...branch,
+      isOpen: scheduleEval.isOpen,
+      manualIsOpen,
+      isClosedBySchedule: scheduleEval.isClosedBySchedule,
+    };
+  }
+
   private mapVendorForApp(vendor: {
     id: string;
     status: string;
@@ -788,14 +815,25 @@ export class VendorsService {
     slug: string;
     description: string | null;
     descriptionAr: string | null;
-    workingHours: Prisma.JsonValue;
     coverImage: string | null;
     logo: string | null;
-    isScheduleActive: boolean;
-    is24Hours?: boolean;
     rating?: number | null;
     ratingCount?: number | null;
     vertical?: { name: string; nameAr: string | null; slug: string } | null;
+    branches?: {
+      id: string;
+      name: string;
+      nameAr: string | null;
+      address: string;
+      phone: string | null;
+      isOpen: boolean;
+      isContracted?: boolean | null;
+      commissionRate?: number | null;
+      workingHours?: Prisma.JsonValue;
+      isScheduleActive?: boolean;
+      is24Hours?: boolean;
+      zoneId?: string | null;
+    }[];
     products?: {
       id: string;
       name: string;
@@ -818,27 +856,32 @@ export class VendorsService {
       branchAvailability?: unknown[];
     }[];
   }) {
-    let status = vendor.status;
-    let isClosedBySchedule = false;
-
-    if (
-      vendor.status === 'OPEN' &&
-      !vendor.is24Hours &&
-      vendor.isScheduleActive !== false &&
-      vendor.workingHours
-    ) {
-      const isOpen = isVendorScheduleOpen(vendor.workingHours);
-      if (!isOpen) {
-        status = 'CLOSED';
-        isClosedBySchedule = true;
-      }
-    }
-
     const proximity = (vendor as any)._proximity;
     const distanceKm: number | null =
       proximity?.distanceKm ?? (vendor as any).distanceKm ?? null;
     const inCustomerZone: boolean = proximity?.inCustomerZone ?? false;
-    const closestBranch = proximity?.closestBranch ?? null;
+    const rawClosestBranch = proximity?.closestBranch ?? null;
+    const closestBranch = rawClosestBranch
+      ? this.mapBranchForApp(rawClosestBranch)
+      : null;
+
+    const rawBranches = Array.isArray((vendor as any).branches)
+      ? (vendor as any).branches
+      : [];
+    const branches = rawBranches.map((b: any) => this.mapBranchForApp(b));
+
+    let status = vendor.status;
+    let isClosedBySchedule = false;
+
+    if (vendor.status === 'OPEN') {
+      if (branches.length > 0 && branches.every((b: any) => !b.isOpen)) {
+        status = 'CLOSED';
+        isClosedBySchedule = branches.some((b: any) => b.isClosedBySchedule);
+      } else if (branches.length === 0 && closestBranch && !closestBranch.isOpen) {
+        status = 'CLOSED';
+        isClosedBySchedule = closestBranch.isClosedBySchedule;
+      }
+    }
 
     let deliveryTime = '20-30 دقيقة';
     let deliveryTimeEn = '20-30 mins';
@@ -872,7 +915,7 @@ export class VendorsService {
       distanceKm,
       inCustomerZone,
       closestBranch,
-      branches: (vendor as any).branches ?? [],
+      branches,
       deliveryTime,
       deliveryTimeEn,
       deliveryFee: '15 ج رسوم توصيل',
@@ -881,7 +924,6 @@ export class VendorsService {
         vendor.logo ||
         'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop',
       type: vendor.vertical?.slug || 'restaurant',
-      isScheduleActive: vendor.isScheduleActive,
       tag: status === 'OPEN' ? 'Open' : 'Closed',
       menu:
         vendor.products?.map((p) => {

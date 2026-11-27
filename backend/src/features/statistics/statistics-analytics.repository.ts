@@ -227,9 +227,23 @@ export class StatisticsAnalyticsRepository {
             vendorId: string;
             totalOrders: number;
             totalRevenue: number;
+            totalCommission: number;
           }>
         >`
-          SELECT f."vendorId", COUNT(DISTINCT f."orderId")::int AS "totalOrders", COALESCE(SUM(f.subtotal), 0)::int AS "totalRevenue"
+          SELECT
+            f."vendorId",
+            COUNT(DISTINCT f."orderId")::int AS "totalOrders",
+            COALESCE(SUM(f.subtotal), 0)::int AS "totalRevenue",
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN f."isContracted"
+                  THEN ROUND(f.subtotal * f."commissionRate" / 100.0)
+                  ELSE 0
+                END
+              ),
+              0
+            )::int AS "totalCommission"
           FROM order_vendor_fulfillments f
           JOIN orders o ON o.id = f."orderId"
           WHERE o.status = 'DELIVERED'
@@ -245,9 +259,14 @@ export class StatisticsAnalyticsRepository {
             vendorId: string;
             totalOrders: number;
             totalRevenue: number;
+            totalCommission: number;
           }>
         >`
-          SELECT "vendorId", SUM("totalOrders")::int as "totalOrders", SUM("totalRevenue")::int as "totalRevenue"
+          SELECT
+            "vendorId",
+            SUM("totalOrders")::int as "totalOrders",
+            SUM("totalRevenue")::int as "totalRevenue",
+            COALESCE(SUM("totalCommission"), 0)::int as "totalCommission"
           FROM vendor_statistics
           WHERE period = 'DAILY'
           GROUP BY "vendorId"
@@ -269,6 +288,8 @@ export class StatisticsAnalyticsRepository {
           logo: true,
           coverImage: true,
           walletBalance: true,
+          commissionRate: true,
+          isContracted: true,
         },
       }),
       // Most-ordered product per vendor in one pass (no per-vendor query).
@@ -329,6 +350,7 @@ export class StatisticsAnalyticsRepository {
           logo: vendor.logo ?? vendor.coverImage ?? null,
           totalOrders: v.totalOrders,
           totalRevenue: v.totalRevenue,
+          totalCommission: v.totalCommission ?? 0,
           topProduct,
         };
       });

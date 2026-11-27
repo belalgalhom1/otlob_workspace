@@ -25,6 +25,15 @@ export class VendorBranch {
   @ApiPropertyOptional({ type: Number })
   commissionRate?: number;
 
+  @ApiPropertyOptional({ type: Object })
+  workingHours?: object;
+
+  @ApiProperty({ type: Boolean })
+  isScheduleActive: boolean = true;
+
+  @ApiProperty({ type: Boolean })
+  is24Hours: boolean = false;
+
   @ApiProperty({ type: String })
   vendorId: string;
 

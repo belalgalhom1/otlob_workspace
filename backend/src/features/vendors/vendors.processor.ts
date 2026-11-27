@@ -39,14 +39,22 @@ export class VendorsProcessor extends WorkerHost implements OnModuleInit {
 
   private async handleVendorWorkingHours(): Promise<void> {
     try {
-      const vendors = await this.prisma.vendor.findMany({
+      const branches = await this.prisma.vendorBranch.findMany({
         where: {
           isScheduleActive: true,
-          deletedAt: null,
-          status: { in: [VendorStatus.OPEN, VendorStatus.CLOSED] },
-          workingHours: { not: Prisma.DbNull },
+          vendor: {
+            deletedAt: null,
+            status: { in: [VendorStatus.OPEN, VendorStatus.CLOSED] },
+          },
+          OR: [{ is24Hours: true }, { workingHours: { not: Prisma.DbNull } }],
         },
-        select: { id: true, status: true, workingHours: true },
+        select: {
+          id: true,
+          vendorId: true,
+          isOpen: true,
+          is24Hours: true,
+          workingHours: true,
+        },
       });
 
       let opened = 0;
@@ -54,48 +62,52 @@ export class VendorsProcessor extends WorkerHost implements OnModuleInit {
 
       const toOpenIds: string[] = [];
       const toCloseIds: string[] = [];
+      const affectedVendorIds = new Set<string>();
 
-      for (const vendor of vendors) {
-        const shouldBeOpen = isVendorScheduleOpen(vendor.workingHours);
+      for (const branch of branches) {
+        const shouldBeOpen = branch.is24Hours
+          ? true
+          : isVendorScheduleOpen(branch.workingHours);
 
-        if (shouldBeOpen && vendor.status === VendorStatus.CLOSED) {
-          toOpenIds.push(vendor.id);
+        if (shouldBeOpen && !branch.isOpen) {
+          toOpenIds.push(branch.id);
+          affectedVendorIds.add(branch.vendorId);
           opened++;
-        } else if (!shouldBeOpen && vendor.status === VendorStatus.OPEN) {
-          toCloseIds.push(vendor.id);
+        } else if (!shouldBeOpen && branch.isOpen) {
+          toCloseIds.push(branch.id);
+          affectedVendorIds.add(branch.vendorId);
           closed++;
         }
       }
 
       if (toOpenIds.length > 0) {
-        await this.prisma.vendor.updateMany({
+        await this.prisma.vendorBranch.updateMany({
           where: { id: { in: toOpenIds } },
-          data: { status: VendorStatus.OPEN },
+          data: { isOpen: true },
         });
       }
 
       if (toCloseIds.length > 0) {
-        await this.prisma.vendor.updateMany({
+        await this.prisma.vendorBranch.updateMany({
           where: { id: { in: toCloseIds } },
-          data: { status: VendorStatus.CLOSED },
+          data: { isOpen: false },
         });
       }
 
-      if (toOpenIds.length > 0 || toCloseIds.length > 0) {
-        await this.vendorCache?.invalidateManyVendorDetails([
-          ...toOpenIds,
-          ...toCloseIds,
-        ]);
+      if (affectedVendorIds.size > 0) {
+        await this.vendorCache?.invalidateManyVendorDetails(
+          Array.from(affectedVendorIds),
+        );
       }
 
       if (opened > 0 || closed > 0) {
         this.logger.log(
-          `🏪 Vendor schedule: ${opened} opened, ${closed} closed`,
+          `🏪 Branch schedule: ${opened} opened, ${closed} closed`,
         );
       }
     } catch (error) {
       this.logger.error(
-        'Failed to process vendor working hours',
+        'Failed to process branch working hours',
         (error as Error).stack,
       );
     }

@@ -194,11 +194,8 @@ describe('Products, Variants, OptionGroups & Cart refactoring', () => {
                 slug: 'store',
                 description: null,
                 descriptionAr: null,
-                workingHours: null,
                 coverImage: null,
                 logo: null,
-                isScheduleActive: false,
-                is24Hours: true,
                 vertical: { name: 'Sweets', nameAr: 'حلويات', slug: 'sweets' },
               },
             },
@@ -232,10 +229,8 @@ describe('Products, Variants, OptionGroups & Cart refactoring', () => {
         slug: 'store',
         description: null,
         descriptionAr: null,
-        workingHours: null,
         coverImage: null,
         logo: null,
-        isScheduleActive: false,
         vertical: { name: 'Restaurant', nameAr: null, slug: 'restaurant' },
         products: [
           {

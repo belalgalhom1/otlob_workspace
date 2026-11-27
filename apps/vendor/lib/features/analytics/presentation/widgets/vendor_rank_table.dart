@@ -47,6 +47,11 @@ class VendorRankTable extends ConsumerWidget {
           case 'revenue':
             vendors.sort((a, b) => b.totalRevenue.compareTo(a.totalRevenue));
             break;
+          case 'commission':
+            vendors.sort(
+              (a, b) => b.totalCommission.compareTo(a.totalCommission),
+            );
+            break;
           case 'wallet':
             vendors.sort((a, b) => b.walletBalance.compareTo(a.walletBalance));
             break;
@@ -322,6 +327,36 @@ class _VendorCard extends StatelessWidget {
             ],
           ),
         ),
+        // Commission pill
+        Tooltip(
+          message: isArabic ? 'عمولة المنصة' : 'Platform Commission',
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD97706).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  LucideIcons.percent,
+                  size: 13,
+                  color: Color(0xFFD97706),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '${isArabic ? 'العمولة' : 'Commission'}: ${vendor.totalCommission.toStringAsFixed(2)} ${l10n.egp}',
+                  style: const TextStyle(
+                    color: Color(0xFFD97706),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         // Wallet pill
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -490,6 +525,7 @@ class _VendorCard extends StatelessWidget {
                           buildLogo(),
                           const SizedBox(width: 14),
                           Expanded(
+                            flex: 2,
                             child: Text(
                               storeName,
                               style: TextStyle(
@@ -502,9 +538,14 @@ class _VendorCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          Wrap(
-                            spacing: 8,
-                            children: buildMetricPills(),
+                          Flexible(
+                            flex: 4,
+                            child: Wrap(
+                              alignment: WrapAlignment.end,
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: buildMetricPills(),
+                            ),
                           ),
                           if (onTap != null) ...[
                             const SizedBox(width: 10),
