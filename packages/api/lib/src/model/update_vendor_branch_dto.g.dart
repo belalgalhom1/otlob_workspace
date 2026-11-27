@@ -25,6 +25,12 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
   final bool? isContracted;
   @override
   final num? commissionRate;
+  @override
+  final JsonObject? workingHours;
+  @override
+  final bool? isScheduleActive;
+  @override
+  final bool? is24Hours;
 
   factory _$UpdateVendorBranchDto([
     void Function(UpdateVendorBranchDtoBuilder)? updates,
@@ -40,6 +46,9 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
     this.isOpen,
     this.isContracted,
     this.commissionRate,
+    this.workingHours,
+    this.isScheduleActive,
+    this.is24Hours,
   }) : super._();
   @override
   UpdateVendorBranchDto rebuild(
@@ -62,7 +71,10 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
         zoneId == other.zoneId &&
         isOpen == other.isOpen &&
         isContracted == other.isContracted &&
-        commissionRate == other.commissionRate;
+        commissionRate == other.commissionRate &&
+        workingHours == other.workingHours &&
+        isScheduleActive == other.isScheduleActive &&
+        is24Hours == other.is24Hours;
   }
 
   @override
@@ -77,6 +89,9 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
     _$hash = $jc(_$hash, isOpen.hashCode);
     _$hash = $jc(_$hash, isContracted.hashCode);
     _$hash = $jc(_$hash, commissionRate.hashCode);
+    _$hash = $jc(_$hash, workingHours.hashCode);
+    _$hash = $jc(_$hash, isScheduleActive.hashCode);
+    _$hash = $jc(_$hash, is24Hours.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -92,7 +107,10 @@ class _$UpdateVendorBranchDto extends UpdateVendorBranchDto {
           ..add('zoneId', zoneId)
           ..add('isOpen', isOpen)
           ..add('isContracted', isContracted)
-          ..add('commissionRate', commissionRate))
+          ..add('commissionRate', commissionRate)
+          ..add('workingHours', workingHours)
+          ..add('isScheduleActive', isScheduleActive)
+          ..add('is24Hours', is24Hours))
         .toString();
   }
 }
@@ -139,6 +157,20 @@ class UpdateVendorBranchDtoBuilder
   set commissionRate(num? commissionRate) =>
       _$this._commissionRate = commissionRate;
 
+  JsonObject? _workingHours;
+  JsonObject? get workingHours => _$this._workingHours;
+  set workingHours(JsonObject? workingHours) =>
+      _$this._workingHours = workingHours;
+
+  bool? _isScheduleActive;
+  bool? get isScheduleActive => _$this._isScheduleActive;
+  set isScheduleActive(bool? isScheduleActive) =>
+      _$this._isScheduleActive = isScheduleActive;
+
+  bool? _is24Hours;
+  bool? get is24Hours => _$this._is24Hours;
+  set is24Hours(bool? is24Hours) => _$this._is24Hours = is24Hours;
+
   UpdateVendorBranchDtoBuilder() {
     UpdateVendorBranchDto._defaults(this);
   }
@@ -155,6 +187,9 @@ class UpdateVendorBranchDtoBuilder
       _isOpen = $v.isOpen;
       _isContracted = $v.isContracted;
       _commissionRate = $v.commissionRate;
+      _workingHours = $v.workingHours;
+      _isScheduleActive = $v.isScheduleActive;
+      _is24Hours = $v.is24Hours;
       _$v = null;
     }
     return this;
@@ -188,6 +223,9 @@ class UpdateVendorBranchDtoBuilder
             isOpen: isOpen,
             isContracted: isContracted,
             commissionRate: commissionRate,
+            workingHours: workingHours,
+            isScheduleActive: isScheduleActive,
+            is24Hours: is24Hours,
           );
     } catch (_) {
       late String _$failedField;

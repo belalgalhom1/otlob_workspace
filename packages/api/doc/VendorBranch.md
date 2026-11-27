@@ -16,6 +16,9 @@ Name | Type | Description | Notes
 **isOpen** | **bool** |  | 
 **isContracted** | **bool** |  | [optional] 
 **commissionRate** | **num** |  | [optional] 
+**workingHours** | [**JsonObject**](.md) |  | [optional] 
+**isScheduleActive** | **bool** |  | 
+**is24Hours** | **bool** |  | 
 **vendorId** | **String** |  | 
 **zoneId** | **String** |  | 
 **createdAt** | [**DateTime**](DateTime.md) |  | 

@@ -4,6 +4,7 @@
 
 // ignore_for_file: unused_element
 import 'package:built_collection/built_collection.dart';
+import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -21,6 +22,9 @@ part 'update_vendor_branch_dto.g.dart';
 /// * [isOpen] 
 /// * [isContracted] - Contracted status override for this branch. If null/undefined, falls back to vendor.isContracted.
 /// * [commissionRate] - Commission rate override for this branch in percent (e.g. 10 for 10%). If null/undefined, falls back to vendor.commissionRate.
+/// * [workingHours] 
+/// * [isScheduleActive] 
+/// * [is24Hours] 
 @BuiltValue()
 abstract class UpdateVendorBranchDto implements Built<UpdateVendorBranchDto, UpdateVendorBranchDtoBuilder> {
   @BuiltValueField(wireName: r'name')
@@ -51,6 +55,15 @@ abstract class UpdateVendorBranchDto implements Built<UpdateVendorBranchDto, Upd
   /// Commission rate override for this branch in percent (e.g. 10 for 10%). If null/undefined, falls back to vendor.commissionRate.
   @BuiltValueField(wireName: r'commissionRate')
   num? get commissionRate;
+
+  @BuiltValueField(wireName: r'workingHours')
+  JsonObject? get workingHours;
+
+  @BuiltValueField(wireName: r'isScheduleActive')
+  bool? get isScheduleActive;
+
+  @BuiltValueField(wireName: r'is24Hours')
+  bool? get is24Hours;
 
   UpdateVendorBranchDto._();
 
@@ -138,6 +151,27 @@ class _$UpdateVendorBranchDtoSerializer implements PrimitiveSerializer<UpdateVen
         specifiedType: const FullType(num),
       );
     }
+    if (object.workingHours != null) {
+      yield r'workingHours';
+      yield serializers.serialize(
+        object.workingHours,
+        specifiedType: const FullType(JsonObject),
+      );
+    }
+    if (object.isScheduleActive != null) {
+      yield r'isScheduleActive';
+      yield serializers.serialize(
+        object.isScheduleActive,
+        specifiedType: const FullType(bool),
+      );
+    }
+    if (object.is24Hours != null) {
+      yield r'is24Hours';
+      yield serializers.serialize(
+        object.is24Hours,
+        specifiedType: const FullType(bool),
+      );
+    }
   }
 
   @override
@@ -223,6 +257,27 @@ class _$UpdateVendorBranchDtoSerializer implements PrimitiveSerializer<UpdateVen
             specifiedType: const FullType(num),
           ) as num;
           result.commissionRate = valueDes;
+          break;
+        case r'workingHours':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(JsonObject),
+          ) as JsonObject;
+          result.workingHours = valueDes;
+          break;
+        case r'isScheduleActive':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isScheduleActive = valueDes;
+          break;
+        case r'is24Hours':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.is24Hours = valueDes;
           break;
         default:
           unhandled.add(key);

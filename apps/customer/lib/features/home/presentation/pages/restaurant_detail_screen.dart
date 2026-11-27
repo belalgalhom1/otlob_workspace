@@ -338,9 +338,11 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     List<dynamic> workingHours,
     bool isAr,
     bool isOpen,
-    StoreDetailPalette palette,
-  ) {
-    if (workingHours.isEmpty) return;
+    StoreDetailPalette palette, {
+    bool is24Hours = false,
+    String? branchName,
+  }) {
+    if (!is24Hours && workingHours.isEmpty) return;
 
     final now = DateTime.now();
     final todayDay = now.weekday % 7;
@@ -426,63 +428,128 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                       color: isOpen ? palette.gold : const Color(0xFFF87171),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      isAr ? 'ساعات العمل الأسبوعية' : 'Weekly Working Hours',
-                      style: StoreDetailPalette.text(
-                        size: 15,
-                        weight: FontWeight.w900,
-                        color: palette.textPrimary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isAr ? 'ساعات عمل الفرع' : 'Branch Working Hours',
+                            style: StoreDetailPalette.text(
+                              size: 15,
+                              weight: FontWeight.w900,
+                              color: palette.textPrimary,
+                            ),
+                          ),
+                          if (branchName != null && branchName.trim().isNotEmpty)
+                            Text(
+                              branchName.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: StoreDetailPalette.text(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: palette.textMuted,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                ...sortedHours.map((item) {
-                  final day = int.tryParse(item['day'].toString()) ?? 0;
-                  final isClosed = item['isClosed'] as bool? ?? false;
-                  final openTime = item['openTime'] as String? ?? '09:00';
-                  final closeTime = item['closeTime'] as String? ?? '22:00';
-                  final isToday = day == todayDay;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
+                if (is24Hours)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (palette.isDark
+                              ? const Color(0xFF4ADE80)
+                              : const Color(0xFF16A34A))
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: (palette.isDark
+                                ? const Color(0xFF4ADE80)
+                                : const Color(0xFF16A34A))
+                            .withValues(alpha: 0.30),
+                      ),
+                    ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          getDayName(day),
-                          style: StoreDetailPalette.text(
-                            size: 12.5,
-                            weight: isToday ? FontWeight.w900 : FontWeight.w600,
-                            color: isToday
-                                ? palette.goldText
-                                : palette.textPrimary,
+                        Icon(
+                          LucideIcons.clock,
+                          size: 16,
+                          color: palette.isDark
+                              ? const Color(0xFF4ADE80)
+                              : const Color(0xFF16A34A),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isAr
+                                ? 'مفتوح 24 ساعة طوال أيام الأسبوع'
+                                : 'Open 24 hours, 7 days a week',
+                            style: StoreDetailPalette.text(
+                              size: 13,
+                              weight: FontWeight.w800,
+                              color: palette.textPrimary,
+                            ),
                           ),
                         ),
-                        if (isClosed)
-                          Text(
-                            isAr ? 'إجازة' : 'Closed',
-                            style: StoreDetailPalette.text(
-                              size: 11.5,
-                              weight: FontWeight.w800,
-                              color: const Color(0xFFF87171),
-                            ),
-                          )
-                        else
-                          Text(
-                            '${formatTimeTo12Hour(openTime)} - ${formatTimeTo12Hour(closeTime)}',
-                            style: StoreDetailPalette.numeric(
-                              size: 12,
-                              weight:
-                                  isToday ? FontWeight.w800 : FontWeight.w600,
-                              color: isToday
-                                  ? palette.goldText
-                                  : palette.textMuted,
-                            ),
-                          ),
                       ],
                     ),
-                  );
-                }),
+                  )
+                else
+                  ...sortedHours.map((item) {
+                    final day = int.tryParse(item['day'].toString()) ?? 0;
+                    final isClosed = item['isClosed'] as bool? ?? false;
+                    final openTime = item['openTime'] as String? ?? '09:00';
+                    final closeTime = item['closeTime'] as String? ?? '22:00';
+                    final isToday = day == todayDay;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            getDayName(day),
+                            style: StoreDetailPalette.text(
+                              size: 12.5,
+                              weight:
+                                  isToday ? FontWeight.w900 : FontWeight.w600,
+                              color: isToday
+                                  ? palette.goldText
+                                  : palette.textPrimary,
+                            ),
+                          ),
+                          if (isClosed)
+                            Text(
+                              isAr ? 'إجازة' : 'Closed',
+                              style: StoreDetailPalette.text(
+                                size: 11.5,
+                                weight: FontWeight.w800,
+                                color: const Color(0xFFF87171),
+                              ),
+                            )
+                          else
+                            Text(
+                              '${formatTimeTo12Hour(openTime)} - ${formatTimeTo12Hour(closeTime)}',
+                              style: StoreDetailPalette.numeric(
+                                size: 12,
+                                weight:
+                                    isToday ? FontWeight.w800 : FontWeight.w600,
+                                color: isToday
+                                    ? palette.goldText
+                                    : palette.textMuted,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
               ],
             ),
           ),
@@ -539,8 +606,6 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
           final allMenu = (fullVendor['menu'] as List<dynamic>?) ?? const [];
           final categories =
               (fullVendor['categories'] as List<dynamic>?) ?? const [];
-          final workingHours =
-              (fullVendor['workingHours'] as List<dynamic>?) ?? const [];
           final branches =
               (fullVendor['branches'] as List<dynamic>?) ?? const [];
 
@@ -557,6 +622,12 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
               (branches.isNotEmpty && branches.first is Map
                   ? branches.first as Map
                   : null);
+
+          final branchIs24Hours = currentBranch?['is24Hours'] == true;
+          final rawBranchHours = currentBranch?['workingHours'];
+          final workingHours = rawBranchHours is List<dynamic>
+              ? rawBranchHours
+              : const <dynamic>[];
 
           final vendorStatusOpen = fullVendor['status'] == null ||
               fullVendor['status'].toString().toUpperCase() == 'OPEN';
@@ -670,6 +741,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                                       branches: branches,
                                       currentBranch: currentBranch,
                                       workingHours: workingHours,
+                                      is24Hours: branchIs24Hours,
                                       isOpen: isOpen,
                                       isAr: isAr,
                                       s: s,
@@ -1018,6 +1090,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
     required List<dynamic> branches,
     required Map? currentBranch,
     required List<dynamic> workingHours,
+    required bool is24Hours,
     required bool isOpen,
     required bool isAr,
     required AppStrings s,
@@ -1055,6 +1128,7 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
             .trim() ??
             '')
         : '';
+    final hasScheduleInfo = is24Hours || workingHours.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1082,13 +1156,15 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                   ),
                   const SizedBox(height: 2),
                   GestureDetector(
-                    onTap: workingHours.isNotEmpty
+                    onTap: hasScheduleInfo
                         ? () => _showWorkingHoursSheet(
                               context,
                               workingHours,
                               isAr,
                               isOpen,
                               palette,
+                              is24Hours: is24Hours,
+                              branchName: branchName,
                             )
                         : null,
                     child: Row(
@@ -1143,13 +1219,33 @@ class _VendorDetailScreenState extends ConsumerState<VendorDetailScreen> {
                                     height: 1.15,
                                   ),
                                 ),
+                                if (is24Hours) ...[
+                                  TextSpan(
+                                    text: ' • ',
+                                    style: StoreDetailPalette.text(
+                                      size: 12.5,
+                                      weight: FontWeight.w700,
+                                      color: palette.textMuted,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: isAr ? '24 ساعة' : '24/7',
+                                    style: StoreDetailPalette.text(
+                                      size: 12,
+                                      weight: FontWeight.w800,
+                                      color: palette.goldText,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (workingHours.isNotEmpty) ...[
+                        if (hasScheduleInfo) ...[
                           const SizedBox(width: 4),
                           Icon(
                             LucideIcons.clock,

@@ -25,12 +25,6 @@ class _$UpdateVendorDto extends UpdateVendorDto {
   final String? phone;
   @override
   final bool? isContracted;
-  @override
-  final JsonObject? workingHours;
-  @override
-  final bool? isScheduleActive;
-  @override
-  final bool? is24Hours;
 
   factory _$UpdateVendorDto([void Function(UpdateVendorDtoBuilder)? updates]) =>
       (UpdateVendorDtoBuilder()..update(updates))._build();
@@ -45,9 +39,6 @@ class _$UpdateVendorDto extends UpdateVendorDto {
     this.commissionRate,
     this.phone,
     this.isContracted,
-    this.workingHours,
-    this.isScheduleActive,
-    this.is24Hours,
   }) : super._();
   @override
   UpdateVendorDto rebuild(void Function(UpdateVendorDtoBuilder) updates) =>
@@ -68,10 +59,7 @@ class _$UpdateVendorDto extends UpdateVendorDto {
         taxId == other.taxId &&
         commissionRate == other.commissionRate &&
         phone == other.phone &&
-        isContracted == other.isContracted &&
-        workingHours == other.workingHours &&
-        isScheduleActive == other.isScheduleActive &&
-        is24Hours == other.is24Hours;
+        isContracted == other.isContracted;
   }
 
   @override
@@ -86,9 +74,6 @@ class _$UpdateVendorDto extends UpdateVendorDto {
     _$hash = $jc(_$hash, commissionRate.hashCode);
     _$hash = $jc(_$hash, phone.hashCode);
     _$hash = $jc(_$hash, isContracted.hashCode);
-    _$hash = $jc(_$hash, workingHours.hashCode);
-    _$hash = $jc(_$hash, isScheduleActive.hashCode);
-    _$hash = $jc(_$hash, is24Hours.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -104,10 +89,7 @@ class _$UpdateVendorDto extends UpdateVendorDto {
           ..add('taxId', taxId)
           ..add('commissionRate', commissionRate)
           ..add('phone', phone)
-          ..add('isContracted', isContracted)
-          ..add('workingHours', workingHours)
-          ..add('isScheduleActive', isScheduleActive)
-          ..add('is24Hours', is24Hours))
+          ..add('isContracted', isContracted))
         .toString();
   }
 }
@@ -154,20 +136,6 @@ class UpdateVendorDtoBuilder
   bool? get isContracted => _$this._isContracted;
   set isContracted(bool? isContracted) => _$this._isContracted = isContracted;
 
-  JsonObject? _workingHours;
-  JsonObject? get workingHours => _$this._workingHours;
-  set workingHours(JsonObject? workingHours) =>
-      _$this._workingHours = workingHours;
-
-  bool? _isScheduleActive;
-  bool? get isScheduleActive => _$this._isScheduleActive;
-  set isScheduleActive(bool? isScheduleActive) =>
-      _$this._isScheduleActive = isScheduleActive;
-
-  bool? _is24Hours;
-  bool? get is24Hours => _$this._is24Hours;
-  set is24Hours(bool? is24Hours) => _$this._is24Hours = is24Hours;
-
   UpdateVendorDtoBuilder() {
     UpdateVendorDto._defaults(this);
   }
@@ -184,9 +152,6 @@ class UpdateVendorDtoBuilder
       _commissionRate = $v.commissionRate;
       _phone = $v.phone;
       _isContracted = $v.isContracted;
-      _workingHours = $v.workingHours;
-      _isScheduleActive = $v.isScheduleActive;
-      _is24Hours = $v.is24Hours;
       _$v = null;
     }
     return this;
@@ -218,9 +183,6 @@ class UpdateVendorDtoBuilder
           commissionRate: commissionRate,
           phone: phone,
           isContracted: isContracted,
-          workingHours: workingHours,
-          isScheduleActive: isScheduleActive,
-          is24Hours: is24Hours,
         );
     replace(_$result);
     return _$result;

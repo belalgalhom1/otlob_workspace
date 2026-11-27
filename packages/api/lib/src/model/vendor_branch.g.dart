@@ -24,6 +24,12 @@ class _$VendorBranch extends VendorBranch {
   @override
   final num? commissionRate;
   @override
+  final JsonObject? workingHours;
+  @override
+  final bool isScheduleActive;
+  @override
+  final bool is24Hours;
+  @override
   final String vendorId;
   @override
   final String zoneId;
@@ -44,6 +50,9 @@ class _$VendorBranch extends VendorBranch {
     required this.isOpen,
     this.isContracted,
     this.commissionRate,
+    this.workingHours,
+    required this.isScheduleActive,
+    required this.is24Hours,
     required this.vendorId,
     required this.zoneId,
     required this.createdAt,
@@ -68,6 +77,9 @@ class _$VendorBranch extends VendorBranch {
         isOpen == other.isOpen &&
         isContracted == other.isContracted &&
         commissionRate == other.commissionRate &&
+        workingHours == other.workingHours &&
+        isScheduleActive == other.isScheduleActive &&
+        is24Hours == other.is24Hours &&
         vendorId == other.vendorId &&
         zoneId == other.zoneId &&
         createdAt == other.createdAt &&
@@ -85,6 +97,9 @@ class _$VendorBranch extends VendorBranch {
     _$hash = $jc(_$hash, isOpen.hashCode);
     _$hash = $jc(_$hash, isContracted.hashCode);
     _$hash = $jc(_$hash, commissionRate.hashCode);
+    _$hash = $jc(_$hash, workingHours.hashCode);
+    _$hash = $jc(_$hash, isScheduleActive.hashCode);
+    _$hash = $jc(_$hash, is24Hours.hashCode);
     _$hash = $jc(_$hash, vendorId.hashCode);
     _$hash = $jc(_$hash, zoneId.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
@@ -104,6 +119,9 @@ class _$VendorBranch extends VendorBranch {
           ..add('isOpen', isOpen)
           ..add('isContracted', isContracted)
           ..add('commissionRate', commissionRate)
+          ..add('workingHours', workingHours)
+          ..add('isScheduleActive', isScheduleActive)
+          ..add('is24Hours', is24Hours)
           ..add('vendorId', vendorId)
           ..add('zoneId', zoneId)
           ..add('createdAt', createdAt)
@@ -149,6 +167,20 @@ class VendorBranchBuilder
   set commissionRate(num? commissionRate) =>
       _$this._commissionRate = commissionRate;
 
+  JsonObject? _workingHours;
+  JsonObject? get workingHours => _$this._workingHours;
+  set workingHours(JsonObject? workingHours) =>
+      _$this._workingHours = workingHours;
+
+  bool? _isScheduleActive;
+  bool? get isScheduleActive => _$this._isScheduleActive;
+  set isScheduleActive(bool? isScheduleActive) =>
+      _$this._isScheduleActive = isScheduleActive;
+
+  bool? _is24Hours;
+  bool? get is24Hours => _$this._is24Hours;
+  set is24Hours(bool? is24Hours) => _$this._is24Hours = is24Hours;
+
   String? _vendorId;
   String? get vendorId => _$this._vendorId;
   set vendorId(String? vendorId) => _$this._vendorId = vendorId;
@@ -180,6 +212,9 @@ class VendorBranchBuilder
       _isOpen = $v.isOpen;
       _isContracted = $v.isContracted;
       _commissionRate = $v.commissionRate;
+      _workingHours = $v.workingHours;
+      _isScheduleActive = $v.isScheduleActive;
+      _is24Hours = $v.is24Hours;
       _vendorId = $v.vendorId;
       _zoneId = $v.zoneId;
       _createdAt = $v.createdAt;
@@ -226,6 +261,17 @@ class VendorBranchBuilder
           ),
           isContracted: isContracted,
           commissionRate: commissionRate,
+          workingHours: workingHours,
+          isScheduleActive: BuiltValueNullFieldError.checkNotNull(
+            isScheduleActive,
+            r'VendorBranch',
+            'isScheduleActive',
+          ),
+          is24Hours: BuiltValueNullFieldError.checkNotNull(
+            is24Hours,
+            r'VendorBranch',
+            'is24Hours',
+          ),
           vendorId: BuiltValueNullFieldError.checkNotNull(
             vendorId,
             r'VendorBranch',

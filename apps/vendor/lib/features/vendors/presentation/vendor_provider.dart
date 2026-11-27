@@ -5,7 +5,6 @@ import 'package:flutter/painting.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/features/orders/presentation/orders_provider.dart';
 import 'package:api/api.dart';
-import 'package:built_value/json_object.dart';
 import 'package:core/core.dart';
 
 part 'vendor_provider.g.dart';
@@ -85,7 +84,6 @@ class VendorNotifier extends _$VendorNotifier {
         if (data['taxId'] != null) b.taxId = data['taxId'];
         if (data['commissionRate'] != null) b.commissionRate = data['commissionRate'];
         if (data['isContracted'] != null) b.isContracted = data['isContracted'];
-        if (data['workingHours'] != null) b.workingHours = JsonObject(data['workingHours']);
       })
     );
 
@@ -237,9 +235,7 @@ class VendorNotifier extends _$VendorNotifier {
       if (data['commissionRate'] != null) b.commissionRate = data['commissionRate'];
       if (data['phone'] != null) b.phone = data['phone'];
       if (data['isContracted'] != null) b.isContracted = data['isContracted'];
-      if (data['isScheduleActive'] != null) b.isScheduleActive = data['isScheduleActive'];
       if (data['verticalId'] != null) b.verticalId = data['verticalId'];
-      if (data['workingHours'] != null) b.workingHours = JsonObject(data['workingHours']);
     });
 
     if (role == 'VENDOR_MEMBER') {

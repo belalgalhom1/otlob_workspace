@@ -219,6 +219,7 @@ Future<_RecordingCart> _pumpStoreDetail(
   ThemeMode themeMode = ThemeMode.dark,
   Locale locale = const Locale('ar'),
   Size viewport = const Size(390, 844),
+  Map<String, dynamic>? payload,
 }) async {
   SharedPreferences.setMockInitialValues({});
   await EasyLocalization.ensureInitialized();
@@ -229,7 +230,7 @@ Future<_RecordingCart> _pumpStoreDetail(
   addTearDown(tester.view.resetDevicePixelRatio);
 
   final cart = _RecordingCart();
-  final payload = _sampleStorePayload();
+  final resolvedPayload = payload ?? _sampleStorePayload();
 
   await tester.pumpWidget(
     EasyLocalization(
@@ -245,7 +246,7 @@ Future<_RecordingCart> _pumpStoreDetail(
           baseUrlProvider.overrideWithValue('https://api.otlob-egy.online'),
           authControllerProvider.overrideWith(_AuthController.new),
           data_providers.customerVendorsRepositoryProvider
-              .overrideWithValue(_FakeVendorsRepo(payload)),
+              .overrideWithValue(_FakeVendorsRepo(resolvedPayload)),
           favoritesProvider.overrideWith(_FakeFavorites.new),
           cartProvider.overrideWith(() => cart),
         ],
@@ -262,7 +263,7 @@ Future<_RecordingCart> _pumpStoreDetail(
                 size: viewport,
                 padding: const EdgeInsets.only(top: 44, bottom: 24),
               ),
-              child: VendorDetailScreen(restaurant: payload),
+              child: VendorDetailScreen(restaurant: resolvedPayload),
             ),
           ),
         ),
@@ -704,6 +705,57 @@ void main() {
         expect(find.text(entry.removedMsg), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
+    },
+  );
+
+  testWidgets(
+    'Displays active branch working hours and 24/7 indicator from branch payload',
+    (tester) async {
+      final payload = _sampleStorePayload();
+      payload['branches'] = [
+        {
+          'id': 'b-1',
+          'name': 'Maadi Branch',
+          'nameAr': 'فرع المعادي',
+          'isOpen': true,
+          'is24Hours': true,
+          'workingHours': const [],
+        },
+        {
+          'id': 'b-2',
+          'name': 'Nasr City Branch',
+          'nameAr': 'فرع مدينة نصر',
+          'isOpen': true,
+          'is24Hours': false,
+          'workingHours': const [
+            {
+              'day': 6,
+              'openTime': '10:00',
+              'closeTime': '23:00',
+              'isClosed': false,
+            },
+          ],
+        },
+      ];
+      payload['closestBranch'] = (payload['branches'] as List).first;
+
+      await _pumpStoreDetail(
+        tester,
+        locale: const Locale('en'),
+        payload: payload,
+      );
+
+      // Closest branch is 24/7 -> header shows 24/7 indicator
+      expect(find.textContaining('24/7', findRichText: true), findsOneWidget);
+
+      // Tapping status row opens branch working hours bottom sheet with branch name + 24h message
+      await tester.tap(find.textContaining('24/7', findRichText: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Branch Working Hours'), findsOneWidget);
+      expect(find.text('Maadi Branch'), findsWidgets);
+      expect(find.text('Open 24 hours, 7 days a week'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 }

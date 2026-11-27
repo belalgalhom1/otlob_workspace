@@ -9,6 +9,7 @@ import 'package:vendor/core/utils/error_utils.dart';
 import 'package:vendor/core/widgets/dashboard_search_bar.dart';
 import 'package:vendor/core/widgets/location_picker_map.dart';
 import 'package:data/data.dart';
+import 'package:vendor/features/vendors/presentation/widgets/branch_working_hours_editor.dart';
 import 'package:vendor/features/zones/presentation/zone_provider.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -288,18 +289,36 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
       );
     }
 
-    final bool isOpen = branch['isOpen'] as bool? ?? true;
+    final bool isOpen =
+        (branch['effectiveIsOpen'] as bool?) ?? (branch['isOpen'] as bool? ?? true);
+    final bool isClosedBySchedule = branch['isClosedBySchedule'] == true;
+    final bool is24Hours = branch['is24Hours'] == true;
+    final String? scheduleSummary = BranchWorkingHoursEditor.buildScheduleSummary(
+      is24Hours: is24Hours,
+      rawWorkingHours: branch['workingHours'],
+      isArabic: isAr,
+    );
+
+    final Color openColor = isOpen
+        ? AppColors.success
+        : (isClosedBySchedule ? AppColors.warning : AppColors.error);
+    final String openLabel = isOpen
+        ? (isAr ? 'مفتوح' : 'Open')
+        : isClosedBySchedule
+            ? (isAr ? 'مغلق (خارج المواعيد)' : 'Closed (Schedule)')
+            : (isAr ? 'مغلق' : 'Closed');
+
     final Widget openBadge = Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: (isOpen ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
+        color: openColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        isOpen ? (isAr ? 'مفتوح' : 'Open') : (isAr ? 'مغلق' : 'Closed'),
+        openLabel,
         style: TextStyle(
-          color: isOpen ? AppColors.success : AppColors.error,
+          color: openColor,
           fontSize: 11,
           fontWeight: FontWeight.bold,
         ),
@@ -309,9 +328,40 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     final dynamic commRate = branch['commissionRate'];
     return Wrap(
       spacing: 6,
+      runSpacing: 2,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         openBadge,
+        if (scheduleSummary != null)
+          Container(
+            margin: const EdgeInsets.only(top: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: (is24Hours ? AppColors.success : AppColors.primary)
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  LucideIcons.clock,
+                  size: 11,
+                  color: is24Hours ? AppColors.success : AppColors.primary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  scheduleSummary,
+                  style: TextStyle(
+                    color: is24Hours ? AppColors.success : AppColors.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
         contractWidget,
         if (commRate != null)
           Container(
@@ -531,6 +581,11 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
     String? errorMessage;
     bool? isContracted = branch?['isContracted'] as bool?;
     bool isOpen = branch?['isOpen'] as bool? ?? true;
+    bool isOpenTouched = false;
+    bool is24Hours = branch?['is24Hours'] as bool? ?? false;
+    bool isScheduleActive = branch?['isScheduleActive'] as bool? ?? true;
+    List<Map<String, dynamic>> workingHours =
+        BranchWorkingHoursEditor.parseWorkingHours(branch?['workingHours']);
 
     bool isSubmitting = false;
 
@@ -543,7 +598,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
           final theme = Theme.of(ctx);
 
           return AppDialog(
-            maxWidth: 520,
+            maxWidth: 580,
             canPop: !isSubmitting,
             header: AppDialogHeader(
               icon: isEdit ? LucideIcons.edit3 : LucideIcons.mapPin,
@@ -805,8 +860,35 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                         : (val) {
                             setDialogState(() {
                               isOpen = val;
+                              isOpenTouched = true;
                             });
                           },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppDialogSectionCard(
+                  child: BranchWorkingHoursEditor(
+                    is24Hours: is24Hours,
+                    isScheduleActive: isScheduleActive,
+                    workingHours: workingHours,
+                    enabled: !isSubmitting,
+                    onIs24HoursChanged: (val) {
+                      setDialogState(() {
+                        is24Hours = val;
+                        errorMessage = null;
+                      });
+                    },
+                    onIsScheduleActiveChanged: (val) {
+                      setDialogState(() {
+                        isScheduleActive = val;
+                      });
+                    },
+                    onWorkingHoursChanged: (updated) {
+                      setDialogState(() {
+                        workingHours = updated;
+                        errorMessage = null;
+                      });
+                    },
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -930,11 +1012,22 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                   });
                   return;
                 }
+                if (!is24Hours && workingHours.isEmpty) {
+                  setDialogState(() {
+                    errorMessage = isAr
+                        ? 'برجاء تحديد مواعيد العمل الأسبوعية للفرع أو تفعيل وضع 24 ساعة'
+                        : 'Please set weekly working hours for this branch or enable 24 Hours';
+                  });
+                  return;
+                }
 
                 setDialogState(() {
                   isSubmitting = true;
                   errorMessage = null;
                 });
+
+                final payloadWorkingHours =
+                    is24Hours ? <Map<String, dynamic>>[] : workingHours;
 
                 try {
                   bool success;
@@ -955,7 +1048,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                               lat: selectedLat,
                               lng: selectedLng,
                               zoneId: selectedZoneId,
-                              isOpen: isOpen,
+                              isOpen: isOpenTouched ? isOpen : null,
                               isContracted: isContracted,
                               commissionRate: canEditCommission &&
                                       commissionController.text
@@ -965,6 +1058,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                       commissionController.text.trim(),
                                     )
                                   : null,
+                              workingHours: payloadWorkingHours,
+                              isScheduleActive: isScheduleActive,
+                              is24Hours: is24Hours,
                               isAdmin: widget.userRole != 'VENDOR_MEMBER',
                             ) !=
                         null;
@@ -984,7 +1080,7 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                               lat: selectedLat!,
                               lng: selectedLng!,
                               zoneId: selectedZoneId,
-                              isOpen: isOpen,
+                              isOpen: isOpenTouched ? isOpen : null,
                               isContracted: isContracted,
                               commissionRate: canEditCommission &&
                                       commissionController.text
@@ -994,6 +1090,9 @@ class _BranchesScreenState extends ConsumerState<BranchesScreen> {
                                       commissionController.text.trim(),
                                     )
                                   : null,
+                              workingHours: payloadWorkingHours,
+                              isScheduleActive: isScheduleActive,
+                              is24Hours: is24Hours,
                               isAdmin: widget.userRole != 'VENDOR_MEMBER',
                             ) !=
                         null;

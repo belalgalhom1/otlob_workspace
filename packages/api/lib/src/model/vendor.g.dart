@@ -40,12 +40,6 @@ class _$Vendor extends Vendor {
   @override
   final bool isContracted;
   @override
-  final JsonObject? workingHours;
-  @override
-  final bool isScheduleActive;
-  @override
-  final bool is24Hours;
-  @override
   final String verticalId;
   @override
   final DateTime? deletedAt;
@@ -74,9 +68,6 @@ class _$Vendor extends Vendor {
     required this.status,
     required this.walletBalance,
     required this.isContracted,
-    this.workingHours,
-    required this.isScheduleActive,
-    required this.is24Hours,
     required this.verticalId,
     this.deletedAt,
     required this.createdAt,
@@ -109,9 +100,6 @@ class _$Vendor extends Vendor {
         status == other.status &&
         walletBalance == other.walletBalance &&
         isContracted == other.isContracted &&
-        workingHours == other.workingHours &&
-        isScheduleActive == other.isScheduleActive &&
-        is24Hours == other.is24Hours &&
         verticalId == other.verticalId &&
         deletedAt == other.deletedAt &&
         createdAt == other.createdAt &&
@@ -137,9 +125,6 @@ class _$Vendor extends Vendor {
     _$hash = $jc(_$hash, status.hashCode);
     _$hash = $jc(_$hash, walletBalance.hashCode);
     _$hash = $jc(_$hash, isContracted.hashCode);
-    _$hash = $jc(_$hash, workingHours.hashCode);
-    _$hash = $jc(_$hash, isScheduleActive.hashCode);
-    _$hash = $jc(_$hash, is24Hours.hashCode);
     _$hash = $jc(_$hash, verticalId.hashCode);
     _$hash = $jc(_$hash, deletedAt.hashCode);
     _$hash = $jc(_$hash, createdAt.hashCode);
@@ -167,9 +152,6 @@ class _$Vendor extends Vendor {
           ..add('status', status)
           ..add('walletBalance', walletBalance)
           ..add('isContracted', isContracted)
-          ..add('workingHours', workingHours)
-          ..add('isScheduleActive', isScheduleActive)
-          ..add('is24Hours', is24Hours)
           ..add('verticalId', verticalId)
           ..add('deletedAt', deletedAt)
           ..add('createdAt', createdAt)
@@ -248,20 +230,6 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
   bool? get isContracted => _$this._isContracted;
   set isContracted(bool? isContracted) => _$this._isContracted = isContracted;
 
-  JsonObject? _workingHours;
-  JsonObject? get workingHours => _$this._workingHours;
-  set workingHours(JsonObject? workingHours) =>
-      _$this._workingHours = workingHours;
-
-  bool? _isScheduleActive;
-  bool? get isScheduleActive => _$this._isScheduleActive;
-  set isScheduleActive(bool? isScheduleActive) =>
-      _$this._isScheduleActive = isScheduleActive;
-
-  bool? _is24Hours;
-  bool? get is24Hours => _$this._is24Hours;
-  set is24Hours(bool? is24Hours) => _$this._is24Hours = is24Hours;
-
   String? _verticalId;
   String? get verticalId => _$this._verticalId;
   set verticalId(String? verticalId) => _$this._verticalId = verticalId;
@@ -301,9 +269,6 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
       _status = $v.status;
       _walletBalance = $v.walletBalance;
       _isContracted = $v.isContracted;
-      _workingHours = $v.workingHours;
-      _isScheduleActive = $v.isScheduleActive;
-      _is24Hours = $v.is24Hours;
       _verticalId = $v.verticalId;
       _deletedAt = $v.deletedAt;
       _createdAt = $v.createdAt;
@@ -373,17 +338,6 @@ class VendorBuilder implements Builder<Vendor, VendorBuilder> {
             isContracted,
             r'Vendor',
             'isContracted',
-          ),
-          workingHours: workingHours,
-          isScheduleActive: BuiltValueNullFieldError.checkNotNull(
-            isScheduleActive,
-            r'Vendor',
-            'isScheduleActive',
-          ),
-          is24Hours: BuiltValueNullFieldError.checkNotNull(
-            is24Hours,
-            r'Vendor',
-            'is24Hours',
           ),
           verticalId: BuiltValueNullFieldError.checkNotNull(
             verticalId,

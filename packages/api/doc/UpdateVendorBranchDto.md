@@ -17,6 +17,9 @@ Name | Type | Description | Notes
 **isOpen** | **bool** |  | [optional] 
 **isContracted** | **bool** | Contracted status override for this branch. If null/undefined, falls back to vendor.isContracted. | [optional] 
 **commissionRate** | **num** | Commission rate override for this branch in percent (e.g. 10 for 10%). If null/undefined, falls back to vendor.commissionRate. | [optional] 
+**workingHours** | [**JsonObject**](.md) |  | [optional] 
+**isScheduleActive** | **bool** |  | [optional] 
+**is24Hours** | **bool** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

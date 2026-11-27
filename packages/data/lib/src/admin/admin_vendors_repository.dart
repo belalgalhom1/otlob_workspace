@@ -143,9 +143,12 @@ class AdminVendorsRepository {
     required double lat,
     required double lng,
     String? zoneId,
-    bool? isOpen = true,
+    bool? isOpen,
     bool? isContracted,
     int? commissionRate,
+    List<Map<String, dynamic>>? workingHours,
+    bool? isScheduleActive,
+    bool? is24Hours,
     bool isAdmin = true,
   }) async {
     final endpoint = isAdmin
@@ -160,9 +163,12 @@ class AdminVendorsRepository {
         if (phone != null && phone.isNotEmpty) 'phone': phone,
         'location': [lat, lng],
         if (zoneId != null && zoneId.isNotEmpty) 'zoneId': zoneId,
-        'isOpen': isOpen ?? true,
+        if (isOpen != null) 'isOpen': isOpen,
         if (isContracted != null) 'isContracted': isContracted,
         if (commissionRate != null) 'commissionRate': commissionRate,
+        if (workingHours != null) 'workingHours': workingHours,
+        if (isScheduleActive != null) 'isScheduleActive': isScheduleActive,
+        if (is24Hours != null) 'is24Hours': is24Hours,
       },
     );
     return ResponseParser.parse(response);
@@ -195,12 +201,16 @@ class AdminVendorsRepository {
     bool? isOpen,
     bool? isContracted,
     int? commissionRate,
+    List<Map<String, dynamic>>? workingHours,
+    bool? isScheduleActive,
+    bool? is24Hours,
     bool isAdmin = true,
   }) async {
     final endpoint = isAdmin
         ? '/vendors/$vendorId/branches/admin/$branchId'
         : '/vendors/$vendorId/branches/$branchId';
     final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
     if (nameAr != null) body['nameAr'] = nameAr;
     if (address != null) body['address'] = address;
     if (phone != null) body['phone'] = phone;
@@ -209,6 +219,9 @@ class AdminVendorsRepository {
     if (isOpen != null) body['isOpen'] = isOpen;
     if (isContracted != null) body['isContracted'] = isContracted;
     if (commissionRate != null) body['commissionRate'] = commissionRate;
+    if (workingHours != null) body['workingHours'] = workingHours;
+    if (isScheduleActive != null) body['isScheduleActive'] = isScheduleActive;
+    if (is24Hours != null) body['is24Hours'] = is24Hours;
     final response = await _dio.patch(
       endpoint,
       data: body,

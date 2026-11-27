@@ -3,7 +3,6 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -21,8 +20,6 @@ part 'create_vendor_dto.g.dart';
 /// * [commissionRate] 
 /// * [phone] 
 /// * [isContracted] 
-/// * [workingHours] 
-/// * [is24Hours] 
 @BuiltValue()
 abstract class CreateVendorDto implements Built<CreateVendorDto, CreateVendorDtoBuilder> {
   @BuiltValueField(wireName: r'storeName')
@@ -52,20 +49,13 @@ abstract class CreateVendorDto implements Built<CreateVendorDto, CreateVendorDto
   @BuiltValueField(wireName: r'isContracted')
   bool? get isContracted;
 
-  @BuiltValueField(wireName: r'workingHours')
-  JsonObject? get workingHours;
-
-  @BuiltValueField(wireName: r'is24Hours')
-  bool? get is24Hours;
-
   CreateVendorDto._();
 
   factory CreateVendorDto([void updates(CreateVendorDtoBuilder b)]) = _$CreateVendorDto;
 
   @BuiltValueHook(initializeBuilder: true)
   static void _defaults(CreateVendorDtoBuilder b) => b
-      ..isContracted = false
-      ..is24Hours = false;
+      ..isContracted = false;
 
   @BuiltValueSerializer(custom: true)
   static Serializer<CreateVendorDto> get serializer => _$CreateVendorDtoSerializer();
@@ -139,20 +129,6 @@ class _$CreateVendorDtoSerializer implements PrimitiveSerializer<CreateVendorDto
       yield r'isContracted';
       yield serializers.serialize(
         object.isContracted,
-        specifiedType: const FullType(bool),
-      );
-    }
-    if (object.workingHours != null) {
-      yield r'workingHours';
-      yield serializers.serialize(
-        object.workingHours,
-        specifiedType: const FullType(JsonObject),
-      );
-    }
-    if (object.is24Hours != null) {
-      yield r'is24Hours';
-      yield serializers.serialize(
-        object.is24Hours,
         specifiedType: const FullType(bool),
       );
     }
@@ -241,20 +217,6 @@ class _$CreateVendorDtoSerializer implements PrimitiveSerializer<CreateVendorDto
             specifiedType: const FullType(bool),
           ) as bool;
           result.isContracted = valueDes;
-          break;
-        case r'workingHours':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(JsonObject),
-          ) as JsonObject;
-          result.workingHours = valueDes;
-          break;
-        case r'is24Hours':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(bool),
-          ) as bool;
-          result.is24Hours = valueDes;
           break;
         default:
           unhandled.add(key);

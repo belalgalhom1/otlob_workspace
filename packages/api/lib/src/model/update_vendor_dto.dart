@@ -3,7 +3,6 @@
 //
 
 // ignore_for_file: unused_element
-import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -21,9 +20,6 @@ part 'update_vendor_dto.g.dart';
 /// * [commissionRate] 
 /// * [phone] 
 /// * [isContracted] 
-/// * [workingHours] 
-/// * [isScheduleActive] 
-/// * [is24Hours] 
 @BuiltValue()
 abstract class UpdateVendorDto implements Built<UpdateVendorDto, UpdateVendorDtoBuilder> {
   @BuiltValueField(wireName: r'storeName')
@@ -53,22 +49,12 @@ abstract class UpdateVendorDto implements Built<UpdateVendorDto, UpdateVendorDto
   @BuiltValueField(wireName: r'isContracted')
   bool? get isContracted;
 
-  @BuiltValueField(wireName: r'workingHours')
-  JsonObject? get workingHours;
-
-  @BuiltValueField(wireName: r'isScheduleActive')
-  bool? get isScheduleActive;
-
-  @BuiltValueField(wireName: r'is24Hours')
-  bool? get is24Hours;
-
   UpdateVendorDto._();
 
   factory UpdateVendorDto([void updates(UpdateVendorDtoBuilder b)]) = _$UpdateVendorDto;
 
   @BuiltValueHook(initializeBuilder: true)
-  static void _defaults(UpdateVendorDtoBuilder b) => b
-      ..is24Hours = false;
+  static void _defaults(UpdateVendorDtoBuilder b) => b;
 
   @BuiltValueSerializer(custom: true)
   static Serializer<UpdateVendorDto> get serializer => _$UpdateVendorDtoSerializer();
@@ -146,27 +132,6 @@ class _$UpdateVendorDtoSerializer implements PrimitiveSerializer<UpdateVendorDto
       yield r'isContracted';
       yield serializers.serialize(
         object.isContracted,
-        specifiedType: const FullType(bool),
-      );
-    }
-    if (object.workingHours != null) {
-      yield r'workingHours';
-      yield serializers.serialize(
-        object.workingHours,
-        specifiedType: const FullType(JsonObject),
-      );
-    }
-    if (object.isScheduleActive != null) {
-      yield r'isScheduleActive';
-      yield serializers.serialize(
-        object.isScheduleActive,
-        specifiedType: const FullType(bool),
-      );
-    }
-    if (object.is24Hours != null) {
-      yield r'is24Hours';
-      yield serializers.serialize(
-        object.is24Hours,
         specifiedType: const FullType(bool),
       );
     }
@@ -255,27 +220,6 @@ class _$UpdateVendorDtoSerializer implements PrimitiveSerializer<UpdateVendorDto
             specifiedType: const FullType(bool),
           ) as bool;
           result.isContracted = valueDes;
-          break;
-        case r'workingHours':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(JsonObject),
-          ) as JsonObject;
-          result.workingHours = valueDes;
-          break;
-        case r'isScheduleActive':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(bool),
-          ) as bool;
-          result.isScheduleActive = valueDes;
-          break;
-        case r'is24Hours':
-          final valueDes = serializers.deserialize(
-            value,
-            specifiedType: const FullType(bool),
-          ) as bool;
-          result.is24Hours = valueDes;
           break;
         default:
           unhandled.add(key);

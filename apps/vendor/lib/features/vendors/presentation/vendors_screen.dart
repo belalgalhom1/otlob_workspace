@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -946,78 +945,14 @@ class _VendorsScreenState extends ConsumerState<VendorsScreen> {
   }
 
   // ==========================================
-  // 5. STATUS & WORKING HOURS CALCULATION
+  // 5. STATUS DISPLAY (BACKEND SOURCE OF TRUTH)
   // ==========================================
   String _getEffectiveStatus(dynamic v) {
-    final globalStatus = v['status'] ?? 'CLOSED';
-    if (globalStatus != 'OPEN') return globalStatus;
-
-    var workingHours = v['workingHours'];
-    if (workingHours is String) {
-      try {
-        workingHours = jsonDecode(workingHours);
-      } catch (e) {
-        workingHours = null;
-      }
+    final globalStatus = (v['status'] ?? 'CLOSED').toString();
+    if (globalStatus == 'CLOSED' && v['isClosedBySchedule'] == true) {
+      return 'CLOSED_HOURS';
     }
-
-    if (workingHours == null || workingHours is! List || workingHours.isEmpty) {
-      return 'OPEN';
-    }
-
-    final now = DateTime.now();
-    final currentDay = now.weekday == 7 ? 0 : now.weekday;
-    final yesterdayDay = currentDay == 0 ? 6 : currentDay - 1;
-
-    final scheduleForToday = (workingHours).firstWhere(
-      (h) => h is Map && h['day'] == currentDay,
-      orElse: () => null,
-    );
-    final scheduleForYesterday = (workingHours).firstWhere(
-      (h) => h is Map && h['day'] == yesterdayDay,
-      orElse: () => null,
-    );
-
-    bool isOpenNow = false;
-    final currentMins = now.hour * 60 + now.minute;
-
-    try {
-      // 1. Check if we are in yesterday's overnight shift
-      if (scheduleForYesterday != null && scheduleForYesterday['isClosed'] != true) {
-        final openParts = (scheduleForYesterday['openTime'] as String).split(':');
-        final closeParts = (scheduleForYesterday['closeTime'] as String).split(':');
-        final openMins = int.parse(openParts[0]) * 60 + int.parse(openParts[1]);
-        final closeMins = int.parse(closeParts[0]) * 60 + int.parse(closeParts[1]);
-
-        if (closeMins < openMins) {
-          if (currentMins <= closeMins) {
-            isOpenNow = true;
-          }
-        }
-      }
-
-      // 2. Check if we are in today's shift
-      if (!isOpenNow && scheduleForToday != null && scheduleForToday['isClosed'] != true) {
-        final openParts = (scheduleForToday['openTime'] as String).split(':');
-        final closeParts = (scheduleForToday['closeTime'] as String).split(':');
-        final openMins = int.parse(openParts[0]) * 60 + int.parse(openParts[1]);
-        final closeMins = int.parse(closeParts[0]) * 60 + int.parse(closeParts[1]);
-
-        if (closeMins < openMins) {
-          if (currentMins >= openMins) {
-            isOpenNow = true;
-          }
-        } else {
-          if (currentMins >= openMins && currentMins <= closeMins) {
-            isOpenNow = true;
-          }
-        }
-      }
-
-      return isOpenNow ? 'OPEN' : 'CLOSED_HOURS';
-    } catch (e) {
-      return 'OPEN';
-    }
+    return globalStatus;
   }
 
   Widget _buildStatusChip(BuildContext context, dynamic v) {

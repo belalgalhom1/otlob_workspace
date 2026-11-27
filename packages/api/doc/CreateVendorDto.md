@@ -17,8 +17,6 @@ Name | Type | Description | Notes
 **commissionRate** | **num** |  | [optional] 
 **phone** | **String** |  | [optional] 
 **isContracted** | **bool** |  | [optional] [default to false]
-**workingHours** | [**JsonObject**](.md) |  | [optional] 
-**is24Hours** | **bool** |  | [optional] [default to false]
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

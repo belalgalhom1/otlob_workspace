@@ -3,6 +3,7 @@
 //
 
 // ignore_for_file: unused_element
+import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -19,6 +20,9 @@ part 'vendor_branch.g.dart';
 /// * [isOpen] 
 /// * [isContracted] 
 /// * [commissionRate] 
+/// * [workingHours] 
+/// * [isScheduleActive] 
+/// * [is24Hours] 
 /// * [vendorId] 
 /// * [zoneId] 
 /// * [createdAt] 
@@ -48,6 +52,15 @@ abstract class VendorBranch implements Built<VendorBranch, VendorBranchBuilder> 
 
   @BuiltValueField(wireName: r'commissionRate')
   num? get commissionRate;
+
+  @BuiltValueField(wireName: r'workingHours')
+  JsonObject? get workingHours;
+
+  @BuiltValueField(wireName: r'isScheduleActive')
+  bool get isScheduleActive;
+
+  @BuiltValueField(wireName: r'is24Hours')
+  bool get is24Hours;
 
   @BuiltValueField(wireName: r'vendorId')
   String get vendorId;
@@ -132,6 +145,23 @@ class _$VendorBranchSerializer implements PrimitiveSerializer<VendorBranch> {
         specifiedType: const FullType(num),
       );
     }
+    if (object.workingHours != null) {
+      yield r'workingHours';
+      yield serializers.serialize(
+        object.workingHours,
+        specifiedType: const FullType(JsonObject),
+      );
+    }
+    yield r'isScheduleActive';
+    yield serializers.serialize(
+      object.isScheduleActive,
+      specifiedType: const FullType(bool),
+    );
+    yield r'is24Hours';
+    yield serializers.serialize(
+      object.is24Hours,
+      specifiedType: const FullType(bool),
+    );
     yield r'vendorId';
     yield serializers.serialize(
       object.vendorId,
@@ -230,6 +260,27 @@ class _$VendorBranchSerializer implements PrimitiveSerializer<VendorBranch> {
             specifiedType: const FullType(num),
           ) as num;
           result.commissionRate = valueDes;
+          break;
+        case r'workingHours':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(JsonObject),
+          ) as JsonObject;
+          result.workingHours = valueDes;
+          break;
+        case r'isScheduleActive':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.isScheduleActive = valueDes;
+          break;
+        case r'is24Hours':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(bool),
+          ) as bool;
+          result.is24Hours = valueDes;
           break;
         case r'vendorId':
           final valueDes = serializers.deserialize(

@@ -24,9 +24,6 @@ Name | Type | Description | Notes
 **status** | [**VendorStatus**](VendorStatus.md) |  | 
 **walletBalance** | **num** |  | 
 **isContracted** | **bool** |  | 
-**workingHours** | [**JsonObject**](.md) |  | [optional] 
-**isScheduleActive** | **bool** |  | 
-**is24Hours** | **bool** |  | 
 **verticalId** | **String** |  | 
 **deletedAt** | [**DateTime**](DateTime.md) |  | [optional] 
 **createdAt** | [**DateTime**](DateTime.md) |  | 
