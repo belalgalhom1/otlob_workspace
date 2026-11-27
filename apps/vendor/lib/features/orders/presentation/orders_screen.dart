@@ -2422,171 +2422,34 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     AppOrderType orderType,
     bool isArabic,
   ) {
-    if (status == 'CANCELLED') return const SizedBox.shrink();
+    final currentStep = OrderTypeHelper.currentProgressStepIndex(
+      orderType,
+      status,
+    );
+    if (currentStep < 0) return const SizedBox.shrink();
 
-    int currentStep = 0;
-    if (orderType.isNonStandard) {
-      if (status == 'DRIVER_ASSIGNED' ||
-          status == 'PENDING_PAYMENT' ||
-          status == 'READY_FOR_PICKUP') {
-        currentStep = 1;
-      } else if (status == 'PICKED_UP' ||
-          status == 'PARTIALLY_PICKED_UP' ||
-          status == 'IN_TRANSIT' ||
-          status == 'ARRIVING') {
-        currentStep = 2;
-      } else if (status == 'DELIVERED') {
-        currentStep = 3;
-      }
-    } else {
-      if (status == 'PREPARING' ||
-          status == 'COOKING' ||
-          status == 'ACCEPTED' ||
-          status == 'LOOKING_FOR_DRIVER' ||
-          status == 'DRIVER_ASSIGNED' ||
-          status == 'PENDING_PAYMENT') {
-        currentStep = 1;
-      } else if (status == 'READY_FOR_PICKUP' ||
-          status == 'PICKED_UP' ||
-          status == 'PARTIALLY_PICKED_UP') {
-        currentStep = 2;
-      } else if (status == 'DELIVERED') {
-        currentStep = 3;
-      }
-    }
+    final steps = OrderTypeHelper.progressSteps(
+      orderType,
+      isArabic: isArabic,
+    )
+        .map(
+          (step) => OrderProgressStepItem(
+            label: step.label,
+            icon: OrderStatusProgressLine.iconForStageKey(step.key),
+          ),
+        )
+        .toList();
 
-    final List<String> steps;
-    if (orderType.isRide) {
-      steps = isArabic
-          ? ['تم الطلب', 'تعيين الكابتن', 'قيد التنفيذ', 'مكتملة']
-          : ['Requested', 'Driver Assigned', 'In Progress', 'Completed'];
-    } else if (orderType.isCustomDelivery) {
-      steps = isArabic
-          ? ['تم الطلب', 'تعيين السائق', 'تم الاستلام', 'تم التوصيل']
-          : ['Requested', 'Driver Assigned', 'Picked Up', 'Delivered'];
-    } else {
-      steps = isArabic
-          ? ['تم الطلب', 'التحضير', 'في الطريق', 'تم التوصيل']
-          : ['Placed', 'Preparing', 'On Way', 'Delivered'];
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(
-            context,
-          ).colorScheme.onSurface.withValues(alpha: 0.04),
-        ),
+    return OrderStatusProgressLine(
+      steps: steps,
+      currentStep: currentStep,
+      activeStatusLabel: OrderTypeHelper.customerStatusLabel(
+        orderType,
+        status,
+        isArabic: isArabic,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(4, (index) {
-          final isActive = index <= currentStep;
-          final isCompleted = index < currentStep;
-          final label = steps[index];
-
-          return Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 2,
-                        color: index == 0
-                            ? Colors.transparent
-                            : (isActive
-                                  ? AppColors.primary
-                                  : Theme.of(context).colorScheme.onSurface
-                                        .withValues(alpha: 0.08)),
-                      ),
-                    ),
-                    Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCompleted
-                            ? AppColors.primary
-                            : (isActive
-                                  ? Colors.white
-                                  : Theme.of(context).colorScheme.surface),
-                        border: Border.all(
-                          color: isActive
-                              ? AppColors.primary
-                              : Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.2),
-                          width: 2,
-                        ),
-                      ),
-                      child: isCompleted
-                          ? Icon(
-                              Icons.check,
-                              size: 12,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            )
-                          : Center(
-                              child: Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isActive
-                                      ? AppColors.primary
-                                      : Theme.of(context).colorScheme.onSurface
-                                            .withValues(alpha: 0.2),
-                                ),
-                              ),
-                            ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        height: 2,
-                        color: index == 3
-                            ? Colors.transparent
-                            : (index < currentStep
-                                  ? AppColors.primary
-                                  : Theme.of(context).colorScheme.onSurface
-                                        .withValues(alpha: 0.08)),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                        color: isActive
-                            ? Theme.of(context).colorScheme.onSurface
-                            : Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.55),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ),
+      margin: const EdgeInsets.symmetric(vertical: 14),
+      accentColor: AppColors.primary,
     );
   }
 

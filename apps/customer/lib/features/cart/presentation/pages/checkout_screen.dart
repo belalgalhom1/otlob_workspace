@@ -14,6 +14,7 @@ import 'package:otlob_customer/core/utils/error_utils.dart';
 import '../providers/cart_controller.dart';
 import '../../../home/presentation/providers/vendor_detail_controller.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
+import '../../../orders/presentation/utils/wallet_payment_helper.dart';
 import '../../../profile/presentation/providers/profile_controller.dart';
 import '../../../profile/presentation/providers/coin_history_provider.dart';
 import '../../../profile/presentation/providers/delivery_address_provider.dart';
@@ -297,6 +298,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (!mounted) return;
 
     if (errorMsg == null && orderId != null) {
+      final selectedChannel = CustomerPaymentChannel.fromStorage(
+        _selectedPayment,
+      );
+      if (selectedChannel != null) {
+        await CustomerPaymentPreferenceStore.save(orderId, selectedChannel);
+        if (!mounted) return;
+      }
       setState(() {
         _orderPlaced = true;
         _isProcessing = false;
@@ -726,9 +734,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0, left: 8.0, right: 8.0),
                       child: Text(
-                        s.isArabic
-                            ? 'ملاحظة: سيتم عرض رقم محفظة المندوب لتحويل المبلغ إليه بعد تأكيد الطلب.'
-                            : 'Note: You will be shown the driver\'s wallet number to transfer the amount after placing the order.',
+                        _selectedPayment == 'MOBILE_WALLET_INSTAPAY'
+                            ? (s.isArabic
+                                ? 'ملاحظة: سيتم عرض حساب إنستا باي الخاص بالمندوب لتحويل المبلغ إليه بعد تأكيد الطلب.'
+                                : 'Note: You will be shown the driver\'s InstaPay account to transfer the amount after placing the order.')
+                            : (s.isArabic
+                                ? 'ملاحظة: سيتم عرض رقم محفظة المندوب لتحويل المبلغ إليه بعد تأكيد الطلب.'
+                                : 'Note: You will be shown the driver\'s wallet number to transfer the amount after placing the order.'),
                         style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
                       ),
                     ),

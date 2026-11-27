@@ -30,6 +30,7 @@ import 'dart:math' as math;
 import '../../../../core/services/location_service.dart';
 import '../providers/orders_provider.dart';
 import '../utils/order_geo_utils.dart';
+import '../utils/wallet_payment_helper.dart';
 import 'package:data/providers.dart';
 import 'package:data/data.dart' show ResolvedRoadRoute;
 import '../widgets/order_tracking_sheet.dart';
@@ -52,30 +53,6 @@ class _TrackingLifecycleObserver with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
   }
-}
-
-/// Wallet label using existing translations only: InstaPay wallets show
-/// InstaPay, everything else shows Mobile Wallet. No custom names added.
-String _trackingWalletProviderName(Map<dynamic, dynamic> wallet, AppStrings s) {
-  if (_trackingIsInstaPay(wallet)) return s.instapay;
-  return s.mobileWallet;
-}
-
-bool _trackingIsInstaPay(Map<dynamic, dynamic> wallet) {
-  return (wallet['type'] ?? wallet['provider'] ?? '')
-      .toString()
-      .toUpperCase()
-      .contains('INSTAPAY');
-}
-
-/// Mobile-wallet payments show the mobile-money wallets (Vodafone etc.),
-/// not InstaPay — unless InstaPay is all the driver has (fallback).
-List<dynamic> _trackingVisibleWallets(List<dynamic> wallets) {
-  final mobile = wallets.where((w) {
-    final m = w is Map ? Map<dynamic, dynamic>.from(w) : <dynamic, dynamic>{};
-    return !_trackingIsInstaPay(m);
-  }).toList();
-  return mobile.isNotEmpty ? mobile : wallets;
 }
 
 class OrderTrackingScreen extends ConsumerStatefulWidget {
@@ -409,6 +386,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
   @override
   void initState() {
     super.initState();
+    unawaited(CustomerPaymentPreferenceStore.ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    }));
     _driverMoveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -1944,31 +1924,42 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen>
               ),
             ),
           ),
-          Text(
-            s.isArabic
-                ? 'يرجى تحويل المبلغ للكابتن على المحفظة الإلكترونية ثم تأكيد التحويل. يمكنك استخدام المحادثة لإرسال الإيصال.'
-                : "Please transfer the amount to the driver's mobile wallet, then confirm. You can use chat to send the receipt.",
-            style: const TextStyle(fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          if (_driverMobileWallets.isNotEmpty)
-            ..._trackingVisibleWallets(
-              _driverMobileWallets,
-            ).map((wallet) {
-              final walletMap = wallet is Map
-                  ? Map<dynamic, dynamic>.from(wallet)
-                  : <dynamic, dynamic>{};
-              final number =
-                  (walletMap['number'] ?? walletMap['walletNumber'] ?? '')
-                      .toString();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  '${_trackingWalletProviderName(walletMap, s)}: $number',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+          Builder(
+            builder: (context) {
+              final filteredWallets = WalletPaymentHelper.filterDriverWallets(
+                _driverMobileWallets,
+                preferredChannel: CustomerPaymentPreferenceStore.getSync(
+                  widget.orderId,
                 ),
               );
-            }),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    WalletPaymentHelper.transferInstruction(
+                      filtered: filteredWallets,
+                      isArabic: s.isArabic,
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  if (filteredWallets.wallets.isNotEmpty)
+                    ...filteredWallets.wallets.map((wallet) {
+                      final number =
+                          (wallet['number'] ?? wallet['walletNumber'] ?? '')
+                              .toString();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '${WalletPaymentHelper.providerLabel(wallet, isArabic: s.isArabic)}: $number',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    }),
+                ],
+              );
+            },
+          ),
           const SizedBox(height: 12),
           if (paidClaimed)
             Row(

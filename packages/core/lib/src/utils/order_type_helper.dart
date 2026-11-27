@@ -20,6 +20,18 @@ enum AppOrderType {
   bool get hasStoreFulfillment => this == AppOrderType.standard;
 }
 
+/// A single step in the canonical order lifecycle timeline, derived from the
+/// backend `OrderStatus` state machine.
+class OrderProgressStep {
+  final String key;
+  final String label;
+
+  const OrderProgressStep({
+    required this.key,
+    required this.label,
+  });
+}
+
 /// Shared single-source-of-truth helpers for distinguishing normal passenger
 /// rides (`RIDE`), courier deliveries (`CUSTOM_DELIVERY`), and store orders
 /// (`STANDARD`) across Customer, Driver, and Vendor Admin apps.
@@ -395,6 +407,165 @@ class OrderTypeHelper {
         return isArabic ? 'إلغاء التوصيل' : 'Cancel Delivery';
       case AppOrderType.standard:
         return isArabic ? 'إلغاء الطلب' : 'Cancel Order';
+    }
+  }
+
+  /// Ordered lifecycle steps for the order progress line, mirroring the
+  /// backend `OrderStatus` state machine for each [AppOrderType].
+  static List<OrderProgressStep> progressSteps(
+    AppOrderType type, {
+    required bool isArabic,
+  }) {
+    switch (type) {
+      case AppOrderType.ride:
+        return [
+          OrderProgressStep(
+            key: 'PENDING',
+            label: isArabic ? 'تم الطلب' : 'Requested',
+          ),
+          OrderProgressStep(
+            key: 'LOOKING_FOR_DRIVER',
+            label: isArabic ? 'بحث عن كابتن' : 'Finding Driver',
+          ),
+          OrderProgressStep(
+            key: 'DRIVER_ASSIGNED',
+            label: isArabic ? 'تعيين كابتن' : 'Driver Assigned',
+          ),
+          OrderProgressStep(
+            key: 'READY_FOR_PICKUP',
+            label: isArabic ? 'وصل الكابتن' : 'Arrived',
+          ),
+          OrderProgressStep(
+            key: 'PICKED_UP',
+            label: isArabic ? 'قيد التنفيذ' : 'In Progress',
+          ),
+          OrderProgressStep(
+            key: 'DELIVERED',
+            label: isArabic ? 'مكتملة' : 'Completed',
+          ),
+        ];
+      case AppOrderType.customDelivery:
+        return [
+          OrderProgressStep(
+            key: 'PENDING',
+            label: isArabic ? 'تم الطلب' : 'Requested',
+          ),
+          OrderProgressStep(
+            key: 'LOOKING_FOR_DRIVER',
+            label: isArabic ? 'بحث عن سائق' : 'Finding Driver',
+          ),
+          OrderProgressStep(
+            key: 'DRIVER_ASSIGNED',
+            label: isArabic ? 'تعيين سائق' : 'Driver Assigned',
+          ),
+          OrderProgressStep(
+            key: 'READY_FOR_PICKUP',
+            label: isArabic ? 'وصل السائق' : 'Arrived',
+          ),
+          OrderProgressStep(
+            key: 'PICKED_UP',
+            label: isArabic ? 'تم الاستلام' : 'Picked Up',
+          ),
+          OrderProgressStep(
+            key: 'DELIVERED',
+            label: isArabic ? 'تم التوصيل' : 'Delivered',
+          ),
+        ];
+      case AppOrderType.standard:
+        return [
+          OrderProgressStep(
+            key: 'PENDING',
+            label: isArabic ? 'تم الطلب' : 'Placed',
+          ),
+          OrderProgressStep(
+            key: 'ACCEPTED',
+            label: isArabic ? 'تم القبول' : 'Accepted',
+          ),
+          OrderProgressStep(
+            key: 'LOOKING_FOR_DRIVER',
+            label: isArabic ? 'بحث عن سائق' : 'Finding Driver',
+          ),
+          OrderProgressStep(
+            key: 'DRIVER_ASSIGNED',
+            label: isArabic ? 'تعيين سائق' : 'Driver Assigned',
+          ),
+          OrderProgressStep(
+            key: 'PREPARING',
+            label: isArabic ? 'التحضير' : 'Preparing',
+          ),
+          OrderProgressStep(
+            key: 'READY_FOR_PICKUP',
+            label: isArabic ? 'جاهز' : 'Ready',
+          ),
+          OrderProgressStep(
+            key: 'PICKED_UP',
+            label: isArabic ? 'تم الاستلام' : 'Picked Up',
+          ),
+          OrderProgressStep(
+            key: 'DELIVERED',
+            label: isArabic ? 'تم التوصيل' : 'Delivered',
+          ),
+        ];
+    }
+  }
+
+  /// Resolves the 0-based active index into [progressSteps] for [rawStatus],
+  /// or `-1` when the order is cancelled (timeline should be hidden).
+  static int currentProgressStepIndex(
+    AppOrderType type,
+    String? rawStatus,
+  ) {
+    final s = (rawStatus ?? '').trim().toUpperCase();
+    if (s == 'CANCELLED') return -1;
+
+    if (type.isNonStandard) {
+      switch (s) {
+        case 'LOOKING_FOR_DRIVER':
+          return 1;
+        case 'DRIVER_ASSIGNED':
+        case 'PENDING_PAYMENT':
+          return 2;
+        case 'READY_FOR_PICKUP':
+          return 3;
+        case 'PARTIALLY_PICKED_UP':
+        case 'PICKED_UP':
+        case 'IN_TRANSIT':
+        case 'ARRIVING':
+          return 4;
+        case 'DELIVERED':
+          return 5;
+        case 'PENDING':
+        case 'CHANGES_REQUESTED':
+        case 'ACCEPTED':
+        default:
+          return 0;
+      }
+    }
+
+    switch (s) {
+      case 'ACCEPTED':
+        return 1;
+      case 'LOOKING_FOR_DRIVER':
+        return 2;
+      case 'DRIVER_ASSIGNED':
+      case 'PENDING_PAYMENT':
+        return 3;
+      case 'PREPARING':
+      case 'COOKING':
+        return 4;
+      case 'READY_FOR_PICKUP':
+        return 5;
+      case 'PARTIALLY_PICKED_UP':
+      case 'PICKED_UP':
+      case 'IN_TRANSIT':
+      case 'ARRIVING':
+        return 6;
+      case 'DELIVERED':
+        return 7;
+      case 'PENDING':
+      case 'CHANGES_REQUESTED':
+      default:
+        return 0;
     }
   }
 

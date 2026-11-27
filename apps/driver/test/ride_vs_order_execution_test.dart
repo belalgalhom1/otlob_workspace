@@ -434,4 +434,29 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'OrderExecutionScreen back button returns driver cleanly to /dashboard even when opened directly',
+    (tester) async {
+      final repo = _FakeDriverOrdersRepository();
+      final notifier = _RecordingOrderExecution(_rideOrder());
+
+      await tester.pumpWidget(
+        buildExecutionHarness(notifier: notifier, repo: repo),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final backBtn = find.byKey(
+        const ValueKey('order_execution_back_to_dashboard_btn'),
+      );
+      expect(backBtn, findsOneWidget);
+
+      await tester.tap(backBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('DASHBOARD'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

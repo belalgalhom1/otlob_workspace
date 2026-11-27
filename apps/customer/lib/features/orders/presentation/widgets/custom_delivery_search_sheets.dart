@@ -21,6 +21,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/image_utils.dart';
 import '../providers/custom_delivery_search_controller.dart';
 import '../providers/orders_provider.dart';
+import '../utils/wallet_payment_helper.dart';
 import '../widgets/rate_order_bottom_sheet.dart';
 
 /// Main draggable bottom sheet content for [CustomDeliverySearchScreen].
@@ -466,23 +467,22 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
     }
   }
 
-  List<Map<String, dynamic>> _visibleDriverWallets(
-    Map<String, dynamic> driver,
-  ) {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(CustomerPaymentPreferenceStore.ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    }));
+  }
+
+  FilteredDriverWallets _filteredDriverWallets(Map<String, dynamic> driver) {
     final raw = driver['mobileWallets'];
-    if (raw is! List || raw.isEmpty) return const [];
-    final wallets = raw
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .where((w) => w['isActive'] != false)
-        .toList();
-    bool isInstaPay(Map<String, dynamic> w) =>
-        (w['type'] ?? w['provider'] ?? '')
-            .toString()
-            .toUpperCase()
-            .contains('INSTAPAY');
-    final mobile = wallets.where((w) => !isInstaPay(w)).toList();
-    return mobile.isNotEmpty ? mobile : wallets;
+    return WalletPaymentHelper.filterDriverWallets(
+      raw is List ? raw : const [],
+      preferredChannel: CustomerPaymentPreferenceStore.getSync(
+        widget.state.orderId,
+      ),
+    );
   }
 
   Future<void> _pickPaymentReceipt() async {
@@ -570,7 +570,8 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
     final amountDue = isUpfront ? upfront : total;
     final paidClaimed =
         (order['paymentStatus']?.toString().toUpperCase() ?? '') == 'PAID';
-    final wallets = _visibleDriverWallets(driver);
+    final filteredWallets = _filteredDriverWallets(driver);
+    final wallets = filteredWallets.wallets;
 
     const accent = Color(0xFFD97706);
 
@@ -635,9 +636,10 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
           ),
           const SizedBox(height: 10),
           Text(
-            isAr
-                ? 'حوّل المبلغ إلى محفظة الكابتن ثم أرفق لقطة شاشة للإيصال لبدء الرحلة.'
-                : "Transfer the amount to your driver's mobile wallet and upload the receipt screenshot to proceed.",
+            WalletPaymentHelper.transferInstruction(
+              filtered: filteredWallets,
+              isArabic: isAr,
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               height: 1.4,
@@ -648,13 +650,10 @@ class _DriverFoundSheetViewState extends ConsumerState<_DriverFoundSheetView> {
             ...wallets.map((w) {
               final number =
                   (w['number'] ?? w['walletNumber'] ?? '').toString().trim();
-              final isInsta = (w['type'] ?? w['provider'] ?? '')
-                  .toString()
-                  .toUpperCase()
-                  .contains('INSTAPAY');
-              final providerLabel = isInsta
-                  ? (isAr ? 'إنستا باي' : 'InstaPay')
-                  : (isAr ? 'محفظة إلكترونية' : 'Mobile Wallet');
+              final providerLabel = WalletPaymentHelper.providerLabel(
+                w,
+                isArabic: isAr,
+              );
               return Container(
                 margin: const EdgeInsets.only(bottom: 6),
                 padding: const EdgeInsets.symmetric(

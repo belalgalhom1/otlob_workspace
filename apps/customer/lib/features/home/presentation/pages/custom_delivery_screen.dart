@@ -21,6 +21,7 @@ import '../../../../core/utils/image_utils.dart';
 import '../../../../core/widgets/location_picker_map.dart';
 import '../../../orders/presentation/providers/custom_delivery_search_controller.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
+import '../../../orders/presentation/utils/wallet_payment_helper.dart';
 import '../../../profile/presentation/providers/coin_history_provider.dart';
 import '../widgets/special_delivery_tokens.dart';
 
@@ -249,7 +250,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
         details: _serviceType == 'delivery'
             ? (detailsText.isEmpty ? 'Custom delivery item' : detailsText)
             : (detailsText.isEmpty ? null : detailsText),
-        paymentMethod: _paymentMethod,
+        paymentMethod: _paymentMethod.startsWith('MOBILE_WALLET')
+            ? 'MOBILE_WALLET'
+            : _paymentMethod,
         coinsToUse: coinsToUse,
       );
     } finally {
@@ -549,7 +552,9 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
             ],
             details: details.isEmpty ? null : details,
             specialRequest: specialRequest.isEmpty ? null : specialRequest,
-            paymentMethod: _paymentMethod,
+            paymentMethod: _paymentMethod.startsWith('MOBILE_WALLET')
+            ? 'MOBILE_WALLET'
+            : _paymentMethod,
             vehicleType: _selectedVehicle,
             coinsToUse: coinsToUse,
             idempotencyKey: _clientOrderKeyForCheckout(),
@@ -558,6 +563,16 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       if (!mounted) return;
 
       if (outcome.isSuccess && outcome.orderId != 'SUCCESS') {
+        final selectedChannel = CustomerPaymentChannel.fromStorage(
+          _paymentMethod,
+        );
+        if (selectedChannel != null && outcome.orderId != null) {
+          await CustomerPaymentPreferenceStore.save(
+            outcome.orderId!,
+            selectedChannel,
+          );
+          if (!mounted) return;
+        }
         _clientOrderKey = null;
         context.go('/home');
         context.push(
@@ -629,7 +644,7 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
     final estGrandTotal = hasEstimate
         ? (est['grandTotal'] as num?)?.toDouble()
         : null;
-    final isWalletPayment = _paymentMethod == 'MOBILE_WALLET';
+    final isWalletPayment = _paymentMethod.startsWith('MOBILE_WALLET');
     final isRide = _serviceType == 'ride';
     final canUseCoins =
         coinState.currentBalance > 0 &&
@@ -1729,8 +1744,8 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
           }),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
-            height: height,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            constraints: BoxConstraints(minHeight: height),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
               color: selected ? palette.selectedTint : palette.inputBg,
               borderRadius: BorderRadius.circular(12),
@@ -1746,20 +1761,23 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
               children: [
                 Icon(
                   icon,
-                  size: 15,
+                  size: 14,
                   color: selected ? palette.goldText : palette.textMuted,
                 ),
-                const SizedBox(width: 5),
+                const SizedBox(width: 4),
                 Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: SpecialDeliveryTokens.text(
-                      size: 11,
-                      weight: selected ? FontWeight.w800 : FontWeight.w700,
-                      color: selected ? palette.textPrimary : palette.textMuted,
-                      height: 1.1,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: SpecialDeliveryTokens.text(
+                        size: 11,
+                        weight: selected ? FontWeight.w800 : FontWeight.w700,
+                        color: selected ? palette.textPrimary : palette.textMuted,
+                        height: 1.15,
+                      ),
                     ),
                   ),
                 ),
@@ -1770,22 +1788,31 @@ class _CustomDeliveryScreenState extends ConsumerState<CustomDeliveryScreen> {
       );
     }
 
-    return Row(
-      children: [
-        chip(
-          value: 'CASH_ON_DELIVERY',
-          label: isRide
-              ? (isAr ? 'نقدي' : 'Cash')
-              : (isAr ? 'عند الاستلام' : 'Cash on Delivery'),
-          icon: Icons.payments_outlined,
-        ),
-        const SizedBox(width: 8),
-        chip(
-          value: 'MOBILE_WALLET',
-          label: isAr ? 'محفظة إلكترونية' : 'Mobile Wallet',
-          icon: Icons.account_balance_wallet_outlined,
-        ),
-      ],
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.35,
+      child: Row(
+        children: [
+          chip(
+            value: 'CASH_ON_DELIVERY',
+            label: isRide
+                ? (isAr ? 'نقدي' : 'Cash')
+                : (isAr ? 'عند الاستلام' : 'Cash'),
+            icon: Icons.payments_outlined,
+          ),
+          const SizedBox(width: 6),
+          chip(
+            value: 'MOBILE_WALLET',
+            label: isAr ? 'محفظة' : 'Wallet',
+            icon: Icons.account_balance_wallet_outlined,
+          ),
+          const SizedBox(width: 6),
+          chip(
+            value: 'MOBILE_WALLET_INSTAPAY',
+            label: isAr ? 'إنستا باي' : 'InstaPay',
+            icon: Icons.account_balance_outlined,
+          ),
+        ],
+      ),
     );
   }
 

@@ -24,8 +24,14 @@ import '../widgets/rate_order_bottom_sheet.dart';
 import '../../../../core/services/socket_service.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart'
-    show AppNetworkAvatar, MediaPermissionHelper, AppConfirmDialog;
+    show
+        AppConfirmDialog,
+        AppNetworkAvatar,
+        MediaPermissionHelper,
+        OrderProgressStepItem,
+        OrderStatusProgressLine;
 import '../providers/orders_provider.dart';
+import '../utils/wallet_payment_helper.dart';
 
 double _parseDouble(dynamic value) {
   if (value == null) return 0.0;
@@ -113,31 +119,6 @@ String _translateStatus(
   );
 }
 
-/// Wallet label using existing translations only: InstaPay wallets show
-/// InstaPay, everything else shows Mobile Wallet. No custom names added.
-String _walletProviderName(Map<dynamic, dynamic> wallet, AppStrings s) {
-  if (_isInstaPayWallet(wallet)) return s.instapay;
-  return s.mobileWallet;
-}
-
-bool _isInstaPayWallet(Map<dynamic, dynamic> wallet) {
-  return (wallet['type'] ?? wallet['provider'] ?? '')
-      .toString()
-      .toUpperCase()
-      .contains('INSTAPAY');
-}
-
-/// For a mobile-wallet payment the customer must see the mobile-money
-/// wallets (Vodafone etc.) — not InstaPay. InstaPay entries are only shown
-/// when the driver has no mobile-money wallet at all (fallback).
-List<dynamic> _visibleDriverWallets(List<dynamic> wallets) {
-  final mobile = wallets.where((w) {
-    final m = w is Map ? Map<dynamic, dynamic>.from(w) : <dynamic, dynamic>{};
-    return !_isInstaPayWallet(m);
-  }).toList();
-  return mobile.isNotEmpty ? mobile : wallets;
-}
-
 class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _activeScrollController = ScrollController();
@@ -152,6 +133,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    unawaited(CustomerPaymentPreferenceStore.ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    }));
 
     _socketHandler = (data) {
       // Fast local flip only — the global order listener owns the throttled
@@ -315,122 +299,38 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
     );
   }
 
-  Widget _buildStatusTimeline(String status, bool isDark, AppStrings s) {
-    if (status == 'CANCELLED') return const SizedBox.shrink();
+  Widget _buildStatusTimeline(
+    String status,
+    AppOrderType orderType,
+    AppStrings s,
+  ) {
+    final currentStep = OrderTypeHelper.currentProgressStepIndex(
+      orderType,
+      status,
+    );
+    if (currentStep < 0) return const SizedBox.shrink();
 
-    int currentStep = 0;
-    if (status == 'ACCEPTED' || 
-        status == 'PREPARING' || 
-        status == 'LOOKING_FOR_DRIVER' || 
-        status == 'DRIVER_ASSIGNED' || 
-        status == 'PENDING_PAYMENT' ||
-        status == 'READY_FOR_PICKUP') {
-      currentStep = 1;
-    } else if (status == 'PARTIALLY_PICKED_UP' ||
-               status == 'PICKED_UP' || 
-               status == 'IN_TRANSIT' || 
-               status == 'ARRIVING') {
-      currentStep = 2;
-    } else if (status == 'DELIVERED') {
-      currentStep = 3;
-    }
+    final steps = OrderTypeHelper.progressSteps(
+      orderType,
+      isArabic: s.isArabic,
+    )
+        .map(
+          (step) => OrderProgressStepItem(
+            label: step.label,
+            icon: OrderStatusProgressLine.iconForStageKey(step.key),
+          ),
+        )
+        .toList();
 
-    final steps = s.isArabic
-        ? ['تم الطلب', 'التحضير', 'في الطريق', 'تم التوصيل']
-        : ['Placed', 'Preparing', 'On Way', 'Delivered'];
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 12),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
+    return OrderStatusProgressLine(
+      steps: steps,
+      currentStep: currentStep,
+      activeStatusLabel: OrderTypeHelper.customerStatusLabel(
+        orderType,
+        status,
+        isArabic: s.isArabic,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(4, (index) {
-          final isActive = index <= currentStep;
-          final isCompleted = index < currentStep;
-          final label = steps[index];
-
-          return Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 2.5,
-                        color: index == 0
-                            ? Colors.transparent
-                            : (isActive ? AppColors.primary : (isDark ? Colors.white10 : Colors.grey.shade200)),
-                      ),
-                    ),
-                    Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isCompleted
-                            ? AppColors.primary
-                            : (isActive ? Colors.white : (isDark ? const Color(0xFF262626) : Colors.grey.shade100)),
-                        border: Border.all(
-                          color: isActive ? AppColors.primary : (isDark ? Colors.white24 : Colors.grey.shade300),
-                          width: 2.5,
-                        ),
-                      ),
-                      child: isCompleted
-                          ? const Icon(Icons.check, size: 12, color: Colors.white)
-                          : Center(
-                              child: Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isActive ? AppColors.primary : Colors.transparent,
-                                ),
-                              ),
-                            ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        height: 2.5,
-                        color: index == 3
-                            ? Colors.transparent
-                            : (index < currentStep
-                                ? AppColors.primary
-                                : (isDark ? Colors.white10 : Colors.grey.shade200)),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      softWrap: false,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isActive ? FontWeight.w900 : FontWeight.bold,
-                        color: isActive
-                            ? AppColors.primary
-                            : (isDark ? Colors.white30 : Colors.grey.shade400),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ),
+      accentColor: AppColors.primary,
     );
   }
 
@@ -497,87 +397,117 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 ),
               ),
             ),
-            Row(
-              children: [
-                const Icon(Icons.info_outline,
-                    color: AppColors.primary, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    paidClaimed
-                        ? (s.isArabic
-                            ? 'تم إرسال تأكيدك. بانتظار أن يؤكد الكابتن استلام المبلغ.'
-                            : 'Your confirmation was sent. Waiting for the driver to confirm receipt.')
-                        : (s.isArabic
-                            ? 'يرجى تحويل مبلغ الطلب إلى إحدى محافظ المندوب التالية، ثم اضغط تأكيد'
-                            : 'Please transfer the total amount to one of the driver\'s wallets below, then confirm.'),
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600),
+            Builder(
+              builder: (context) {
+                final filteredWallets = WalletPaymentHelper.filterDriverWallets(
+                  ((order['driver'] ?? _resolveGroupDriver(order))?['mobileWallets']
+                          as List?) ??
+                      const [],
+                  preferredChannel: CustomerPaymentPreferenceStore.getSync(
+                    orderId,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ..._visibleDriverWallets(
-                    ((order['driver'] ?? _resolveGroupDriver(order))?['mobileWallets'] as List?) ??
-                        const [])
-                .map((wallet) {
-              final walletMap = wallet is Map
-                  ? Map<dynamic, dynamic>.from(wallet)
-                  : <dynamic, dynamic>{};
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _walletProviderName(walletMap, s),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            paidClaimed
+                                ? (s.isArabic
+                                    ? 'تم إرسال تأكيدك. بانتظار أن يؤكد الكابتن استلام المبلغ.'
+                                    : 'Your confirmation was sent. Waiting for the driver to confirm receipt.')
+                                : WalletPaymentHelper.transferInstruction(
+                                    filtered: filteredWallets,
+                                    isArabic: s.isArabic,
+                                  ),
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                          Text(
-                            (wallet['number'] ?? wallet['walletNumber'] ?? '')
-                                .toString(),
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white
-                                  : Colors.black87,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        final walletNum =
-                            (wallet['number'] ?? wallet['walletNumber'] ?? '')
-                                .toString();
-                        Clipboard.setData(ClipboardData(text: walletNum));
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text(s.isArabic
-                              ? 'تم نسخ الرقم: $walletNum'
-                              : 'Number copied: $walletNum'),
-                          duration: const Duration(seconds: 2),
-                        ));
-                      },
-                      icon: const Icon(Icons.copy, size: 16),
-                      label: Text(s.isArabic ? 'نسخ' : 'Copy'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        minimumSize: Size.zero,
-                      ),
-                    ),
+                    const SizedBox(height: 12),
+                    ...filteredWallets.wallets.map((wallet) {
+                      final walletNum =
+                          (wallet['number'] ?? wallet['walletNumber'] ?? '')
+                              .toString();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    WalletPaymentHelper.providerLabel(
+                                      wallet,
+                                      isArabic: s.isArabic,
+                                    ),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    walletNum,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: walletNum),
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      s.isArabic
+                                          ? 'تم نسخ الرقم: $walletNum'
+                                          : 'Number copied: $walletNum',
+                                    ),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.copy, size: 16),
+                              label: Text(s.isArabic ? 'نسخ' : 'Copy'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                minimumSize: Size.zero,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
-                ),
-              );
-            }),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -916,7 +846,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
             ],
           ),
 
-          if (!isNonStandard) _buildStatusTimeline(status, isDark, s),
+          _buildStatusTimeline(status, orderType, s),
 
           if (cancelledByActor != null) ...[
             const SizedBox(height: 12),

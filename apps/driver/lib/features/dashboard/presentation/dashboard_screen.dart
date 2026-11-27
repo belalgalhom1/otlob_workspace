@@ -279,6 +279,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               );
             },
           ),
+          if (_selectedIndex != 0)
+            _buildSecondaryTabActiveTaskStrip(profileState, l10n),
           Expanded(child: _buildBody(profileState, l10n)),
         ],
       ),
@@ -1797,6 +1799,119 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
+  Widget _buildSecondaryTabActiveTaskStrip(
+    AsyncValue<dynamic> profileState,
+    AppLocalizations l10n,
+  ) {
+    final profileRaw = profileState.asData?.value;
+    final profileData = profileRaw is Map && profileRaw['data'] is Map
+        ? profileRaw['data'] as Map
+        : (profileRaw is Map ? profileRaw : const {});
+    final driverStatus = profileData['status']?.toString() ?? 'OFFLINE';
+    final activeExecOrder = ref.watch(orderExecutionProvider).asData?.value;
+    final hasAssignedExecution =
+        activeExecOrder is Map && activeExecOrder['id'] != null;
+    if (driverStatus != 'ON_DELIVERY' && !hasAssignedExecution) {
+      return const SizedBox.shrink();
+    }
+
+    final isAr = l10n.localeName == 'ar';
+    final orderMap = activeExecOrder is Map
+        ? Map<String, dynamic>.from(activeExecOrder)
+        : null;
+    final orderType = OrderTypeHelper.resolve(orderMap);
+    final orderNumber = orderMap?['orderNumber']?.toString().trim();
+    final baseTitle = orderType.isRide
+        ? (isAr ? 'رحلة نشطة' : 'Active Ride')
+        : (isAr ? 'توصيل نشط' : 'Active Delivery');
+    final headline = (orderNumber != null && orderNumber.isNotEmpty)
+        ? '$baseTitle • #$orderNumber'
+        : baseTitle;
+
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.25,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+          child: Material(
+            key: const ValueKey('driver_secondary_tab_continue_banner'),
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(12),
+            elevation: 1,
+            child: InkWell(
+              onTap: () => context.push('/order-execution'),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: AppColors.onPrimary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        LucideIcons.navigation,
+                        color: AppColors.onPrimary,
+                        size: 15,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        headline,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.onPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.onPrimary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            isAr ? 'متابعة' : 'Continue',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          const AppAdaptiveChevron(
+                            color: AppColors.primary,
+                            size: 13,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildActiveTaskPlaceholder(String status, AppLocalizations l10n) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = Theme.of(context).colorScheme.onSurface;
@@ -1866,7 +1981,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       );
     }
 
+    final isAr = l10n.localeName == 'ar';
+    final orderMap = activeExecOrder is Map
+        ? Map<String, dynamic>.from(activeExecOrder)
+        : null;
+    final orderType = OrderTypeHelper.resolve(orderMap);
+    final orderNumber = orderMap?['orderNumber']?.toString().trim();
+    final rawStatus = orderMap?['status']?.toString();
+    final baseTitle = orderType.isRide
+        ? (isAr ? 'رحلة نشطة' : 'Active Ride')
+        : l10n.activeDeliveryInProgress;
+    final headline = (orderNumber != null && orderNumber.isNotEmpty)
+        ? '$baseTitle • #$orderNumber'
+        : baseTitle;
+    final statusSubtitle = (rawStatus != null && rawStatus.trim().isNotEmpty)
+        ? '${OrderTypeHelper.customerStatusLabel(orderType, rawStatus, isArabic: isAr)} • ${l10n.tapToViewRoute}'
+        : l10n.tapToViewRoute;
+
     return Material(
+      key: const ValueKey('driver_dashboard_continue_active_task_card'),
       color: AppColors.primary,
       borderRadius: BorderRadius.circular(14),
       elevation: 2,
@@ -1875,21 +2008,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         onTap: () => context.push('/order-execution'),
         borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
           child: Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.onPrimary.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  LucideIcons.navigation,
-                  color: AppColors.onPrimary,
-                  size: 19,
-                ),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.onPrimary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      LucideIcons.navigation,
+                      color: AppColors.onPrimary,
+                      size: 18,
+                    ),
+                  ),
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.primary,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -1898,23 +2052,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      activeExecOrder is Map &&
-                              OrderTypeHelper.isRide(activeExecOrder)
-                          ? (l10n.localeName == 'ar'
-                                ? 'رحلة نشطة قيد التنفيذ'
-                                : 'Active Ride in Progress')
-                          : l10n.activeDeliveryInProgress,
+                      headline,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.onPrimary,
-                        fontSize: 14.5,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 1.5),
                     Text(
-                      l10n.tapToViewRoute,
+                      statusSubtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1926,7 +2075,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   ],
                 ),
               ),
-              const AppAdaptiveChevron(color: AppColors.onPrimary, size: 18),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.onPrimary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isAr ? 'متابعة' : 'Continue',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    const AppAdaptiveChevron(
+                      color: AppColors.primary,
+                      size: 14,
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

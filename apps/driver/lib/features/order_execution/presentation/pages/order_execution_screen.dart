@@ -611,6 +611,14 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     );
   }
 
+  void _navigateBackToDashboard(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/dashboard');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final orderState = ref.watch(orderExecutionProvider);
@@ -619,33 +627,46 @@ class _OrderExecutionScreenState extends ConsumerState<OrderExecutionScreen> {
     final activeType = OrderTypeHelper.resolve(activeOrder is Map ? activeOrder : null);
     final isAr = l10n.localeName == 'ar';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          OrderTypeHelper.driverExecutionScreenTitle(
-            activeType,
-            isArabic: isAr,
-            standardFallback: l10n.activeDelivery,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          _navigateBackToDashboard(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            key: const ValueKey('order_execution_back_to_dashboard_btn'),
+            icon: Icon(isAr ? LucideIcons.arrowRight : LucideIcons.arrowLeft),
+            tooltip: l10n.dashboard,
+            onPressed: () => _navigateBackToDashboard(context),
           ),
+          title: Text(
+            OrderTypeHelper.driverExecutionScreenTitle(
+              activeType,
+              isArabic: isAr,
+              standardFallback: l10n.activeDelivery,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(LucideIcons.listOrdered),
+              tooltip: isAr ? 'الطلبات النشطة' : 'Active Orders',
+              onPressed: () => _showActiveOrdersBottomSheet(context),
+            ),
+          ],
         ),
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.listOrdered),
-            tooltip: isAr ? 'الطلبات النشطة' : 'Active Orders',
-            onPressed: () => _showActiveOrdersBottomSheet(context),
-          ),
-        ],
-      ),
-      body: orderState.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-        error: (error, _) => Center(child: Text(ErrorUtils.translate(context, error))),
-        data: (orderData) {
-          if (orderData == null) {
-            return Center(child: Text(l10n.noActiveOrder));
-          }
-          return _buildMapAndControls(orderData, l10n);
-        },
+        body: orderState.when(
+          loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          error: (error, _) => Center(child: Text(ErrorUtils.translate(context, error))),
+          data: (orderData) {
+            if (orderData == null) {
+              return Center(child: Text(l10n.noActiveOrder));
+            }
+            return _buildMapAndControls(orderData, l10n);
+          },
+        ),
       ),
     );
   }
