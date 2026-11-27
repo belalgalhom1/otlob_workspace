@@ -102,6 +102,7 @@ export class OrderFulfillmentDecidedEvent {
     public readonly driverUserIds: string[] = [],
     public readonly parentStatus?: OrderStatus,
     public readonly revision?: number,
+    public readonly totalFulfillments?: number,
   ) {}
 }
 

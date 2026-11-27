@@ -253,8 +253,9 @@ class _VendorCard extends StatelessWidget {
 
     Widget buildLogo() {
       return AppNetworkAvatar(
-        imageUrl: ImageUtils.formatImageUrl(vendor.logo),
-        size: 46,
+        imageUrl: ImageUtils.formatImageUrl(vendor.displayImage),
+        size: 48,
+        borderRadius: 12,
         fallbackIcon: LucideIcons.store,
         fallbackIconSize: 20,
         backgroundColor: rankColor.withValues(alpha: 0.08),
@@ -372,12 +373,17 @@ class _VendorCard extends StatelessWidget {
         child: Row(
           mainAxisSize: isPhone ? MainAxisSize.max : MainAxisSize.min,
           children: [
-            Icon(
-              LucideIcons.packageCheck,
-              size: 13,
-              color: AppColors.primary,
+            AppNetworkAvatar(
+              imageUrl: ImageUtils.formatImageUrl(p.imageUrl),
+              size: 22,
+              borderRadius: 6,
+              fallbackIcon: LucideIcons.packageCheck,
+              fallbackIconSize: 12,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+              foregroundColor: AppColors.primary,
+              border: Border.all(color: borderColor, width: 0.75),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Flexible(
               child: Text(
                 '${l10n.topProduct}: $productName (${p.totalOrders} ${l10n.ordersCount})',

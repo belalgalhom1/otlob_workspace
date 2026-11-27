@@ -267,6 +267,7 @@ export class StatisticsAnalyticsRepository {
           storeName: true,
           storeNameAr: true,
           logo: true,
+          coverImage: true,
           walletBalance: true,
         },
       }),
@@ -322,8 +323,10 @@ export class StatisticsAnalyticsRepository {
               return p ? { ...p, totalOrders: top.totalOrders } : null;
             })()
           : null;
+        const vendor = vendorById.get(v.vendorId)!;
         return {
-          ...vendorById.get(v.vendorId),
+          ...vendor,
+          logo: vendor.logo ?? vendor.coverImage ?? null,
           totalOrders: v.totalOrders,
           totalRevenue: v.totalRevenue,
           topProduct,

@@ -541,5 +541,57 @@ describe('Backend Hardening Bugfix Regressions', () => {
       expect(calls[0]).toContain('oi."rejectedAt" IS NULL');
       expect(calls[0]).toContain('o."createdAt" >=');
     });
+
+    it('includes coverImage and falls back to coverImage when logo is null in getTopVendors', async () => {
+      const prisma: any = {
+        $queryRaw: jest
+          .fn()
+          .mockResolvedValueOnce([
+            { vendorId: 'v-1', totalOrders: 12, totalRevenue: 1270 },
+          ])
+          .mockResolvedValueOnce([
+            { productId: 'p-1', vendorId: 'v-1', totalOrders: 14 },
+          ]),
+        vendor: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'v-1',
+              storeName: 'Burger King',
+              storeNameAr: 'برجر كينج',
+              logo: null,
+              coverImage: '/media/vendors/covers/bk.webp',
+              walletBalance: 1143,
+            },
+          ]),
+        },
+        product: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'p-1',
+              name: 'Whopper',
+              nameAr: 'وابر',
+              imageUrl: '/media/products/images/whopper.webp',
+            },
+          ]),
+        },
+      };
+
+      const repo = new StatisticsAnalyticsRepository(prisma);
+      const result = await repo.getTopVendors(5);
+
+      expect(prisma.vendor.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ logo: true, coverImage: true }),
+        }),
+      );
+      expect(result[0]).toMatchObject({
+        id: 'v-1',
+        logo: '/media/vendors/covers/bk.webp',
+        coverImage: '/media/vendors/covers/bk.webp',
+        topProduct: expect.objectContaining({
+          imageUrl: '/media/products/images/whopper.webp',
+        }),
+      });
+    });
   });
 });

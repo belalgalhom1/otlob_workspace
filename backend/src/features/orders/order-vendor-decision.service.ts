@@ -670,6 +670,9 @@ export class OrderVendorDecisionService {
               assistDriver: { select: { userId: true } },
             },
           },
+          _count: {
+            select: { vendorFulfillments: true },
+          },
         },
       }),
       this.ordersRepository.getVendorUserIds(
@@ -690,6 +693,10 @@ export class OrderVendorDecisionService {
       ),
     );
 
+    const totalFulfillments = (
+      order as { _count?: { vendorFulfillments?: number } }
+    )._count?.vendorFulfillments;
+
     this.eventEmitter.emit(
       EVENTS.ORDER_FULFILLMENT_DECIDED,
       new OrderFulfillmentDecidedEvent(
@@ -705,6 +712,7 @@ export class OrderVendorDecisionService {
         driverUserIds,
         order.status,
         order.revision,
+        totalFulfillments,
       ),
     );
   }

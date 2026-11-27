@@ -248,6 +248,7 @@ export class PlatformSettingsService {
       driverSearchRadiusMaxKm: s.driverSearchRadiusMaxKm,
       driverSearchMaxAttempts: s.driverSearchMaxAttempts,
       driverAcceptTimeoutSecs: s.driverAcceptTimeoutSecs,
+      driverLocationFreshnessTtlSecs: s.driverLocationFreshnessTtlSecs,
     };
   }
 

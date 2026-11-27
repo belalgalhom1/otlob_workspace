@@ -95,6 +95,7 @@ class AnalyticsVendor {
   final String storeName;
   final String? storeNameAr;
   final String? logo;
+  final String? coverImage;
   final num walletBalance;
   final int totalOrders;
   final num totalRevenue;
@@ -105,11 +106,20 @@ class AnalyticsVendor {
     required this.storeName,
     this.storeNameAr,
     this.logo,
+    this.coverImage,
     required this.walletBalance,
     required this.totalOrders,
     required this.totalRevenue,
     this.topProduct,
   });
+
+  String? get displayImage {
+    final trimmedLogo = logo?.trim();
+    if (trimmedLogo != null && trimmedLogo.isNotEmpty) return trimmedLogo;
+    final trimmedCover = coverImage?.trim();
+    if (trimmedCover != null && trimmedCover.isNotEmpty) return trimmedCover;
+    return null;
+  }
 
   factory AnalyticsVendor.fromJson(Map<String, dynamic> json) {
     return AnalyticsVendor(
@@ -117,6 +127,7 @@ class AnalyticsVendor {
       storeName: json['storeName'] as String? ?? 'Unknown',
       storeNameAr: json['storeNameAr'] as String?,
       logo: json['logo'] as String?,
+      coverImage: json['coverImage'] as String?,
       walletBalance: json['walletBalance'] as num? ?? 0,
       totalOrders: json['totalOrders'] as int? ?? 0,
       totalRevenue: json['totalRevenue'] as num? ?? 0,

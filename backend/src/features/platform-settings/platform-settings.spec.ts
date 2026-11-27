@@ -286,7 +286,10 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
     });
 
     it('exposes maxMultiVendorVendors in getPublicSettings and validates 1..20 bounds in DTO', async () => {
-      const s = makeSettings({ maxMultiVendorVendors: 3 });
+      const s = makeSettings({
+        maxMultiVendorVendors: 3,
+        driverLocationFreshnessTtlSecs: 90,
+      });
       const service = new PlatformSettingsService(
         {
           platformSetting: {
@@ -300,6 +303,7 @@ describe('PlatformSettings & DeliveryFeeCalculator', () => {
 
       const pub = await service.getPublicSettings();
       expect(pub.maxMultiVendorVendors).toBe(3);
+      expect(pub.driverLocationFreshnessTtlSecs).toBe(90);
 
       expect(
         await validate(

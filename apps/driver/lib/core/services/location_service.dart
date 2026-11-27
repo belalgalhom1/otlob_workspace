@@ -6,6 +6,7 @@ import 'package:core/core.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../providers/app_preferences_provider.dart';
+import '../providers/configuration_provider.dart';
 import 'package:driver/features/dashboard/presentation/driver_profile_provider.dart';
 
 part 'location_service.g.dart';
@@ -48,9 +49,11 @@ enum DriverLocationStatus {
 
 class LocationService {
   final Ref _ref;
+  final DateTime Function() _now;
   StreamSubscription<Position>? _positionStreamSubscription;
   StreamSubscription<Position>? _uiPositionSubscription;
   StreamSubscription<void>? _connectSub;
+  Timer? _heartbeatTimer;
   final StreamController<Position> _positionController =
       StreamController<Position>.broadcast();
   final ValueNotifier<DriverLocationState> _locationState =
@@ -65,10 +68,12 @@ class LocationService {
   Position? _lastEmitted;
   DateTime? _lastEmitAt;
 
-  LocationService(this._ref) {
+  LocationService(this._ref, {DateTime Function()? now})
+      : _now = now ?? DateTime.now {
     _listenToLocaleChanges();
     _listenToSocketReconnect();
     _listenToProfileStatus();
+    _listenToConfigurationChanges();
   }
 
   ValueListenable<DriverLocationState> get locationState => _locationState;
@@ -152,6 +157,24 @@ class LocationService {
     });
   }
 
+  void _listenToConfigurationChanges() {
+    _ref.listen<AsyncValue<Map<String, dynamic>>>(configurationProvider, (
+      previous,
+      next,
+    ) {
+      if (!_isTracking) return;
+      final prevTtl = previous?.value?['driverLocationFreshnessTtlSecs'];
+      final nextTtl = next.value?['driverLocationFreshnessTtlSecs'];
+      if (prevTtl != nextTtl) {
+        debugPrint(
+          '📍 LocationService: driverLocationFreshnessTtlSecs changed '
+          '($prevTtl -> $nextTtl), rescheduling heartbeat timer.',
+        );
+        _startHeartbeatTimer();
+      }
+    });
+  }
+
   String? _extractStatus(Object? profile) {
     if (profile is Map) {
       final data = profile['data'];
@@ -165,6 +188,23 @@ class LocationService {
 
   bool get _onDelivery =>
       _extractStatus(_ref.read(driverProfileProvider).value) == 'ON_DELIVERY';
+
+  /// Stationary heartbeat cadence — derived dynamically from the backend's
+  /// `driverLocationFreshnessTtlSecs` (~40% of TTL, clamped to 5..30s idle and
+  /// capped at 10s while on delivery) so idle online drivers stay fresh in
+  /// Redis even if admins tighten or relax the TTL at runtime.
+  Duration get _heartbeatInterval {
+    final rawTtl =
+        _ref.read(configurationProvider).value?['driverLocationFreshnessTtlSecs'];
+    final ttlSecs = rawTtl is num
+        ? rawTtl.toInt()
+        : int.tryParse(rawTtl?.toString() ?? '');
+    final idleSecs = (ttlSecs != null && ttlSecs > 0)
+        ? (ttlSecs * 0.4).floor().clamp(5, 30)
+        : 20;
+    final activeSecs = idleSecs < 10 ? idleSecs : 10;
+    return Duration(seconds: _onDelivery ? activeSecs : idleSecs);
+  }
 
   void _listenToSocketReconnect() {
     _connectSub = _ref
@@ -223,11 +263,14 @@ class LocationService {
         }
       }
 
-      // Try to get background permission if needed
-      final bgStatus = await Permission.locationAlways.request();
-      if (!bgStatus.isGranted) {
-        // Background location denied, but foreground might still work
-        // Proceeding with what we have
+      // Try to get background permission on mobile platforms
+      if (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS) {
+        final bgStatus = await Permission.locationAlways.request();
+        if (!bgStatus.isGranted) {
+          // Background location denied, but foreground might still work
+          // Proceeding with what we have
+        }
       }
 
       return true;
@@ -319,6 +362,7 @@ class LocationService {
     // GPS streams and leak a subscription (double emits, battery drain). Only
     // the most recent restart request gets to create the new stream.
     final seq = ++_restartSeq;
+    _stopHeartbeatTimer();
     await _positionStreamSubscription?.cancel();
     _positionStreamSubscription = null;
     if (!_isTracking || seq != _restartSeq) return;
@@ -332,11 +376,20 @@ class LocationService {
     final locationSettings = _getLocationSettings();
 
     if (fetchInitial) {
+      // If the dashboard preview stream already populated a position before
+      // going online, emit it immediately so dispatch sees this driver right
+      // away even if a fresh GPS fix takes several seconds or times out indoors.
+      if (_lastPosition != null) {
+        _broadcastLocation(_lastPosition!);
+      }
+      _startHeartbeatTimer();
       try {
-        final lastKnown = await Geolocator.getLastKnownPosition();
-        if (!_isTracking || seq != _restartSeq) return;
-        if (lastKnown != null && _lastPosition == null) {
-          _broadcastLocation(lastKnown);
+        if (_lastPosition == null) {
+          final lastKnown = await Geolocator.getLastKnownPosition();
+          if (!_isTracking || seq != _restartSeq) return;
+          if (lastKnown != null) {
+            _broadcastLocation(lastKnown);
+          }
         }
         final initialPosition = await Geolocator.getCurrentPosition(
           locationSettings: locationSettings,
@@ -346,6 +399,8 @@ class LocationService {
       } catch (e) {
         debugPrint('❌ LocationService: Failed to fetch initial position: $e');
       }
+    } else {
+      _startHeartbeatTimer();
     }
 
     if (!_isTracking || seq != _restartSeq) return;
@@ -366,9 +421,55 @@ class LocationService {
     );
   }
 
+  void _startHeartbeatTimer() {
+    _stopHeartbeatTimer();
+    if (!_isTracking) return;
+    final interval = _heartbeatInterval;
+    _heartbeatTimer = Timer.periodic(interval, (_) {
+      _onHeartbeatTick();
+    });
+  }
+
+  void _stopHeartbeatTimer() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+  }
+
+  void _onHeartbeatTick() {
+    if (!_isTracking) return;
+    final socket = _ref.read(coreSocketServiceProvider);
+    if (!socket.isConnected) {
+      socket.connect();
+      return;
+    }
+
+    final now = _now();
+    final minGap = _heartbeatInterval - const Duration(seconds: 1);
+    if (_lastEmitAt != null && now.difference(_lastEmitAt!) < minGap) {
+      return;
+    }
+
+    final pos = _lastPosition;
+    if (pos != null) {
+      _lastEmitted = pos;
+      _lastEmitAt = now;
+      _emitPosition(pos);
+      return;
+    }
+
+    unawaited(
+      Geolocator.getLastKnownPosition().then((lastKnown) {
+        if (lastKnown != null && _isTracking) {
+          _broadcastLocation(lastKnown);
+        }
+      }).catchError((_) => null),
+    );
+  }
+
   Future<void> stopTracking() async {
     _restartSeq++;
     _isTracking = false;
+    _stopHeartbeatTimer();
     final sub = _positionStreamSubscription;
     _positionStreamSubscription = null;
     await sub?.cancel();
@@ -378,6 +479,7 @@ class LocationService {
   }
 
   void dispose() {
+    _stopHeartbeatTimer();
     _connectSub?.cancel();
     _connectSub = null;
     _positionStreamSubscription?.cancel();
@@ -532,10 +634,10 @@ class LocationService {
   void _broadcastLocation(Position position) {
     if (!_recordLocalPosition(position)) return;
 
-    final now = DateTime.now();
+    final now = _now();
     final active = _onDelivery;
     final minDistance = active ? 5.0 : 15.0;
-    final heartbeatSeconds = active ? 15 : 30;
+    final heartbeatSeconds = _heartbeatInterval.inSeconds;
 
     // Coalesce: emit only when the driver actually moved far enough, or enough
     // time has passed that the customer needs a fresh heartbeat.

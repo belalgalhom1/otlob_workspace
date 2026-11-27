@@ -4,6 +4,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import {
   NotificationType,
+  OrderStatus,
   OrderVendorFulfillmentStatus,
 } from '@prisma/client';
 import { SocketService } from '../../infrastructure/socket/socket.service';
@@ -278,14 +279,39 @@ export class OrderListener {
     });
 
     if (event.status === OrderVendorFulfillmentStatus.ACCEPTED) {
+      const isMultiVendor = (event.totalFulfillments ?? 1) > 1;
+      const isSearchingDriver =
+        event.parentStatus === OrderStatus.LOOKING_FOR_DRIVER;
+
+      const copy = isSearchingDriver
+        ? {
+            title: 'Order accepted',
+            titleAr: 'تم قبول طلبك',
+            body: `Your order ${event.orderNumber} was accepted and we are looking for a driver now.`,
+            bodyAr: `تم قبول طلبك ${event.orderNumber} وجارٍ البحث عن سائق الآن.`,
+          }
+        : isMultiVendor
+          ? {
+              title: 'A vendor accepted part of your order',
+              titleAr: 'قبل أحد المتاجر جزءًا من طلبك',
+              body: `Part of your order ${event.orderNumber} was accepted. Waiting for the remaining stores to confirm.`,
+              bodyAr: `تم قبول جزء من طلبك ${event.orderNumber}، وبانتظار تأكيد باقي المتاجر.`,
+            }
+          : {
+              title: 'Order accepted',
+              titleAr: 'تم قبول طلبك',
+              body: `Your order ${event.orderNumber} was accepted by the store.`,
+              bodyAr: `تم قبول طلبك ${event.orderNumber} من المتجر.`,
+            };
+
       try {
         await this.eventsQueue.add(EVENT_JOBS.NOTIFY, {
           dto: {
             userId: event.customerUserId,
-            title: 'A vendor accepted part of your order',
-            titleAr: 'قبل أحد الموردين جزءًا من طلبك',
-            body: `Part of your order ${event.orderNumber} was accepted and is now being prepared.`,
-            bodyAr: `تم قبول جزء من طلبك ${event.orderNumber} ويجري تجهيزه الآن.`,
+            title: copy.title,
+            titleAr: copy.titleAr,
+            body: copy.body,
+            bodyAr: copy.bodyAr,
             type: NotificationType.ORDER_UPDATE,
             data: {
               orderId: event.orderId,

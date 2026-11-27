@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:core/core.dart';
 import 'package:data/data.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
@@ -234,38 +234,17 @@ class _ProductCard extends StatelessWidget {
     }
 
     Widget buildProductImage() {
-      return Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isTop3 ? rankColor.withValues(alpha: 0.6) : borderColor,
-            width: isTop3 ? 2.0 : 1.0,
-          ),
-          color: rankColor.withValues(alpha: 0.08),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: product.imageUrl!,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, url, err) => Center(
-                    child: Icon(
-                      LucideIcons.package,
-                      size: 20,
-                      color: rankColor,
-                    ),
-                  ),
-                )
-              : Center(
-                  child: Icon(
-                    LucideIcons.package,
-                    size: 20,
-                    color: rankColor,
-                  ),
-                ),
+      return AppNetworkAvatar(
+        imageUrl: ImageUtils.formatImageUrl(product.imageUrl),
+        size: 48,
+        borderRadius: 12,
+        fallbackIcon: LucideIcons.package,
+        fallbackIconSize: 20,
+        backgroundColor: rankColor.withValues(alpha: 0.08),
+        foregroundColor: rankColor,
+        border: Border.all(
+          color: isTop3 ? rankColor.withValues(alpha: 0.6) : borderColor,
+          width: isTop3 ? 2.0 : 1.0,
         ),
       );
     }

@@ -132,7 +132,7 @@ export class DriverTrackingService {
     const settings = await this.platformSettings.getSettings();
     // Freshness TTL must comfortably exceed the driver app's slowest stationary
     // heartbeat so idle drivers aren't misclassified as stale.
-    const ttlSecs = Number(settings.driverLocationFreshnessTtlSecs ?? 30);
+    const ttlSecs = Number(settings.driverLocationFreshnessTtlSecs ?? 120);
     await this.locationRepository.upsertDriverGeoPoint(
       driverId,
       lng,

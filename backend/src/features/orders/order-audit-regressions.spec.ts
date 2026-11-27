@@ -636,13 +636,14 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
       const socketService: any = {
         emitToUser: jest.fn().mockResolvedValue(undefined),
       };
+      const notifyAdd = jest.fn().mockResolvedValue(undefined);
       const orderListener = new OrderListener(
         socketService,
-        { add: jest.fn() } as any,
+        { add: notifyAdd } as any,
         {} as any,
         {} as any,
       );
-      orderListener.handleOrderFulfillmentDecided(
+      await orderListener.handleOrderFulfillmentDecided(
         new OrderFulfillmentDecidedEvent(
           'ord-1',
           'OTL-99',
@@ -656,6 +657,7 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
           [],
           OrderStatus.LOOKING_FOR_DRIVER,
           3,
+          1,
         ),
       );
       expect(socketService.emitToUser).toHaveBeenCalledWith(
@@ -668,6 +670,43 @@ describe('Audit 8c1c1fa Backend Regressions', () => {
           orderStatus: OrderStatus.LOOKING_FOR_DRIVER,
           fulfillmentStatus: OrderVendorFulfillmentStatus.ACCEPTED,
           revision: 3,
+        }),
+      );
+      expect(notifyAdd).toHaveBeenCalledWith(
+        'event.notify',
+        expect.objectContaining({
+          dto: expect.objectContaining({
+            title: 'Order accepted',
+            body: expect.stringContaining('looking for a driver'),
+          }),
+        }),
+      );
+
+      notifyAdd.mockClear();
+      await orderListener.handleOrderFulfillmentDecided(
+        new OrderFulfillmentDecidedEvent(
+          'ord-2',
+          'OTL-100',
+          'c1',
+          'u-c1',
+          'ff-2',
+          'v-1',
+          ['u-v1'],
+          OrderVendorFulfillmentStatus.ACCEPTED,
+          'u-v1',
+          [],
+          OrderStatus.PENDING,
+          2,
+          2,
+        ),
+      );
+      expect(notifyAdd).toHaveBeenCalledWith(
+        'event.notify',
+        expect.objectContaining({
+          dto: expect.objectContaining({
+            title: 'A vendor accepted part of your order',
+            body: expect.stringContaining('Waiting for the remaining stores'),
+          }),
         }),
       );
     });
