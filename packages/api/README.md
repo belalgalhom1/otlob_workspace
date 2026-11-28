@@ -284,7 +284,7 @@ Class | Method | HTTP request | Description
 [*PlatformSettingsVersioningApi*](doc/PlatformSettingsVersioningApi.md) | [**platformSettingsControllerUploadVehicleIcon**](doc/PlatformSettingsVersioningApi.md#platformsettingscontrolleruploadvehicleicon) | **POST** /platform-settings/vehicle-icon/{vehicleType} | Upload vehicle type icon (bicycle|motorcycle|motor_tricycle|car|minibus|tuk_tuk|quarter_truck|half_truck)
 [*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerCreate**](doc/PromotionsApi.md#promotionscontrollercreate) | **POST** /promotions/admin | 
 [*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerFindAll**](doc/PromotionsApi.md#promotionscontrollerfindall) | **GET** /promotions/admin | Get all promotions (Admin)
-[*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerFindAllActive**](doc/PromotionsApi.md#promotionscontrollerfindallactive) | **GET** /promotions | Get all active promotions for customer app
+[*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerFindAllActive**](doc/PromotionsApi.md#promotionscontrollerfindallactive) | **GET** /promotions | Get all active promotions for customer app (optionally filtered by business type verticalId or verticalSlug)
 [*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerFindOne**](doc/PromotionsApi.md#promotionscontrollerfindone) | **GET** /promotions/admin/{id} | 
 [*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerRemove**](doc/PromotionsApi.md#promotionscontrollerremove) | **DELETE** /promotions/admin/{id} | 
 [*PromotionsApi*](doc/PromotionsApi.md) | [**promotionsControllerUpdate**](doc/PromotionsApi.md#promotionscontrollerupdate) | **PATCH** /promotions/admin/{id} | 

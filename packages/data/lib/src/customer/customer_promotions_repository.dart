@@ -5,8 +5,14 @@ class CustomerPromotionsRepository {
   final PromotionsApi _api;
   CustomerPromotionsRepository(this._api);
 
-  Future<dynamic> getPromotions() async {
-    final response = await _api.promotionsControllerFindAllActive();
+  Future<dynamic> getPromotions({
+    String? verticalId,
+    String? verticalSlug,
+  }) async {
+    final response = await _api.promotionsControllerFindAllActive(
+      verticalId: verticalId,
+      verticalSlug: verticalSlug,
+    );
     return ResponseParser.parseList(response);
   }
 }

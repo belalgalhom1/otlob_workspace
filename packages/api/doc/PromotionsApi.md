@@ -11,7 +11,7 @@ Method | HTTP request | Description
 ------------- | ------------- | -------------
 [**promotionsControllerCreate**](PromotionsApi.md#promotionscontrollercreate) | **POST** /promotions/admin | 
 [**promotionsControllerFindAll**](PromotionsApi.md#promotionscontrollerfindall) | **GET** /promotions/admin | Get all promotions (Admin)
-[**promotionsControllerFindAllActive**](PromotionsApi.md#promotionscontrollerfindallactive) | **GET** /promotions | Get all active promotions for customer app
+[**promotionsControllerFindAllActive**](PromotionsApi.md#promotionscontrollerfindallactive) | **GET** /promotions | Get all active promotions for customer app (optionally filtered by business type verticalId or verticalSlug)
 [**promotionsControllerFindOne**](PromotionsApi.md#promotionscontrollerfindone) | **GET** /promotions/admin/{id} | 
 [**promotionsControllerRemove**](PromotionsApi.md#promotionscontrollerremove) | **DELETE** /promotions/admin/{id} | 
 [**promotionsControllerUpdate**](PromotionsApi.md#promotionscontrollerupdate) | **PATCH** /promotions/admin/{id} | 
@@ -97,18 +97,20 @@ This endpoint does not need any parameter.
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **promotionsControllerFindAllActive**
-> ApiControllerRoot200Response promotionsControllerFindAllActive()
+> ApiControllerRoot200Response promotionsControllerFindAllActive(verticalId, verticalSlug)
 
-Get all active promotions for customer app
+Get all active promotions for customer app (optionally filtered by business type verticalId or verticalSlug)
 
 ### Example
 ```dart
 import 'package:api/api.dart';
 
 final api = Api().getPromotionsApi();
+final String verticalId = verticalId_example; // String | 
+final String verticalSlug = verticalSlug_example; // String | 
 
 try {
-    final response = api.promotionsControllerFindAllActive();
+    final response = api.promotionsControllerFindAllActive(verticalId, verticalSlug);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling PromotionsApi->promotionsControllerFindAllActive: $e\n');
@@ -116,7 +118,11 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **verticalId** | **String**|  | [optional] 
+ **verticalSlug** | **String**|  | [optional] 
 
 ### Return type
 

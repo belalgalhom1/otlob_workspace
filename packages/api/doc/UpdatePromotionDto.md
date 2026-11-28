@@ -15,6 +15,7 @@ Name | Type | Description | Notes
 **type** | **String** |  | [optional] 
 **vendorId** | **String** |  | [optional] 
 **productId** | **String** |  | [optional] 
+**verticalId** | [**JsonObject**](.md) | Optional business type (VendorVertical) ID. Pass null to move banner back to Home screen. | [optional] 
 **externalUrl** | **String** |  | [optional] 
 **isActive** | **bool** |  | [optional] 
 **sortOrder** | **num** |  | [optional] 

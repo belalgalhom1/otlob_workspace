@@ -201,10 +201,12 @@ class PromotionsApi {
     );
   }
 
-  /// Get all active promotions for customer app
+  /// Get all active promotions for customer app (optionally filtered by business type verticalId or verticalSlug)
   /// 
   ///
   /// Parameters:
+  /// * [verticalId] 
+  /// * [verticalSlug] 
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -215,6 +217,8 @@ class PromotionsApi {
   /// Returns a [Future] containing a [Response] with a [ApiControllerRoot200Response] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<ApiControllerRoot200Response>> promotionsControllerFindAllActive({ 
+    String? verticalId,
+    String? verticalSlug,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -235,9 +239,15 @@ class PromotionsApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (verticalId != null) r'verticalId': encodeQueryParameter(_serializers, verticalId, const FullType(String)),
+      if (verticalSlug != null) r'verticalSlug': encodeQueryParameter(_serializers, verticalSlug, const FullType(String)),
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,

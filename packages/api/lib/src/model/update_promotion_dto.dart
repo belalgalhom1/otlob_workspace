@@ -4,6 +4,7 @@
 
 // ignore_for_file: unused_element
 import 'package:built_collection/built_collection.dart';
+import 'package:built_value/json_object.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 
@@ -19,6 +20,7 @@ part 'update_promotion_dto.g.dart';
 /// * [type] 
 /// * [vendorId] 
 /// * [productId] 
+/// * [verticalId] - Optional business type (VendorVertical) ID. Pass null to move banner back to Home screen.
 /// * [externalUrl] 
 /// * [isActive] 
 /// * [sortOrder] 
@@ -47,6 +49,10 @@ abstract class UpdatePromotionDto implements Built<UpdatePromotionDto, UpdatePro
 
   @BuiltValueField(wireName: r'productId')
   String? get productId;
+
+  /// Optional business type (VendorVertical) ID. Pass null to move banner back to Home screen.
+  @BuiltValueField(wireName: r'verticalId')
+  JsonObject? get verticalId;
 
   @BuiltValueField(wireName: r'externalUrl')
   String? get externalUrl;
@@ -133,6 +139,13 @@ class _$UpdatePromotionDtoSerializer implements PrimitiveSerializer<UpdatePromot
       yield serializers.serialize(
         object.productId,
         specifiedType: const FullType(String),
+      );
+    }
+    if (object.verticalId != null) {
+      yield r'verticalId';
+      yield serializers.serialize(
+        object.verticalId,
+        specifiedType: const FullType.nullable(JsonObject),
       );
     }
     if (object.externalUrl != null) {
@@ -241,6 +254,14 @@ class _$UpdatePromotionDtoSerializer implements PrimitiveSerializer<UpdatePromot
             specifiedType: const FullType(String),
           ) as String;
           result.productId = valueDes;
+          break;
+        case r'verticalId':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType.nullable(JsonObject),
+          ) as JsonObject?;
+          if (valueDes == null) continue;
+          result.verticalId = valueDes;
           break;
         case r'externalUrl':
           final valueDes = serializers.deserialize(

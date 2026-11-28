@@ -108,6 +108,8 @@ class _$UpdatePromotionDto extends UpdatePromotionDto {
   @override
   final String? productId;
   @override
+  final JsonObject? verticalId;
+  @override
   final String? externalUrl;
   @override
   final bool? isActive;
@@ -130,6 +132,7 @@ class _$UpdatePromotionDto extends UpdatePromotionDto {
     this.type,
     this.vendorId,
     this.productId,
+    this.verticalId,
     this.externalUrl,
     this.isActive,
     this.sortOrder,
@@ -156,6 +159,7 @@ class _$UpdatePromotionDto extends UpdatePromotionDto {
         type == other.type &&
         vendorId == other.vendorId &&
         productId == other.productId &&
+        verticalId == other.verticalId &&
         externalUrl == other.externalUrl &&
         isActive == other.isActive &&
         sortOrder == other.sortOrder &&
@@ -173,6 +177,7 @@ class _$UpdatePromotionDto extends UpdatePromotionDto {
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, vendorId.hashCode);
     _$hash = $jc(_$hash, productId.hashCode);
+    _$hash = $jc(_$hash, verticalId.hashCode);
     _$hash = $jc(_$hash, externalUrl.hashCode);
     _$hash = $jc(_$hash, isActive.hashCode);
     _$hash = $jc(_$hash, sortOrder.hashCode);
@@ -192,6 +197,7 @@ class _$UpdatePromotionDto extends UpdatePromotionDto {
           ..add('type', type)
           ..add('vendorId', vendorId)
           ..add('productId', productId)
+          ..add('verticalId', verticalId)
           ..add('externalUrl', externalUrl)
           ..add('isActive', isActive)
           ..add('sortOrder', sortOrder)
@@ -234,6 +240,10 @@ class UpdatePromotionDtoBuilder
   String? get productId => _$this._productId;
   set productId(String? productId) => _$this._productId = productId;
 
+  JsonObject? _verticalId;
+  JsonObject? get verticalId => _$this._verticalId;
+  set verticalId(JsonObject? verticalId) => _$this._verticalId = verticalId;
+
   String? _externalUrl;
   String? get externalUrl => _$this._externalUrl;
   set externalUrl(String? externalUrl) => _$this._externalUrl = externalUrl;
@@ -268,6 +278,7 @@ class UpdatePromotionDtoBuilder
       _type = $v.type;
       _vendorId = $v.vendorId;
       _productId = $v.productId;
+      _verticalId = $v.verticalId;
       _externalUrl = $v.externalUrl;
       _isActive = $v.isActive;
       _sortOrder = $v.sortOrder;
@@ -302,6 +313,7 @@ class UpdatePromotionDtoBuilder
           type: type,
           vendorId: vendorId,
           productId: productId,
+          verticalId: verticalId,
           externalUrl: externalUrl,
           isActive: isActive,
           sortOrder: sortOrder,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:api/api.dart';
+import 'package:built_value/json_object.dart';
 import 'package:core/core.dart' show ImageUtils;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -642,6 +643,8 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         String? id;
 
         if (promotion != null) {
+          final previousVerticalId = promotion['verticalId']?.toString();
+          final nextVerticalId = result['verticalId']?.toString();
           final dto = UpdatePromotionDto((b) {
             if (result['title'] != null && result['title'].toString().isNotEmpty) b.title = result['title'];
             if (result['titleAr'] != null && result['titleAr'].toString().isNotEmpty) b.titleAr = result['titleAr'];
@@ -657,22 +660,26 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
             }
             if (result['vendorId'] != null) b.vendorId = result['vendorId'];
             if (result['productId'] != null) b.productId = result['productId'];
+            if (nextVerticalId != null && nextVerticalId.isNotEmpty) {
+              b.verticalId = JsonObject(nextVerticalId);
+            }
             if (result['externalUrl'] != null) b.externalUrl = result['externalUrl'];
             if (result['isActive'] != null) b.isActive = result['isActive'];
             if (result['sortOrder'] != null) b.sortOrder = result['sortOrder'];
             if (result['startDate'] != null) b.startDate = DateTime.parse(result['startDate']);
             if (result['endDate'] != null) b.endDate = DateTime.parse(result['endDate']);
           });
+          final promoId = (promotion['id'] ?? promotion['_id']).toString();
           final responseData = await ref
               .read(adminVendorsRepositoryProvider)
-              .updatePromotion(promotion['id'] ?? promotion['_id'], dto);
-          final promoId = (promotion['id'] ?? promotion['_id']).toString();
-          final previousVerticalId = promotion['verticalId']?.toString();
-          final nextVerticalId = result['verticalId']?.toString();
-          if (previousVerticalId != nextVerticalId) {
+              .updatePromotion(promoId, dto);
+          // built_value omits null fields on serialization, so send an explicit
+          // null PATCH only when clearing an existing business-type placement.
+          if (previousVerticalId != null &&
+              (nextVerticalId == null || nextVerticalId.isEmpty)) {
             await ref
                 .read(adminVendorsRepositoryProvider)
-                .updatePromotionVertical(promoId, nextVerticalId);
+                .updatePromotionVertical(promoId, null);
           }
           success = responseData != null;
           id = promoId;
