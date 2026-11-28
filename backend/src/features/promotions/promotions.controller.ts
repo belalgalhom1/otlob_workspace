@@ -6,11 +6,17 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UploadedFile,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiFileUpload } from 'src/common/decorators/api-file-upload.decorator';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { PromotionsService } from './promotions.service';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotions.dto';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
@@ -30,9 +36,17 @@ export class PromotionsController {
   @Public()
   @ApiStandardResponse()
   @Get()
-  @ApiOperation({ summary: 'Get all active promotions for customer app' })
-  findAllActive() {
-    return this.promotionsService.findAllActive();
+  @ApiOperation({
+    summary:
+      'Get all active promotions for customer app (optionally filtered by business type verticalId or verticalSlug)',
+  })
+  @ApiQuery({ name: 'verticalId', required: false, type: String })
+  @ApiQuery({ name: 'verticalSlug', required: false, type: String })
+  findAllActive(
+    @Query('verticalId') verticalId?: string,
+    @Query('verticalSlug') verticalSlug?: string,
+  ) {
+    return this.promotionsService.findAllActive({ verticalId, verticalSlug });
   }
 
   @ApiStandardResponse()

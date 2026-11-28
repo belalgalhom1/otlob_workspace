@@ -24,6 +24,7 @@ import 'package:vendor/core/providers/notification_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AndroidScrollCaptureBridge.ensureInitialized();
   await EasyLocalization.ensureInitialized();
 
   await EnvConfig.init();

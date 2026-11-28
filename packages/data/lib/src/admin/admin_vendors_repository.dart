@@ -796,6 +796,19 @@ class AdminVendorsRepository {
     return ResponseParser.parse(response);
   }
 
+  /// Updates the target business type (VendorVertical) for a promotion banner.
+  /// Pass null to place the banner on the general Home screen.
+  Future<dynamic> updatePromotionVertical(
+    String id,
+    String? verticalId,
+  ) async {
+    final response = await _dio.patch(
+      '/promotions/admin/$id',
+      data: {'verticalId': verticalId},
+    );
+    return ResponseParser.parse(response);
+  }
+
   Future<dynamic> deletePromotion(String id) async {
     final response = await _promotionsApi.promotionsControllerRemove(id: id);
     return ResponseParser.parse(response);

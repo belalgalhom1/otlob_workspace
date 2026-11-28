@@ -214,12 +214,17 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                 final descAr = (p['descriptionAr'] ?? '').toString().toLowerCase();
                 final type = (p['type'] ?? '').toString().toLowerCase();
                 final discount = (p['discountValue'] ?? '').toString().toLowerCase();
+                final vertical = p['vertical'] as Map?;
+                final verticalName = (vertical?['name'] ?? '').toString().toLowerCase();
+                final verticalNameAr = (vertical?['nameAr'] ?? '').toString().toLowerCase();
                 return title.contains(_searchQuery) ||
                     titleAr.contains(_searchQuery) ||
                     desc.contains(_searchQuery) ||
                     descAr.contains(_searchQuery) ||
                     type.contains(_searchQuery) ||
-                    discount.contains(_searchQuery);
+                    discount.contains(_searchQuery) ||
+                    verticalName.contains(_searchQuery) ||
+                    verticalNameAr.contains(_searchQuery);
               }).toList();
             }
 
@@ -462,6 +467,24 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                       ),
                       if (isOffer && variantName != null && variantName.toString().isNotEmpty)
                         _buildBadge(variantName.toString().toUpperCase(), Colors.purple),
+                      if (!isOffer) ...[
+                        () {
+                          final vertical = promo['vertical'] as Map?;
+                          final verticalLabel = vertical != null
+                              ? (isArabic
+                                  ? (vertical['nameAr'] ?? vertical['name'] ?? '')
+                                      .toString()
+                                  : (vertical['name'] ?? vertical['nameAr'] ?? '')
+                                      .toString())
+                              : (isArabic ? 'الصفحة الرئيسية' : 'HOME');
+                          return _buildBadge(
+                            verticalLabel.isNotEmpty
+                                ? verticalLabel
+                                : (isArabic ? 'الصفحة الرئيسية' : 'HOME'),
+                            vertical != null ? Colors.indigo : Colors.teal,
+                          );
+                        }(),
+                      ],
                       _buildBadge(
                         isActive
                             ? (isArabic ? 'نشط' : 'ACTIVE')
@@ -643,8 +666,16 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
           final responseData = await ref
               .read(adminVendorsRepositoryProvider)
               .updatePromotion(promotion['id'] ?? promotion['_id'], dto);
+          final promoId = (promotion['id'] ?? promotion['_id']).toString();
+          final previousVerticalId = promotion['verticalId']?.toString();
+          final nextVerticalId = result['verticalId']?.toString();
+          if (previousVerticalId != nextVerticalId) {
+            await ref
+                .read(adminVendorsRepositoryProvider)
+                .updatePromotionVertical(promoId, nextVerticalId);
+          }
           success = responseData != null;
-          id = promotion['id'] ?? promotion['_id'];
+          id = promoId;
         } else {
           final dataToSubmit = Map<String, dynamic>.from(result);
           dataToSubmit.remove('imageFile');
@@ -657,7 +688,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
           success = true;
         }
 
-        if (success && id != null && result['imageFile'] != null) {
+        if (success && id.isNotEmpty && result['imageFile'] != null) {
           final imageFile = result['imageFile'] as XFile;
           final bytes = await imageFile.readAsBytes();
           final multipartFile = dio.MultipartFile.fromBytes(

@@ -10,6 +10,7 @@ import 'core/providers/app_settings_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AndroidScrollCaptureBridge.ensureInitialized();
 
   await dotenv.load(fileName: ".env");
   await EasyLocalization.ensureInitialized();

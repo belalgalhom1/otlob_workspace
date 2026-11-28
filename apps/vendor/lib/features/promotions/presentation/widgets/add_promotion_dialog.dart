@@ -35,6 +35,7 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
   late bool _isActive;
   String? _selectedVendorId;
   String? _selectedProductId;
+  String? _selectedVerticalId;
 
   XFile? _imageFile;
   Uint8List? _imageFileBytes;
@@ -45,6 +46,7 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
 
   List<dynamic> _vendors = [];
   List<dynamic> _products = [];
+  List<dynamic> _verticals = [];
   bool _isLoadingProducts = false;
 
   @override
@@ -68,6 +70,7 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
     _isActive = p?['isActive'] ?? true;
     _selectedVendorId = p?['vendorId'];
     _selectedProductId = p?['productId'];
+    _selectedVerticalId = p?['verticalId']?.toString();
 
     if (p?['startDate'] != null) {
       _startDate = DateTime.tryParse(p['startDate'].toString());
@@ -77,6 +80,7 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
     }
 
     _fetchVendors();
+    _fetchVerticals();
   }
 
   @override
@@ -109,6 +113,24 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
       }
     } catch (e) {
       debugPrint('AddPromotionDialog fetchVendors Error: $e');
+    }
+  }
+
+  Future<void> _fetchVerticals() async {
+    try {
+      final result = await ref
+          .read(adminVerticalsRepositoryProvider)
+          .verticalsFindAll();
+      if (mounted) {
+        final list = result is List
+            ? result
+            : (result is Map ? (result['data'] ?? []) : []);
+        setState(() {
+          _verticals = List<dynamic>.from(list as Iterable);
+        });
+      }
+    } catch (e) {
+      debugPrint('AddPromotionDialog fetchVerticals Error: $e');
     }
   }
 
@@ -174,6 +196,14 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
             const SizedBox(height: 12),
             AppFieldLabel(label: l10n.promotionType, isRequired: true),
             _buildTypeDropdown(l10n),
+
+            const SizedBox(height: 16),
+            AppFieldLabel(
+              label: Localizations.localeOf(context).languageCode == 'ar'
+                  ? 'مكان العرض (نوع العمل)'
+                  : 'Display Placement (Business Type)',
+            ),
+            _buildVerticalDropdown(),
 
             if (_type == 'VENDOR' || _type == 'PRODUCT') ...[
               const SizedBox(height: 16),
@@ -452,6 +482,58 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
     );
   }
 
+  Widget _buildVerticalDropdown() {
+    final theme = Theme.of(context);
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final validVerticalIds = _verticals
+        .map((v) => v['id']?.toString())
+        .whereType<String>()
+        .toSet();
+    final safeValue =
+        (_selectedVerticalId != null && validVerticalIds.contains(_selectedVerticalId))
+            ? _selectedVerticalId
+            : null;
+
+    return DropdownButtonFormField<String?>(
+      initialValue: safeValue,
+      isExpanded: true,
+      dropdownColor: AppDialogStyles.dropdownColor(context),
+      style: theme.textTheme.bodyMedium?.copyWith(
+        fontSize: 14,
+        color: theme.colorScheme.onSurface,
+      ),
+      decoration: AppDialogStyles.inputDecoration(
+        context,
+        icon: LucideIcons.layoutGrid,
+      ),
+      items: [
+        DropdownMenuItem<String?>(
+          value: null,
+          child: Text(
+            isAr ? 'الصفحة الرئيسية (عام)' : 'Home Screen (General)',
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        ..._verticals.map((v) {
+          final id = v['id']?.toString();
+          final label = isAr
+              ? (v['nameAr']?.toString().trim().isNotEmpty == true
+                  ? v['nameAr'].toString()
+                  : (v['name'] ?? '').toString())
+              : (v['name'] ?? v['nameAr'] ?? '').toString();
+          return DropdownMenuItem<String?>(
+            value: id,
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }),
+      ],
+      onChanged: (v) => setState(() => _selectedVerticalId = v),
+    );
+  }
+
   Widget _buildVendorDropdown(AppLocalizations l10n) {
     final theme = Theme.of(context);
     return DropdownButtonFormField<String>(
@@ -656,6 +738,7 @@ class _AddPromotionDialogState extends ConsumerState<AddPromotionDialog> {
             ? null
             : _descriptionArController.text.trim(),
         'type': _type,
+        'verticalId': _selectedVerticalId,
         'vendorId':
             (_type == 'VENDOR' || _type == 'PRODUCT') ? _selectedVendorId : null,
         'productId': _type == 'PRODUCT' ? _selectedProductId : null,

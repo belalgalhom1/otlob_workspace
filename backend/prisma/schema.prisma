@@ -491,7 +491,8 @@ model VendorVertical {
   sortOrder Int      @default(0)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
-  vendors   Vendor[]
+  vendors    Vendor[]
+  promotions Promotion[]
 
   @@index([isActive, sortOrder])
   @@map("vendor_verticals")
@@ -1976,17 +1977,20 @@ model Promotion {
   type          PromotionType @default(BANNER)
   vendorId      String?
   productId     String?
+  verticalId    String?
   externalUrl   String?
-  isActive      Boolean       @default(true)
-  sortOrder     Int           @default(0)
-  startDate     DateTime?     @db.Timestamptz(3)
-  endDate       DateTime?     @db.Timestamptz(3)
-  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
-  vendor        Vendor?       @relation(fields: [vendorId], references: [id])
-  product       Product?      @relation(fields: [productId], references: [id])
+  isActive      Boolean         @default(true)
+  sortOrder     Int             @default(0)
+  startDate     DateTime?       @db.Timestamptz(3)
+  endDate       DateTime?       @db.Timestamptz(3)
+  createdAt     DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @db.Timestamptz(3)
+  vendor        Vendor?         @relation(fields: [vendorId], references: [id])
+  product       Product?        @relation(fields: [productId], references: [id])
+  vertical      VendorVertical? @relation(fields: [verticalId], references: [id], onDelete: SetNull)
 
   @@index([isActive, sortOrder])
+  @@index([verticalId, isActive, sortOrder])
   @@map("promotions")
 }
 

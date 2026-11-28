@@ -9,6 +9,7 @@ import {
   IsUrl,
   Min,
   IsDate,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PromotionType } from '@prisma/client';
@@ -67,6 +68,18 @@ export class CreatePromotionDto {
   @IsUUID()
   @IsOptional()
   productId?: string;
+
+  @ApiProperty({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    required: false,
+    description:
+      'Optional business type (VendorVertical) ID. When set, the banner appears at the top of that business type screen; when omitted/null, it appears on the Home screen.',
+  })
+  @Transform(({ value }) => (value === '' ? null : value))
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsUUID()
+  @IsOptional()
+  verticalId?: string | null;
 
   @ApiProperty({ example: 'https://example.com', required: false })
   @IsUrl()
@@ -227,6 +240,18 @@ export class UpdatePromotionDto {
   @IsUUID()
   @IsOptional()
   productId?: string;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    description:
+      'Optional business type (VendorVertical) ID. Pass null to move banner back to Home screen.',
+  })
+  @Transform(({ value }) => (value === '' ? null : value))
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsUUID()
+  @IsOptional()
+  verticalId?: string | null;
 
   @ApiProperty({ required: false })
   @IsUrl()

@@ -107,6 +107,8 @@ class HomeController extends _$HomeController {
           'type': promo['type'],
           'vendorId': promo['vendorId'],
           'productId': promo['productId'],
+          'verticalId': promo['verticalId'] ?? promo['vertical']?['id'],
+          'verticalSlug': promo['vertical']?['slug'],
           'externalUrl': promo['externalUrl'],
         };
       }).toList();

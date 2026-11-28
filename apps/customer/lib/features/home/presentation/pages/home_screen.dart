@@ -895,7 +895,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     HomePalette palette,
   ) {
     final s = AppStrings.of(context);
-    final banners = data.promotions;
+    final banners = data.promotions
+        .where((p) => (p['verticalId']?.toString().trim() ?? '').isEmpty)
+        .toList();
     final totalItems = banners.isEmpty ? 1 : (banners.length + 1);
 
     return Consumer(

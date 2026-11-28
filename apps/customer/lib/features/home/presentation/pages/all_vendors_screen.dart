@@ -15,6 +15,7 @@ import '../providers/home_controller.dart';
 import '../providers/discovery_search_controller.dart';
 import '../widgets/category_icon_image.dart';
 import '../widgets/vendor_card.dart';
+import '../widgets/vertical_promo_banners.dart';
 
 class AllVendorsScreen extends ConsumerStatefulWidget {
   final String type;
@@ -43,6 +44,14 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
     });
   }
 
+  String _localizedVendorName(AppStrings s, dynamic v) {
+    if (s.isArabic) {
+      final ar = v['nameAr']?.toString().trim() ?? '';
+      if (ar.isNotEmpty) return ar;
+    }
+    return (v['name'] ?? v['storeName'] ?? s.stores).toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
@@ -62,31 +71,66 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                   ? allVendors
                   : allVendors.where((v) => v['type'] == widget.type).toList();
 
-              // Resolve dynamic title from categories data
+              // Resolve dynamic title and vertical ID from categories data
+              String? currentVerticalId;
               if (widget.type != 'all') {
-                final cat = data.categories.where((c) => c['type'] == widget.type).firstOrNull;
+                final cat = data.categories
+                    .where((c) => c['type'] == widget.type)
+                    .firstOrNull;
                 if (cat != null) {
-                  title = (s.isArabic && cat['nameAr'] != null) ? cat['nameAr'] : cat['name'];
+                  currentVerticalId = cat['id']?.toString();
+                  title = (s.isArabic && cat['nameAr'] != null)
+                      ? cat['nameAr']
+                      : cat['name'];
                 }
               }
 
-              // Search results from Discovery Search
-              final discoverySearch = _searchQuery.isEmpty 
-                  ? null 
-                  : ref.watch(discoverySearchControllerProvider(
-                      (query: _searchQuery, 
-                       verticalId: widget.type == 'all' ? null : data.categories.where((c) => c['type'] == widget.type).firstOrNull?['id'])
-                    ));
+              // Business-type-specific promotional banners
+              final verticalBanners = data.promotions.where((promo) {
+                final promoVerticalId =
+                    promo['verticalId']?.toString().trim() ?? '';
+                final promoVerticalSlug =
+                    promo['verticalSlug']?.toString().trim() ?? '';
+                if (widget.type == 'all') {
+                  return promoVerticalId.isEmpty;
+                }
+                if (currentVerticalId != null &&
+                    currentVerticalId.isNotEmpty &&
+                    promoVerticalId == currentVerticalId) {
+                  return true;
+                }
+                if (promoVerticalSlug.isNotEmpty &&
+                    promoVerticalSlug == widget.type) {
+                  return true;
+                }
+                return false;
+              }).toList();
 
+              // Search results from Discovery Search
+              final discoverySearch = _searchQuery.isEmpty
+                  ? null
+                  : ref.watch(
+                      discoverySearchControllerProvider((
+                        query: _searchQuery,
+                        verticalId:
+                            widget.type == 'all' ? null : currentVerticalId,
+                      )),
+                    );
+
+              final q = _searchQuery.trim().toLowerCase();
               final filtered = categoryVendors.where((v) {
+                if (q.isEmpty) return true;
                 final name = (v['name'] as String? ?? '').toLowerCase();
-                return name.contains(_searchQuery.toLowerCase());
+                final nameAr = (v['nameAr'] as String? ?? '').toLowerCase();
+                return name.contains(q) || nameAr.contains(q);
               }).toList();
 
               final suggestions = List.from(categoryVendors)
                 ..sort((a, b) {
-                  double ratingA = double.tryParse(a['rating']?.toString() ?? '0') ?? 0;
-                  double ratingB = double.tryParse(b['rating']?.toString() ?? '0') ?? 0;
+                  double ratingA =
+                      double.tryParse(a['rating']?.toString() ?? '0') ?? 0;
+                  double ratingB =
+                      double.tryParse(b['rating']?.toString() ?? '0') ?? 0;
                   return ratingB.compareTo(ratingA);
                 });
               final topSuggestions = suggestions.take(5).toList();
@@ -96,28 +140,36 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                   _buildAppBar(title, isDark),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
                       child: _buildSearchBar(s, isDark),
                     ),
                   ),
+                  if (_searchQuery.isEmpty && verticalBanners.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: VerticalPromoBanners(
+                        banners: verticalBanners,
+                        vendors: allVendors,
+                      ),
+                    ),
                   if (_searchQuery.isEmpty && topSuggestions.isNotEmpty) ...[
                     SliverToBoxAdapter(
                       child: _buildSuggestionsSection(s, topSuggestions, isDark),
                     ),
                   ],
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
                     sliver: SliverToBoxAdapter(
                       child: Text(
                         _searchQuery.isEmpty ? s.allResults : s.searchResults,
                         style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : Colors.black87),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
                       ),
                     ),
                   ),
-                  if (_searchQuery.isNotEmpty) 
+                  if (_searchQuery.isNotEmpty)
                     discoverySearch!.when(
                       data: (results) {
                         if (results.isEmpty) {
@@ -131,17 +183,33 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                           ),
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
-                              (context, index) => _buildDiscoveryResultCard(s, results[index], isDark),
+                              (context, index) => _buildDiscoveryResultCard(
+                                s,
+                                results[index],
+                                isDark,
+                              ),
                               childCount: results.length,
                             ),
                           ),
                         );
                       },
                       loading: () => const SliverToBoxAdapter(
-                        child: Center(child: Padding(padding: EdgeInsets.all(64), child: CircularProgressIndicator())),
+                        child: Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(64),
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
                       ),
                       error: (e, st) => SliverToBoxAdapter(
-                        child: Center(child: Text('${s.searchErrorPrefix}${ErrorUtils.translate(context, e)}', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
+                        child: Center(
+                          child: Text(
+                            '${s.searchErrorPrefix}${ErrorUtils.translate(context, e)}',
+                            style: TextStyle(
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ),
                       ),
                     )
                   else if (filtered.isEmpty)
@@ -159,7 +227,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) => Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.only(bottom: 10),
                             child: VendorCard(vendor: filtered[index]),
                           ),
                           childCount: filtered.length,
@@ -454,49 +522,66 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                s.featuredSuggestions,
-                style: TextStyle(
+              Expanded(
+                child: Text(
+                  s.featuredSuggestions,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87),
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
               ),
+              const SizedBox(width: 8),
               const Icon(Icons.auto_awesome, color: Colors.amber, size: 18),
             ],
           ),
         ),
         SizedBox(
-          height: 180,
+          height: 176,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: topSuggestions.length,
             itemBuilder: (context, index) {
               final v = topSuggestions[index];
-              return _buildSuggestionCard(v, isDark);
+              return _buildSuggestionCard(s, v, isDark);
             },
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
       ],
     );
   }
 
-  Widget _buildSuggestionCard(dynamic v, bool isDark) {
+  Widget _buildSuggestionCard(AppStrings s, dynamic v, bool isDark) {
+    final name = _localizedVendorName(s, v);
+    final deliveryTime = s.isArabic
+        ? (v['deliveryTime']?.toString() ?? '20-30 دقيقة')
+        : (v['deliveryTimeEn']?.toString() ??
+            v['deliveryTime']?.toString() ??
+            '20-30 min');
+
     return GestureDetector(
       onTap: () => context.push('/vendor', extra: v),
       child: Container(
-        width: 160,
-        margin: const EdgeInsets.only(right: 16, bottom: 8),
+        width: 156,
+        margin: const EdgeInsetsDirectional.only(end: 12, bottom: 6),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 4)),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
           ],
         ),
         child: Column(
@@ -504,7 +589,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -530,16 +615,20 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                         ),
                       ),
                     ),
-                    Positioned(
+                    PositionedDirectional(
                       bottom: 8,
-                      left: 8,
+                      end: 8,
                       child: Row(
                         children: [
                           const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
                           const SizedBox(width: 4),
                           Text(
                             (v['rating'] as num? ?? 0).toStringAsFixed(1),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -554,17 +643,20 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    v['name'] ?? 'Store',
+                    name,
                     style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: isDark ? Colors.white : Colors.black87),
-                    maxLines: 2,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    v['deliveryTime']?.toString() ?? '20-30 min',
+                    deliveryTime,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: isDark ? const Color(0xFFE5E2DC) : const Color(0xFF33302B),
                       fontSize: 11.5,
