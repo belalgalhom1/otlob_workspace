@@ -233,13 +233,14 @@ class _NotificationTapListenerState
     Future.microtask(() async {
       try {
         final push = ref.read(pushNotificationServiceProvider);
-        await push.ensureTapListenersInitialized();
         _openedAppSub = push.onMessageOpenedApp.listen((message) {
+          if (!mounted) return;
           final data = message.data.map(
             (key, value) => MapEntry(key, value?.toString() ?? ''),
           );
           ref.read(notificationRouterProvider.notifier).handleTap(data);
         });
+        await push.ensureTapListenersInitialized();
         final initial = await push.getInitialMessage();
         if (initial != null && mounted) {
           final data = initial.data.map(

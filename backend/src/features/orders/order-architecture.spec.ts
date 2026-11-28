@@ -500,7 +500,7 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       );
     });
 
-    it('DispatchProcessor uses DispatchOrderWorkflowPort and enqueues CANCEL_ORDER on max attempts', async () => {
+    it('DispatchProcessor uses DispatchOrderWorkflowPort, never auto-cancels on max attempts, and alerts Super Admin', async () => {
       const orderWorkflowPort = {
         transitionAcceptedOrderToSearching: jest
           .fn()
@@ -512,6 +512,13 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       const workflowDispatcher: any = {
         enqueueCancelOrder: jest.fn().mockResolvedValue(undefined),
       };
+      const staleOrderAlertService: any = {
+        resolveIntervalMins: jest.fn().mockReturnValue(5),
+        alertOrderIfDue: jest
+          .fn()
+          .mockResolvedValue({ alerted: true, recipientCount: 1 }),
+      };
+      const deleteDispatchState = jest.fn().mockResolvedValue(undefined);
       const queue: any = {
         add: jest.fn().mockResolvedValue({}),
         getJob: jest.fn().mockResolvedValue({ remove: jest.fn() }),
@@ -521,28 +528,34 @@ describe('Order & Dispatch Clean Architecture Units', () => {
         {
           isHandoffDeduped: jest.fn().mockResolvedValue(false),
           markHandoffDeduped: jest.fn().mockResolvedValue(undefined),
+          deleteDispatchState,
         } as any,
         orderWorkflowPort,
         workflowDispatcher,
         {
-          getSettings: jest
-            .fn()
-            .mockResolvedValue({ driverSearchMaxAttempts: 3 }),
+          getSettings: jest.fn().mockResolvedValue({
+            driverSearchMaxAttempts: 3,
+            staleOrderAlertIntervalMins: 5,
+          }),
         } as any,
         {
           order: {
             findUnique: jest.fn().mockResolvedValue({
               id: 'ord-9',
               status: OrderStatus.ACCEPTED,
+              createdAt: new Date(Date.now() - 10 * 60_000),
+              updatedAt: new Date(Date.now() - 6 * 60_000),
             }),
           },
           orderDeliveryGroup: { findMany: jest.fn().mockResolvedValue([]) },
         } as any,
         { sweepStaleDriverLocations: jest.fn() } as any,
         queue,
+        undefined,
+        staleOrderAlertService,
       );
 
-      await processor.process({
+      const res = await processor.process({
         id: 'job-1',
         name: ORDER_JOBS.DISPATCH,
         data: { orderId: 'ord-9', orderNumber: 'OTL-9', attempt: 4 },
@@ -551,10 +564,24 @@ describe('Order & Dispatch Clean Architecture Units', () => {
       expect(
         orderWorkflowPort.transitionAcceptedOrderToSearching,
       ).toHaveBeenCalledWith('ord-9');
-      expect(workflowDispatcher.enqueueCancelOrder).toHaveBeenCalledWith(
-        'ord-9',
-        'Auto-cancelled: No drivers accepted the order after maximum attempts',
+      expect(workflowDispatcher.enqueueCancelOrder).not.toHaveBeenCalled();
+      expect(
+        orderWorkflowPort.handleUndispatchableDeliveryGroup,
+      ).not.toHaveBeenCalled();
+      expect(deleteDispatchState).toHaveBeenCalledWith('ord-9');
+      expect(staleOrderAlertService.alertOrderIfDue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: 'ord-9',
+          orderNumber: 'OTL-9',
+          reason: 'NO_DRIVER_FOUND',
+          intervalMins: 5,
+        }),
       );
+      expect(res).toMatchObject({
+        noDriversFound: true,
+        autoCancelled: false,
+        alertedSuperAdmin: true,
+      });
     });
 
     it('DispatchService.handleAcceptance triggers immediate workflowDispatcher cancellation and outbox completion', async () => {

@@ -27,3 +27,17 @@ export class WalletTopUpReviewedEvent {
     public readonly unsuspended: boolean = false,
   ) {}
 }
+
+export class DriverManagerPayoutCompletedEvent {
+  constructor(
+    public readonly transactionId: string,
+    public readonly managerId: string,
+    public readonly managerUserId: string,
+    public readonly managerName: string,
+    public readonly amount: number,
+    public readonly newBalance: number,
+    public readonly receiptUrl: string | null = null,
+    public readonly notes: string | null = null,
+    public readonly processedByUserId: string | null = null,
+  ) {}
+}

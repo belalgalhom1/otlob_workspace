@@ -64,6 +64,7 @@ model PlatformSetting {
   driverSearchRadiusStepKm              Float     @default(2.0)
   driverSearchRadiusMaxKm               Float     @default(15.0)
   autoCancelPendingMins                 Int       @default(15)
+  staleOrderAlertIntervalMins           Int       @default(5)
   mobileWalletTimeoutMins               Int       @default(15)
   driverAcceptTimeoutSecs               Int       @default(30)
   dispatchHandoffDedupeTtlSecs          Int       @default(300)
@@ -220,6 +221,7 @@ model User {
   vendorMemberships    VendorMember[]
   createdConversations Conversation[]            @relation("ConversationCreator")
   approvedTopUps       WalletTopUpRequest[]
+  processedDriverManagerPayouts DriverManagerWalletTransaction[] @relation("DriverManagerPayoutProcessor")
   approvedDrivers      Driver[]                  @relation("DriverApprovals")
   accounts             Account[]
   createdLegalDocuments LegalDocument[]          @relation("CreatedLegalDocuments")
@@ -1402,11 +1404,14 @@ model DriverManagerWalletTransaction {
   balanceAfter    Int
   description     String?
   referenceId     String?
+  receiptUrl      String?
+  processedById   String?
   idempotencyKey  String?
   createdAt       DateTime                    @default(now()) @db.Timestamptz(3)
   manager         DriverManager               @relation(fields: [managerId], references: [id], onDelete: Cascade)
   order           Order?                      @relation(fields: [orderId], references: [id], onDelete: SetNull)
   deliveryGroup   OrderDeliveryGroup?         @relation(fields: [deliveryGroupId], references: [id], onDelete: SetNull)
+  processedBy     User?                       @relation("DriverManagerPayoutProcessor", fields: [processedById], references: [id], onDelete: SetNull)
 
   @@unique([deliveryGroupId, type, managerId])
   @@unique([managerId, idempotencyKey])

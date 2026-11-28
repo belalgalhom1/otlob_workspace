@@ -70,6 +70,7 @@ export const EVENTS = {
   // Wallet & Driver Adjustments
   WALLET_TOPUP_SUBMITTED: 'wallet.topup.submitted',
   WALLET_TOPUP_REVIEWED: 'wallet.topup.reviewed',
+  DRIVER_MANAGER_PAYOUT_COMPLETED: 'wallet.driver_manager.payout',
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

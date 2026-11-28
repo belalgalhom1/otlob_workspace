@@ -739,20 +739,22 @@ const List<SettingsSection> platformSettingsSections = [
         helpEn: 'How long the driver has to accept the order.',
       ),
       SettingsField(
-        key: 'autoCancelPendingMins',
+        key: 'staleOrderAlertIntervalMins',
         kind: SettingsFieldKind.number,
-        labelAr: 'إلغاء تلقائي للطلب المعلّق',
-        labelEn: 'Auto-cancel Pending (min)',
-        helpAr: 'بعد كام دقيقة يتلغي الطلب المعلّق تلقائيًا.',
-        helpEn: 'Minutes before a pending order is auto-cancelled.',
+        labelAr: 'تنبيه السوبر أدمن للطلبات المعلّقة (دقائق)',
+        labelEn: 'Stale Order Admin Alert Interval (min)',
+        helpAr:
+            'الطلبات لا تُلغى تلقائياً؛ يتم إرسال إشعار تذكير متكرر للسوبر أدمن كل هذه المدة (الافتراضي 5 دقائق) للطلبات المعلّقة أو بدون سائق أو بانتظار الدفع.',
+        helpEn:
+            'Orders are never auto-cancelled; Super Admin receives a recurring alert every N minutes (default: 5 min) for pending, unassigned, or awaiting-payment orders.',
       ),
       SettingsField(
         key: 'mobileWalletTimeoutMins',
         kind: SettingsFieldKind.number,
-        labelAr: 'مهلة دفع المحفظة',
-        labelEn: 'Mobile Wallet Timeout (min)',
-        helpAr: 'بعد كام دقيقة تنتهي مهلة الدفع بالمحفظة.',
-        helpEn: 'Minutes before a mobile-wallet payment times out.',
+        labelAr: 'تنبيه تأخر دفع المحفظة (دقائق)',
+        labelEn: 'Mobile Wallet Payment Alert Delay (min)',
+        helpAr: 'بعد كام دقيقة يتم تنبيه السوبر أدمن عند تأخر الدفع بالمحفظة (بدون إلغاء تلقائي).',
+        helpEn: 'Minutes before alerting Super Admin about pending mobile-wallet payment (no auto-cancel).',
       ),
       SettingsField(
         key: 'maxDispatchBatchSize',

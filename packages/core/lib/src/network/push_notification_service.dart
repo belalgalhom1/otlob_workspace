@@ -39,8 +39,11 @@ class PushNotificationService {
 
   final DevicesPushNotificationsApi _devicesApi;
   final Future<bool> Function()? _hasActiveSession;
-  final StreamController<RemoteMessage> _openedAppController =
-      StreamController<RemoteMessage>.broadcast();
+  final List<RemoteMessage> _bufferedOpenedMessages = [];
+  late final StreamController<RemoteMessage> _openedAppController =
+      StreamController<RemoteMessage>.broadcast(
+        onListen: _flushBufferedOpenedMessages,
+      );
   bool _initialized = false;
   bool _tapListenersInitialized = false;
   bool _listenersInitialized = false;
@@ -115,11 +118,34 @@ class PushNotificationService {
           _onMessageOpenedAppOverride ?? FirebaseMessaging.onMessageOpenedApp;
       _openedAppSub ??= openedStream.listen((RemoteMessage message) {
         debugPrint('Message clicked! Routing to payload: ${message.data}');
-        _openedAppController.add(message);
+        _emitOpenedApp(message);
       });
     } catch (e) {
       debugPrint('FCM: onMessageOpenedApp listener warning: $e');
     }
+  }
+
+  void _emitOpenedApp(RemoteMessage message) {
+    if (_openedAppController.isClosed) return;
+    if (_openedAppController.hasListener) {
+      _openedAppController.add(message);
+    } else {
+      _bufferedOpenedMessages.add(message);
+    }
+  }
+
+  void _flushBufferedOpenedMessages() {
+    if (_bufferedOpenedMessages.isEmpty || _openedAppController.isClosed) {
+      return;
+    }
+    final pending = List<RemoteMessage>.from(_bufferedOpenedMessages);
+    _bufferedOpenedMessages.clear();
+    scheduleMicrotask(() {
+      if (_openedAppController.isClosed) return;
+      for (final msg in pending) {
+        _openedAppController.add(msg);
+      }
+    });
   }
 
   Future<void> initialize() async {
@@ -242,7 +268,7 @@ class PushNotificationService {
   void _handleLocalNotificationResponse(NotificationResponse response) {
     final message = _decodeLocalPayload(response.payload);
     if (message != null) {
-      _openedAppController.add(message);
+      _emitOpenedApp(message);
     }
   }
 

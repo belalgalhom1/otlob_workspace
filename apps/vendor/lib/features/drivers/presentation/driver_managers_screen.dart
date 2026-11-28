@@ -7,6 +7,8 @@ import 'package:core/core.dart';
 import 'package:data/providers.dart';
 import 'package:vendor/core/providers.dart';
 import 'package:vendor/core/utils/error_utils.dart';
+import 'package:vendor/features/wallet/presentation/driver_manager_wallet_screen.dart';
+import 'package:vendor/features/wallet/presentation/widgets/driver_manager_payout_dialog.dart';
 import '../data/driver_models.dart';
 
 const Color _neutral500 = Color(0xFF6B7280);
@@ -22,6 +24,7 @@ class DriverManagersScreen extends ConsumerStatefulWidget {
 
 class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
   bool _isLoading = true;
+  bool _canManageFinance = false;
   String? _error;
   List<dynamic> _managers = [];
   String _searchQuery = '';
@@ -36,7 +39,21 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
   @override
   void initState() {
     super.initState();
+    _loadPermissions();
     _loadManagers();
+  }
+
+  Future<void> _loadPermissions() async {
+    try {
+      final authRepo = ref.read(sharedAuthRepositoryProvider);
+      final role = await authRepo.getUserRole();
+      final perms = await authRepo.getUserPermissions();
+      if (!mounted) return;
+      setState(() {
+        _canManageFinance =
+            role == 'SUPER_ADMIN' || perms.contains('MANAGE_FINANCE');
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadManagers() async {
@@ -407,39 +424,114 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: borderColor),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(LucideIcons.wallet, size: 20, color: AppColors.primary),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _isAr ? 'محفظة عمولة مسؤول السائقين' : 'Driver Manager Commission Wallet',
-                          style: TextStyle(fontSize: 12, color: secondaryTextColor),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${walletBalance.toStringAsFixed(2)} ${_isAr ? 'ج.م' : 'EGP'}',
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
+                        child: const Icon(
+                          LucideIcons.wallet,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _isAr
+                                  ? 'محفظة عمولة مسؤول السائقين'
+                                  : 'Driver Manager Commission Wallet',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: secondaryTextColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${walletBalance.toStringAsFixed(2)} ${_isAr ? 'ج.م' : 'EGP'}',
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (userId.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (_canManageFinance)
+                          FilledButton.icon(
+                            onPressed: walletBalance > 0
+                                ? () => _openManagerPayout(
+                                    userId: userId,
+                                    managerName: name,
+                                    walletBalance: walletBalance,
+                                  )
+                                : null,
+                            icon: const Icon(LucideIcons.send, size: 15),
+                            label: Text(
+                              walletBalance > 0
+                                  ? (_isAr
+                                      ? 'تحويل وتصفير المحفظة'
+                                      : 'Settle & Send Receipt')
+                                  : (_isAr ? 'الرصيد مصفّر' : 'Settled'),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.onPrimary,
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: () => _openManagerWallet(
+                            userId: userId,
+                            managerName: name,
+                          ),
+                          icon: const Icon(LucideIcons.receiptText, size: 15),
+                          label: Text(
+                            _isAr ? 'سجل المحفظة والإيصالات' : 'Wallet Ledger',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: borderColor),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -566,6 +658,50 @@ class _DriverManagersScreenState extends ConsumerState<DriverManagersScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openManagerPayout({
+    required String userId,
+    required String managerName,
+    required double walletBalance,
+  }) async {
+    final didPayout = await DriverManagerPayoutDialog.show(
+      context,
+      managerUserId: userId,
+      managerName: managerName,
+      currentBalance: walletBalance,
+    );
+    if (didPayout == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isAr
+                ? 'تم تحويل المستحقات وتصفية المحفظة وإشعار المسؤول بنجاح'
+                : 'Payout transferred and driver manager notified successfully',
+          ),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      await _loadManagers();
+    }
+  }
+
+  Future<void> _openManagerWallet({
+    required String userId,
+    required String managerName,
+  }) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DriverManagerWalletScreen(
+          userId: userId,
+          managerName: managerName,
+          canPayout: _canManageFinance,
+        ),
+      ),
+    );
+    if (mounted) {
+      await _loadManagers();
+    }
   }
 
   Future<void> _confirmUnassignDriver(String managerUserId, String driverId, String driverName) async {

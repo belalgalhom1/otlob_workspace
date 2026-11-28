@@ -364,5 +364,35 @@ void main() {
         expect(api.registeredDevices.first.token, 'token-guarded');
       },
     );
+
+    test(
+      'buffers notification taps arriving before onMessageOpenedApp listener attaches',
+      () async {
+        await service.ensureTapListenersInitialized();
+
+        // Simulate tap arriving before the UI subscribes to onMessageOpenedApp.
+        onMessageOpenedAppController.add(
+          const RemoteMessage(
+            messageId: 'early-settlement-tap',
+            data: {
+              'kind': 'wallet_topup',
+              'route': 'wallet_topup_details',
+              'requestId': 'req-early-1',
+              'topUpId': 'req-early-1',
+            },
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+
+        final received = <RemoteMessage>[];
+        final sub = service.onMessageOpenedApp.listen(received.add);
+        addTearDown(sub.cancel);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(received, hasLength(1));
+        expect(received.first.data['kind'], 'wallet_topup');
+        expect(received.first.data['requestId'], 'req-early-1');
+      },
+    );
   });
 }

@@ -1025,7 +1025,14 @@ export class StatisticsAnalyticsRepository {
   ) {
     const { from: fromDate, to: toDate } = this.buildRange(from, to);
 
-    const [days, activeRows] = await Promise.all([
+    const [
+      days,
+      activeRows,
+      vendorDays,
+      driverDays,
+      managerEarningsRows,
+      serviceFeeRows,
+    ] = await Promise.all([
       this.prisma.appStatistic.findMany({
         where: {
           period: StatisticPeriod.DAILY,
@@ -1034,44 +1041,86 @@ export class StatisticsAnalyticsRepository {
       }),
       // activeCustomers/activeDrivers are DISTINCT counts — compute straight from orders.
       this.computeActiveCounts(period, fromDate, toDate),
+      this.prisma.vendorStatistic.findMany({
+        where: {
+          period: StatisticPeriod.DAILY,
+          startDate: { gte: fromDate, lt: toDate },
+        },
+        select: {
+          startDate: true,
+          totalCommission: true,
+        },
+      }),
+      this.prisma.driverStatistic.findMany({
+        where: {
+          period: StatisticPeriod.DAILY,
+          startDate: { gte: fromDate, lt: toDate },
+        },
+        select: {
+          startDate: true,
+          totalEarnings: true,
+        },
+      }),
+      this.computeDriverManagerEarnings(period, fromDate, toDate),
+      this.computeDeliveredServiceFees(period, fromDate, toDate),
     ]);
 
     const activeByKey = new Map(
       activeRows.map((r) => [this.groupKey(r.startDate, period), r]),
     );
+    const managerEarningsByKey = new Map(
+      managerEarningsRows.map((r) => [
+        this.groupKey(r.startDate, period),
+        r.totalDriverManagerEarnings,
+      ]),
+    );
+    const serviceFeesByKey = new Map(
+      serviceFeeRows.map((r) => [
+        this.groupKey(r.startDate, period),
+        r.totalServiceFees,
+      ]),
+    );
 
-    const groups = new Map<
-      string,
-      {
-        totalOrders: number;
-        totalAdminRevenue: number;
-        totalDeliveryFees: number;
-        activeCustomers: number;
-        activeDrivers: number;
-      }
-    >();
+    const createEmptyGroup = () => ({
+      totalOrders: 0,
+      totalAdminRevenue: 0,
+      totalDeliveryFees: 0,
+      totalDeliveryProfit: 0,
+      totalDriverEarnings: 0,
+      totalDriverManagerEarnings: 0,
+      totalVendorCommissions: 0,
+      activeCustomers: 0,
+      activeDrivers: 0,
+    });
+
+    const groups = new Map<string, ReturnType<typeof createEmptyGroup>>();
     for (const day of days) {
       const key = this.groupKey(day.startDate, period);
-      const g = groups.get(key) ?? {
-        totalOrders: 0,
-        totalAdminRevenue: 0,
-        totalDeliveryFees: 0,
-        activeCustomers: 0,
-        activeDrivers: 0,
-      };
+      const g = groups.get(key) ?? createEmptyGroup();
       g.totalOrders += day.totalOrders;
       g.totalAdminRevenue += day.totalAdminRevenue;
       g.totalDeliveryFees += day.totalDeliveryFees;
       groups.set(key, g);
     }
+    for (const row of vendorDays) {
+      const key = this.groupKey(row.startDate, period);
+      const g = groups.get(key) ?? createEmptyGroup();
+      g.totalVendorCommissions += row.totalCommission;
+      groups.set(key, g);
+    }
+    for (const row of driverDays) {
+      const key = this.groupKey(row.startDate, period);
+      const g = groups.get(key) ?? createEmptyGroup();
+      g.totalDriverEarnings += row.totalEarnings;
+      groups.set(key, g);
+    }
+    for (const [key, earnings] of managerEarningsByKey) {
+      const g = groups.get(key) ?? createEmptyGroup();
+      g.totalDriverManagerEarnings = earnings;
+      groups.set(key, g);
+    }
     for (const [key, active] of activeByKey) {
-      const g = groups.get(key) ?? {
-        totalOrders: 0,
-        totalAdminRevenue: 0,
-        totalDeliveryFees: 0,
-        activeCustomers: 0,
-        activeDrivers: 0,
-      };
+      const g = groups.get(key) ?? createEmptyGroup();
       g.activeCustomers = active.activeCustomers;
       g.activeDrivers = active.activeDrivers;
       groups.set(key, g);
@@ -1079,12 +1128,29 @@ export class StatisticsAnalyticsRepository {
     return [...groups.entries()]
       .map(([key, g]) => {
         const { startDate, endDate } = this.groupBounds(key, period);
+        const totalServiceFees = serviceFeesByKey.get(key) ?? 0;
+        // OrderSettlementService computes:
+        //   platformRevenue = vendorCommissions + serviceFees + netDeliveryProfit
+        // where netDeliveryProfit already deducts driver payouts, assist payouts,
+        // manager shares, gold bonuses, platform-paid driver bonuses, and adds
+        // bronze driver/supervisor deductions.
+        g.totalDeliveryProfit =
+          g.totalAdminRevenue - g.totalVendorCommissions - totalServiceFees;
         return { period, startDate, endDate, ...g };
       })
       .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
   }
 
-  // ─── Active counts (distinct, computed on demand) ─────────────────────────
+  private periodToTrunc(period: StatisticPeriod): string {
+    return {
+      [StatisticPeriod.DAILY]: 'day',
+      [StatisticPeriod.WEEKLY]: 'week',
+      [StatisticPeriod.MONTHLY]: 'month',
+      [StatisticPeriod.YEARLY]: 'year',
+    }[period];
+  }
+
+  // ─── Active counts & financial breakdowns (computed on demand) ────────────
 
   async computeActiveCounts(
     period: StatisticPeriod,
@@ -1098,13 +1164,7 @@ export class StatisticsAnalyticsRepository {
       activeDrivers: number;
     }>
   > {
-    const trunc = {
-      [StatisticPeriod.DAILY]: 'day',
-      [StatisticPeriod.WEEKLY]: 'week',
-      [StatisticPeriod.MONTHLY]: 'month',
-      [StatisticPeriod.YEARLY]: 'year',
-    }[period];
-
+    const trunc = this.periodToTrunc(period);
     const tz = appTimeZone();
     const rows = await this.prisma.$queryRaw<
       Array<{ key: string; activeCustomers: bigint; activeDrivers: bigint }>
@@ -1129,6 +1189,86 @@ export class StatisticsAnalyticsRepository {
         endDate,
         activeCustomers: Number(row.activeCustomers),
         activeDrivers: Number(row.activeDrivers),
+      };
+    });
+  }
+
+  async computeDriverManagerEarnings(
+    period: StatisticPeriod,
+    from: Date,
+    to: Date,
+  ): Promise<
+    Array<{
+      startDate: Date;
+      endDate: Date;
+      totalDriverManagerEarnings: number;
+    }>
+  > {
+    const trunc = this.periodToTrunc(period);
+    const tz = appTimeZone();
+    const rows = await this.prisma.$queryRaw<
+      Array<{ key: string; totalDriverManagerEarnings: bigint | number }>
+    >`
+      SELECT
+        to_char(date_trunc(${trunc}::text, t."createdAt" AT TIME ZONE ${tz}), 'YYYY-MM-DD') AS key,
+        COALESCE(SUM(t.amount), 0)::bigint AS "totalDriverManagerEarnings"
+      FROM driver_manager_wallet_transactions t
+      WHERE t."createdAt" >= ${from} AND t."createdAt" < ${to}
+        AND t.type::text IN ('DELIVERY_SHARE', 'BRONZE_PENALTY')
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `;
+
+    return rows.map((row) => {
+      const { startDate, endDate } = this.groupBounds(row.key, period);
+      return {
+        startDate,
+        endDate,
+        totalDriverManagerEarnings: Number(row.totalDriverManagerEarnings),
+      };
+    });
+  }
+
+  async computeDeliveredServiceFees(
+    period: StatisticPeriod,
+    from: Date,
+    to: Date,
+  ): Promise<
+    Array<{
+      startDate: Date;
+      endDate: Date;
+      totalServiceFees: number;
+    }>
+  > {
+    const trunc = this.periodToTrunc(period);
+    const tz = appTimeZone();
+    const rows = await this.prisma.$queryRaw<
+      Array<{ key: string; totalServiceFees: bigint | number }>
+    >`
+      SELECT
+        to_char(
+          date_trunc(
+            ${trunc}::text,
+            COALESCE(o."actualDeliveryTime", o."updatedAt") AT TIME ZONE ${tz}
+          ),
+          'YYYY-MM-DD'
+        ) AS key,
+        COALESCE(SUM(o."serviceFee"), 0)::bigint AS "totalServiceFees"
+      FROM orders o
+      WHERE o.status = 'DELIVERED'
+        AND o."deletedAt" IS NULL
+        AND COALESCE(o."actualDeliveryTime", o."updatedAt") >= ${from}
+        AND COALESCE(o."actualDeliveryTime", o."updatedAt") < ${to}
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `;
+
+    return rows.map((row) => {
+      const { startDate, endDate } = this.groupBounds(row.key, period);
+      return {
+        startDate,
+        endDate,
+        totalServiceFees: Number(row.totalServiceFees),
       };
     });
   }

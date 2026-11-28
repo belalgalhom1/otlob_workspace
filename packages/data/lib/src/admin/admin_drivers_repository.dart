@@ -204,4 +204,52 @@ class AdminDriversRepository {
     });
     return ResponseParser.parse(response);
   }
+
+  Future<dynamic> getDriverManagerTransactionsByUserId(
+    String userId, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    if (_dio == null) throw Exception("Dio is required");
+    final response = await _dio.get(
+      '/driver-managers/$userId/transactions',
+      queryParameters: {'page': page, 'limit': limit},
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> uploadDriverManagerPayoutReceipt(MultipartFile file) async {
+    if (_dio == null) throw Exception("Dio is required");
+    final formData = FormData.fromMap({'file': file});
+    final response = await _dio.post(
+      '/driver-managers/payout/receipt',
+      data: formData,
+    );
+    return ResponseParser.parse(response);
+  }
+
+  Future<dynamic> processDriverManagerPayout({
+    required String driverManagerUserId,
+    int? amount,
+    bool settleFullBalance = false,
+    String? receiptUrl,
+    String? description,
+    String? idempotencyKey,
+  }) async {
+    if (_dio == null) throw Exception("Dio is required");
+    final response = await _dio.post(
+      '/driver-managers/$driverManagerUserId/payout',
+      data: {
+        'amount': ?amount,
+        'settleFullBalance': settleFullBalance,
+        if (receiptUrl != null && receiptUrl.trim().isNotEmpty)
+          'receiptUrl': receiptUrl.trim(),
+        if (description != null && description.trim().isNotEmpty)
+          'description': description.trim(),
+        if (idempotencyKey != null && idempotencyKey.trim().isNotEmpty)
+          'idempotencyKey': idempotencyKey.trim(),
+      },
+    );
+    return ResponseParser.parse(response);
+  }
 }

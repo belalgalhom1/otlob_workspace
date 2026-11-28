@@ -1,6 +1,6 @@
 import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue, UnrecoverableError } from 'bullmq';
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { OrderCancellationService } from './transitions/order-cancellation.service';
 import { OrderVendorDecisionService } from './order-vendor-decision.service';
 import { NON_CANCELLABLE } from './transitions/order-state.constants';
@@ -15,6 +15,10 @@ import { OrderStatus, DeliveryGroupStatus } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { OutboxService } from '../../infrastructure/outbox/outbox.service';
 import { DispatchRepository } from '../dispatch/dispatch.repository';
+import {
+  DEFAULT_STALE_ORDER_ALERT_INTERVAL_MINS,
+  StaleOrderAlertService,
+} from '../../common/orders/stale-order-alert.service';
 
 // Orders jobs hit Postgres (status transitions, settlement, coins/wallet
 // ledgers). BullMQ concurrency above the shared DB pool just queues waits, so
@@ -33,6 +37,7 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
     @InjectQueue(QUEUES.ORDERS) private readonly queue: Queue,
     @InjectQueue(QUEUES.DISPATCH) private readonly dispatchQueue: Queue,
     private readonly outboxService: OutboxService,
+    @Optional() private readonly staleOrderAlertService?: StaleOrderAlertService,
   ) {
     super();
   }
@@ -310,86 +315,142 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
   // ─── CRON Jobs ────────────────────────────────────────────────────────────
 
-  private async handleAutoCancelPendingOrders(): Promise<void> {
+  /**
+   * Replaces legacy auto-cancellation: orders are NEVER auto-cancelled or
+   * auto-rejected. Instead, every `staleOrderAlertIntervalMins` minutes
+   * (default: 5 min, configurable in Platform Settings), all active SUPER_ADMIN
+   * users receive a push + in-app alert for any order still stuck waiting for
+   * vendor confirmation, a driver, or mobile-wallet payment.
+   */
+  private async handleAutoCancelPendingOrders(): Promise<{
+    alerted: number;
+  }> {
     try {
       const settings = await this.platformSettings.getSettings();
-      const cutoff = new Date(
-        Date.now() - settings.autoCancelPendingMins * 60 * 1000,
-      );
-
-      // Bound the batch so a sudden backlog of stale PENDING orders cannot
-      // fan out an unbounded Promise.allSettled onto the shared DB pool.
+      const intervalMins =
+        this.staleOrderAlertService?.resolveIntervalMins(
+          (settings as { staleOrderAlertIntervalMins?: number })
+            .staleOrderAlertIntervalMins,
+        ) ?? DEFAULT_STALE_ORDER_ALERT_INTERVAL_MINS;
+      const cutoff = new Date(Date.now() - intervalMins * 60 * 1000);
       const BATCH_LIMIT = 50;
-      const reason = `Auto-cancelled: pending for more than ${settings.autoCancelPendingMins} minutes`;
 
-      // 1. Multi-vendor orders: time out individual PENDING portions so an
-      // unresponsive vendor does not kill sibling vendors who already accepted
-      // (if all portions end up rejected, OrderVendorDecisionService.reject cancels
-      // the whole order automatically).
-      const stalePortions = await this.prisma.orderVendorFulfillment.findMany({
+      // 1. Orders awaiting vendor confirmation (single-vendor PENDING or any
+      //    multi-vendor portion still PENDING past the alert interval).
+      const pendingVendorOrders = await this.prisma.order.findMany({
         where: {
-          status: 'PENDING',
-          createdAt: { lt: cutoff },
-          order: {
-            deletedAt: null,
-            status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
-          },
-        },
-        select: { id: true, orderId: true },
-        take: BATCH_LIMIT,
-      });
-
-      for (const portion of stalePortions) {
-        try {
-          await this.vendorDecisionService.reject(null, portion.id, {
-            code: 'AUTO_TIMEOUT',
-            reason,
-          });
-        } catch (err) {
-          this.logger.warn(
-            `Failed to auto-timeout fulfillment ${portion.id}: ${(err as Error).message}`,
-          );
-        }
-      }
-
-      // 2. Single-vendor orders (no fulfillments): cancel the order directly.
-      const staleOrders = await this.prisma.order.findMany({
-        where: {
-          status: OrderStatus.PENDING,
           deletedAt: null,
-          createdAt: { lt: cutoff },
-          vendorFulfillments: { none: {} },
+          status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+          OR: [
+            {
+              status: OrderStatus.PENDING,
+              createdAt: { lt: cutoff },
+            },
+            {
+              vendorFulfillments: {
+                some: {
+                  status: 'PENDING',
+                  createdAt: { lt: cutoff },
+                },
+              },
+            },
+          ],
         },
-        select: { id: true, orderNumber: true },
+        select: { id: true, orderNumber: true, createdAt: true },
         take: BATCH_LIMIT,
       });
 
-      if (staleOrders.length === 0 && stalePortions.length === 0) return;
+      // 2. Orders awaiting a driver past the alert interval.
+      const awaitingDriverOrders = await this.prisma.order.findMany({
+        where: {
+          deletedAt: null,
+          updatedAt: { lt: cutoff },
+          status: {
+            notIn: [
+              OrderStatus.DELIVERED,
+              OrderStatus.CANCELLED,
+              OrderStatus.PENDING,
+            ],
+          },
+          OR: [
+            {
+              status: {
+                in: [OrderStatus.LOOKING_FOR_DRIVER, OrderStatus.ACCEPTED],
+              },
+            },
+            {
+              deliveryGroups: {
+                some: {
+                  primaryDriverId: null,
+                  status: {
+                    in: [
+                      DeliveryGroupStatus.PENDING,
+                      DeliveryGroupStatus.ACCEPTED,
+                      DeliveryGroupStatus.LOOKING_FOR_DRIVER,
+                      DeliveryGroupStatus.PREPARING,
+                      DeliveryGroupStatus.READY_FOR_PICKUP,
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+        select: { id: true, orderNumber: true, updatedAt: true, createdAt: true },
+        take: BATCH_LIMIT,
+      });
 
-      const cancelPromises = staleOrders.map((order) =>
-        this.cancellationService.cancelOrder(
-          null, // system actor
-          order.id,
-          reason,
-        ),
-      );
+      let alerted = 0;
 
-      if (cancelPromises.length > 0) {
-        await Promise.allSettled(cancelPromises);
+      for (const order of pendingVendorOrders) {
+        const res = await this.staleOrderAlertService?.alertOrderIfDue({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          reason: 'PENDING_VENDOR',
+          referenceTime: order.createdAt,
+          intervalMins,
+        });
+        if (res?.alerted) alerted++;
       }
 
-      this.logger.log(`⏰ Auto-cancelled ${staleOrders.length} pending orders`);
+      for (const order of awaitingDriverOrders) {
+        const res = await this.staleOrderAlertService?.alertOrderIfDue({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          reason: 'NO_DRIVER_FOUND',
+          referenceTime: order.updatedAt ?? order.createdAt,
+          intervalMins,
+        });
+        if (res?.alerted) alerted++;
+      }
+
+      if (alerted > 0) {
+        this.logger.log(
+          `🔔 Sent ${alerted} stale-order reminder alert(s) to Super Admins (interval=${intervalMins}m)`,
+        );
+      }
+
+      return { alerted };
     } catch (error) {
       this.logger.error(
-        'Failed to auto-cancel pending orders',
+        'Failed to run stale order Super Admin alerts',
         (error as Error).stack,
       );
+      return { alerted: 0 };
     }
   }
 
   // ─── Stuck Order Monitor ──────────────────────────────────────────────────
   private async handleStuckOrderMonitor() {
     this.logger.debug('Running stuck order monitor...');
+
+    const settings = await this.platformSettings.getSettings();
+    const maxAttempts = settings.driverSearchMaxAttempts ?? 5;
+    const alertIntervalMins =
+      this.staleOrderAlertService?.resolveIntervalMins(
+        (settings as { staleOrderAlertIntervalMins?: number })
+          .staleOrderAlertIntervalMins,
+      ) ?? DEFAULT_STALE_ORDER_ALERT_INTERVAL_MINS;
 
     // Find orders stuck in LOOKING_FOR_DRIVER or ACCEPTED for more than 5 minutes
     const cutoff = new Date(Date.now() - 5 * 60 * 1000);
@@ -473,13 +534,14 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
             const state = await this.dispatchRepository.readDispatchState(
               group.id,
             );
+            const exhausted = state.attempt > maxAttempts;
             await this.dispatchQueue.add(
               ORDER_JOBS.DISPATCH,
               {
                 orderId: order.id,
                 orderNumber: order.orderNumber,
-                attempt: state.attempt,
-                excludeDriverIds: state.excludeDriverIds,
+                attempt: exhausted ? 1 : state.attempt,
+                excludeDriverIds: exhausted ? [] : state.excludeDriverIds,
                 deliveryGroupId: group.id,
               },
               { removeOnComplete: true, removeOnFail: 100 },
@@ -491,13 +553,14 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
 
         await this.dispatchRepository.clearStaleDispatchClaim(order.id);
         const state = await this.dispatchRepository.readDispatchState(order.id);
+        const exhausted = state.attempt > maxAttempts;
         await this.dispatchQueue.add(
           ORDER_JOBS.DISPATCH,
           {
             orderId: order.id,
             orderNumber: order.orderNumber,
-            attempt: state.attempt,
-            excludeDriverIds: state.excludeDriverIds,
+            attempt: exhausted ? 1 : state.attempt,
+            excludeDriverIds: exhausted ? [] : state.excludeDriverIds,
           },
           { removeOnComplete: true, removeOnFail: 100 },
         );
@@ -505,15 +568,16 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
       }
     }
 
-    const settings = await this.platformSettings.getSettings();
-
-    // Find orders stuck in PENDING_PAYMENT for more than configured minutes
-    // where customer has NOT yet marked payment as sent (paymentStatus = 'PENDING').
-    // Orders marked 'PAID' await driver confirmation/denial (or admin intervention)
-    // so paying customers are not silently auto-cancelled while waiting for driver
-    // verification; zero-total orders now start as 'COMPLETED' and bypass PENDING_PAYMENT.
+    // Find orders stuck in PENDING_PAYMENT where customer has NOT yet marked
+    // payment as sent (paymentStatus = 'PENDING'). Orders are NEVER auto-cancelled;
+    // instead alert Super Admins every `staleOrderAlertIntervalMins` minutes.
+    const paymentDelayMins = Math.min(
+      alertIntervalMins,
+      Number(settings.mobileWalletTimeoutMins ?? alertIntervalMins) ||
+        alertIntervalMins,
+    );
     const paymentCutoff = new Date(
-      Date.now() - settings.mobileWalletTimeoutMins * 60 * 1000,
+      Date.now() - paymentDelayMins * 60 * 1000,
     );
     const stuckPaymentOrders = await this.prisma.order.findMany({
       where: {
@@ -529,25 +593,27 @@ export class OrdersProcessor extends WorkerHost implements OnModuleInit {
           },
         ],
       },
-      select: { id: true, orderNumber: true },
+      select: { id: true, orderNumber: true, updatedAt: true, createdAt: true },
       take: 100,
     });
 
     if (stuckPaymentOrders.length > 0) {
       this.logger.warn(
-        `Found ${stuckPaymentOrders.length} stuck PENDING_PAYMENT orders. Auto-cancelling to free drivers...`,
+        `Found ${stuckPaymentOrders.length} pending-payment orders. Keeping active and alerting Super Admins...`,
       );
       for (const order of stuckPaymentOrders) {
         try {
-          await this.cancellationService.cancelOrder(
-            null, // system actor
-            order.id,
-            'Auto-cancelled: Customer did not complete mobile wallet payment in time.',
-          );
-          recovered++;
+          const res = await this.staleOrderAlertService?.alertOrderIfDue({
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            reason: 'PENDING_PAYMENT',
+            referenceTime: order.updatedAt ?? order.createdAt,
+            intervalMins: alertIntervalMins,
+          });
+          if (res?.alerted) recovered++;
         } catch (err) {
           this.logger.error(
-            `Failed to auto-cancel stuck payment order ${order.orderNumber}`,
+            `Failed to alert Super Admin for pending payment order ${order.orderNumber}`,
             (err as Error).stack,
           );
         }

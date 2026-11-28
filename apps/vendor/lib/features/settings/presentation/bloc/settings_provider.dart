@@ -35,6 +35,7 @@ class SettingsNotifier extends _$SettingsNotifier {
 
   static const _dispatchKeys = {
     'dispatchHandoffDedupeTtlSecs',
+    'staleOrderAlertIntervalMins',
   };
 
   Future<void> updateSettings(Map<String, dynamic> settings) async {

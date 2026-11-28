@@ -4,10 +4,7 @@ import { Inject, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { DispatchService } from './dispatch.service';
 import { DispatchRepository } from './dispatch.repository';
 import { DispatchSearchTracker } from './dispatch-search-tracker.service';
-import {
-  DriverSearchPhase,
-  SearchTerminalReason,
-} from './dispatch-search.types';
+import { DriverSearchPhase } from './dispatch-search.types';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { DriverGeoSearchService } from '../location/driver-geo-search.service';
@@ -20,6 +17,10 @@ import { DeliveryGroupStatus, OrderStatus } from '@prisma/client';
 import { DISPATCH_ORDER_WORKFLOW_PORT } from '../../common/orders/order-dispatch.ports';
 import type { DispatchOrderWorkflowPort } from '../../common/orders/order-dispatch.ports';
 import { OrderWorkflowDispatcher } from '../../common/orders/order-workflow.dispatcher';
+import {
+  DEFAULT_STALE_ORDER_ALERT_INTERVAL_MINS,
+  StaleOrderAlertService,
+} from '../../common/orders/stale-order-alert.service';
 
 // Dispatch broadcasts already fan out to dozens of drivers per job; running 50
 // of them concurrently just queues more DB/Redis waits behind the shared pool.
@@ -39,6 +40,8 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     private readonly driverGeoSearch: DriverGeoSearchService,
     @InjectQueue(QUEUES.DISPATCH) private readonly queue: Queue,
     @Optional() private readonly searchTracker?: DispatchSearchTracker,
+    @Optional()
+    private readonly staleOrderAlertService?: StaleOrderAlertService,
   ) {
     super();
   }
@@ -101,7 +104,7 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
     // Read fresh status each time — never use a snapshot before a write
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, createdAt: true, updatedAt: true },
     });
 
     if (!order) {
@@ -134,59 +137,54 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
 
     const settings = await this.platformSettings.getSettings();
     const maxAttempts = settings.driverSearchMaxAttempts ?? 5;
+    const alertIntervalMins =
+      this.staleOrderAlertService?.resolveIntervalMins(
+        (settings as { staleOrderAlertIntervalMins?: number })
+          .staleOrderAlertIntervalMins,
+      ) ?? DEFAULT_STALE_ORDER_ALERT_INTERVAL_MINS;
 
     if (attempt > maxAttempts) {
-      const searchSnapshot =
-        await this.dispatchRepository.getSearchSnapshot?.(orderId);
-      const anyDriversContacted =
-        !searchSnapshot || searchSnapshot.totalContactedDriverIds.length > 0;
-      const terminalPhase = anyDriversContacted
-        ? DriverSearchPhase.SEARCH_TIMEOUT
-        : DriverSearchPhase.NO_DRIVERS_AVAILABLE;
-      const terminalReason = anyDriversContacted
-        ? SearchTerminalReason.SEARCH_TIMEOUT
-        : SearchTerminalReason.NO_DRIVERS_AVAILABLE;
-      const cancelReason = anyDriversContacted
-        ? 'Auto-cancelled: No drivers accepted the order after maximum attempts'
-        : 'Auto-cancelled: No available drivers found nearby after maximum attempts';
+      // Orders are never auto-cancelled: keep the order active, reset the
+      // dispatch retry cycle so StuckOrderMonitor keeps retrying automatically,
+      // and alert Super Admins every `staleOrderAlertIntervalMins` minutes.
+      const effectiveStatus =
+        !deliveryGroupId && order.status === OrderStatus.ACCEPTED
+          ? OrderStatus.LOOKING_FOR_DRIVER
+          : order.status;
 
       await this.searchTracker?.publishPhase({
         orderId,
         orderNumber,
-        orderStatus: OrderStatus.CANCELLED,
-        phase: terminalPhase,
+        orderStatus: effectiveStatus,
+        phase: DriverSearchPhase.NO_DRIVERS_IN_WAVE,
         attempt: maxAttempts,
         maxAttempts,
         contactedCount: 0,
         waveExpiresAt: null,
-        terminalReason,
       });
 
-      if (deliveryGroupId) {
-        this.logger.error(
-          `Delivery group ${deliveryGroupId} on order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
-        );
-        const result =
-          await this.orderWorkflowPort.handleUndispatchableDeliveryGroup(
-            orderId,
-            deliveryGroupId,
-            cancelReason,
-          );
-        return {
-          noDriversFound: true,
-          attempts: attempt,
-          groupCancelled: result.groupCancelled,
-          autoCancelled: result.orderCancelled,
-        };
-      }
+      const scope = deliveryGroupId ?? orderId;
+      await this.dispatchRepository.deleteDispatchState?.(scope);
 
-      this.logger.error(
-        `Order ${orderNumber} exhausted ${maxAttempts} dispatch attempts — no drivers accepted`,
+      const alertResult =
+        (await this.staleOrderAlertService?.alertOrderIfDue({
+          orderId,
+          orderNumber,
+          reason: 'NO_DRIVER_FOUND',
+          referenceTime: order.updatedAt ?? order.createdAt,
+          intervalMins: alertIntervalMins,
+        })) ?? { alerted: false, recipientCount: 0 };
+
+      this.logger.warn(
+        `Order ${orderNumber}${deliveryGroupId ? ` (group ${deliveryGroupId})` : ''} exhausted ${maxAttempts} dispatch attempts — keeping active and alerting Super Admin (alerted=${alertResult.alerted})`,
       );
 
-      await this.workflowDispatcher.enqueueCancelOrder(orderId, cancelReason);
-
-      return { noDriversFound: true, attempts: attempt, autoCancelled: true };
+      return {
+        noDriversFound: true,
+        attempts: attempt,
+        autoCancelled: false,
+        alertedSuperAdmin: alertResult.alerted,
+      };
     }
 
     let outcome: Awaited<ReturnType<DispatchService['attemptDispatch']>>;
@@ -208,24 +206,20 @@ export class DispatchProcessor extends WorkerHost implements OnModuleInit {
 
     if (outcome === 'invalid') {
       this.logger.warn(
-        `Dispatch invalid for ${orderNumber} (attempt ${attempt})`,
+        `Dispatch invalid for ${orderNumber}${deliveryGroupId ? ` (group ${deliveryGroupId})` : ''} (attempt ${attempt}) — keeping order active and alerting Super Admin`,
       );
 
       if (deliveryGroupId) {
-        const result =
-          await this.orderWorkflowPort.handleUndispatchableDeliveryGroup(
-            orderId,
-            deliveryGroupId,
-            'Auto-cancelled: no delivery could be dispatched',
-          );
-        if (result.groupCancelled) {
-          this.logger.error(
-            `Delivery group ${deliveryGroupId} on order ${orderNumber} is undispatchable — cancelled`,
-          );
-        }
+        await this.staleOrderAlertService?.alertOrderIfDue({
+          orderId,
+          orderNumber,
+          reason: 'NO_DRIVER_FOUND',
+          referenceTime: order.updatedAt ?? order.createdAt,
+          intervalMins: alertIntervalMins,
+        });
       }
 
-      return { invalid: true, attempt };
+      return { invalid: true, attempt, autoCancelled: false };
     }
 
     if (outcome === 'in_flight') {

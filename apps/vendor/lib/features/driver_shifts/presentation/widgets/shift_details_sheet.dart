@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:core/core.dart';
 import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.dart';
+import 'package:vendor/features/driver_shifts/presentation/driver_shifts_formatters.dart';
 import 'package:vendor/features/driver_shifts/presentation/providers/driver_shifts_provider.dart';
 import 'package:vendor/features/drivers/data/driver_providers.dart';
 import 'package:vendor/features/drivers/data/driver_models.dart';
@@ -314,6 +315,7 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
   }
 
   Widget _buildInfoRow(AppLocalizations l10n, ShiftPool pool) {
+    final langCode = Localizations.localeOf(context).languageCode;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Wrap(
@@ -322,9 +324,13 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
         children: [
           _buildInfoChip(
             LucideIcons.timer,
-            '${DateFormat('hh:mm a').format(pool.startTime)} – ${DateFormat('hh:mm a').format(pool.endTime)}',
+            DriverShiftsFormatters.formatTimeRange(
+              pool.startTime,
+              pool.endTime,
+              langCode: langCode,
+            ),
             AppColors.info,
-            forceLtr: true,
+            forceLtr: langCode != 'ar',
           ),
           _buildInfoChip(
             LucideIcons.users,
@@ -900,9 +906,16 @@ class _ShiftDetailsSheetState extends ConsumerState<ShiftDetailsSheet> {
                   fit: BoxFit.scaleDown,
                   alignment: AlignmentDirectional.centerStart,
                   child: Directionality(
-                    textDirection: TextDirection.ltr,
+                    textDirection:
+                        Localizations.localeOf(context).languageCode == 'ar'
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
                     child: Text(
-                      '${DateFormat('hh:mm a').format(shift.startTime)} – ${DateFormat('hh:mm a').format(shift.endTime)}',
+                      DriverShiftsFormatters.formatTimeRange(
+                        shift.startTime,
+                        shift.endTime,
+                        langCode: Localizations.localeOf(context).languageCode,
+                      ),
                       maxLines: 1,
                       style: TextStyle(
                         fontSize: 11,

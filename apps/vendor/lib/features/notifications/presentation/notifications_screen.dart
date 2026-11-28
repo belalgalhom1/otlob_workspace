@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
 import 'package:vendor/generated/l10n/app_localizations.dart';
+import 'package:vendor/core/providers/notification_router.dart';
 import 'package:vendor/core/utils/error_utils.dart';
 import 'notifications_provider.dart';
 import '../../chat/presentation/inbox_counts_provider.dart';
@@ -229,7 +230,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   final route = (rawData['route'] ?? '').toString().trim().toLowerCase();
                                   final topUpId = (rawData['topUpId'] ?? rawData['requestId'] ?? '').toString().trim();
 
-                                  if ((kind == 'wallet_topup' ||
+                                  if (kind == 'driver_manager_payout' ||
+                                      route == 'driver_manager_wallet') {
+                                    ref
+                                        .read(
+                                          notificationRouterProvider.notifier,
+                                        )
+                                        .handleTap({
+                                          'kind': 'driver_manager_payout',
+                                          'route': 'driver_manager_wallet',
+                                          'transactionId':
+                                              (rawData['transactionId'] ?? '')
+                                                  .toString(),
+                                        });
+                                  } else if ((kind == 'wallet_topup' ||
                                           route == 'wallet_topup_details' ||
                                           (type == 'PAYMENT' && topUpId.isNotEmpty)) &&
                                       topUpId.isNotEmpty) {

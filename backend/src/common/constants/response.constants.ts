@@ -330,6 +330,9 @@ export const DriverErrors = {
 
 export const DriverManagerErrors = {
   NOT_FOUND: 'driver_manager.error.not_found',
+  NO_BALANCE_TO_SETTLE: 'driver_manager.error.no_balance_to_settle',
+  INVALID_PAYOUT_AMOUNT: 'driver_manager.error.invalid_payout_amount',
+  INSUFFICIENT_BALANCE: 'driver_manager.error.insufficient_balance',
 };
 
 export const OrderErrors = {

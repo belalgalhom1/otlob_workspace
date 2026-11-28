@@ -140,6 +140,27 @@ void main() {
       expect(detailsRoute!.kind, 'wallet_topup');
       expect(detailsRoute.id, 'topup-202');
 
+      // Payment notification with requestId (even without explicit kind/route)
+      router.clear();
+      router.handleTap({
+        'type': 'PAYMENT',
+        'requestId': 'topup-303',
+      });
+      final paymentRoute = container.read(notificationRouterProvider);
+      expect(paymentRoute, isNotNull);
+      expect(paymentRoute!.kind, 'wallet_topup');
+      expect(paymentRoute.id, 'topup-303');
+
+      // Nested JSON data & snake_case fallback
+      router.clear();
+      router.handleTap({
+        'data': '{"kind":"wallet_topup","request_id":"topup-404"}',
+      });
+      final nestedRoute = container.read(notificationRouterProvider);
+      expect(nestedRoute, isNotNull);
+      expect(nestedRoute!.kind, 'wallet_topup');
+      expect(nestedRoute.id, 'topup-404');
+
       // Preserve order notification routing
       router.handleTap({'orderId': 'order-77', 'type': 'ORDER_PLACED'});
       final orderRoute = container.read(notificationRouterProvider);

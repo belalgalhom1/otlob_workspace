@@ -10,6 +10,7 @@ import {
 } from '../../infrastructure/queue/queues.constants';
 import { EVENTS } from '../events/event-names';
 import {
+  DriverManagerPayoutCompletedEvent,
   WalletTopUpReviewedEvent,
   WalletTopUpSubmittedEvent,
 } from '../events/wallet.events';
@@ -250,6 +251,71 @@ export class WalletListener {
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue driver adjustment review notification for request ${event.requestId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  @OnEvent(EVENTS.DRIVER_MANAGER_PAYOUT_COMPLETED, { async: true })
+  async handleDriverManagerPayoutCompleted(
+    event: DriverManagerPayoutCompletedEvent,
+  ) {
+    if (!event.managerUserId) {
+      this.logger.warn(
+        `Missing managerUserId for payout ${event.transactionId}; skipping notification`,
+      );
+      return;
+    }
+
+    const trimmedNotes = (event.notes ?? '').trim();
+    const hasReceipt = Boolean((event.receiptUrl ?? '').trim());
+    const receiptEn = hasReceipt ? ' A transfer receipt is attached.' : '';
+    const receiptAr = hasReceipt ? ' تم إرفاق إيصال التحويل.' : '';
+    const notesEn = trimmedNotes ? ` Note: ${trimmedNotes}` : '';
+    const notesAr = trimmedNotes ? ` ملاحظة: ${trimmedNotes}` : '';
+
+    const title = 'Wallet Payout Transferred';
+    const titleAr = 'تم تحويل مستحقات محفظتك';
+    const body = `A payout of ${event.amount} EGP has been transferred to you. Current balance: ${event.newBalance} EGP.${receiptEn}${notesEn}`;
+    const bodyAr = `تم تحويل مبلغ ${event.amount} ج.م من محفظتك. الرصيد الحالي: ${event.newBalance} ج.م.${receiptAr}${notesAr}`;
+
+    const dedupeKey = `driver_manager_payout:${event.transactionId}:${event.managerUserId}`;
+    const jobId = `driver_manager_payout_${event.transactionId}_${event.managerUserId}`;
+
+    try {
+      await this.eventsQueue.add(
+        EVENT_JOBS.NOTIFY,
+        {
+          dto: {
+            userId: event.managerUserId,
+            title,
+            titleAr,
+            body,
+            bodyAr,
+            type: NotificationType.PAYMENT,
+            dedupeKey,
+            data: {
+              kind: 'driver_manager_payout',
+              action: 'payout',
+              route: 'driver_manager_wallet',
+              transactionId: event.transactionId,
+              managerId: event.managerId,
+              amount: String(event.amount),
+              newBalance: String(event.newBalance),
+              ...(hasReceipt ? { receiptUrl: event.receiptUrl!.trim() } : {}),
+              ...(trimmedNotes ? { notes: trimmedNotes } : {}),
+            },
+          },
+        },
+        { jobId },
+      );
+
+      this.logger.log(
+        `Enqueued driver manager payout notification for user ${event.managerUserId} (tx ${event.transactionId})`,
+      );
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to enqueue driver manager payout notification for tx ${event.transactionId}: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
     }

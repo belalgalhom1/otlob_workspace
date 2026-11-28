@@ -45,6 +45,7 @@ import 'package:vendor/features/driver_shifts/presentation/driver_shifts_screen.
 import 'package:vendor/features/driver_breaks/presentation/driver_breaks_screen.dart';
 import 'package:vendor/features/analytics/presentation/pages/analytics_screen.dart';
 import 'package:vendor/features/dashboard/presentation/widgets/user_profile_dialog.dart';
+import 'package:vendor/features/dashboard/presentation/widgets/dashboard_settlement_requests_card.dart';
 
 final mostOrderedProductProvider = FutureProvider.family<dynamic, String>((
   ref,
@@ -69,6 +70,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _selectedIndex = 0;
   int _walletInitialTabIndex = 0;
+  int _walletTabSelectionNonce = 0;
   String? _highlightOrderId;
   bool _isStatsExpanded = false;
   bool _userInfoLoaded = false;
@@ -96,20 +98,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     Future.microtask(() => _consumePendingNotificationRoute());
   }
 
-  /// Routes banked notification taps (background + terminated cold starts):
-  /// orders open the orders tab with the order expanded, chats open the
-  /// conversation directly, and wallet adjustments open Wallet -> Details.
+  void _dismissOverlaysToDashboardRoot() {
+    if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+      _scaffoldKey.currentState?.closeDrawer();
+    }
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  /// Routes banked notification taps (foreground, background, and terminated
+  /// cold starts): orders open the orders tab with the order expanded, chats
+  /// open the conversation directly, and wallet settlement requests open
+  /// Wallet -> Settlement Requests and immediately push the request's details.
   void _consumePendingNotificationRoute() {
     if (!_userInfoLoaded || !mounted) return;
     final pending = ref.read(notificationRouterProvider);
     if (pending == null) return;
     ref.read(notificationRouterProvider.notifier).clear();
     if (pending.kind == 'order') {
+      _dismissOverlaysToDashboardRoot();
       setState(() {
         _selectedIndex = 1;
         _highlightOrderId = pending.id;
       });
     } else if (pending.kind == 'chat') {
+      _dismissOverlaysToDashboardRoot();
       setState(() => _selectedIndex = 6);
       final l10n = AppLocalizations.of(context)!;
       Navigator.of(context).push(
@@ -134,12 +146,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         );
         return;
       }
+      _dismissOverlaysToDashboardRoot();
       setState(() {
         _walletInitialTabIndex = 0;
+        _walletTabSelectionNonce++;
         _selectedIndex = 11;
       });
       ref.invalidate(pendingTopUpsProvider);
       if (pending.id.isNotEmpty) {
+        ref.invalidate(topUpDetailsProvider(pending.id));
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => DriverAdjustmentDetailsScreen(
@@ -148,6 +163,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         );
       }
+    } else if (pending.kind == 'driver_manager_wallet') {
+      _dismissOverlaysToDashboardRoot();
+      setState(() {
+        _walletInitialTabIndex = 0;
+        _walletTabSelectionNonce++;
+        _selectedIndex = 11;
+      });
     }
   }
 
@@ -280,7 +302,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       next,
     ) {
       if (next != null && next != previous) {
-        _consumePendingNotificationRoute();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _consumePendingNotificationRoute();
+        });
       }
     });
 
@@ -832,12 +856,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                     if (_hasPermission('MANAGE_FINANCE') ||
                         _hasPermission('VIEW_FINANCIALS'))
-                      _buildMenuItem(
-                        11,
-                        LucideIcons.wallet,
-                        AppLocalizations.of(context)!.walletAndFinancials,
-                        isMobile,
-                      ),
+                      _userRole == 'SUPER_ADMIN'
+                          ? Consumer(
+                              builder: (context, ref, _) {
+                                final pendingCount = ref
+                                        .watch(pendingTopUpsProvider)
+                                        .asData
+                                        ?.value
+                                        .length ??
+                                    0;
+                                return _buildMenuItem(
+                                  11,
+                                  LucideIcons.wallet,
+                                  AppLocalizations.of(context)!
+                                      .walletAndFinancials,
+                                  isMobile,
+                                  badgeCount: pendingCount,
+                                );
+                              },
+                            )
+                          : _buildMenuItem(
+                              11,
+                              LucideIcons.wallet,
+                              AppLocalizations.of(context)!.walletAndFinancials,
+                              isMobile,
+                            ),
                     if (_hasPermission('VIEW_AUDIT_LOGS'))
                       _buildMenuItem(
                         12,
@@ -1235,6 +1278,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           canManageFinance: _hasPermission('MANAGE_FINANCE'),
           canViewStatistics: _hasPermission('VIEW_STATISTICS'),
           initialTabIndex: _walletInitialTabIndex,
+          tabSelectionNonce: _walletTabSelectionNonce,
         );
       case 12:
         return const AuditLogsScreen();
@@ -1522,7 +1566,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
             const SizedBox(height: 24),
-            if (isDesktop)
+            if (isDesktop && _userRole == 'SUPER_ADMIN') ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _buildRecentOrdersList(l10n, isPhone: false),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    flex: 2,
+                    child: _buildSettlementRequestsPanel(isPhone: false),
+                  ),
+                ],
+              ),
+              if (_hasPermission('VIEW_AUDIT_LOGS')) ...[
+                const SizedBox(height: 20),
+                _buildRecentLogsList(l10n, isPhone: false),
+              ],
+            ] else if (isDesktop)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1543,6 +1606,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Column(
                 children: [
                   _buildRecentOrdersList(l10n, isPhone: isPhone),
+                  if (_userRole == 'SUPER_ADMIN') ...[
+                    const SizedBox(height: 20),
+                    _buildSettlementRequestsPanel(isPhone: isPhone),
+                  ],
                   if (_hasPermission('VIEW_AUDIT_LOGS')) ...[
                     const SizedBox(height: 20),
                     _buildRecentLogsList(l10n, isPhone: isPhone),
@@ -1551,6 +1618,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             const SizedBox(height: 32),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSettlementRequestsPanel({required bool isPhone}) {
+    return DashboardSettlementRequestsCard(
+      isPhone: isPhone,
+      onViewAll: () {
+        setState(() {
+          _walletInitialTabIndex = 0;
+          _selectedIndex = 11;
+        });
+      },
+      onSelectRequest: (requestId) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DriverAdjustmentDetailsScreen(
+              requestId: requestId,
+            ),
+          ),
         );
       },
     );

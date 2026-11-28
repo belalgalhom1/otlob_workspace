@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ui_kit/ui_kit.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:vendor/generated/l10n/app_localizations.dart';
 import 'package:vendor/features/driver_shifts/data/models/driver_shifts_models.dart';
+import 'package:vendor/features/driver_shifts/presentation/driver_shifts_formatters.dart';
 import 'package:vendor/features/driver_shifts/presentation/providers/driver_shifts_provider.dart';
 import 'package:vendor/features/zones/presentation/zone_provider.dart';
 import 'package:vendor/features/driver_shifts/presentation/widgets/generate_shifts_dialog.dart';
@@ -268,8 +269,12 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
     }
   }
 
-  String _customRangeLabel(DateTimeRange range) =>
-      '${DateFormat('dd MMM').format(range.start)} - ${DateFormat('dd MMM').format(range.end)}';
+  String _customRangeLabel(DateTimeRange range, String langCode) =>
+      DriverShiftsFormatters.formatDateRange(
+        range.start,
+        range.end,
+        langCode: langCode,
+      );
 
   String _chipLabelFor(
     AppLocalizations l10n,
@@ -280,7 +285,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
     if (preset == DateRangePreset.custom &&
         current == DateRangePreset.custom &&
         custom != null) {
-      return _customRangeLabel(custom);
+      return _customRangeLabel(custom, l10n.localeName);
     }
     return _presetLabel(l10n, preset);
   }
@@ -652,18 +657,25 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
         : occupancyRatio >= 0.75
             ? AppColors.warning
             : AppColors.success;
-    final timeLabel =
-        '${DateFormat('hh:mm a').format(first.startTime)} – ${DateFormat('hh:mm a').format(first.endTime)}';
+    final timeLabel = DriverShiftsFormatters.formatTimeRange(
+      first.startTime,
+      first.endTime,
+      langCode: langCode,
+    );
     final spanLabel = sorted.length == 1
-        ? DateFormat('EEE, MMM d').format(sorted.first.shiftDate)
-        : '${DateFormat('dd MMM').format(sorted.first.shiftDate)} – ${DateFormat('dd MMM').format(sorted.last.shiftDate)}';
-    final daysLabel = isArabic
-        ? (sorted.length == 1
-            ? 'يوم واحد'
-            : (sorted.length >= 3 && sorted.length <= 10
-                ? '${sorted.length} أيام'
-                : '${sorted.length} يوم'))
-        : (sorted.length == 1 ? '1 day' : '${sorted.length} days');
+        ? DriverShiftsFormatters.formatSingleDay(
+            sorted.first.shiftDate,
+            langCode: langCode,
+          )
+        : DriverShiftsFormatters.formatDateRange(
+            sorted.first.shiftDate,
+            sorted.last.shiftDate,
+            langCode: langCode,
+          );
+    final daysLabel = DriverShiftsFormatters.formatDaysCount(
+      sorted.length,
+      isArabic: isArabic,
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -709,12 +721,40 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$spanLabel · $daysLabel',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface),
+                            const SizedBox(height: 3),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 2,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  spanLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
+                                ),
+                                Text(
+                                  '•',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant
+                                        .withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                Text(
+                                  daysLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -731,7 +771,12 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      _buildMetaChip(LucideIcons.timer, timeLabel, AppColors.info),
+                      _buildMetaChip(
+                        LucideIcons.timer,
+                        timeLabel,
+                        AppColors.info,
+                        forceLtr: !isArabic,
+                      ),
                       _buildMetaChip(
                         LucideIcons.mapPin,
                         zoneLabel.isNotEmpty ? zoneLabel : (isArabic ? 'كل المناطق' : 'All zones'),
@@ -741,8 +786,13 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    '$totalAssigned / $totalCapacity ${l10n.assignedDrivers}',
-                    style: TextStyle(fontSize: 12, color: occupancyColor, fontWeight: FontWeight.w600),
+                    '\u2066$totalAssigned / $totalCapacity\u2069 ${l10n.assignedDrivers}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: occupancyColor,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                   const SizedBox(height: 5),
                   ClipRRect(
@@ -763,7 +813,7 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 6, 18, 14),
               child: Column(
-                children: sorted.map((pool) => _buildPoolDayRow(l10n, pool)).toList(),
+                children: sorted.map((pool) => _buildPoolDayRow(l10n, pool, langCode)).toList(),
               ),
             ),
           ],
@@ -772,7 +822,24 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
     );
   }
 
-  Widget _buildMetaChip(IconData icon, String label, Color color) {
+  Widget _buildMetaChip(
+    IconData icon,
+    String label,
+    Color color, {
+    bool forceLtr = false,
+  }) {
+    final textWidget = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textDirection: forceLtr ? TextDirection.ltr : null,
+      style: TextStyle(
+        fontSize: 12,
+        color: color,
+        fontWeight: FontWeight.w600,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -786,23 +853,19 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 5),
           Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: forceLtr
+                ? Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: textWidget,
+                  )
+                : textWidget,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPoolDayRow(AppLocalizations l10n, ShiftPool pool) {
+  Widget _buildPoolDayRow(AppLocalizations l10n, ShiftPool pool, String langCode) {
     final assignedCount = pool.driverShifts.length;
     final occupancyRatio = pool.maxDrivers > 0 ? assignedCount / pool.maxDrivers : 0.0;
     final occupancyColor = occupancyRatio >= 1.0
@@ -825,8 +888,16 @@ class _DriverShiftsScreenState extends ConsumerState<DriverShiftsScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                DateFormat('EEE, d MMM').format(pool.shiftDate),
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                DriverShiftsFormatters.formatSingleDay(
+                  pool.shiftDate,
+                  langCode: langCode,
+                ),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
               ),
             ),
             const SizedBox(width: 10),

@@ -59,6 +59,34 @@ class PlatformStatisticsScreen extends ConsumerWidget {
             value: (rows) =>
                 '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalDeliveryFees'])))} ${cur()}',
           ),
+          StatisticSummaryItem(
+            labelAr: 'إجمالي الربح من رسوم التوصيل',
+            labelEn: 'Delivery Fees Profit',
+            icon: Icons.savings_outlined,
+            value: (rows) =>
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalDeliveryProfit'])))} ${cur()}',
+          ),
+          StatisticSummaryItem(
+            labelAr: 'إجمالي ربح السائقين',
+            labelEn: 'Drivers Earnings',
+            icon: Icons.delivery_dining_outlined,
+            value: (rows) =>
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalDriverEarnings'])))} ${cur()}',
+          ),
+          StatisticSummaryItem(
+            labelAr: 'إجمالي ربح مسؤولي السائقين',
+            labelEn: 'Driver Managers Earnings',
+            icon: Icons.supervisor_account_outlined,
+            value: (rows) =>
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalDriverManagerEarnings'])))} ${cur()}',
+          ),
+          StatisticSummaryItem(
+            labelAr: 'إجمالي العمولات من المتاجر',
+            labelEn: 'Vendor Commissions',
+            icon: Icons.storefront_outlined,
+            value: (rows) =>
+                '${moneyFmt.format(rows.fold<double>(0, (s, r) => s + StatisticsFormat.numOf(r['totalVendorCommissions'])))} ${cur()}',
+          ),
         ],
         exportColumns: [
           StatisticExportColumn(
@@ -78,10 +106,63 @@ class PlatformStatisticsScreen extends ConsumerWidget {
             value: (row) => StatisticsFormat.numOf(row['totalDeliveryFees'])
                 .toStringAsFixed(2),
           ),
+          StatisticExportColumn(
+            labelAr: 'ربح التوصيل',
+            labelEn: 'Delivery Profit',
+            value: (row) => StatisticsFormat.numOf(row['totalDeliveryProfit'])
+                .toStringAsFixed(2),
+          ),
+          StatisticExportColumn(
+            labelAr: 'ربح السائقين',
+            labelEn: 'Drivers Earnings',
+            value: (row) => StatisticsFormat.numOf(row['totalDriverEarnings'])
+                .toStringAsFixed(2),
+          ),
+          StatisticExportColumn(
+            labelAr: 'ربح مسؤولي السائقين',
+            labelEn: 'Managers Earnings',
+            value: (row) =>
+                StatisticsFormat.numOf(row['totalDriverManagerEarnings'])
+                    .toStringAsFixed(2),
+          ),
+          StatisticExportColumn(
+            labelAr: 'عمولات المتاجر',
+            labelEn: 'Vendor Commissions',
+            value: (row) =>
+                StatisticsFormat.numOf(row['totalVendorCommissions'])
+                    .toStringAsFixed(2),
+          ),
         ],
         rowDetails: (row) {
           final orders = intFmt.format(StatisticsFormat.intOf(row['totalOrders']));
-          return [isArabic() ? '$orders طلب' : '$orders orders'];
+          final deliveryProfit = moneyFmt.format(
+            StatisticsFormat.numOf(row['totalDeliveryProfit']),
+          );
+          final driverEarnings = moneyFmt.format(
+            StatisticsFormat.numOf(row['totalDriverEarnings']),
+          );
+          final managerEarnings = moneyFmt.format(
+            StatisticsFormat.numOf(row['totalDriverManagerEarnings']),
+          );
+          final vendorCommissions = moneyFmt.format(
+            StatisticsFormat.numOf(row['totalVendorCommissions']),
+          );
+          final currency = cur();
+          return [
+            isArabic() ? '$orders طلب' : '$orders orders',
+            isArabic()
+                ? 'ربح التوصيل $deliveryProfit $currency'
+                : 'Delivery profit $deliveryProfit $currency',
+            isArabic()
+                ? 'ربح السائقين $driverEarnings $currency'
+                : 'Drivers $driverEarnings $currency',
+            isArabic()
+                ? 'مسؤولو السائقين $managerEarnings $currency'
+                : 'Managers $managerEarnings $currency',
+            isArabic()
+                ? 'عمولات المتاجر $vendorCommissions $currency'
+                : 'Vendor comm. $vendorCommissions $currency',
+          ];
         },
       ),
     );

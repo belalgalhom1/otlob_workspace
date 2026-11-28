@@ -1,9 +1,15 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { DriverManagerTransactionType } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { StorageService } from '../../infrastructure/storage/storage.service';
 import {
+  CommonSuccess,
   DriverErrors,
   UserErrors,
   DriverManagerErrors,
@@ -12,11 +18,22 @@ import {
   assertDriverManagerOwnsDriver,
   ensureDriverManagerRecord,
 } from '../../common/drivers/driver-manager-auth.helper';
-import { AssignDriversToManagerDto } from './dto/driver-manager.dto';
+import {
+  EVENTS,
+  DriverManagerPayoutCompletedEvent,
+} from '../../common/events';
+import {
+  AssignDriversToManagerDto,
+  ProcessDriverManagerPayoutDto,
+} from './dto/driver-manager.dto';
 
 @Injectable()
 export class DriverManagersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly storage?: StorageService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
+  ) {}
 
   private async getManager(userId: string) {
     const manager = await ensureDriverManagerRecord(this.prisma, userId);
@@ -64,7 +81,10 @@ export class DriverManagersService {
     const transactions =
       await this.prisma.driverManagerWalletTransaction.findMany({
         where: { managerId: manager.id },
-        include: { order: { select: { id: true, orderNumber: true } } },
+        include: {
+          order: { select: { id: true, orderNumber: true } },
+          processedBy: { select: { id: true, name: true } },
+        },
         orderBy: { createdAt: 'desc' },
         take: 20,
       });
@@ -78,14 +98,19 @@ export class DriverManagersService {
   async getTransactions(userId: string, page = 1, limit = 20) {
     const manager = await this.getManager(userId);
 
-    const skip = (page - 1) * limit;
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+    const skip = (safePage - 1) * safeLimit;
     const [data, total] = await Promise.all([
       this.prisma.driverManagerWalletTransaction.findMany({
         where: { managerId: manager.id },
-        include: { order: { select: { id: true, orderNumber: true } } },
+        include: {
+          order: { select: { id: true, orderNumber: true } },
+          processedBy: { select: { id: true, name: true } },
+        },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take: safeLimit,
       }),
       this.prisma.driverManagerWalletTransaction.count({
         where: { managerId: manager.id },
@@ -97,10 +122,203 @@ export class DriverManagersService {
       data,
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit),
       },
+    };
+  }
+
+  async getTransactionsByUserId(userId: string, page = 1, limit = 20) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        avatar: true,
+        role: true,
+      },
+    });
+    if (!user) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
+
+    const manager = await ensureDriverManagerRecord(this.prisma, userId);
+    if (!manager) throw new NotFoundException(DriverManagerErrors.NOT_FOUND);
+
+    const result = await this.getTransactions(userId, page, limit);
+    return {
+      ...result,
+      manager: {
+        userId: user.id,
+        managerId: manager.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar,
+      },
+    };
+  }
+
+  async uploadPayoutReceipt(file: Express.Multer.File) {
+    if (!this.storage) {
+      throw new BadRequestException('Storage service unavailable');
+    }
+    const receiptUrl = await this.storage.upload(file, 'receipts');
+    return { receiptUrl, message: CommonSuccess.RESOURCE_UPDATED };
+  }
+
+  async processPayout(
+    managerUserId: string,
+    dto: ProcessDriverManagerPayoutDto,
+    actorUserId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: managerUserId },
+      select: { id: true, name: true, role: true },
+    });
+    if (!user) throw new NotFoundException(UserErrors.USER_NOT_FOUND);
+
+    const manager = await ensureDriverManagerRecord(this.prisma, managerUserId);
+    if (!manager) throw new NotFoundException(DriverManagerErrors.NOT_FOUND);
+
+    const trimmedReceiptUrl = (dto.receiptUrl ?? '').trim() || null;
+    const trimmedDescription = (dto.description ?? '').trim() || null;
+    const idempotencyKey = (dto.idempotencyKey ?? '').trim() || null;
+    const settleFull = dto.settleFullBalance === true || dto.amount == null;
+
+    if (!settleFull) {
+      const requested = Number(dto.amount);
+      if (!Number.isInteger(requested) || requested <= 0) {
+        throw new BadRequestException(
+          DriverManagerErrors.INVALID_PAYOUT_AMOUNT,
+        );
+      }
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (idempotencyKey) {
+        const existingTx =
+          await tx.driverManagerWalletTransaction.findUnique({
+            where: {
+              managerId_idempotencyKey: {
+                managerId: manager.id,
+                idempotencyKey,
+              },
+            },
+            include: {
+              processedBy: { select: { id: true, name: true } },
+            },
+          });
+        if (existingTx) {
+          const freshManager = await tx.driverManager.findUnique({
+            where: { id: manager.id },
+            select: { walletBalance: true },
+          });
+          return {
+            duplicate: true,
+            transaction: existingTx,
+            walletBalance: freshManager?.walletBalance ?? existingTx.balanceAfter,
+            paidAmount: Math.abs(existingTx.amount),
+          };
+        }
+      }
+
+      const fresh = await tx.driverManager.findUnique({
+        where: { id: manager.id },
+        select: { id: true, walletBalance: true },
+      });
+      if (!fresh) throw new NotFoundException(DriverManagerErrors.NOT_FOUND);
+
+      const payoutAmount = settleFull
+        ? fresh.walletBalance
+        : Math.round(Number(dto.amount));
+
+      if (payoutAmount <= 0) {
+        throw new BadRequestException(
+          settleFull
+            ? DriverManagerErrors.NO_BALANCE_TO_SETTLE
+            : DriverManagerErrors.INVALID_PAYOUT_AMOUNT,
+        );
+      }
+
+      if (payoutAmount > fresh.walletBalance) {
+        throw new BadRequestException(
+          DriverManagerErrors.INSUFFICIENT_BALANCE,
+        );
+      }
+
+      // Atomic guarded decrement to prevent concurrent double-payout races
+      const updatedCount = await tx.driverManager.updateMany({
+        where: {
+          id: manager.id,
+          walletBalance: { gte: payoutAmount },
+        },
+        data: {
+          walletBalance: { decrement: payoutAmount },
+        },
+      });
+      if (updatedCount.count === 0) {
+        throw new BadRequestException(
+          DriverManagerErrors.INSUFFICIENT_BALANCE,
+        );
+      }
+
+      const after = await tx.driverManager.findUnique({
+        where: { id: manager.id },
+        select: { walletBalance: true },
+      });
+      const newBalance = after?.walletBalance ?? fresh.walletBalance - payoutAmount;
+
+      const defaultDescription = settleFull
+        ? `Full wallet settlement payout (${payoutAmount} EGP)`
+        : `Wallet payout (${payoutAmount} EGP)`;
+
+      const transaction = await tx.driverManagerWalletTransaction.create({
+        data: {
+          managerId: manager.id,
+          type: DriverManagerTransactionType.PAYOUT,
+          amount: -payoutAmount,
+          balanceAfter: newBalance,
+          description: trimmedDescription ?? defaultDescription,
+          receiptUrl: trimmedReceiptUrl,
+          processedById: actorUserId,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+        },
+        include: {
+          processedBy: { select: { id: true, name: true } },
+        },
+      });
+
+      return {
+        duplicate: false,
+        transaction,
+        walletBalance: newBalance,
+        paidAmount: payoutAmount,
+      };
+    });
+
+    if (!result.duplicate) {
+      this.eventEmitter?.emit(
+        EVENTS.DRIVER_MANAGER_PAYOUT_COMPLETED,
+        new DriverManagerPayoutCompletedEvent(
+          result.transaction.id,
+          manager.id,
+          user.id,
+          user.name ?? 'Driver Manager',
+          result.paidAmount,
+          result.walletBalance,
+          trimmedReceiptUrl,
+          trimmedDescription,
+          actorUserId,
+        ),
+      );
+    }
+
+    return {
+      transaction: result.transaction,
+      walletBalance: result.walletBalance,
+      paidAmount: result.paidAmount,
     };
   }
 

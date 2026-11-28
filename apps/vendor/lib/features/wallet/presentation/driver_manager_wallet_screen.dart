@@ -1,3 +1,4 @@
+import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -6,9 +7,19 @@ import 'package:data/providers.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:vendor/core/utils/error_utils.dart';
 import '../data/wallet_localization.dart';
+import 'widgets/driver_manager_payout_dialog.dart';
 
 class DriverManagerWalletScreen extends ConsumerStatefulWidget {
-  const DriverManagerWalletScreen({super.key});
+  final String? userId;
+  final String? managerName;
+  final bool canPayout;
+
+  const DriverManagerWalletScreen({
+    super.key,
+    this.userId,
+    this.managerName,
+    this.canPayout = false,
+  });
 
   @override
   ConsumerState<DriverManagerWalletScreen> createState() =>
@@ -26,10 +37,15 @@ class _DriverManagerWalletScreenState
   List<dynamic> _transactions = [];
   int _page = 1;
   int _totalPages = 1;
+  String? _resolvedManagerName;
+
+  bool get _isAdminInspect =>
+      widget.userId != null && widget.userId!.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
+    _resolvedManagerName = widget.managerName;
     _loadData();
   }
 
@@ -41,7 +57,12 @@ class _DriverManagerWalletScreenState
 
     try {
       final repo = ref.read(adminDriversRepositoryProvider);
-      final res = await repo.getDriverManagerTransactions(page: page);
+      final res = _isAdminInspect
+          ? await repo.getDriverManagerTransactionsByUserId(
+              widget.userId!,
+              page: page,
+            )
+          : await repo.getDriverManagerTransactions(page: page);
       if (!mounted) return;
       if (res is Map) {
         final bal = res['walletBalance'];
@@ -50,11 +71,16 @@ class _DriverManagerWalletScreenState
             : double.tryParse(bal?.toString() ?? '0') ?? 0.0;
         final list = res['data'] is List ? (res['data'] as List) : [];
         final meta = res['meta'] is Map ? (res['meta'] as Map) : {};
+        final mgr = res['manager'];
+        final fetchedName = mgr is Map ? mgr['name']?.toString().trim() : null;
         setState(() {
           _walletBalance = balNum;
           _transactions = list;
           _page = (meta['page'] as num?)?.toInt() ?? 1;
           _totalPages = (meta['totalPages'] as num?)?.toInt() ?? 1;
+          if (fetchedName != null && fetchedName.isNotEmpty) {
+            _resolvedManagerName = fetchedName;
+          }
           _isLoading = false;
         });
       } else {
@@ -67,6 +93,100 @@ class _DriverManagerWalletScreenState
           _isLoading = false;
         });
       }
+    }
+  }
+
+  String _resolveMediaUrl(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final formatted = ImageUtils.formatImageUrl(trimmed);
+    if (formatted.startsWith('http://') || formatted.startsWith('https://')) {
+      return formatted;
+    }
+    final baseUrl = ref.read(dioProvider).options.baseUrl;
+    final cleanBase = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    final cleanPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    return '$cleanBase$cleanPath';
+  }
+
+  void _openReceiptViewer(BuildContext context, String receiptUrl) {
+    final isAr = _isAr;
+    showDialog<void>(
+      context: context,
+      builder: (c) => AppDialog(
+        maxWidth: 720,
+        scrollableBody: false,
+        bodyPadding: const EdgeInsets.all(16),
+        header: AppDialogHeader(
+          icon: LucideIcons.image,
+          title: isAr ? 'إيصال التحويل' : 'Transfer Receipt',
+          onClose: () => Navigator.pop(c),
+        ),
+        body: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.62,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.network(
+                receiptUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (ctx, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(child: CircularProgressIndicator());
+                },
+                errorBuilder: (ctx, err, _) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        LucideIcons.imageOff,
+                        size: 40,
+                        color: AppColors.error,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isAr
+                            ? 'تعذر تحميل صورة الإيصال'
+                            : 'Unable to load receipt image',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPayoutDialog() async {
+    if (!_isAdminInspect || !widget.canPayout) return;
+    final didPayout = await DriverManagerPayoutDialog.show(
+      context,
+      managerUserId: widget.userId!,
+      managerName: _resolvedManagerName ?? '',
+      currentBalance: _walletBalance,
+    );
+    if (didPayout == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isAr
+                ? 'تم تحويل المستحقات وتحديث المحفظة بنجاح'
+                : 'Payout processed and manager notified successfully',
+          ),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      await _loadData(page: 1);
     }
   }
 
@@ -113,6 +233,33 @@ class _DriverManagerWalletScreenState
     return WalletLocalization.typeLabel(type, isArabic: _isAr);
   }
 
+  Widget _wrapIfAdminScaffold(ThemeData theme, Widget body) {
+    if (!_isAdminInspect) return body;
+    final title = (_resolvedManagerName ?? '').trim().isNotEmpty
+        ? (_isAr
+            ? 'محفظة ${_resolvedManagerName!.trim()}'
+            : '${_resolvedManagerName!.trim()} Wallet')
+        : (_isAr ? 'محفظة مسؤول السائقين' : 'Driver Manager Wallet');
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: theme.colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+      ),
+      body: SafeArea(top: false, child: body),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -122,52 +269,58 @@ class _DriverManagerWalletScreenState
     final borderColor = _borderColor(theme);
 
     if (_isLoading && _transactions.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return _wrapIfAdminScaffold(
+        theme,
+        const Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (_error != null && _transactions.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                LucideIcons.circleAlert,
-                color: AppColors.error,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _isAr
-                    ? 'فشل تحميل بيانات المحفظة'
-                    : 'Failed to load wallet data',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+      return _wrapIfAdminScaffold(
+        theme,
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  LucideIcons.circleAlert,
+                  color: AppColors.error,
+                  size: 48,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                ErrorUtils.translate(context, _error),
-                style: TextStyle(
-                  color: _negativeTextColor(theme),
-                  fontSize: 13,
+                const SizedBox(height: 16),
+                Text(
+                  _isAr
+                      ? 'فشل تحميل بيانات المحفظة'
+                      : 'Failed to load wallet data',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => _loadData(),
-                icon: const Icon(LucideIcons.refreshCw, size: 16),
-                label: Text(_isAr ? 'إعادة المحاولة' : 'Retry'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.onPrimary,
+                const SizedBox(height: 8),
+                Text(
+                  ErrorUtils.translate(context, _error),
+                  style: TextStyle(
+                    color: _negativeTextColor(theme),
+                    fontSize: 13,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => _loadData(),
+                  icon: const Icon(LucideIcons.refreshCw, size: 16),
+                  label: Text(_isAr ? 'إعادة المحاولة' : 'Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -175,7 +328,7 @@ class _DriverManagerWalletScreenState
 
     final isNegativeBalance = _walletBalance < 0;
 
-    return RefreshIndicator(
+    final content = RefreshIndicator(
       onRefresh: () => _loadData(page: 1),
       child: ListView(
         padding: EdgeInsets.fromLTRB(
@@ -295,6 +448,37 @@ class _DriverManagerWalletScreenState
                     fontSize: 12,
                   ),
                 ),
+                if (_isAdminInspect && widget.canPayout) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _walletBalance > 0 ? _openPayoutDialog : null,
+                      icon: const Icon(LucideIcons.send, size: 16),
+                      label: Text(
+                        _walletBalance > 0
+                            ? (_isAr
+                                ? 'تحويل وتصفير المحفظة وإرفاق إيصال'
+                                : 'Settle / Zero Out & Send Receipt')
+                            : (_isAr
+                                ? 'الرصيد مصفّر حالياً'
+                                : 'Balance Already Settled'),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF0F766E),
+                        disabledBackgroundColor: Colors.white.withValues(
+                          alpha: 0.22,
+                        ),
+                        disabledForegroundColor: Colors.white70,
+                        minimumSize: const Size(double.infinity, 44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -524,7 +708,76 @@ class _DriverManagerWalletScreenState
                             ),
                           ),
                         ],
-                        const SizedBox(height: 4),
+                        Builder(
+                          builder: (context) {
+                            final receiptUrl = _resolveMediaUrl(
+                              (tx['receiptUrl'] ?? '').toString(),
+                            );
+                            final processedBy = tx['processedBy'];
+                            final processedByName = processedBy is Map
+                                ? (processedBy['name'] ?? '').toString().trim()
+                                : '';
+                            if (receiptUrl.isEmpty && processedByName.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  if (receiptUrl.isNotEmpty)
+                                    OutlinedButton.icon(
+                                      onPressed: () =>
+                                          _openReceiptViewer(context, receiptUrl),
+                                      icon: const Icon(
+                                        LucideIcons.image,
+                                        size: 14,
+                                      ),
+                                      label: Text(
+                                        _isAr
+                                            ? 'عرض إيصال التحويل'
+                                            : 'View Transfer Receipt',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.primary,
+                                        side: BorderSide(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.45,
+                                          ),
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                  if (processedByName.isNotEmpty)
+                                    Text(
+                                      _isAr
+                                          ? 'بواسطة: $processedByName'
+                                          : 'By: $processedByName',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.62),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 6),
                         Text(
                           _formatDate(createdAt),
                           softWrap: true,
@@ -601,5 +854,7 @@ class _DriverManagerWalletScreenState
         ],
       ),
     );
+
+    return _wrapIfAdminScaffold(theme, content);
   }
 }

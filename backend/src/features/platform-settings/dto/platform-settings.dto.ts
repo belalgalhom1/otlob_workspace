@@ -466,6 +466,19 @@ export class UpdatePlatformSettingsDto {
   @Type(() => Number)
   autoCancelPendingMins?: number;
 
+  @ApiProperty({
+    example: 5,
+    required: false,
+    description:
+      'Interval in minutes between repeated Super Admin alert notifications for pending/unassigned/awaiting-payment orders (orders are never auto-cancelled)',
+  })
+  @IsInt()
+  @Min(1)
+  @Max(1440)
+  @IsOptional()
+  @Type(() => Number)
+  staleOrderAlertIntervalMins?: number;
+
   @ApiProperty({ example: 15, required: false })
   @IsInt()
   @IsPositive()
