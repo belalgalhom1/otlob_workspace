@@ -616,6 +616,7 @@ describe('Vendors Architecture & Shared Helpers', () => {
               storeNameAr: true,
               slug: true,
               logo: true,
+              coverImage: true,
               status: true,
               isContracted: true,
               _count: {

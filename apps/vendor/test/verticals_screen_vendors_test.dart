@@ -28,6 +28,7 @@ List<Map<String, dynamic>> _sampleVerticals() => [
             'storeNameAr': 'كشري التحرير',
             'status': 'OPEN',
             'isContracted': true,
+            'coverImage': '/media/vendors/covers/koshary.webp',
             '_count': {'branches': 3},
           },
           {
@@ -111,7 +112,7 @@ Widget _buildTestApp({
 
 void main() {
   testWidgets(
-    'VerticalsScreen displays vendor count, preview chips, expandable details, and empty state in EN',
+    'VerticalsScreen stays compact without inline vendor clutter and opens searchable modal when clicking vendors button',
     (tester) async {
       tester.view.physicalSize = const Size(430, 950);
       tester.view.devicePixelRatio = 1.0;
@@ -125,48 +126,50 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Header badges and compact chips
+      // Compact cards: show vendor count badges without inline vendor list clutter
       expect(find.text('6 Vendors'), findsOneWidget);
       expect(find.text('0 Vendors'), findsOneWidget);
-      expect(find.text('Koshary El Tahrir'), findsOneWidget);
-      expect(find.text('+1 more'), findsOneWidget);
-      expect(
-        find.text('No vendors assigned to this business type yet'),
-        findsOneWidget,
-      );
+      expect(find.text('Koshary El Tahrir'), findsNothing);
+      expect(find.text('El Dahan'), findsNothing);
 
-      // Expand full vendor list via "+1 more" chip
-      await tester.tap(find.byKey(const ValueKey('vertical_more_vendors_vert-1')));
+      // Tap "6 Vendors" button -> opens vendors modal
+      await tester.tap(find.byKey(const ValueKey('vertical_vendors_toggle_vert-1')));
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(const ValueKey('vertical_vendors_expanded_vert-1')),
+        find.byKey(const ValueKey('vertical_vendors_modal_vert-1')),
         findsOneWidget,
       );
       expect(find.text('Assigned Vendors (6)'), findsOneWidget);
-      expect(find.text('El Dahan'), findsOneWidget);
+      expect(find.text('Koshary El Tahrir'), findsOneWidget);
       expect(find.text('3 branches'), findsOneWidget);
       expect(find.text('Contracted'), findsWidgets);
 
-      // Search by vendor name -> filters to Restaurants & shows El Dahan
-      await tester.enterText(find.byType(TextField).first, 'El Dahan');
+      // Search inside the modal filters directly to El Dahan
+      await tester.enterText(
+        find.byKey(const ValueKey('vertical_vendors_modal_search_vert-1')),
+        'El Dahan',
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('Restaurants'), findsOneWidget);
-      expect(find.text('Pharmacies'), findsNothing);
+      final modalList = find.descendant(
+        of: find.byKey(const ValueKey('vertical_vendors_modal_vert-1')),
+        matching: find.byType(ListView),
+      );
       expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('vertical_vendors_expanded_vert-1')),
-          matching: find.text('El Dahan'),
-        ),
+        find.descendant(of: modalList, matching: find.text('El Dahan')),
         findsOneWidget,
+      );
+      expect(
+        find.descendant(of: modalList, matching: find.text('Koshary El Tahrir')),
+        findsNothing,
       );
       expect(tester.takeException(), isNull);
     },
   );
 
   testWidgets(
-    'VerticalsScreen renders assigned vendors cleanly in Arabic RTL on narrow mobile width without overflow',
+    'VerticalsScreen opens vendors modal cleanly in Arabic RTL on narrow mobile width without overflow',
     (tester) async {
       tester.view.physicalSize = const Size(360, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -182,14 +185,18 @@ void main() {
 
       expect(find.text('مطاعم'), findsOneWidget);
       expect(find.text('6 متاجر'), findsOneWidget);
-      expect(find.text('كشري التحرير'), findsOneWidget);
-      expect(find.text('لا توجد متاجر مضافة لهذا النشاط بعد'), findsOneWidget);
+      expect(find.text('لا توجد متاجر'), findsOneWidget);
+      expect(find.text('كشري التحرير'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('vertical_vendors_toggle_vert-1')));
       await tester.pumpAndSettle();
 
+      expect(
+        find.byKey(const ValueKey('vertical_vendors_modal_vert-1')),
+        findsOneWidget,
+      );
       expect(find.text('المتاجر المضافة (6)'), findsOneWidget);
-      expect(find.text('الدهان'), findsOneWidget);
+      expect(find.text('كشري التحرير'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

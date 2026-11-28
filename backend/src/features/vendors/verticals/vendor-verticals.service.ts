@@ -49,6 +49,7 @@ export class VendorVerticalsService {
             storeNameAr: true,
             slug: true,
             logo: true,
+            coverImage: true,
             status: true,
             isContracted: true,
             _count: {
