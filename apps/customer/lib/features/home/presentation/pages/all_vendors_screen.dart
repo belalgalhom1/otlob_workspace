@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:ui_kit/ui_kit.dart' hide AppColors;
 
 import '../../../../core/theme/app_colors.dart';
@@ -125,16 +124,6 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                 return name.contains(q) || nameAr.contains(q);
               }).toList();
 
-              final suggestions = List.from(categoryVendors)
-                ..sort((a, b) {
-                  double ratingA =
-                      double.tryParse(a['rating']?.toString() ?? '0') ?? 0;
-                  double ratingB =
-                      double.tryParse(b['rating']?.toString() ?? '0') ?? 0;
-                  return ratingB.compareTo(ratingA);
-                });
-              final topSuggestions = suggestions.take(5).toList();
-
               return CustomScrollView(
                 slivers: [
                   _buildAppBar(title, isDark),
@@ -151,13 +140,8 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                         vendors: allVendors,
                       ),
                     ),
-                  if (_searchQuery.isEmpty && topSuggestions.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: _buildSuggestionsSection(s, topSuggestions, isDark),
-                    ),
-                  ],
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                     sliver: SliverToBoxAdapter(
                       child: Text(
                         _searchQuery.isEmpty ? s.allResults : s.searchResults,
@@ -320,7 +304,7 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
                                 ),
                               ),
                             Expanded(
-                              child: Text(v['name'] ?? '',
+                              child: Text(_localizedVendorName(s, v),
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
@@ -512,160 +496,6 @@ class _AllVendorsScreenState extends ConsumerState<AllVendorsScreen> {
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSuggestionsSection(AppStrings s, List<dynamic> topSuggestions, bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  s.featuredSuggestions,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.auto_awesome, color: Colors.amber, size: 18),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 176,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: topSuggestions.length,
-            itemBuilder: (context, index) {
-              final v = topSuggestions[index];
-              return _buildSuggestionCard(s, v, isDark);
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-
-  Widget _buildSuggestionCard(AppStrings s, dynamic v, bool isDark) {
-    final name = _localizedVendorName(s, v);
-    final deliveryTime = s.isArabic
-        ? (v['deliveryTime']?.toString() ?? '20-30 دقيقة')
-        : (v['deliveryTimeEn']?.toString() ??
-            v['deliveryTime']?.toString() ??
-            '20-30 min');
-
-    return GestureDetector(
-      onTap: () => context.push('/vendor', extra: v),
-      child: Container(
-        width: 156,
-        margin: const EdgeInsetsDirectional.only(end: 12, bottom: 6),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    (v['image']?.toString().isNotEmpty ?? false)
-                        ? CachedNetworkImage(
-                            imageUrl: ImageUtils.formatImageUrl(v['image']?.toString()),
-                            fit: BoxFit.cover,
-                            errorWidget: (_, _, _) => Container(
-                              color: Colors.grey.shade200,
-                              child: const Icon(Icons.storefront, size: 28, color: Colors.grey),
-                            ),
-                          )
-                        : Container(
-                            color: Colors.grey.shade200,
-                            child: const Icon(Icons.storefront, size: 28, color: Colors.grey),
-                          ),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
-                        ),
-                      ),
-                    ),
-                    PositionedDirectional(
-                      bottom: 8,
-                      end: 8,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            (v['rating'] as num? ?? 0).toStringAsFixed(1),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    deliveryTime,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isDark ? const Color(0xFFE5E2DC) : const Color(0xFF33302B),
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

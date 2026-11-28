@@ -212,6 +212,9 @@ void main() {
       expect(find.text('عرض الصفحة الرئيسية'), findsNothing);
       expect(find.text('عروض السوبرماركت'), findsNothing);
 
+      // Featured Suggestions section has been removed.
+      expect(find.byIcon(Icons.auto_awesome), findsNothing);
+
       // Compact horizontal VendorCard rows render cleanly with Arabic names.
       final cardFinder = find.byType(VendorCard);
       expect(cardFinder, findsAtLeastNWidgets(2));
