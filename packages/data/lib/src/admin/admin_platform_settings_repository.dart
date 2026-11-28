@@ -77,7 +77,6 @@ class AdminPlatformSettingsRepository {
     const allowed = {
       'dispatchHandoffDedupeTtlSecs',
       'multiVendorDeliveryDiscountPercent',
-      'staleOrderAlertIntervalMins',
     };
     final payload = Map<String, dynamic>.fromEntries(
       data.entries.where((e) => allowed.contains(e.key)),

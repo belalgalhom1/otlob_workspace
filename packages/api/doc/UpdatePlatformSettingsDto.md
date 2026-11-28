@@ -66,6 +66,7 @@ Name | Type | Description | Notes
 **groupingMaxVendorCustomerDistanceKm** | **num** | Smart grouping (km): max straight-line distance from a vendor branch to the customer drop-off for that vendor to be groupable at all. | [optional] 
 **maxMultiVendorVendors** | **num** | Maximum unique stores or branches (pickup stops) allowed in a single order (1-20; setting to 1 restricts orders to a single store and single branch). Default 5. | [optional] 
 **autoCancelPendingMins** | **num** |  | [optional] 
+**staleOrderAlertIntervalMins** | **num** | Interval in minutes between repeated Super Admin alert notifications for pending/unassigned/awaiting-payment orders (orders are never auto-cancelled) | [optional] 
 **mobileWalletTimeoutMins** | **num** |  | [optional] 
 **driverAcceptTimeoutSecs** | **num** |  | [optional] 
 **dispatchHandoffDedupeTtlSecs** | **num** |  | [optional] 

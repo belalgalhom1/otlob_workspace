@@ -124,10 +124,13 @@ Class | Method | HTTP request | Description
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerAssignDrivers**](doc/DriverManagersApi.md#drivermanagerscontrollerassigndrivers) | **POST** /driver-managers/assign | [Admin] Assign drivers to a driver manager (all or specific). Each driver can be assigned to only one manager.
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetManagerDetails**](doc/DriverManagersApi.md#drivermanagerscontrollergetmanagerdetails) | **GET** /driver-managers/{userId} | [Admin] Get driver manager details and assigned drivers
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetManagerDrivers**](doc/DriverManagersApi.md#drivermanagerscontrollergetmanagerdrivers) | **GET** /driver-managers/{userId}/drivers | [Admin] Get drivers assigned to a driver manager
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetManagerTransactions**](doc/DriverManagersApi.md#drivermanagerscontrollergetmanagertransactions) | **GET** /driver-managers/{userId}/transactions | [Admin] List wallet transactions for a specific driver manager
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetMyWallet**](doc/DriverManagersApi.md#drivermanagerscontrollergetmywallet) | **GET** /driver-managers/me/wallet | Get my driver-manager wallet
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerGetTransactions**](doc/DriverManagersApi.md#drivermanagerscontrollergettransactions) | **GET** /driver-managers/me/transactions | List my driver-manager wallet transactions
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerListManagers**](doc/DriverManagersApi.md#drivermanagerscontrollerlistmanagers) | **GET** /driver-managers | [Admin] List all driver managers with assigned driver counts
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerProcessManagerPayout**](doc/DriverManagersApi.md#drivermanagerscontrollerprocessmanagerpayout) | **POST** /driver-managers/{userId}/payout | [Admin] Settle/zero out or partially pay out a driver manager wallet with optional transfer receipt
 [*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerUnassignDrivers**](doc/DriverManagersApi.md#drivermanagerscontrollerunassigndrivers) | **POST** /driver-managers/{userId}/unassign | [Admin] Unassign specific drivers from a driver manager
+[*DriverManagersApi*](doc/DriverManagersApi.md) | [**driverManagersControllerUploadPayoutReceipt**](doc/DriverManagersApi.md#drivermanagerscontrolleruploadpayoutreceipt) | **POST** /driver-managers/payout/receipt | [Admin] Upload a transfer receipt screenshot for a driver manager wallet payout
 [*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerGetDriverHistory**](doc/DriverRankingApi.md#driverrankingcontrollergetdriverhistory) | **GET** /driver-ranking/drivers/{driverId}/history | [Admin] Get a driver&#39;s ranking &amp; override history
 [*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerGetMyRankSummary**](doc/DriverRankingApi.md#driverrankingcontrollergetmyranksummary) | **GET** /driver-ranking/me | Get current driver badge, current week progress, next evaluation time, and history
 [*DriverRankingApi*](doc/DriverRankingApi.md) | [**driverRankingControllerGetRunDetails**](doc/DriverRankingApi.md#driverrankingcontrollergetrundetails) | **GET** /driver-ranking/runs/{runId} | [Admin] Get a weekly driver ranking run and its driver entries
@@ -577,6 +580,7 @@ Class | Method | HTTP request | Description
  - [PlaceDirectOrderDto](doc/PlaceDirectOrderDto.md)
  - [PlaceMultiVendorOrderDto](doc/PlaceMultiVendorOrderDto.md)
  - [PlaceOrderDto](doc/PlaceOrderDto.md)
+ - [ProcessDriverManagerPayoutDto](doc/ProcessDriverManagerPayoutDto.md)
  - [ProcessManualTransactionDto](doc/ProcessManualTransactionDto.md)
  - [Product](doc/Product.md)
  - [ProductBranchAvailability](doc/ProductBranchAvailability.md)

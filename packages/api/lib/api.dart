@@ -205,6 +205,7 @@ export 'package:api/src/model/place_custom_order_dto.dart';
 export 'package:api/src/model/place_direct_order_dto.dart';
 export 'package:api/src/model/place_multi_vendor_order_dto.dart';
 export 'package:api/src/model/place_order_dto.dart';
+export 'package:api/src/model/process_driver_manager_payout_dto.dart';
 export 'package:api/src/model/process_manual_transaction_dto.dart';
 export 'package:api/src/model/product.dart';
 export 'package:api/src/model/product_branch_availability.dart';

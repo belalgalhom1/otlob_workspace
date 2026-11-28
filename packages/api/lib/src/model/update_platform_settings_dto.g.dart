@@ -124,6 +124,8 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
   @override
   final num? autoCancelPendingMins;
   @override
+  final num? staleOrderAlertIntervalMins;
+  @override
   final num? mobileWalletTimeoutMins;
   @override
   final num? driverAcceptTimeoutSecs;
@@ -327,6 +329,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     this.groupingMaxVendorCustomerDistanceKm,
     this.maxMultiVendorVendors,
     this.autoCancelPendingMins,
+    this.staleOrderAlertIntervalMins,
     this.mobileWalletTimeoutMins,
     this.driverAcceptTimeoutSecs,
     this.dispatchHandoffDedupeTtlSecs,
@@ -472,6 +475,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
             other.groupingMaxVendorCustomerDistanceKm &&
         maxMultiVendorVendors == other.maxMultiVendorVendors &&
         autoCancelPendingMins == other.autoCancelPendingMins &&
+        staleOrderAlertIntervalMins == other.staleOrderAlertIntervalMins &&
         mobileWalletTimeoutMins == other.mobileWalletTimeoutMins &&
         driverAcceptTimeoutSecs == other.driverAcceptTimeoutSecs &&
         dispatchHandoffDedupeTtlSecs == other.dispatchHandoffDedupeTtlSecs &&
@@ -612,6 +616,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
     _$hash = $jc(_$hash, groupingMaxVendorCustomerDistanceKm.hashCode);
     _$hash = $jc(_$hash, maxMultiVendorVendors.hashCode);
     _$hash = $jc(_$hash, autoCancelPendingMins.hashCode);
+    _$hash = $jc(_$hash, staleOrderAlertIntervalMins.hashCode);
     _$hash = $jc(_$hash, mobileWalletTimeoutMins.hashCode);
     _$hash = $jc(_$hash, driverAcceptTimeoutSecs.hashCode);
     _$hash = $jc(_$hash, dispatchHandoffDedupeTtlSecs.hashCode);
@@ -756,6 +761,7 @@ class _$UpdatePlatformSettingsDto extends UpdatePlatformSettingsDto {
           )
           ..add('maxMultiVendorVendors', maxMultiVendorVendors)
           ..add('autoCancelPendingMins', autoCancelPendingMins)
+          ..add('staleOrderAlertIntervalMins', staleOrderAlertIntervalMins)
           ..add('mobileWalletTimeoutMins', mobileWalletTimeoutMins)
           ..add('driverAcceptTimeoutSecs', driverAcceptTimeoutSecs)
           ..add('dispatchHandoffDedupeTtlSecs', dispatchHandoffDedupeTtlSecs)
@@ -1147,6 +1153,11 @@ class UpdatePlatformSettingsDtoBuilder
   num? get autoCancelPendingMins => _$this._autoCancelPendingMins;
   set autoCancelPendingMins(num? autoCancelPendingMins) =>
       _$this._autoCancelPendingMins = autoCancelPendingMins;
+
+  num? _staleOrderAlertIntervalMins;
+  num? get staleOrderAlertIntervalMins => _$this._staleOrderAlertIntervalMins;
+  set staleOrderAlertIntervalMins(num? staleOrderAlertIntervalMins) =>
+      _$this._staleOrderAlertIntervalMins = staleOrderAlertIntervalMins;
 
   num? _mobileWalletTimeoutMins;
   num? get mobileWalletTimeoutMins => _$this._mobileWalletTimeoutMins;
@@ -1577,6 +1588,7 @@ class UpdatePlatformSettingsDtoBuilder
           $v.groupingMaxVendorCustomerDistanceKm;
       _maxMultiVendorVendors = $v.maxMultiVendorVendors;
       _autoCancelPendingMins = $v.autoCancelPendingMins;
+      _staleOrderAlertIntervalMins = $v.staleOrderAlertIntervalMins;
       _mobileWalletTimeoutMins = $v.mobileWalletTimeoutMins;
       _driverAcceptTimeoutSecs = $v.driverAcceptTimeoutSecs;
       _dispatchHandoffDedupeTtlSecs = $v.dispatchHandoffDedupeTtlSecs;
@@ -1732,6 +1744,7 @@ class UpdatePlatformSettingsDtoBuilder
               groupingMaxVendorCustomerDistanceKm,
           maxMultiVendorVendors: maxMultiVendorVendors,
           autoCancelPendingMins: autoCancelPendingMins,
+          staleOrderAlertIntervalMins: staleOrderAlertIntervalMins,
           mobileWalletTimeoutMins: mobileWalletTimeoutMins,
           driverAcceptTimeoutSecs: driverAcceptTimeoutSecs,
           dispatchHandoffDedupeTtlSecs: dispatchHandoffDedupeTtlSecs,

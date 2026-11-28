@@ -198,6 +198,7 @@ Serializers _$serializers =
           ..add(PlaceMultiVendorOrderDtoPaymentMethodEnum.serializer)
           ..add(PlaceOrderDto.serializer)
           ..add(PlaceOrderDtoPaymentMethodEnum.serializer)
+          ..add(ProcessDriverManagerPayoutDto.serializer)
           ..add(ProcessManualTransactionDto.serializer)
           ..add(Product.serializer)
           ..add(ProductBranchAvailability.serializer)

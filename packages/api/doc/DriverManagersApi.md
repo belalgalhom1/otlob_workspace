@@ -12,10 +12,13 @@ Method | HTTP request | Description
 [**driverManagersControllerAssignDrivers**](DriverManagersApi.md#drivermanagerscontrollerassigndrivers) | **POST** /driver-managers/assign | [Admin] Assign drivers to a driver manager (all or specific). Each driver can be assigned to only one manager.
 [**driverManagersControllerGetManagerDetails**](DriverManagersApi.md#drivermanagerscontrollergetmanagerdetails) | **GET** /driver-managers/{userId} | [Admin] Get driver manager details and assigned drivers
 [**driverManagersControllerGetManagerDrivers**](DriverManagersApi.md#drivermanagerscontrollergetmanagerdrivers) | **GET** /driver-managers/{userId}/drivers | [Admin] Get drivers assigned to a driver manager
+[**driverManagersControllerGetManagerTransactions**](DriverManagersApi.md#drivermanagerscontrollergetmanagertransactions) | **GET** /driver-managers/{userId}/transactions | [Admin] List wallet transactions for a specific driver manager
 [**driverManagersControllerGetMyWallet**](DriverManagersApi.md#drivermanagerscontrollergetmywallet) | **GET** /driver-managers/me/wallet | Get my driver-manager wallet
 [**driverManagersControllerGetTransactions**](DriverManagersApi.md#drivermanagerscontrollergettransactions) | **GET** /driver-managers/me/transactions | List my driver-manager wallet transactions
 [**driverManagersControllerListManagers**](DriverManagersApi.md#drivermanagerscontrollerlistmanagers) | **GET** /driver-managers | [Admin] List all driver managers with assigned driver counts
+[**driverManagersControllerProcessManagerPayout**](DriverManagersApi.md#drivermanagerscontrollerprocessmanagerpayout) | **POST** /driver-managers/{userId}/payout | [Admin] Settle/zero out or partially pay out a driver manager wallet with optional transfer receipt
 [**driverManagersControllerUnassignDrivers**](DriverManagersApi.md#drivermanagerscontrollerunassigndrivers) | **POST** /driver-managers/{userId}/unassign | [Admin] Unassign specific drivers from a driver manager
+[**driverManagersControllerUploadPayoutReceipt**](DriverManagersApi.md#drivermanagerscontrolleruploadpayoutreceipt) | **POST** /driver-managers/payout/receipt | [Admin] Upload a transfer receipt screenshot for a driver manager wallet payout
 
 
 # **driverManagersControllerAssignDrivers**
@@ -125,6 +128,51 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **userId** | **String**|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **driverManagersControllerGetManagerTransactions**
+> ApiControllerRoot200Response driverManagersControllerGetManagerTransactions(userId, page, limit)
+
+[Admin] List wallet transactions for a specific driver manager
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getDriverManagersApi();
+final String userId = userId_example; // String | 
+final num page = 8.14; // num | 
+final num limit = 8.14; // num | 
+
+try {
+    final response = api.driverManagersControllerGetManagerTransactions(userId, page, limit);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DriverManagersApi->driverManagersControllerGetManagerTransactions: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **userId** | **String**|  | 
+ **page** | **num**|  | 
+ **limit** | **num**|  | 
 
 ### Return type
 
@@ -258,6 +306,49 @@ This endpoint does not need any parameter.
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **driverManagersControllerProcessManagerPayout**
+> ApiControllerRoot200Response driverManagersControllerProcessManagerPayout(userId, processDriverManagerPayoutDto)
+
+[Admin] Settle/zero out or partially pay out a driver manager wallet with optional transfer receipt
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getDriverManagersApi();
+final String userId = userId_example; // String | 
+final ProcessDriverManagerPayoutDto processDriverManagerPayoutDto = ; // ProcessDriverManagerPayoutDto | 
+
+try {
+    final response = api.driverManagersControllerProcessManagerPayout(userId, processDriverManagerPayoutDto);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DriverManagersApi->driverManagersControllerProcessManagerPayout: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **userId** | **String**|  | 
+ **processDriverManagerPayoutDto** | [**ProcessDriverManagerPayoutDto**](ProcessDriverManagerPayoutDto.md)|  | 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **driverManagersControllerUnassignDrivers**
 > ApiControllerRoot200Response driverManagersControllerUnassignDrivers(userId, unassignDriversFromManagerDto)
 
@@ -297,6 +388,47 @@ Name | Type | Description  | Notes
 ### HTTP request headers
 
  - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **driverManagersControllerUploadPayoutReceipt**
+> ApiControllerRoot200Response driverManagersControllerUploadPayoutReceipt(file)
+
+[Admin] Upload a transfer receipt screenshot for a driver manager wallet payout
+
+### Example
+```dart
+import 'package:api/api.dart';
+
+final api = Api().getDriverManagersApi();
+final MultipartFile file = BINARY_DATA_HERE; // MultipartFile | 
+
+try {
+    final response = api.driverManagersControllerUploadPayoutReceipt(file);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DriverManagersApi->driverManagersControllerUploadPayoutReceipt: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **file** | **MultipartFile**|  | [optional] 
+
+### Return type
+
+[**ApiControllerRoot200Response**](ApiControllerRoot200Response.md)
+
+### Authorization
+
+[bearer](../README.md#bearer)
+
+### HTTP request headers
+
+ - **Content-Type**: multipart/form-data
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

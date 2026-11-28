@@ -69,6 +69,7 @@ part 'update_platform_settings_dto.g.dart';
 /// * [groupingMaxVendorCustomerDistanceKm] - Smart grouping (km): max straight-line distance from a vendor branch to the customer drop-off for that vendor to be groupable at all.
 /// * [maxMultiVendorVendors] - Maximum unique stores or branches (pickup stops) allowed in a single order (1-20; setting to 1 restricts orders to a single store and single branch). Default 5.
 /// * [autoCancelPendingMins] 
+/// * [staleOrderAlertIntervalMins] - Interval in minutes between repeated Super Admin alert notifications for pending/unassigned/awaiting-payment orders (orders are never auto-cancelled)
 /// * [mobileWalletTimeoutMins] 
 /// * [driverAcceptTimeoutSecs] 
 /// * [dispatchHandoffDedupeTtlSecs] 
@@ -325,6 +326,10 @@ abstract class UpdatePlatformSettingsDto implements Built<UpdatePlatformSettings
 
   @BuiltValueField(wireName: r'autoCancelPendingMins')
   num? get autoCancelPendingMins;
+
+  /// Interval in minutes between repeated Super Admin alert notifications for pending/unassigned/awaiting-payment orders (orders are never auto-cancelled)
+  @BuiltValueField(wireName: r'staleOrderAlertIntervalMins')
+  num? get staleOrderAlertIntervalMins;
 
   @BuiltValueField(wireName: r'mobileWalletTimeoutMins')
   num? get mobileWalletTimeoutMins;
@@ -1012,6 +1017,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
       yield r'autoCancelPendingMins';
       yield serializers.serialize(
         object.autoCancelPendingMins,
+        specifiedType: const FullType(num),
+      );
+    }
+    if (object.staleOrderAlertIntervalMins != null) {
+      yield r'staleOrderAlertIntervalMins';
+      yield serializers.serialize(
+        object.staleOrderAlertIntervalMins,
         specifiedType: const FullType(num),
       );
     }
@@ -1933,6 +1945,13 @@ class _$UpdatePlatformSettingsDtoSerializer implements PrimitiveSerializer<Updat
             specifiedType: const FullType(num),
           ) as num;
           result.autoCancelPendingMins = valueDes;
+          break;
+        case r'staleOrderAlertIntervalMins':
+          final valueDes = serializers.deserialize(
+            value,
+            specifiedType: const FullType(num),
+          ) as num;
+          result.staleOrderAlertIntervalMins = valueDes;
           break;
         case r'mobileWalletTimeoutMins':
           final valueDes = serializers.deserialize(

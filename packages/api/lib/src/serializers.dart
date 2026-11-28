@@ -176,6 +176,7 @@ import 'package:api/src/model/place_custom_order_dto.dart';
 import 'package:api/src/model/place_direct_order_dto.dart';
 import 'package:api/src/model/place_multi_vendor_order_dto.dart';
 import 'package:api/src/model/place_order_dto.dart';
+import 'package:api/src/model/process_driver_manager_payout_dto.dart';
 import 'package:api/src/model/process_manual_transaction_dto.dart';
 import 'package:api/src/model/product.dart';
 import 'package:api/src/model/product_branch_availability.dart';
@@ -438,6 +439,7 @@ part 'serializers.g.dart';
   PlaceDirectOrderDto,
   PlaceMultiVendorOrderDto,
   PlaceOrderDto,
+  ProcessDriverManagerPayoutDto,
   ProcessManualTransactionDto,
   Product,
   ProductBranchAvailability,

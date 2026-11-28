@@ -35,7 +35,6 @@ class SettingsNotifier extends _$SettingsNotifier {
 
   static const _dispatchKeys = {
     'dispatchHandoffDedupeTtlSecs',
-    'staleOrderAlertIntervalMins',
   };
 
   Future<void> updateSettings(Map<String, dynamic> settings) async {
@@ -160,6 +159,7 @@ class SettingsNotifier extends _$SettingsNotifier {
       if (settings.containsKey('driverLocationPrecisionMeters')) b.driverLocationPrecisionMeters = parseNum(settings['driverLocationPrecisionMeters']);
       if (settings.containsKey('driverAcceptTimeoutSecs')) b.driverAcceptTimeoutSecs = parseNum(settings['driverAcceptTimeoutSecs']);
       if (settings.containsKey('autoCancelPendingMins')) b.autoCancelPendingMins = parseNum(settings['autoCancelPendingMins']);
+      if (settings.containsKey('staleOrderAlertIntervalMins')) b.staleOrderAlertIntervalMins = parseNum(settings['staleOrderAlertIntervalMins']);
       if (settings.containsKey('maxDispatchBatchSize')) b.maxDispatchBatchSize = parseNum(settings['maxDispatchBatchSize']);
       if (settings.containsKey('maxActiveOrdersPerDriver')) b.maxActiveOrdersPerDriver = parseNum(settings['maxActiveOrdersPerDriver']);
       if (settings.containsKey('stackedOrderDriverPercentage')) b.stackedOrderDriverPercentage = parseNum(settings['stackedOrderDriverPercentage']);
